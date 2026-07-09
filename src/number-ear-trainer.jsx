@@ -982,12 +982,126 @@ function ProgressSquares({ best, total = SESSION_LEN }) {
   );
 }
 
+/* ─────────────────────────  ADVENTURE MAP (Harmonia)  ─────────────────────────
+   Pixel world-map layer on Fable's original tile/sword asset pack (window.HARMONIA).
+   The hero is a clean placeholder marker until a real sprite PNG is dropped in:
+   swap the drawHero() block for ctx.drawImage(codaImg, ...). */
+
+function drawHero(ctx, x, y) {
+  ctx.save();
+  ctx.shadowColor = "#57C6C4"; ctx.shadowBlur = 6;
+  ctx.fillStyle = "#6ABF5E"; ctx.fillRect(x - 3, y + 2, 6, 7);           // body
+  ctx.fillStyle = "#57C6C4"; ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill(); // head
+  ctx.fillStyle = "#EDF2EE"; ctx.fillRect(x - 1.5, y - 1.5, 2, 2);       // glint
+  ctx.restore();
+  ctx.fillStyle = "#EDF2EE"; ctx.beginPath();                            // "you are here" caret
+  ctx.moveTo(x - 3, y + 11); ctx.lineTo(x + 3, y + 11); ctx.lineTo(x, y + 14); ctx.closePath(); ctx.fill();
+}
+
+function AdventureMap({ nodes, currentId, collected, onEnter }) {
+  const H = window.HARMONIA;
+  const mapRef = useRef(null);
+  const swordRef = useRef(null);
+  const [tileset, setTileset] = useState(null);
+  const [swordImg, setSwordImg] = useState(null);
+
+  useEffect(() => {
+    const a = new Image(); a.onload = () => setTileset(a); a.src = H.tileset;
+    const b = new Image(); b.onload = () => setSwordImg(b); b.src = H.sword;
+  }, []);
+
+  useEffect(() => {
+    if (!tileset) return;
+    const cv = mapRef.current; if (!cv) return;
+    const T = H.tile;
+    cv.width = H.gc * T; cv.height = H.gr * T;
+    const ctx = cv.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    for (let r = 0; r < H.gr; r++) for (let c = 0; c < H.gc; c++) {
+      const idx = H.grid[r][c];
+      if (!idx) continue;
+      ctx.drawImage(tileset, (idx % H.scols) * T, ((idx / H.scols) | 0) * T, T, T, c * T, r * T, T, T);
+    }
+    nodes.forEach((n) => {
+      const x = (n.c + 0.5) * T, y = (n.r + 0.5) * T;
+      const cleared = collected.has(H.stageFrag[n.id]);
+      const cur = n.id === currentId;
+      ctx.save();
+      if (cur) { ctx.shadowColor = "#6ABF5E"; ctx.shadowBlur = 8; }
+      ctx.beginPath(); ctx.arc(x, y, 6.5, 0, Math.PI * 2);
+      ctx.fillStyle = cleared ? "#57C6C4" : cur ? "#6ABF5E" : "#4a524d";
+      ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = "#EDF2EE"; ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = cleared ? "#12201d" : cur ? "#23302A" : "#9aa39c";
+      ctx.font = "bold 8px Archivo, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(cleared ? "★" : String(n.id), x, y + 0.5);
+    });
+    const cn = nodes.find((n) => n.id === currentId);
+    if (cn) drawHero(ctx, (cn.c + 0.5) * T, (cn.r + 0.5) * T - 12);
+  }, [tileset, nodes, currentId, collected]);
+
+  useEffect(() => {
+    if (!swordImg) return;
+    const cv = swordRef.current; if (!cv) return;
+    cv.width = H.swordW; cv.height = H.swordH;
+    const ctx = cv.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(swordImg, 0, 0);
+    const data = ctx.getImageData(0, 0, cv.width, cv.height);
+    const mask = window.HARMONIA_decodeMask(H);
+    for (let i = 0; i < mask.length; i++) {
+      const part = mask[i] - 1;
+      if (part < 0) continue;
+      if (!collected.has(part)) {
+        const p = i * 4;
+        data.data[p] = 60; data.data[p + 1] = 66; data.data[p + 2] = 63; data.data[p + 3] = 95;
+      }
+    }
+    ctx.putImageData(data, 0, 0);
+  }, [swordImg, collected]);
+
+  const tapMap = (e) => {
+    const cv = mapRef.current; const rect = cv.getBoundingClientRect();
+    const nx = (e.clientX - rect.left) * (cv.width / rect.width);
+    const ny = (e.clientY - rect.top) * (cv.height / rect.height);
+    const T = H.tile;
+    let best = null, bd = 1e9;
+    nodes.forEach((n) => {
+      const d = ((n.c + 0.5) * T - nx) ** 2 + ((n.r + 0.5) * T - ny) ** 2;
+      if (d < bd) { bd = d; best = n; }
+    });
+    if (best && bd < 16 * 16) onEnter(best);
+  };
+
+  const have = collected.size;
+  const next = nodes.find((n) => !collected.has(H.stageFrag[n.id]));
+  return (
+    <>
+      <div className="adv-map-wrap">
+        <canvas ref={mapRef} className="adv-map" onClick={tapMap} role="img" aria-label="Harmonia world map" />
+      </div>
+      <div className="adv-forge">
+        <canvas ref={swordRef} className="adv-sword" />
+        <div className="adv-forge-info">
+          <div className="adv-forge-title">EXCALIBAR</div>
+          <div className="adv-frag-count">{have} / 8 fragments</div>
+          <div className="adv-frag-next">{have === 8 ? "Blade reforged. Home is yours." : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""}</div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 /* ─────────────────────────────  APP  ───────────────────────────── */
 
 export default function NumberEarTrainer() {
   const { playCadence, playDegree, playChord, playProgression, playSemi, sing, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
 
-  const [screen, setScreen] = useState("home");   // home | levels | session | results | learn
+  const [boringMode, setBoringMode] = useState(() => loadPref("boring", "1") === "1"); // classic UI vs Adventure
+  const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "1") === "0" ? "adventure" : "home")); // home | adventure | levels | session | results | learn | guide | settings
   const [mode, setMode] = useState("melody");     // melody | chords
   const [levelIdx, setLevelIdx] = useState(0);
   const [melGroup, setMelGroup] = useState(null);  // which of the 4 melody worlds is open (null = world picker)
@@ -1546,7 +1660,42 @@ export default function NumberEarTrainer() {
     </div>
   );
 
+  /* ── adventure (Harmonia) — nodes derived from real progress ── */
+  const advNodes = (window.HARMONIA && window.HARMONIA.nodes) || [];
+  const stageClearedAdv = (id) =>
+    id <= 4 ? MELODY_GROUPS[id - 1].levels.every((l) => isPassed("melody", l.idx))
+    : id <= 6 ? CHORD_CHAPTERS[id - 5].levels.every((l) => isPassed("chords", l.idx))
+    : PROG_CHAPTERS[id - 7].levels.every((l) => isPassed("progressions", l.idx));
+  const advCollected = new Set(advNodes.filter((n) => stageClearedAdv(n.id)).map((n) => window.HARMONIA.stageFrag[n.id]));
+  const advCurrentId = (advNodes.find((n) => !stageClearedAdv(n.id)) || advNodes[advNodes.length - 1] || {}).id;
+  const enterStage = (n) => {
+    if (n.id <= 4) { setMode("melody"); setMelGroup(n.id - 1); }
+    else if (n.id <= 6) { setMode("chords"); setChordChapter(n.id - 5); }
+    else { setMode("progressions"); setProgChapter(n.id - 7); }
+    setScreen("levels");
+  };
+  const setBoring = (v) => { setBoringMode(v); savePref("boring", v ? "1" : "0"); setScreen(v ? "home" : "adventure"); };
+
   /* ── screens ── */
+
+  if (screen === "adventure") {
+    return (
+      <div className="app">
+        <style>{CSS}</style>
+        <header className="top-slim adv-top">
+          <img className="adv-logo" src={typeof window !== "undefined" ? window.WEJAM_LOGO : ""} alt="WeJam" />
+          <h2 className="screen-title adv-title">Harmonia</h2>
+          <button className="gear" onClick={() => setScreen("settings")} aria-label="Settings">⚙</button>
+        </header>
+        <AdventureMap nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={enterStage} />
+        <div className="adv-actions">
+          <button className="ghost" onClick={() => { setGuidePage(0); setScreen("guide"); }}>📖 How music works</button>
+          <button className="ghost" onClick={() => { setFpTab("notes"); setScreen("learn"); }}>🎸 Free play</button>
+        </div>
+        <footer className="foot">Clear a region to claim its fragment of Excalibar. Home never moves.</footer>
+      </div>
+    );
+  }
 
   if (screen === "home") {
     return (
@@ -1559,6 +1708,13 @@ export default function NumberEarTrainer() {
           </div>
         </header>
         <div className="cards">
+          {window.HARMONIA && (
+            <button className="card adventure" onClick={() => setScreen("adventure")}>
+              <span className="card-title">⚔ Adventure — Harmonia</span>
+              <span className="card-desc">Travel the world, clear each region, and forge Excalibar — the tonal-map blade.</span>
+              <span className="card-progress">{advCollected.size} of 8 fragments forged</span>
+            </button>
+          )}
           <button className="card start" onClick={() => { setGuidePage(0); setScreen("guide"); }}>
             <span className="card-title">Start here — how music works</span>
             <span className="card-desc">Why music is simpler than you think. The tonal map, the matrix of music, and the secret behind playing what you hear.</span>
@@ -1613,6 +1769,16 @@ export default function NumberEarTrainer() {
               <button className={theme === "light" ? "on" : ""} onClick={() => setTheme("light")}>Light</button>
             </div>
           </div>
+          {window.HARMONIA && (
+            <div className="set-block">
+              <span className="set-label">Home screen</span>
+              <p className="set-desc">Adventure = the Harmonia world map. Boring mode = the plain menu.</p>
+              <div className="seg">
+                <button className={!boringMode ? "on" : ""} onClick={() => setBoring(false)}>⚔ Adventure</button>
+                <button className={boringMode ? "on" : ""} onClick={() => setBoring(true)}>Boring mode</button>
+              </div>
+            </div>
+          )}
           <div className="set-block">
             <span className="set-label">Resolution speed</span>
             <p className="set-desc">How fast the notes walk home after a correct answer.</p>
@@ -2619,6 +2785,31 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   border-radius: 10px; width: 40px; height: 40px; font-size: 1.2rem; flex-shrink: 0;
 }
 .gear:hover { border-color: var(--teal); color: var(--teal); }
+
+/* adventure map (Harmonia) */
+.card.adventure { border-color: var(--teal); }
+.card.adventure .card-title { color: var(--teal); }
+.card.adventure:hover { border-color: var(--green); }
+.adv-top { justify-content: space-between; }
+.adv-logo { height: 28px; width: auto; image-rendering: pixelated; }
+.adv-title { flex: 1; font-size: 1.05rem; letter-spacing: 0.06em; color: var(--teal); text-transform: uppercase; }
+.adv-map-wrap {
+  display: flex; justify-content: center;
+  background: #232725; border: 1.5px solid var(--line); border-radius: 14px;
+  padding: 10px; overflow: auto; max-height: 60vh;
+}
+.adv-map { image-rendering: pixelated; width: 100%; max-width: 300px; height: auto; cursor: pointer; }
+.adv-forge {
+  display: flex; align-items: center; gap: 16px;
+  background: var(--card); border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 16px;
+}
+.adv-sword { image-rendering: pixelated; height: 104px; width: auto; flex-shrink: 0; }
+.adv-forge-info { display: flex; flex-direction: column; gap: 4px; }
+.adv-forge-title { font-family: 'Archivo Black', sans-serif; font-size: 1.1rem; color: var(--teal); letter-spacing: 0.05em; }
+.adv-frag-count { font-family: 'Archivo Black', sans-serif; font-size: 0.95rem; color: var(--text); }
+.adv-frag-next { font-size: 0.82rem; color: var(--text-soft); }
+.adv-actions { display: flex; gap: 10px; }
+.adv-actions .ghost { flex: 1; }
 .settings { display: flex; flex-direction: column; gap: 20px; }
 .set-block {
   display: flex; flex-direction: column; gap: 10px;

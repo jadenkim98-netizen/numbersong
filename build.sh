@@ -26,6 +26,8 @@ assert "</script" not in js
 voices = json.dumps({str(base): {str(i): base64.b64encode(open(f"voice/{base}/{i}.mp3","rb").read()).decode() for i in range(1, 9)} for base in (0, 4, 8)})
 icon_data = "data:image/png;base64," + base64.b64encode(open("icon.png","rb").read()).decode()
 logo_data = "data:image/png;base64," + base64.b64encode(open("wejam.png","rb").read()).decode()
+adventure = open("adventure/assets.js").read().replace("export const", "const").replace("export function", "function")
+assert "</script" not in adventure
 # PWA manifest for Android/Chrome install (folder deploys); iOS uses the meta tags below.
 json.dump({
   "name": "Numbersong", "short_name": "Numbersong", "start_url": "./", "scope": "./",
@@ -89,6 +91,11 @@ html = f'''<!DOCTYPE html>
 <script>
 window.SUNG_NUMBERS = {voices};
 window.WEJAM_LOGO = "{logo_data}";
+</script>
+<script>
+{adventure}
+window.HARMONIA = HARMONIA;
+window.HARMONIA_decodeMask = decodeMask;
 </script>
 <script>
 {js}

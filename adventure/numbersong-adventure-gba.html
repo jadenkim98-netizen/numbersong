@@ -1,0 +1,247 @@
+<title>Numbersong — Adventure Map (concept)</title>
+<style>
+  :root{
+    --page-bg:#e9ece9; --page-text:#383D3B; --page-dim:#6a716c;
+    --bg:#383D3B; --card:#424845; --line:#565D59; --text:#EDF2EE;
+    --green:#6ABF5E; --blue:#7CADD1; --teal:#57C6C4; --warn:#E07856; --gold:#D9B45B;
+    --display:'Archivo Black','Arial Black',sans-serif;
+    --ui:'Archivo','Helvetica Neue',Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){:root{--page-bg:#2c302e;--page-text:#EDF2EE;--page-dim:#8b938d}}
+  :root[data-theme="dark"]{--page-bg:#2c302e;--page-text:#EDF2EE;--page-dim:#8b938d}
+  :root[data-theme="light"]{--page-bg:#e9ece9;--page-text:#383D3B;--page-dim:#6a716c}
+  html,body{margin:0;padding:0}
+  body{background:var(--page-bg);color:var(--page-text);font-family:var(--ui);
+    display:flex;flex-direction:column;align-items:center;padding:26px 12px 46px;gap:14px}
+  .cap{max-width:520px;width:100%;font-size:12.5px;line-height:1.55;color:var(--page-dim);text-align:center;padding:0 8px}
+  .cap b{color:var(--page-text);font-weight:700}
+
+  .device{width:100%;max-width:520px;background:var(--bg);color:var(--text);
+    border:1px solid var(--line);border-radius:22px;overflow:hidden;
+    box-shadow:0 24px 60px rgba(0,0,0,.38);position:relative}
+  .appbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:16px 18px 4px}
+  .back{font:700 12px/1 var(--ui);letter-spacing:.12em;color:var(--text);opacity:.55;text-decoration:none;background:none;border:none;cursor:pointer}
+  .chips{display:flex;gap:7px;flex-wrap:wrap}
+  .chip{font:700 11px/1 var(--ui);letter-spacing:.03em;background:var(--card);border:1px solid var(--line);
+    border-radius:99px;padding:6px 9px;font-variant-numeric:tabular-nums}
+  .chip .g{color:var(--gold)} .chip .t{color:var(--teal)}
+  .head{display:flex;align-items:center;gap:12px;padding:8px 18px 2px}
+  .brand{flex:0 0 auto;display:flex;align-items:center;padding-right:2px}
+  .brand img{height:46px;width:auto;image-rendering:pixelated;display:block}
+  .head .eyebrow{font:700 10.5px/1 var(--ui);letter-spacing:.22em;color:var(--teal);margin:0 0 5px}
+  .head h1{font-family:var(--display);font-weight:400;font-size:26px;line-height:1;margin:0}
+  .head p{margin:5px 0 0;font-size:12px;color:var(--text);opacity:.6}
+
+  .mapwrap{position:relative;margin-top:8px;background:#2f3432}
+  #map{display:block;width:100%;height:auto;image-rendering:pixelated}
+  .nodes{position:absolute;inset:0;pointer-events:none}
+  .node{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;text-align:center;
+    background:transparent;border:0;padding:0;margin:0;font-family:var(--ui);color:inherit;cursor:pointer}
+  .ring{width:34px;height:34px;border-radius:50%;margin:0 auto;display:flex;align-items:center;justify-content:center;
+    font:400 17px/1 var(--display);position:relative;background:rgba(20,26,25,.55);backdrop-filter:blur(1px)}
+  .node.cleared .ring{border:2.5px solid var(--teal);color:var(--teal)}
+  .node.current .ring{border:2.5px solid var(--green);color:var(--green)}
+  .node.locked .ring{border:2.5px solid var(--line);color:var(--line);background:rgba(20,26,25,.4)}
+  .node.current .ring::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:2px solid var(--green);
+    animation:pulse 2.1s ease-out infinite}
+  @keyframes pulse{0%{transform:scale(.7);opacity:.85}100%{transform:scale(1.5);opacity:0}}
+  .lbl{margin-top:3px;font:700 8.5px/1.25 var(--ui);letter-spacing:.06em;color:var(--text);
+    text-shadow:0 1px 3px #000,0 0 2px #000;white-space:nowrap}
+  .lbl b{color:var(--gold);font-weight:700}
+  .lbl .s{display:block;font-weight:600;opacity:.62;letter-spacing:.02em;margin-top:1px}
+  .locktag{font-size:9px}
+  .frag{position:absolute;top:-9px;right:-9px;width:15px;height:15px;border-radius:50%;
+    background:var(--teal);border:1.5px solid #1c2b29;display:flex;align-items:center;justify-content:center}
+  .frag svg{width:9px;height:9px}
+
+  .legend{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;padding:9px 14px 12px;
+    font:600 10.5px/1 var(--ui);letter-spacing:.03em;color:var(--text)}
+  .legend span{display:inline-flex;align-items:center;gap:5px;opacity:.72}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+  .dot.c{border:2px solid var(--teal)}.dot.h{border:2px solid var(--green)}.dot.l{border:2px dashed var(--line)}
+
+  .forge{background:var(--card);border-top:1px solid var(--line);padding:14px 18px 16px}
+  .forge .r1{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .forge .eyebrow{font:700 10px/1 var(--ui);letter-spacing:.2em;opacity:.6;margin:0}
+  .forge .count{font-family:var(--display);font-size:16px;font-variant-numeric:tabular-nums}
+  .forge .count b{color:var(--teal);font-weight:400}
+  .forgebody{display:flex;gap:14px;align-items:center;margin-top:10px}
+  .swordcol{flex:0 0 auto;width:74px;display:flex;flex-direction:column;align-items:center;gap:8px}
+  #sword{width:60px;height:180px;image-rendering:pixelated;filter:drop-shadow(0 0 8px rgba(87,198,196,.35))}
+  .forgeinfo{flex:1 1 auto;min-width:0}
+  .pips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px}
+  .pip{width:100%;flex:1 1 0;min-width:0;height:8px;border-radius:3px;background:#333b39;border:1px solid var(--line)}
+  .pip.on{background:var(--teal);border-color:var(--teal);box-shadow:0 0 6px rgba(87,198,196,.6)}
+  .pip.next{border-color:var(--green);background:#39463f}
+  .forgeinfo p{margin:0 0 11px;font-size:11.5px;line-height:1.5;opacity:.62}
+  .btns{display:flex;gap:8px}
+  .go{flex:1 1 auto;background:var(--green);color:#233022;font:400 15px/1 var(--display);letter-spacing:.02em;
+    border:none;border-radius:12px;padding:13px 12px;text-align:center;cursor:pointer}
+  .go small{display:block;font:700 9.5px/1 var(--ui);letter-spacing:.12em;margin-top:4px;opacity:.78}
+  .ghostbtn{flex:0 0 auto;background:transparent;color:var(--teal);border:1.5px solid var(--teal);
+    border-radius:12px;padding:0 14px;font:700 11px/1 var(--ui);letter-spacing:.08em;cursor:pointer}
+  .go:focus-visible,.ghostbtn:focus-visible,.back:focus-visible,.node:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+
+<div class="device">
+  <div class="appbar">
+    <button class="back">&#8592; HOME</button>
+    <div class="chips">
+      <span class="chip"><span class="g">&#9733;</span> 54</span>
+      <span class="chip"><span class="g">&#9670;</span> 2 gold</span>
+      <span class="chip"><span class="t">&#10035;</span> Key of C</span>
+    </div>
+  </div>
+  <div class="head">
+    <div class="brand"><img id="brand" alt="WeJam"></div>
+    <div>
+      <p class="eyebrow">NUMBERSONG &middot; ADVENTURE</p>
+      <h1>Harmonia</h1>
+      <p>Reforge Excalibar. Home never moves.</p>
+    </div>
+  </div>
+
+  <div class="mapwrap">
+    <canvas id="map"></canvas>
+    <div class="nodes" id="nodes"></div>
+  </div>
+
+  <div class="legend">
+    <span><i class="dot c"></i> cleared &middot; fragment won</span>
+    <span><i class="dot h"></i> you are here</span>
+    <span><i class="dot l"></i> locked</span>
+  </div>
+
+  <div class="forge">
+    <div class="r1">
+      <p class="eyebrow">EXCALIBAR &middot; THE TONAL BLADE</p>
+      <span class="count"><b id="fc">3</b> / 8 fragments</span>
+    </div>
+    <div class="forgebody">
+      <div class="swordcol">
+        <canvas id="sword"></canvas>
+      </div>
+      <div class="forgeinfo">
+        <div class="pips" id="pips"></div>
+        <p id="fdesc">Three fragments forged: the tonic gem, the grip and the left guard-wing. Clear <b>Undertone Caves</b> to quench the right wing.</p>
+        <div class="btns">
+          <button class="go">GO &middot; UNDERTONE CAVES<small>LVL 3/7 &middot; CHROMATIC MINOR</small></button>
+          <button class="ghostbtn" id="demo">FORGE&#9654;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="cap"><b>Concept mockup — full GBA tile build.</b> Adventure is a new front door into Numbersong;
+tapping a region opens that stage's existing level list, training screens untouched. The classic plain UI stays one toggle away (&ldquo;Boring mode&rdquo;). Tap <b>FORGE&#9654;</b> to watch Excalibar assemble.</p>
+
+<script>
+const _FO=[0,1,2,3,4,5,6,7];const A={"tile":16,"scols":8,"gc":16,"gr":26,"tileset":"data:image/png;base64,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","legend":{"0":"empty","1":"grass_major","2":"grass_major_bloom","3":"fen_minor","4":"fen_minor_reed","5":"mystic","6":"mystic_tree","7":"cave","8":"cave_crystal","9":"water","10":"mountain","11":"mountain_snow","12":"path_h","13":"path_v","14":"path_ne","15":"path_nw","16":"path_se","17":"path_sw","18":"clearing","19":"home_hearth","20":"bridge","21":"anvil_peak","22":"coda_walk_a","23":"coda_walk_b","24":"coda_idle","25":"hum_a","26":"hum_b"},"grid":[[11,10,10,11,10,10,10,10,10,10,10,10,11,10,10,11],[10,10,11,10,10,10,10,10,10,10,10,11,10,10,11,10],[10,11,10,10,10,10,10,10,10,10,10,10,10,11,10,10],[1,1,1,10,10,10,10,21,10,10,10,10,1,1,1,1],[1,1,1,1,10,10,10,13,10,10,10,2,2,2,1,1],[1,1,1,1,10,10,10,13,10,10,10,2,2,2,2,1],[1,1,1,1,1,10,10,14,12,12,12,12,18,2,2,2],[1,1,1,1,1,3,3,4,3,3,2,2,20,2,2,1],[1,9,9,9,3,3,3,3,18,12,12,12,15,2,1,1],[9,9,9,9,9,3,3,3,13,4,3,3,1,1,1,1],[9,9,9,9,9,3,3,3,13,3,3,3,1,1,1,1],[9,9,9,18,12,12,12,12,15,3,3,1,1,1,1,1],[9,9,9,13,9,9,9,5,5,5,5,1,1,1,1,1],[9,9,9,13,9,9,8,5,5,5,5,1,1,1,1,1],[1,9,9,14,12,12,12,18,5,5,5,5,5,5,5,5],[1,1,1,1,5,5,5,13,8,5,5,5,5,5,5,5],[1,1,1,1,5,5,5,13,5,5,5,6,5,5,6,5],[1,1,1,1,1,5,5,14,12,12,12,12,12,18,5,5],[1,1,1,1,1,1,1,1,3,3,5,5,6,13,5,5],[1,1,1,1,1,1,1,3,3,3,5,5,5,13,5,5],[1,2,2,2,2,2,1,3,3,4,3,5,5,13,5,5],[2,2,2,2,2,2,3,3,3,3,18,12,12,15,3,1],[2,2,2,2,2,2,2,3,3,3,13,4,3,3,1,1],[2,2,2,18,12,12,12,12,12,12,15,3,3,3,1,1],[2,2,19,15,2,2,2,1,3,3,3,3,3,1,1,1],[2,2,2,2,2,2,2,1,1,1,1,1,1,1,1,1]],"nodes":[{"id":1,"c":3,"r":23,"name":"STAIRCASE MEADOWS","sub":"Diatonic major","mood":"major","state":"cleared","stars":"16/18","gold":false},{"id":2,"c":10,"r":21,"name":"LOWMOOR FEN","sub":"Diatonic minor","mood":"minor","state":"cleared","stars":"14/18","gold":false},{"id":3,"c":13,"r":17,"name":"GLASSWOOD","sub":"Chromatic major","mood":"mystic","state":"cleared","stars":"18/21","gold":true},{"id":4,"c":7,"r":14,"name":"UNDERTONE CAVES","sub":"Chromatic minor","mood":"cave","state":"current","stars":"6/21","gold":false},{"id":5,"c":3,"r":11,"name":"PILLAR COAST","sub":"Chords: 1\u00b74\u00b75\u00b76","mood":"coast","state":"locked","stars":"","gold":false},{"id":6,"c":8,"r":8,"name":"SIXSTONE HOLLOW","sub":"Chords: 6\u00b72\u00b73\u00b74","mood":"minor","state":"locked","stars":"","gold":false},{"id":7,"c":12,"r":6,"name":"CADENCE ROAD","sub":"Progressions maj","mood":"bridge","state":"locked","stars":"","gold":false},{"id":8,"c":7,"r":3,"name":"ANVIL PEAK","sub":"Progressions min","mood":"forge","state":"locked","stars":"","gold":false}],"spriteIdx":{"coda_a":22,"coda_b":23,"coda_idle":24,"hum_a":25,"hum_b":26},"coda_a":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABXElEQVR42q1Vu04CURDlKyhFeoOP0tbESG2iCSR8gCF8gYWtfoKFsbW3o7AxQmNHY0NPQUOE2F1zNjmb2WFmuIibnOy9s3fOmTuPbK2W+dSbjeTZO+cnyfru+WST0E7I71hff7ynrEglEdY84wmQ/PtnmdxILWiyh/5FsX6571X8SO7egGSnB3sF6CwFCIhQiL4kD2tAQjhTSNossdV0WJKbAlFKCKbDwmjyGZN7jlEd2s9n6eu1W4GbGq+4+sxs9LQGRp3d+1HLkhR1ma8WxRq530iuI29eXZo3ooDcu12jCXEQb+D47nYNsI8fB5X0cG8KkCwiBQ4HrRIyKJCHuZfRRyIgRsfwLbFxoJiWKHpNCty89fIFPHLAIt9KgMW1CgqggCSVt9lKwIIspp7WrMm1BKwJxlp3UFaBLRFvencSkO1q2fePWiX+LBAJWwLatrOI/hf/q0COqPf8Ag+fp5nNUNyfAAAAAElFTkSuQmCC","coda_b":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABVElEQVR42rWVsU4CQRCG7yksRXoDSklLQrQ2gUQTHoAYnsCCFh6BgtjS01nYGKGhs7Gxt7AxSOjW/Jf8ZG6ZGRYCm/y5vb3d75+d2YUsS2xn5VKwxu+btaB9t9YkQzhOye/ot9/fQlKkEoQ+51gGhC/Xf8GMVFMMGz7e5P3JoFNYR7i5A8Lql+e5uFgaUDChEdcS7taAQCymkRzTzFZfLxu4auClhGI6NM0+Fj7cWujV4fa5ET6nDwWZqbGKG8/5no23xKiTz753ZAlFXX5Wv3kfud8JjyMvt+7UHdFAvpunJgZiIp7Qdf9pSxifj3qF9PBdNSDMg0LVXmUjGRTgbu5l9J4JwDgxfErtvFBMixd9DIW6r500A+beMtDgBxnE9aBQQELlbvYy0CSLGd/WpJurmXg3mKdIFnevfy1vsmWQHaud1ACgi6uKqqOYnNwg9adca/9o35fmJcVkEQAAAABJRU5ErkJggg==","logo":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAWCAYAAADXYyzPAAAAyklEQVR42mNgGG4g/NiR/wQVZe2P+4+ND6LRMdUt1tLX+4/Oh9HomBjLcLFJspjUIEbHBH2MHMQwPqnBDLJo25tXpFuMjSYUzNh8iW45Vkcg+wjGpmtQwyzBFdTEBDdJFoMAus9gfJqm6gErQAbM4pq1F/+jY2xyyGLo+sl2ISz+QIYgs9HlkB2DzCY19WP1PcwQdANhfGQamzqqWIyO0S1GpsmyDJ+P0aMBWQ3FFmMLXkJBjU0/WZYjJya6WYyceokt0fCpGwXoAADXWdX2qwed0gAAAABJRU5ErkJggg==","sword":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAACoCAYAAAC14C1dAAADa0lEQVR42u2dsYoUQRCG7ykMNTEUOYwEDQUzAxMD4WIx8AFk8Ql8Ag3NjMXURHyHe4XDwEjB5KQWSmqL7p6a2dnbrt6voZlb9qa3v/n+memZXmbPzigUCoVCoVAolBMot+7cvtY6LNiLH9+vhwMVkPubt1u433//bJfyGkAAO9r/aoDpIS1caTkUoNh79PTJWDEFEEAAAQSQ8yAGBwUsjUNLgGkhS3Bah7AIIIAAAggggAAOClgbptUA00F6uIs3r3YAP37+lNuiBxQgex0owEMBnoRBC4hBDGIQgxjE4KgGS+PQiME0kCW4ksG0MS3Fs2QwbUwxiMGkBv31IAbZBzGIwdWGaVGD3UPW4GoG08W0Fs+awXQxxSAGMYhBDGIQg2WDpevBVAZL49AlBruFbMG19sE0MW3Fs2UwTUwxiEEM9m2wdh7EIPsgBg8/TJtrsDvIKbgpg93HdCqeUwa7jykGMYhBDGIQgxgc1GBr2jp6Pdj1dHYELmKw25hG4hnZB7uNKQYxiEEMYhCDp2owOkxbavDokFG4qMHuYhqNZ9RgdzHF4CkZnLoePKrB2pOVowYvv7zcMSivlxg8yBOetUHplP2A6ClC1qvV6KnCVtuPVYxpo1J/Xb6fXVuA+7S3l01ZSRrTpe/oh83DqlG7QXx9/e2i+l6rLf280obZG9B3RD6sVVvGWoDRtlexaAFlf9CGpzowF3hJewqoj5VfZFG3io3C2nD7QtqILo6pj+jacPu2u+rRNNqhyEFkCWitrdXPha3OtCxpZ1qAkXYPdhk1tfWnasRgtI0bGbL5D5ejmq2y5R8/f7atdx+cV6v8n1+3tXFubGzqO+VP0NJxhVDQErD8n1+31PZRblX4at+3gL5aWAWMtt3Njag5EU35uJW5EU0NOCeiqQCJKBElokSUiBJRIkpEiSgRJaJElIgS0eEi2qoWNu1vL+nkjb1Dfe/dZmcCJTWcxlRvvQuc3OOUpb1Fn+7xtyU4f+fbz0OkgZRO2hjWbu2XJlvSPBnPzzVoJOXvrz+v/gNqZO1cRhpAa0yhZKm1NNmSDtBDyvdfSpA2qikA/VdOLGQNTr/kkNqgr2kN+n2wZtBDpgIc+ihaOslHzoMCnOoxuEtGMumGbDrYLo1F9b1hBtz+aiI1XPS6MP0vKVMOXP4BFUycHEa4lP8AAAAASUVORK5CYII=","swordW":56,"swordH":168,"partmask":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgICAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgICAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgICAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgICAgICAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHBwcHBwcHBwcHBwcHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcHBwcHBwcHBwcHBwcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABwcHBwcHBwcHBwcHBwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHBwcHBwcHBwcHBwcHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcHBwcHBwcHBwcHBwcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABwcHBwcHBwcHBwcHBwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHBwcHBwcHBwcHBwcHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcHBwcHBwcHBwcHBwcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHBwcHBwcHBwcHBwcHBwcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcHBwcHBwcHBwcHBwcHBwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABwcHBwcHBwcHBwcHBwcHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHBwcHBwcHBwcHBwcHBwcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcHBwcHBwcHBwcHBwcHBwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABwcHBwcHBwcHBwcHBwcHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHBwcHBwcHBwcHBwcHBwcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcHBwcHBwcHBwcHBwcHBwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABwcHBwcHBwcHBwcHBwcHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHBwcHBwcHBwcHBwcHBwcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcHBwcHBwcHBwcHBwcHBwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHBwcHBwcHBwcHBwcHBwcHBwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcHBwcHBwcHBwcHBwcHBwcHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABwcHBwcHBwcHBwcHBwcHBwcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHBwcHBwcHBwcHBwcHBwcHBwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcHBwcHBwcHBwcHBwcHBwcHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABwcHBwcHBwcHBwcHBwcHBwcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHBwcHBwcHBwcHBwcHBwcHBwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYGBgYGBgYGBgYGBgYGBgYGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgYGBgYGBgYGBgYGBgYGBgYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGBgYGBgYGBgYGBgYGBgYGBgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYGBgYGBgYGBgYGBgYGBgYGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgYGBgYGBgYGBgYGBgYGBgYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYGBgYGBgYGBgYGBgYGBgYGBgYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgYGBgYGBgYGBgYGBgYGBgYGBgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGBgYGBgYGBgYGBgYGBgYGBgYGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYGBgYGBgYGBgYGBgYGBgYGBgYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgYGBgYGBgYGBgYGBgYGBgYGBgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGBgYGBgYGBgYGBgYGBgYGBgYGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYGBgYGBgYGBgYGBgYGBgYGBgYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgYGBgYGBgYGBgYGBgYGBgYGBgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGBgYGBgYGBgYGBgYGBgYGBgYGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYGBgYGBgYGBgYGBgYGBgYGBgYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgYGBgYGBgYGBgYGBgYGBgYGBgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYGBgYGBgYGBgYGBgYGBgYGBgYGBgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgYGBgYGBgYGBgYGBgYGBgYGBgYGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGBgYGBgYGBgYGBgYGBgYGBgYGBgYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYGBgYGBgYGBgYGBgYGBgYGBgYGBgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgYGBgYGBgYGBgYGBgYGBgYGBgYGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGBgYGBgYGBgYGBgYGBgYGBgYGBgYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYGBgYGBgYGBgYGBgYGBgYGBgYGBgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgYGBgYGBgYGBgYGBgYGBgYGBgYGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBQUFBQUFBQUFBQUFBQUFBQUFBQUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUFBQUFBQUFBQUFBQUFBQUFBQUFBQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABQUFBQUFBQUFBQUFBQUFBQUFBQUFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBQUFBQUFBQUFBQUFBQUFBQUFBQUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwMDAAAABQUFBQUFBQUFBQMFBQUEBQUFBQUFBQUFBQAAAAQEBAAAAAAAAAAAAAAAAAAAAAAAAAMDAwMDAwMFBQUFBQUFBQUDAwQEBAQEBQUFBQUFBQUFBQUFBAQEBAAAAAAAAAAAAAAAAAAAAwMDAwMDAwMDAwMDAwMDAwMDAwMDBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQAAAAAAAAAAAAAAAADAwMDAwMDAwMDAwMDAwMDAwMDAwMEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAAAAAAAAAAAAAAAAMDAwMDAwMDAwMDAwMDAwMDAwMDAwQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAAAAAAAAAAAAAAAwMDAwMDAwMDAwMDAwMDAwMDAwQDBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEAAAAAAAAAAAAAAADAwMDAwMDAwMDAwMDAwMDAwMDAwMEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQAAAAAAAAAAAAAAAADAwMDAwMDAwMDAwMDAwMDAwMDAwQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEAAAAAAAAAAAAAAAAAAADAwMDAwMDAwMDAwMDAwMDAwMDAwMEBAQEBAQEBAQEBAQEBAQEBAQEBAAAAAAAAAAAAAAAAAAAAAAAAwMDAwMDAwMDAwMDAwMDAwMDAAQEBAQEBAQEBAQEBAQEBAQEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAwMDAwMDAwMDAwMDAwMDAwMDBAQEBAQEBAQEBAQEBAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwMDAwMDAwMDAwMCAgICAgICAgICAgQEBAQEBAQEBAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDAwMDAwMDAgICAgICAgICAgICAgICBAQEBAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwMDAwMDAAACAgICAgICAgICAgICAAAEBAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgICAgICAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgICAgICAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgICAgICAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgICAgICAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgICAgICAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgICAgICAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgICAgICAgICAgICAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgICAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAQEBAQEBAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAQEBAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAQEBAQEBAQEBAQEBAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAQEBAQEBAQEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAQEBAQEBAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAQEBAQEBAQEBAQEBAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAQEBAQEBAQEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAQEBAQEBAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAQEBAQEBAQEBAQEBAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAQEBAQEBAQEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAQEBAQEBAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAQEBAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","fragLabel":{"0":"Pommel gem","1":"Grip","2":"Left wing","3":"Right wing","4":"Blade \u2014 lower","5":"Blade \u2014 mid","6":"Blade \u2014 upper","7":"The tip"},"stageFrag":{"1":0,"2":1,"3":2,"4":3,"5":4,"6":5,"7":6,"8":7}};
+const T=A.tile, GC=A.gc, GR=A.gr, SC=A.scols;
+const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+function load(src){return new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.src=src;});}
+
+(async ()=>{
+  const [sheet,codaA,codaB,swordImg]=await Promise.all(
+    [A.tileset,A.coda_a,A.coda_b,A.sword].map(load));
+
+  // ---- WeJam brand mark (pixel logo) ----
+  document.getElementById('brand').src=A.logo;
+
+  // ---- terrain (bake once) ----
+  const terr=document.createElement('canvas'); terr.width=GC*T; terr.height=GR*T;
+  const tctx=terr.getContext('2d'); tctx.imageSmoothingEnabled=false;
+  for(let r=0;r<GR;r++)for(let c=0;c<GC;c++){
+    const idx=A.grid[r][c], sx=(idx%SC)*T, sy=((idx/SC)|0)*T;
+    tctx.drawImage(sheet,sx,sy,T,T,c*T,r*T,T,T);
+  }
+  const map=document.getElementById('map'); map.width=GC*T; map.height=GR*T;
+  const mctx=map.getContext('2d'); mctx.imageSmoothingEnabled=false;
+
+  // ---- node overlay (HTML) ----
+  const nz=document.getElementById('nodes');
+  const star='<svg viewBox="0 0 12 12"><path d="M6 0l1.6 3.4L11.4 4 8.7 6.6 9.6 10.6 6 8.6 2.4 10.6 3.3 6.6.6 4l3.8-.6z" fill="#1c2b29"/></svg>';
+  A.nodes.forEach(n=>{
+    const el=document.createElement('button');
+    el.className='node '+n.state;
+    el.style.left=((n.c+0.5)/GC*100)+'%';
+    el.style.top=((n.r+0.5)/GR*100)+'%';
+    const num = n.state==='locked'?'<span class="locktag">&#128274;</span>':n.id;
+    const frag = n.state==='cleared'?'<span class="frag">'+star+'</span>':'';
+    let lbl='<b>'+n.name+'</b>';
+    if(n.state!=='locked'){const g=n.gold?' <b>&#9670;</b>':''; lbl+='<span class="s">'+ (n.stars?('&#9733; '+n.stars+g):'') +'</span>';}
+    else lbl+='<span class="s">locked</span>';
+    el.innerHTML='<div class="ring">'+num+frag+'</div><div class="lbl">'+lbl+'</div>';
+    nz.appendChild(el);
+  });
+
+  // ---- sword: decode part-mask, render by collected set ----
+  const mb=atob(A.partmask), mask=new Uint8Array(mb.length);
+  for(let i=0;i<mb.length;i++)mask[i]=mb.charCodeAt(i);
+  const SW=A.swordW, SH=A.swordH;
+  const sc=document.createElement('canvas'); sc.width=SW; sc.height=SH;
+  const scx=sc.getContext('2d'); scx.imageSmoothingEnabled=false; scx.drawImage(swordImg,0,0);
+  const base=scx.getImageData(0,0,SW,SH).data;
+  const sword=document.getElementById('sword'); sword.width=SW; sword.height=SH;
+  const swx=sword.getContext('2d'); swx.imageSmoothingEnabled=false;
+  function renderSword(coll){
+    const out=swx.createImageData(SW,SH), d=out.data;
+    for(let i=0;i<mask.length;i++){
+      const pid=mask[i]-1; if(pid<0)continue; const o=i*4;
+      if(coll.has(pid)){d[o]=base[o];d[o+1]=base[o+1];d[o+2]=base[o+2];d[o+3]=base[o+3];}
+      else{const dark=((i%SW)+((i/SW)|0))%2===0;
+        d[o]=dark?0x40:0x33; d[o+1]=dark?0x48:0x3b; d[o+2]=dark?0x44:0x39; d[o+3]=255;}
+    }
+    swx.putImageData(out,0,0);
+  }
+  // pips
+  const pipz=document.getElementById('pips');
+  const pipEls=[]; for(let i=0;i<8;i++){const p=document.createElement('span');p.className='pip';pipz.appendChild(p);pipEls.push(p);}
+  function setFrags(k){
+    const coll=new Set(); for(let i=0;i<k;i++)coll.add(_FO[i]);
+    renderSword(coll);
+    document.getElementById('fc').textContent=k;
+    pipEls.forEach((p,i)=>{p.className='pip'+(i<k?' on':(i===k?' next':''));});
+  }
+  setFrags(3);
+
+  // ---- forge demo ----
+  const demo=document.getElementById('demo'); const fdesc=document.getElementById('fdesc');
+  let busy=false;
+  demo.addEventListener('click',()=>{
+    if(busy)return; busy=true; let k=3;
+    fdesc.innerHTML='Forging&hellip; each region you clear quenches the next fragment.';
+    const step=()=>{ k++; setFrags(k);
+      sword.animate?sword.animate([{filter:'drop-shadow(0 0 22px rgba(87,198,196,.95)) brightness(1.5)'},{filter:'drop-shadow(0 0 8px rgba(87,198,196,.35)) brightness(1)'}],{duration:420}):0;
+      if(k<8){setTimeout(step,430);}
+      else{fdesc.innerHTML='<b style="color:var(--teal)">Excalibar reforged.</b> The tonal map is whole &mdash; a blade that cuts through any key.';
+        busy=false;}
+    };
+    setTimeout(step,180);
+  });
+
+  // ---- animate Coda + Hum at current node ----
+  const cur=A.nodes.find(n=>n.state==='current');
+  const cx=(cur.c+0.5)*T, cy=cur.r*T; // feet near node top
+  const humIdx=A.spriteIdx.hum_a, humIdx2=A.spriteIdx.hum_b;
+  function humSrc(idx){return [(idx%SC)*T,((idx/SC)|0)*T];}
+  let f=0,t0=performance.now();
+  function frame(now){
+    const dt=now-t0;
+    mctx.clearRect(0,0,map.width,map.height);
+    mctx.drawImage(terr,0,0);
+    const bob = reduce?0:(Math.floor(dt/360)%2? -1:0);
+    const cimg = (reduce||Math.floor(dt/360)%2===0)?codaA:codaB;
+    mctx.drawImage(cimg, Math.round(cx-12), Math.round(cy-22+bob));
+    // Hum orbiting
+    const ang=reduce?0:dt/520;
+    const hx=cx+10+Math.cos(ang)*5, hy=cy-16+Math.sin(ang)*4;
+    const [hsx,hsy]=humSrc(Math.floor(dt/300)%2?humIdx2:humIdx);
+    mctx.drawImage(sheet,hsx,hsy,T,T,Math.round(hx-8),Math.round(hy-8),T,T);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
