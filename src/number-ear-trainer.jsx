@@ -1023,6 +1023,14 @@ export default function NumberEarTrainer() {
     document.documentElement.setAttribute("data-theme", theme);
     savePref("theme", theme);
   }, [theme]);
+  // Installed-to-home-screen? Reserve a top buffer for the status bar ourselves,
+  // since some iOS versions don't resolve env(safe-area-inset-top) in a web app.
+  useEffect(() => {
+    try {
+      const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+      if (standalone) document.documentElement.setAttribute("data-standalone", "1");
+    } catch (e) {}
+  }, []);
 
   // ladder highlights
   const [litActive, setLitActive] = useState([]);
@@ -2332,6 +2340,11 @@ html, body { background: var(--bg); }
 }
 button { touch-action: manipulation; }
 .path-note, .explore-pad, .pk, .num, .cu-note, .chip, .rung { touch-action: none; }
+/* installed web app: guarantee a top buffer that clears the iOS status bar,
+   even where env(safe-area-inset-top) reports 0 */
+:root[data-standalone] .app {
+  padding-top: max(64px, calc(20px + env(safe-area-inset-top, 0px)));
+}
 .top { display: flex; flex-direction: column; gap: 12px; }
 .top-slim { display: flex; align-items: center; gap: 12px; }
 .screen-title {
