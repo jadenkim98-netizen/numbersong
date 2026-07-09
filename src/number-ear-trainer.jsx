@@ -784,7 +784,7 @@ function worldChordTones(w) {
 
 function ExploreMap({ start, count, stage, octaves, world, active, onPlay, onDown, onUp }) {
   const evts = (n, row) => onDown // guide taps (onPlay); Free Play holds (onDown/onUp)
-    ? { onPointerDown: (e) => { e.currentTarget.setPointerCapture?.(e.pointerId); onDown(n, row); }, onPointerUp: () => onUp(n, row) }
+    ? { onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(n, row); }, onPointerUp: () => onUp(n, row) }
     : { onClick: () => onPlay(n, row) };
   const notes = exploreNotes(start, count);
   const s0 = notes[0].semi, s1 = notes[notes.length - 1].semi;
@@ -833,7 +833,7 @@ function ExploreMap({ start, count, stage, octaves, world, active, onPlay, onDow
    both octaves. World chord tones show in blue, the tonic wears the star. */
 
 function PianoMap({ start, count, stage, world, musicKey, active, onDown, onUp }) {
-  const evts = (k) => ({ onPointerDown: (e) => { e.currentTarget.setPointerCapture?.(e.pointerId); onDown(k); }, onPointerUp: () => onUp(k) });
+  const evts = (k) => ({ onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(k); }, onPointerUp: () => onUp(k) });
   const baseMidi = Tone.Frequency(musicKey + "4").toMidi();
   const BLACK_PCS = [1, 3, 6, 8, 10];
 
@@ -960,7 +960,7 @@ function PathColumn({ roman, col, current, lit, onDown, onUp, sevenths }) {
         ].filter(Boolean).join(" ");
         return (
           <button key={ri} className={cls}
-            onPointerDown={(e) => { e.currentTarget.setPointerCapture?.(e.pointerId); onDown(col, ri); }}
+            onPointerDown={(e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(col, ri); }}
             onPointerUp={() => onUp(col, ri)}>
             {row.d}
           </button>
