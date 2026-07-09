@@ -1,0 +1,5 @@
+# Netlify build config — auto-detected on connect.
+# Netlify runs the build in a CI image with node + python3, then serves dist/.
+[build]
+  command = "bash build.sh"
+  publish = "dist"

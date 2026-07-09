@@ -1,0 +1,73 @@
+# Numbersong
+
+A functional ear-training web app built around Jojo's teaching method: every note
+and chord is heard, named, and seen as a NUMBER of the current key (scale degree),
+never as an interval from a chord root. "Home never moves."
+
+## Project layout
+
+- `src/number-ear-trainer.jsx` — the entire app: one React component file
+  (data, audio engine, screens, CSS-in-JS). This is the only file you edit.
+- `voice/0/`, `voice/4/`, `voice/8/` — Jojo's voice singing numbers 1–7 plus a
+  high "one" (file `8.mp3`), pitch-corrected. Folder names are the semitone base
+  of the recorded key: 0 = C major, 4 = E major, 8 = Ab major. At runtime the app
+  picks the set nearest the current key so the voice never shifts more than
+  2 semitones.
+- `build.sh` — compiles the JSX with esbuild and assembles a fully standalone
+  `index.html` with the voice mp3s embedded as base64. Run it after every edit.
+- `index.html` — the build output. This single file IS the deployable app.
+
+## Build & preview
+
+```
+./build.sh          # rebuild index.html
+open index.html     # view in browser
+```
+
+Requires node (npx fetches esbuild automatically) and python3. No npm install,
+no dev server, no package.json — deliberately.
+
+## Architecture notes
+
+- Libraries load from cdnjs (React 18 UMD, Tone.js 14). Piano = Tone.Sampler with
+  Salamander samples fetched from tonejs.github.io; falls back to a synth offline.
+  Sample buffers are cached as NATIVE AudioBuffers in `buffersRef` so the
+  instrument can be disposed & rebuilt by `stopAll()` (that rebuild is how
+  scheduled-but-unplayed notes get cancelled when the user quits a session).
+- Sung voice is monophonic by design: each new number stops the previous player.
+- Session engine: `sess` ref holds mutable state; ALL session timeouts must go
+  through `sessTimer()` so `killSession()` can clear them. Never use a bare
+  setTimeout for anything that plays audio or advances a session.
+- Screens: home | guide | levels | session | results | learn (= "Free play").
+- Progress persists in localStorage key `numbersong-progress` (wrapped in
+  try/catch; must degrade gracefully where storage is unavailable).
+- Melody levels follow the FET-style progression: C-major-only → any octave →
+  one random non-C key per session → new random key every question.
+- Chord sessions display "stack notation" (degrees 7→1 vertically, chord tones
+  circled), NOT the tonal map. Melody sessions use the proportional tonal map
+  (degrees at true semitone positions, dots = chromatic gaps).
+
+## Design conventions (WeJam brand)
+
+- Palette: bg #383D3B, card #424845, line #565D59, text #EDF2EE,
+  green #6ABF5E (correct/GO), blue #7CADD1 (selection/chord tones),
+  teal #57C6C4 (tonic — always wears the ✳ star), wrong #E07856.
+- Type: Archivo Black for numbers/headings, Archivo for UI.
+- The tonic is visually special everywhere (teal + star). Chord tones of the
+  selected "world" show blue. Upper octave displays as "1", never "8"
+  (degree 8/9 exist only internally for audio math).
+- Voice & tone of UI copy: warm, playful, teacher-y ("Like we never left home.").
+
+## Deploying
+
+`index.html` is the whole app. Drag it onto Netlify Drop (rename not needed if
+deploying the folder), or serve it from any static host. Voice recordings are
+embedded; the piano needs internet on first load.
+
+## Known future directions (discussed, not built)
+
+- Lock levels for students / unlock toggle for the teacher
+- Minor keys; melodies of multiple notes; chord progressions; sevenths/inversions
+- Solfège voice recordings as an alternative to numbers
+- Tappable stack as the chord-answer input
+- Accounts/backend so the teacher can see student progress (v2)
