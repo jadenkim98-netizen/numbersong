@@ -47,9 +47,9 @@ html = f'''<!DOCTYPE html>
 <link rel="apple-touch-icon" href="{icon_data}">
 <link rel="icon" type="image/png" href="{icon_data}">
 <link rel="manifest" href="manifest.json">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <style>
   body {{ margin: 0; background: #383D3B; }}
   #root:empty::after {{
@@ -67,10 +67,11 @@ html = f'''<!DOCTYPE html>
 <div id="root"></div>
 <div id="errbox"></div>
 <script>
-  window.onerror = function (msg, srcUrl, line) {{
+  window.onerror = function (msg, srcUrl, line, col, err) {{
     var b = document.getElementById("errbox");
     b.style.display = "block";
-    b.textContent = "Something went wrong:\\n" + msg + " (line " + line + ")";
+    b.textContent = "Something went wrong:\\n" + msg + "\\n" + (srcUrl || "") + ":" + line + ":" + col +
+      (err && err.stack ? "\\n\\n" + err.stack : "");
   }};
   window.addEventListener("unhandledrejection", function (ev) {{
     var b = document.getElementById("errbox");
