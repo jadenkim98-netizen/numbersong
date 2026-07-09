@@ -501,6 +501,21 @@ function useAudio() {
     );
   }, [ensure]);
 
+  // Retro menu SFX (chiptune blips) — spec from the design pass.
+  const sfxRef = useRef(null);
+  const sfx = useCallback(async (name) => {
+    await ensure();
+    if (!sfxRef.current) sfxRef.current = new Tone.Synth({ envelope: { attack: 0.006, decay: 0.08, sustain: 0, release: 0.05 }, volume: -17 }).toDestination();
+    const s = sfxRef.current, now = Tone.now();
+    const beep = (freq, dur, t, type) => { s.oscillator.type = type; try { s.triggerAttackRelease(freq, dur, now + t); } catch (e) {} };
+    if (name === "move") beep(494, 0.045, 0, "square");
+    else if (name === "select") { beep(659, 0.055, 0, "square"); beep(988, 0.06, 0.06, "square"); }
+    else if (name === "back") { beep(392, 0.06, 0, "square"); beep(294, 0.065, 0.065, "square"); }
+    else if (name === "boot") [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.15, i * 0.07, "triangle"));
+    else if (name === "correct") { beep(880, 0.09, 0, "triangle"); beep(1319, 0.1, 0.09, "triangle"); }
+    else if (name === "victory") [659, 784, 1047, 1319].forEach((f, i) => beep(f, 0.18, i * 0.095, "triangle"));
+  }, [ensure]);
+
   // Sustaining voice (Free Play): attack on hold, release on let-go. "piano" reuses
   // the loaded Salamander sampler (synthRef); the others are dedicated synths.
   const susRef = useRef(null);
@@ -695,7 +710,7 @@ function useAudio() {
     }
   }, []);
 
-  return { playCadence, playDegree, playChord, playProgression, playSemi, sing, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
+  return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
 }
 
 function speak(text, enabled) {
@@ -1118,10 +1133,10 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onSettings, onGuid
 /* ─────────────────────────────  APP  ───────────────────────────── */
 
 export default function NumberEarTrainer() {
-  const { playCadence, playDegree, playChord, playProgression, playSemi, sing, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
+  const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
 
   const [boringMode, setBoringMode] = useState(() => loadPref("boring", "1") === "1"); // classic UI vs Adventure
-  const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "1") === "0" ? "adventure" : "home")); // home | adventure | levels | session | results | learn | guide | settings
+  const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "1") === "0" ? "boot" : "home")); // boot | menu | training | home | adventure | levels | session | results | learn | guide | settings
   const [mode, setMode] = useState("melody");     // melody | chords
   const [levelIdx, setLevelIdx] = useState(0);
   const [melGroup, setMelGroup] = useState(null);  // which of the 4 melody worlds is open (null = world picker)
@@ -1165,6 +1180,18 @@ export default function NumberEarTrainer() {
       if (standalone) document.documentElement.setAttribute("data-standalone", "1");
     } catch (e) {}
   }, []);
+  // retro game skin is on unless the player is in Boring mode
+  useEffect(() => {
+    document.documentElement.classList.toggle("retro", window.HARMONIA && !boringMode);
+  }, [boringMode]);
+  // boot screen: any key / tap starts the game (and unlocks audio)
+  useEffect(() => {
+    if (screen !== "boot") return;
+    const go = () => { sfx("boot"); setScreen("menu"); };
+    window.addEventListener("keydown", go, { once: true });
+    window.addEventListener("pointerdown", go, { once: true });
+    return () => { window.removeEventListener("keydown", go); window.removeEventListener("pointerdown", go); };
+  }, [screen, sfx]);
 
   // ladder highlights
   const [litActive, setLitActive] = useState([]);
@@ -1694,9 +1721,66 @@ export default function NumberEarTrainer() {
     else { setMode("progressions"); setProgChapter(n.id - 7); }
     setScreen("levels");
   };
-  const setBoring = (v) => { setBoringMode(v); savePref("boring", v ? "1" : "0"); setScreen(v ? "home" : "adventure"); };
+  const setBoring = (v) => { setBoringMode(v); savePref("boring", v ? "1" : "0"); setScreen(v ? "home" : "menu"); };
 
   /* ── screens ── */
+
+  if (screen === "boot") {
+    return (
+      <div className="app boot-screen">
+        <style>{CSS}</style>
+        <h1 className="boot-title"><span className="w1">NUMBER</span><span className="w2">SONG</span></h1>
+        <img className="boot-star" src={typeof window !== "undefined" ? window.WEJAM_LOGO : ""} alt="WeJam" />
+        <div className="boot-start blink">PRESS ANY KEY</div>
+      </div>
+    );
+  }
+
+  if (screen === "menu") {
+    const item = (icon, label, go) => (
+      <button className="menu-item" onClick={() => { sfx("select"); go(); }} onMouseEnter={() => sfx("move")}>
+        <span className="mi-icon">{icon}</span> {label}
+      </button>
+    );
+    return (
+      <div className="app menu-screen">
+        <style>{CSS}</style>
+        <h1 className="menu-logo"><span className="w1">NUMBER</span><span className="w2">SONG</span></h1>
+        <div className="menu-list">
+          {item("⚔", "Adventure", () => setScreen("adventure"))}
+          {item("🎯", "Basic Training", () => setScreen("training"))}
+          {item("🎸", "Free Play", () => { setFpTab("notes"); setScreen("learn"); })}
+          {item("📖", "How music works", () => { setGuidePage(0); setScreen("guide"); })}
+          {item("⚙", "Settings", () => setScreen("settings"))}
+        </div>
+        <footer className="foot">One map to rule them all.</footer>
+      </div>
+    );
+  }
+
+  if (screen === "training") {
+    const sec = (title, desc, go) => (
+      <button className="card" onClick={() => { sfx("select"); go(); }}>
+        <span className="card-title">{title}</span>
+        <span className="card-desc">{desc}</span>
+      </button>
+    );
+    return (
+      <div className="app">
+        <style>{CSS}</style>
+        <header className="top-slim">
+          <button className="back" onClick={() => { sfx("back"); setScreen("menu"); }}>← Menu</button>
+          <h2 className="screen-title">Basic Training</h2>
+        </header>
+        <div className="cards">
+          {sec("Single notes", `Hear a note, name its degree. ${MELODY_GROUPS.length} stages.`, () => { setMode("melody"); setMelGroup(null); setScreen("levels"); })}
+          {sec("Chord tones", `Hear a chord, find its degrees. ${CHORD_CHAPTERS.length} chapters.`, () => { setMode("chords"); setChordChapter(null); setScreen("levels"); })}
+          {sec("Chord progressions", `Name each chord in order. ${PROG_CHAPTERS.length} chapters.`, () => { setMode("progressions"); setProgChapter(null); setScreen("levels"); })}
+        </div>
+        <footer className="foot">Sharpen your ear — every rep forges Excalibar.</footer>
+      </div>
+    );
+  }
 
   if (screen === "adventure") {
     return (
@@ -1759,7 +1843,7 @@ export default function NumberEarTrainer() {
             <span className="card-desc">Improvise and explore with the raw materials of music.</span>
           </button>
         </div>
-        <footer className="foot">Every sound relates to home. Home never moves.</footer>
+        <footer className="foot">Every sound relates to home. One map to rule them all.</footer>
       </div>
     );
   }
@@ -1769,7 +1853,7 @@ export default function NumberEarTrainer() {
       <div className="app">
         <style>{CSS}</style>
         <header className="top-slim">
-          <button className="back" onClick={() => setScreen("home")}>← Home</button>
+          <button className="back" onClick={() => setScreen(boringMode ? "home" : "menu")}>← Home</button>
           <h2 className="screen-title">Settings</h2>
         </header>
         <div className="settings">
@@ -1852,7 +1936,7 @@ export default function NumberEarTrainer() {
         <div className="app">
           <style>{CSS}</style>
           <header className="top-slim">
-            <button className="back" onClick={() => setScreen("home")}>← Home</button>
+            <button className="back" onClick={() => setScreen(boringMode ? "home" : "menu")}>← Home</button>
             <h2 className="screen-title">Single notes</h2>
           </header>
           <div className="tabs">
@@ -1946,7 +2030,7 @@ export default function NumberEarTrainer() {
         <div className="app">
           <style>{CSS}</style>
           <header className="top-slim">
-            <button className="back" onClick={() => setScreen("home")}>← Home</button>
+            <button className="back" onClick={() => setScreen(boringMode ? "home" : "menu")}>← Home</button>
             <h2 className="screen-title">{mode === "chords" ? "Chord tones" : "Chord progressions"}</h2>
           </header>
           <div className="levels">
@@ -2316,7 +2400,7 @@ export default function NumberEarTrainer() {
       <div className="app">
         <style>{CSS}</style>
         <header className="top-slim">
-          <button className="back" onClick={() => { killSession(); setBusy(false); setScreen("home"); }}>← Home</button>
+          <button className="back" onClick={() => { killSession(); setBusy(false); setScreen(boringMode ? "home" : "menu"); }}>← Home</button>
           <h2 className="screen-title">How music works</h2>
         </header>
         <section className="panel">{pages[guidePage]}</section>
@@ -2339,7 +2423,7 @@ export default function NumberEarTrainer() {
     <div className="app">
       <style>{CSS}</style>
       <header className="top-slim">
-        <button className="back" onClick={() => { setDroneOn(false); stopPath(); killSession(); setBusy(false); setScreen("home"); }}>← Home</button>
+        <button className="back" onClick={() => { setDroneOn(false); stopPath(); killSession(); setBusy(false); setScreen(boringMode ? "home" : "menu"); }}>← Home</button>
         <h2 className="screen-title">Free play</h2>
       </header>
       {keyRow}

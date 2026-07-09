@@ -1,0 +1,239 @@
+/* ============================================================================
+   NUMBERSONG — RETRO SKIN KIT  (v1)
+   Layers a GBA/16-bit game look onto the EXISTING app class names.
+   Everything is gated under a `.retro` root, so removing that class = the
+   untouched "Boring mode" theme. Purely additive: colors/borders/bevels/fonts,
+   no layout rewrites. Uses the WeJam palette tokens already in the app.
+
+   Pixel font 'NmbrsngPixel' is expected via @font-face (embed the woff2).
+   The training NUMBERS deliberately keep Archivo — readability is sacred.
+   ============================================================================ */
+
+@font-face{
+  font-family:'NmbrsngPixel';
+  src:url("data:font/woff2;base64,__FONT_B64__") format("woff2");
+  font-display:swap;
+}
+
+.retro{
+  --pf:'NmbrsngPixel','Courier New',monospace;   /* chrome / titles / HUD  */
+  --sans:'Archivo','Helvetica Neue',Arial,sans-serif;
+  --black:'Archivo Black','Arial Black',sans-serif; /* the numbers          */
+  /* palette tokens (fall back to WeJam defaults if the app hasn't set them) */
+  --bg:#383D3B; --card:#424845; --line:#565D59; --text:#EDF2EE;
+  --green:#6ABF5E; --blue:#7CADD1; --teal:#57C6C4; --wrong:#E07856; --gold:#D9B45B;
+  --ink:#20302E;                                   /* hard shadow / pixel outline */
+  --hl:rgba(237,242,238,.14); --sh:rgba(0,0,0,.36);/* bevel light / dark        */
+  /* cut-corner "pixel panel" silhouette, reused via clip-path:var(--notch) */
+  --notch:polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,
+    100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),
+    calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px));
+}
+
+/* pixel font on all "chrome" text; NUMBERS explicitly stay Archivo below */
+.retro .screen-title,.retro .tab,.retro .primary,.retro .ghost,.retro .back,
+.retro .chip,.retro .hint,.retro .foot,.retro .seg,.retro .menu-item,
+.retro .encounter-title,.retro .encounter-sub,.retro .victory,.retro .hp-label,
+.retro .level .name,.retro .kicker{
+  font-family:var(--pf); letter-spacing:1px; text-transform:uppercase;
+  -webkit-font-smoothing:none; font-smooth:never;
+}
+
+/* ---- app shell: soft CRT scanlines + vignette (kept very subtle) ----------
+   NB: assumes .app is already a positioning context (the app root usually is).
+   We intentionally do NOT set `position` here so we never fight the app's own
+   layout. If your .app is static, add `position:relative` to it yourself. */
+.retro.app,.retro .app{
+  background:var(--bg); color:var(--text); image-rendering:pixelated;
+}
+.retro .app::after,.retro.app::after{
+  content:""; position:absolute; inset:0; pointer-events:none; z-index:60;
+  background:
+    repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px),
+    radial-gradient(120% 90% at 50% 40%,transparent 60%,rgba(0,0,0,.32) 100%);
+  mix-blend-mode:multiply; opacity:.5;
+}
+
+/* ---- screen title / back / kicker ---------------------------------------- */
+.retro .screen-title{
+  color:var(--teal); font-size:20px; line-height:1.1;
+  text-shadow:2px 2px 0 var(--ink); margin:0;
+}
+.retro .kicker{ color:var(--text); opacity:.5; font-size:9px; }
+.retro .back{
+  display:inline-flex; align-items:center; gap:6px; cursor:pointer;
+  background:var(--card); color:var(--text); font-size:10px; padding:8px 11px;
+  border:0; clip-path:var(--notch);
+  box-shadow:inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh);
+}
+.retro .back:active{ box-shadow:inset -2px -2px 0 var(--hl),inset 2px 2px 0 var(--sh); }
+
+/* ---- cards / panels: double pixel frame ---------------------------------- */
+.retro .card,.retro .panel,.retro .stack,.retro .numpad,.retro .foot{
+  clip-path:var(--notch); background:var(--card); border:0;
+  box-shadow:inset 0 0 0 2px var(--line),inset 0 0 0 4px rgba(0,0,0,.22),
+             inset 0 3px 0 2px rgba(237,242,238,.05);
+}
+.retro .panel,.retro .stack,.retro .numpad{ background:#3c423f; }
+.retro .foot{
+  background:var(--card); color:var(--text); font-size:9px; opacity:.9;
+  box-shadow:inset 0 2px 0 0 var(--line); clip-path:none; padding:10px 14px;
+}
+
+/* ---- level list rows ----------------------------------------------------- */
+.retro .level{
+  display:flex; align-items:center; gap:12px; cursor:pointer; border:0;
+  background:var(--card); color:var(--text); padding:13px 14px;
+  clip-path:var(--notch);
+  box-shadow:inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh);
+}
+.retro .level .name{ font-size:12px; }
+.retro .level .idx{
+  font-family:var(--black); font-size:16px; color:var(--teal);
+  width:26px; text-align:center; flex:0 0 auto;
+}
+.retro .level .stars{ margin-left:auto; color:var(--gold); font-family:var(--pf); font-size:13px; letter-spacing:2px; }
+.retro .level:active{ box-shadow:inset -2px -2px 0 var(--hl),inset 2px 2px 0 var(--sh); }
+.retro .level.current{ box-shadow:inset 0 0 0 2px var(--green),inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh); }
+.retro .level.locked{ color:var(--line); cursor:not-allowed; opacity:.75; }
+.retro .level.locked .idx{ color:var(--line); }
+.retro .level.gold{ box-shadow:inset 0 0 0 2px var(--gold),inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh); }
+.retro .level.gold .idx{ color:var(--gold); }
+
+/* ---- buttons: primary / ghost / tab / segment ---------------------------- */
+.retro .primary,.retro .ghost,.retro .tab,.retro .seg{
+  cursor:pointer; border:0; clip-path:var(--notch); font-size:12px; padding:14px 16px;
+  box-shadow:inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh);
+}
+.retro .primary{ background:var(--green); color:#20301d; text-shadow:1px 1px 0 rgba(255,255,255,.25); }
+.retro .ghost{ background:transparent; color:var(--teal);
+  box-shadow:inset 0 0 0 2px var(--teal),inset 2px 2px 0 rgba(87,198,196,.25); }
+.retro .tab{ background:var(--card); color:var(--text); font-size:10px; padding:10px 12px; }
+.retro .tab.on{ background:var(--teal); color:var(--ink); }
+.retro .seg{ background:var(--card); color:var(--text); font-size:10px; padding:9px 10px; }
+.retro .seg.on{ background:var(--blue); color:var(--ink); }
+.retro .primary:active,.retro .ghost:active,.retro .tab:active,.retro .seg:active{
+  box-shadow:inset -2px -2px 0 var(--hl),inset 2px 2px 0 var(--sh); transform:translateY(1px); }
+
+/* ---- chips (HUD status tags) --------------------------------------------- */
+.retro .chip{
+  display:inline-flex; align-items:center; gap:5px; font-size:9px;
+  background:var(--card); color:var(--text); padding:6px 9px; border:0;
+  clip-path:var(--notch);
+  box-shadow:inset 1px 1px 0 var(--hl),inset -1px -1px 0 var(--sh); }
+.retro .chip .g{ color:var(--gold); } .retro .chip .t{ color:var(--teal); }
+
+/* ---- hint / caption ------------------------------------------------------ */
+.retro .hint{ color:var(--text); opacity:.55; font-size:9px; line-height:1.7; }
+
+/* ---- the NUMPAD & numbers (Archivo — readability protected) --------------- */
+.retro .key-row{ display:flex; gap:8px; }
+.retro .num{
+  font-family:var(--black); text-transform:none; letter-spacing:0;
+  font-size:26px; color:var(--text); cursor:pointer; border:0;
+  background:var(--card); clip-path:var(--notch); padding:14px 0; flex:1 1 0;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh); }
+.retro .num.tonic{ color:var(--teal); }
+.retro .num.chord{ color:var(--blue); }
+.retro .num:active{ box-shadow:inset -2px -2px 0 var(--hl),inset 2px 2px 0 var(--sh); }
+.retro .num.correct{ background:var(--green); color:var(--ink); }
+.retro .num.wrong{ background:var(--wrong); color:var(--ink); animation:rt-shake .28s steps(3); }
+
+/* ---- stack notation frame (numbers inside remain Archivo) ----------------- */
+.retro .stack{ padding:12px; }
+.retro .stack .num{ box-shadow:none; background:transparent; padding:2px 0; font-size:18px; }
+
+/* =====================  RETRO GAME COMPONENTS  ============================= */
+/* encounter intro card ----------------------------------------------------- */
+.retro .encounter{
+  clip-path:var(--notch); background:var(--card); padding:16px; text-align:center;
+  box-shadow:inset 0 0 0 2px var(--teal),inset 0 0 0 4px rgba(0,0,0,.3);
+  animation:rt-pop .32s cubic-bezier(.2,1.3,.4,1); }
+.retro .encounter .art{
+  width:100%; height:96px; image-rendering:pixelated; display:block;
+  clip-path:var(--notch); margin-bottom:12px;
+  box-shadow:inset 0 0 0 2px var(--line); }
+.retro .encounter-title{ color:var(--teal); font-size:17px; margin:0; text-shadow:2px 2px 0 var(--ink); }
+.retro .encounter-sub{ color:var(--text); opacity:.7; font-size:10px; margin:6px 0 14px; }
+
+/* streak / HP bar ---------------------------------------------------------- */
+.retro .hpbar{ display:flex; align-items:center; gap:8px; }
+.retro .hp-label{ font-size:9px; color:var(--text); opacity:.7; }
+.retro .hp{
+  flex:1 1 auto; height:14px; background:var(--bg); clip-path:var(--notch);
+  box-shadow:inset 0 0 0 2px var(--line); position:relative; overflow:hidden; }
+.retro .hp > i{
+  position:absolute; inset:2px; width:var(--hp,100%);
+  background:repeating-linear-gradient(90deg,var(--green) 0 8px,#5aa851 8px 10px);
+  transition:width .35s steps(6); }
+.retro .hp.low > i{ background:repeating-linear-gradient(90deg,var(--wrong) 0 8px,#c4603f 8px 10px); }
+/* hearts variant */
+.retro .hearts{ letter-spacing:3px; font-family:var(--pf); color:var(--wrong); font-size:14px; }
+.retro .hearts .off{ color:var(--line); }
+
+/* streak counter pill */
+.retro .streak{ font-family:var(--pf); color:var(--gold); font-size:11px; letter-spacing:1px; }
+
+/* victory flourish --------------------------------------------------------- */
+.retro .victory{
+  text-align:center; color:var(--gold); font-size:20px; text-shadow:2px 2px 0 var(--ink);
+  animation:rt-pop .4s cubic-bezier(.2,1.4,.4,1); }
+.retro .victory .sub{ display:block; color:var(--text); font-size:10px; opacity:.8; margin-top:8px; }
+.retro .victory .frag{
+  display:inline-block; margin-top:12px; color:var(--teal); font-size:12px;
+  animation:rt-bob .9s ease-in-out infinite; }
+.retro .burst{ animation:rt-flash 1.2s ease-out; }
+
+/* PRESS START prompt / blinking caret ------------------------------------- */
+.retro .blink{ animation:rt-blink 1s steps(1) infinite; }
+
+/* ---- keyframes ----------------------------------------------------------- */
+@keyframes rt-blink{ 50%{ opacity:0; } }
+@keyframes rt-bob{ 50%{ transform:translateY(-3px); } }
+@keyframes rt-pop{ from{ transform:scale(.86); opacity:0; } }
+@keyframes rt-shake{ 33%{ transform:translateX(-3px);} 66%{ transform:translateX(3px);} }
+@keyframes rt-flash{ 0%{ filter:brightness(2.2);} 100%{ filter:brightness(1);} }
+@media (prefers-reduced-motion:reduce){ .retro *{ animation:none!important; } }
+
+/* ============================================================================
+   APP PATCHES — map the kit onto Numbersong's real class names + boot/menu.
+   ============================================================================ */
+.retro .app{ position:relative; }
+
+/* numpad: keep our column layout + solfège; readability protected */
+.retro .num{ flex:initial; display:flex; flex-direction:column; gap:1px; aspect-ratio:auto; padding:12px 0; }
+.retro .num .num-sol{ font-family:var(--sans); font-size:.6rem; letter-spacing:normal; text-transform:lowercase; color:var(--text-soft); }
+.retro .num.picked{ background:var(--blue); color:var(--ink); }
+.retro .num.dim{ opacity:.28; }
+
+/* level rows (our names: level-num / level-name / level-desc / level-pct) */
+.retro .level-num{ font-family:var(--black); font-size:16px; color:var(--teal); }
+.retro .level-name{ font-family:var(--pf); font-size:12px; letter-spacing:1px; text-transform:uppercase; }
+.retro .level-desc,.retro .level-tags,.retro .tag,.retro .card-desc,.retro .card-progress,.retro .set-desc{ font-family:var(--sans); text-transform:none; letter-spacing:normal; }
+.retro .level-state,.retro .level-pct{ font-family:var(--pf); }
+.retro .card-title{ font-family:var(--pf); text-transform:uppercase; letter-spacing:1px; font-size:14px; }
+.retro .card.start .card-title,.retro .card.adventure .card-title,.retro .card.quiet .card-title{ color:var(--teal); }
+
+/* segmented controls: our .seg is a CONTAINER of buttons */
+.retro .seg{ background:transparent; box-shadow:none; clip-path:none; padding:0; display:flex; gap:6px; }
+.retro .seg button{ font-family:var(--pf); font-size:10px; text-transform:uppercase; letter-spacing:1px; border:0; background:var(--card); color:var(--text); clip-path:var(--notch); padding:10px 8px; box-shadow:inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh); }
+.retro .seg button.on{ background:var(--blue); color:var(--ink); }
+.retro .key-label{ font-family:var(--pf); font-size:9px; text-transform:uppercase; color:var(--text); }
+.retro select{ font-family:var(--sans); background:var(--card); color:var(--text); border:0; box-shadow:inset 1px 1px 0 var(--hl),inset -1px -1px 0 var(--sh); clip-path:var(--notch); }
+
+/* ---- boot / title screen ---- */
+.boot-screen,.menu-screen{ align-items:center; justify-content:center; text-align:center; gap:26px; }
+.boot-title,.menu-logo{ font-family:'Archivo Black',sans-serif; font-size:2.6rem; line-height:1; margin:0; }
+.retro .boot-title,.retro .menu-logo{ font-family:var(--pf); letter-spacing:2px; text-shadow:3px 3px 0 var(--ink); }
+.boot-title .w1,.menu-logo .w1{ color:var(--green); } .boot-title .w2,.menu-logo .w2{ color:var(--blue); }
+.boot-star{ height:24px; margin-left:8px; vertical-align:middle; image-rendering:pixelated; }
+.boot-start{ color:var(--teal); font-size:1rem; letter-spacing:2px; }
+
+/* ---- main menu ---- */
+.menu-list{ display:flex; flex-direction:column; gap:12px; width:100%; max-width:320px; }
+.menu-item{ width:100%; text-align:left; display:flex; align-items:center; gap:12px; padding:16px 18px; font-size:1.05rem; background:var(--card); color:var(--text); border:1.5px solid var(--line); border-radius:12px; cursor:pointer; }
+.menu-item:hover{ border-color:var(--teal); }
+.retro .menu-item{ font-family:var(--pf); text-transform:uppercase; letter-spacing:1px; font-size:13px; border:0; clip-path:var(--notch); box-shadow:inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh); }
+.retro .menu-item:active{ box-shadow:inset -2px -2px 0 var(--hl),inset 2px 2px 0 var(--sh); transform:translateY(1px); }
+.menu-item .mi-icon{ font-size:1.3rem; flex:0 0 auto; }

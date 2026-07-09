@@ -28,6 +28,8 @@ icon_data = "data:image/png;base64," + base64.b64encode(open("icon.png","rb").re
 logo_data = "data:image/png;base64," + base64.b64encode(open("wejam.png","rb").read()).decode()
 adventure = open("adventure/assets.js").read().replace("export const", "const").replace("export function", "function")
 assert "</script" not in adventure
+retro_css = open("retro/retro.css").read().replace("__FONT_B64__", open("retro/pixelfont.b64").read().strip())
+assert "</style" not in retro_css
 # PWA manifest for Android/Chrome install (folder deploys); iOS uses the meta tags below.
 json.dump({
   "name": "Numbersong", "short_name": "Numbersong", "start_url": "./", "scope": "./",
@@ -63,6 +65,9 @@ html = f'''<!DOCTYPE html>
     background: #E07856; color: #3A241B; padding: 12px 16px; border-radius: 10px;
     font: 13px/1.5 ui-monospace, monospace; white-space: pre-wrap;
   }}
+</style>
+<style id="retro-skin">
+{retro_css}
 </style>
 </head>
 <body>

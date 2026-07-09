@@ -1,0 +1,583 @@
+<title>Numbersong — Retro Skin (concept)</title>
+<style>
+/* ===== page frame (outside the app) ===== */
+:root{--page-bg:#e9ece9;--page-text:#383D3B;--page-dim:#6a716c}
+@media(prefers-color-scheme:dark){:root{--page-bg:#2c302e;--page-text:#EDF2EE;--page-dim:#8b938d}}
+:root[data-theme="dark"]{--page-bg:#2c302e;--page-text:#EDF2EE;--page-dim:#8b938d}
+:root[data-theme="light"]{--page-bg:#e9ece9;--page-text:#383D3B;--page-dim:#6a716c}
+html,body{margin:0;padding:0}
+body{background:var(--page-bg);color:var(--page-text);
+  font-family:'Archivo','Helvetica Neue',Arial,sans-serif;
+  display:flex;flex-direction:column;align-items:center;gap:12px;padding:24px 12px 44px}
+.cap{max-width:520px;width:100%;font-size:12px;line-height:1.55;color:var(--page-dim);text-align:center}
+.cap b{color:var(--page-text)}
+.toolbar{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--page-dim)}
+.toolbar button{font:600 12px/1 'Archivo',sans-serif;padding:7px 12px;border-radius:8px;
+  border:1px solid var(--page-dim);background:transparent;color:var(--page-text);cursor:pointer}
+.toolbar button.on{background:#57C6C4;border-color:#57C6C4;color:#20302E}
+
+/* ===== the device ===== */
+.device{width:100%;max-width:420px;aspect-ratio:9/16;position:relative;overflow:hidden;
+  border-radius:20px;box-shadow:0 24px 60px rgba(0,0,0,.4);border:1px solid #565D59}
+
+/* ===== BASE (non-retro / "Boring mode") clean theme — the untouched app ===== */
+.app{--bg:#383D3B;--card:#424845;--line:#565D59;--text:#EDF2EE;--green:#6ABF5E;
+  --blue:#7CADD1;--teal:#57C6C4;--wrong:#E07856;--gold:#D9B45B;
+  position:absolute;inset:0;background:var(--bg);color:var(--text);overflow:hidden;
+  display:flex;flex-direction:column;font-family:'Archivo',sans-serif}
+.screen{display:none;flex-direction:column;height:100%;box-sizing:border-box;padding:18px 16px}
+.screen.on{display:flex}
+.topbar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.spacer{flex:1 1 auto}
+.screen-title{font:400 20px/1.1 'Archivo Black',sans-serif;color:var(--text);margin:0}
+.kicker{font-size:10px;color:var(--text);opacity:.55;letter-spacing:.1em;margin:0 0 3px}
+.back{background:var(--card);border:1px solid var(--line);color:var(--text);
+  border-radius:8px;padding:8px 11px;font-size:12px;cursor:pointer}
+.card,.panel,.stack,.numpad{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.foot{background:var(--card);border-top:1px solid var(--line);color:var(--text);font-size:11px;padding:10px 14px;opacity:.8}
+.list{display:flex;flex-direction:column;gap:9px;overflow:auto}
+.level,.menu-item{display:flex;align-items:center;gap:12px;background:var(--card);
+  border:1px solid var(--line);border-radius:12px;padding:13px 14px;color:var(--text);cursor:pointer;font:inherit;text-align:left}
+.level .idx{font:400 16px 'Archivo Black';color:var(--teal);width:26px;text-align:center}
+.level .name,.menu-item .name{font-size:14px}
+.level .stars{margin-left:auto;color:var(--gold)}
+.level.locked{opacity:.5}
+.primary{background:var(--green);color:#20301d;border:0;border-radius:12px;padding:14px;font:400 15px 'Archivo Black';cursor:pointer}
+.ghost{background:transparent;border:1px solid var(--teal);color:var(--teal);border-radius:12px;padding:12px 16px;font-size:13px;cursor:pointer}
+.tab{background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 12px;font-size:12px;cursor:pointer}
+.tab.on{background:var(--teal);color:#20302E}
+.chip{display:inline-flex;gap:5px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:5px 9px;font-size:11px}
+.chip .g{color:var(--gold)}.chip .t{color:var(--teal)}
+.hint{font-size:11px;color:var(--text);opacity:.6;line-height:1.6}
+.key-row{display:flex;gap:8px}
+.num{flex:1 1 0;background:var(--card);border:1px solid var(--line);border-radius:10px;
+  color:var(--text);font:400 26px 'Archivo Black';padding:14px 0;cursor:pointer;display:flex;justify-content:center}
+.num.tonic{color:var(--teal)}.num.chord{color:var(--blue)}
+.num.correct{background:var(--green);color:#20302E}.num.wrong{background:var(--wrong);color:#20302E}
+.seg{background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 10px;font-size:12px;cursor:pointer}
+.seg.on{background:var(--blue);color:#20302E}
+.center{margin:auto;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px}
+.wm{font:400 15px 'Archivo Black';color:var(--teal);letter-spacing:.04em}
+.hpbar{display:flex;align-items:center;gap:8px}
+.hp{flex:1;height:12px;background:#2f3432;border-radius:6px;overflow:hidden;position:relative}
+.hp>i{position:absolute;inset:0;width:100%;background:var(--green)}
+.encounter{background:var(--card);border:1px solid var(--teal);border-radius:12px;padding:16px;text-align:center}
+.encounter .art{width:100%;height:96px;border-radius:8px;margin-bottom:12px;display:block;image-rendering:pixelated}
+.encounter-title{font:400 17px 'Archivo Black';margin:0;color:var(--teal)}
+.encounter-sub{font-size:11px;opacity:.7;margin:6px 0 14px}
+.victory{text-align:center;color:var(--gold);font:400 20px 'Archivo Black'}
+.victory .sub{display:block;font-size:11px;color:var(--text);opacity:.8;margin-top:8px}
+.victory .frag{display:inline-block;margin-top:12px;color:var(--teal);font-size:13px}
+.overlay{position:absolute;inset:0;background:rgba(20,24,22,.86);display:none;
+  align-items:center;justify-content:center;padding:22px;z-index:40}
+.overlay.on{display:flex}
+.overlay .box{width:100%;max-width:320px}
+.ic{width:22px;height:22px;flex:0 0 auto;image-rendering:pixelated}
+.hero-title{line-height:.9}
+.flash{position:absolute;inset:0;background:#EDF2EE;opacity:0;pointer-events:none;z-index:70}
+.flash.go{animation:boot-flash .5s ease-out}
+@keyframes boot-flash{0%{opacity:.9}100%{opacity:0}}
+.blink{animation:bk 1s steps(1) infinite}@keyframes bk{50%{opacity:0}}
+
+/* ===== RETRO KIT (gated under .retro) ===== */
+/* ============================================================================
+   NUMBERSONG — RETRO SKIN KIT  (v1)
+   Layers a GBA/16-bit game look onto the EXISTING app class names.
+   Everything is gated under a `.retro` root, so removing that class = the
+   untouched "Boring mode" theme. Purely additive: colors/borders/bevels/fonts,
+   no layout rewrites. Uses the WeJam palette tokens already in the app.
+
+   Pixel font 'NmbrsngPixel' is expected via @font-face (embed the woff2).
+   The training NUMBERS deliberately keep Archivo — readability is sacred.
+   ============================================================================ */
+
+@font-face{
+  font-family:'NmbrsngPixel';
+  src:url("data:font/woff2;base64,d09GMgABAAAAAASEAAoAAAAAHiAAAAQ4AAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmAAgSIKtBioSgE2AiQDegt6AAQgBYFDByAbIhcgnAe2rWYtFDeKbY1jxddCCJp4APdLX5JP1LLEodAkXNUI4seOhUXvNgWozk2f/88x/y5DKKp8jbOoerQdH+AIBx4Fut8BOboB4k9KOlD6pIWt/+/elp1HabZauvFNSCzKTEgePY7WLAeP5M1N/pn8UJpqCqE4OJBNKJytRWFxsKvMCr8mw+WroNEeKZs/RymuGCulQmoJfANdzWjpwTlrqq0X8NwF2VYcODsiYVsSqj+/8B67FknlEEa4BZE2PaPgKArnrOt/wIEzTDzCMqRvYX0F1pv/9WX51fFld+YIdu3jInbX6wwNLMx0jDBxslJCDwUMVNTsbBy0AC4BXkIsaBbaz4AGDAa92qBW64xqrVFtsRi0JjKNdYtRp1gWGo22uKzWaxGkiXdeFASV8t6+m2J2298z/O9tirS0DLPHQWQsfKvHkXnIkMgkN7F4KYK7lXp6nHat6LUHqlyrapc3q1PiprlSGTld5EasN1GQwdYXDprBIg5mt7jb1yz1+bkaubbTO2DSQCFVmipu4kVKSgVWBcLJtbqiHAZoCLFa7BZD5qoeQytDpVezGD12GurgGmxJLbq/mHHT05T/MK20VB9cg8NfTG5NuIMCTDHOrjJE9NBBZSsJNCndIWnUFz1CocCi1pQidtJFEaYg1Cg7wkIiKIa7ndh5Tzm7CMFNEzlNQje83HMVs3ehxAUmE2IfNpEJPDRyJ0MxKMMIqJTk4of5eXXuT0OdLnO5I1oxLvB2UKLeSra2XyxP1iAvknbNDHVQhpspxLAAtQzXi7Ii8wZoqJ/eaH5Lzac7yx+uO1pJN4qyNrDdsSn3gFXsXVeSoXVrRdyzSnOtABf3CsVw0Te3xAHclykwbPmci4Z9aaspBZ/I1EzoOgSL2XUKhkYamAgBiSWhdrzrUlOXKAQGH4Qs3mOY8A6HgrsV7K5B+0CANTwaIAI1wTL4wQYOLiXQSYOUoFB3WvEZ9hrnyhAgSoAlUwbA5i8NkeL1K3ZlZOZGjkq0GJGgOfF5S+rSYpvNprYJ7I+ZCnIhEMFm6TAonEyQ5RsIORmGG2WslD0EcyYMHgyo/2qV+U4UZzG7e8N+9BeBPj/BnNFn2w9NxP0sUXQLSjqPMds4p0QJ0HBYz31OsWYZPoCb2mnjnJiFxfRTj36rZEpSGESerTiEdR14qiNf7xhCZUBOSSfXC5l35KUquJVxiMBfq847jhPrxnJl9HlgaiQM74g6k0/WaWam4w+KA1lTByv0VSNIrKScpZJioK3SQCi+5DdnG3k4+/7zGekfwJ/B8rl6SXyRaiCJgt3fRH2IuAK8ix0MqTcQ/8ntpwRcEoIcRGmxcorBPjXQbI5qwxUq27YkoWgF+86h2RxNrp5ZOS962sh2e83SHyjrf6Ivegf13X+HiGnI6uppKkmoGCuoSykoGajLYEzTn3fOkgAAAA==") format("woff2");
+  font-display:swap;
+}
+
+.retro{
+  --pf:'NmbrsngPixel','Courier New',monospace;   /* chrome / titles / HUD  */
+  --sans:'Archivo','Helvetica Neue',Arial,sans-serif;
+  --black:'Archivo Black','Arial Black',sans-serif; /* the numbers          */
+  /* palette tokens (fall back to WeJam defaults if the app hasn't set them) */
+  --bg:#383D3B; --card:#424845; --line:#565D59; --text:#EDF2EE;
+  --green:#6ABF5E; --blue:#7CADD1; --teal:#57C6C4; --wrong:#E07856; --gold:#D9B45B;
+  --ink:#20302E;                                   /* hard shadow / pixel outline */
+  --hl:rgba(237,242,238,.14); --sh:rgba(0,0,0,.36);/* bevel light / dark        */
+  /* cut-corner "pixel panel" silhouette, reused via clip-path:var(--notch) */
+  --notch:polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,
+    100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),
+    calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px));
+}
+
+/* pixel font on all "chrome" text; NUMBERS explicitly stay Archivo below */
+.retro .screen-title,.retro .tab,.retro .primary,.retro .ghost,.retro .back,
+.retro .chip,.retro .hint,.retro .foot,.retro .seg,.retro .menu-item,
+.retro .encounter-title,.retro .encounter-sub,.retro .victory,.retro .hp-label,
+.retro .level .name,.retro .kicker{
+  font-family:var(--pf); letter-spacing:1px; text-transform:uppercase;
+  -webkit-font-smoothing:none; font-smooth:never;
+}
+
+/* ---- app shell: soft CRT scanlines + vignette (kept very subtle) ----------
+   NB: assumes .app is already a positioning context (the app root usually is).
+   We intentionally do NOT set `position` here so we never fight the app's own
+   layout. If your .app is static, add `position:relative` to it yourself. */
+.retro.app,.retro .app{
+  background:var(--bg); color:var(--text); image-rendering:pixelated;
+}
+.retro .app::after,.retro.app::after{
+  content:""; position:absolute; inset:0; pointer-events:none; z-index:60;
+  background:
+    repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px),
+    radial-gradient(120% 90% at 50% 40%,transparent 60%,rgba(0,0,0,.32) 100%);
+  mix-blend-mode:multiply; opacity:.5;
+}
+
+/* ---- screen title / back / kicker ---------------------------------------- */
+.retro .screen-title{
+  color:var(--teal); font-size:20px; line-height:1.1;
+  text-shadow:2px 2px 0 var(--ink); margin:0;
+}
+.retro .kicker{ color:var(--text); opacity:.5; font-size:9px; }
+.retro .back{
+  display:inline-flex; align-items:center; gap:6px; cursor:pointer;
+  background:var(--card); color:var(--text); font-size:10px; padding:8px 11px;
+  border:0; clip-path:var(--notch);
+  box-shadow:inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh);
+}
+.retro .back:active{ box-shadow:inset -2px -2px 0 var(--hl),inset 2px 2px 0 var(--sh); }
+
+/* ---- cards / panels: double pixel frame ---------------------------------- */
+.retro .card,.retro .panel,.retro .stack,.retro .numpad,.retro .foot{
+  clip-path:var(--notch); background:var(--card); border:0;
+  box-shadow:inset 0 0 0 2px var(--line),inset 0 0 0 4px rgba(0,0,0,.22),
+             inset 0 3px 0 2px rgba(237,242,238,.05);
+}
+.retro .panel,.retro .stack,.retro .numpad{ background:#3c423f; }
+.retro .foot{
+  background:var(--card); color:var(--text); font-size:9px; opacity:.9;
+  box-shadow:inset 0 2px 0 0 var(--line); clip-path:none; padding:10px 14px;
+}
+
+/* ---- level list rows ----------------------------------------------------- */
+.retro .level{
+  display:flex; align-items:center; gap:12px; cursor:pointer; border:0;
+  background:var(--card); color:var(--text); padding:13px 14px;
+  clip-path:var(--notch);
+  box-shadow:inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh);
+}
+.retro .level .name{ font-size:12px; }
+.retro .level .idx{
+  font-family:var(--black); font-size:16px; color:var(--teal);
+  width:26px; text-align:center; flex:0 0 auto;
+}
+.retro .level .stars{ margin-left:auto; color:var(--gold); font-family:var(--pf); font-size:13px; letter-spacing:2px; }
+.retro .level:active{ box-shadow:inset -2px -2px 0 var(--hl),inset 2px 2px 0 var(--sh); }
+.retro .level.current{ box-shadow:inset 0 0 0 2px var(--green),inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh); }
+.retro .level.locked{ color:var(--line); cursor:not-allowed; opacity:.75; }
+.retro .level.locked .idx{ color:var(--line); }
+.retro .level.gold{ box-shadow:inset 0 0 0 2px var(--gold),inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh); }
+.retro .level.gold .idx{ color:var(--gold); }
+
+/* ---- buttons: primary / ghost / tab / segment ---------------------------- */
+.retro .primary,.retro .ghost,.retro .tab,.retro .seg{
+  cursor:pointer; border:0; clip-path:var(--notch); font-size:12px; padding:14px 16px;
+  box-shadow:inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh);
+}
+.retro .primary{ background:var(--green); color:#20301d; text-shadow:1px 1px 0 rgba(255,255,255,.25); }
+.retro .ghost{ background:transparent; color:var(--teal);
+  box-shadow:inset 0 0 0 2px var(--teal),inset 2px 2px 0 rgba(87,198,196,.25); }
+.retro .tab{ background:var(--card); color:var(--text); font-size:10px; padding:10px 12px; }
+.retro .tab.on{ background:var(--teal); color:var(--ink); }
+.retro .seg{ background:var(--card); color:var(--text); font-size:10px; padding:9px 10px; }
+.retro .seg.on{ background:var(--blue); color:var(--ink); }
+.retro .primary:active,.retro .ghost:active,.retro .tab:active,.retro .seg:active{
+  box-shadow:inset -2px -2px 0 var(--hl),inset 2px 2px 0 var(--sh); transform:translateY(1px); }
+
+/* ---- chips (HUD status tags) --------------------------------------------- */
+.retro .chip{
+  display:inline-flex; align-items:center; gap:5px; font-size:9px;
+  background:var(--card); color:var(--text); padding:6px 9px; border:0;
+  clip-path:var(--notch);
+  box-shadow:inset 1px 1px 0 var(--hl),inset -1px -1px 0 var(--sh); }
+.retro .chip .g{ color:var(--gold); } .retro .chip .t{ color:var(--teal); }
+
+/* ---- hint / caption ------------------------------------------------------ */
+.retro .hint{ color:var(--text); opacity:.55; font-size:9px; line-height:1.7; }
+
+/* ---- the NUMPAD & numbers (Archivo — readability protected) --------------- */
+.retro .key-row{ display:flex; gap:8px; }
+.retro .num{
+  font-family:var(--black); text-transform:none; letter-spacing:0;
+  font-size:26px; color:var(--text); cursor:pointer; border:0;
+  background:var(--card); clip-path:var(--notch); padding:14px 0; flex:1 1 0;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh); }
+.retro .num.tonic{ color:var(--teal); }
+.retro .num.chord{ color:var(--blue); }
+.retro .num:active{ box-shadow:inset -2px -2px 0 var(--hl),inset 2px 2px 0 var(--sh); }
+.retro .num.correct{ background:var(--green); color:var(--ink); }
+.retro .num.wrong{ background:var(--wrong); color:var(--ink); animation:rt-shake .28s steps(3); }
+
+/* ---- stack notation frame (numbers inside remain Archivo) ----------------- */
+.retro .stack{ padding:12px; }
+.retro .stack .num{ box-shadow:none; background:transparent; padding:2px 0; font-size:18px; }
+
+/* =====================  RETRO GAME COMPONENTS  ============================= */
+/* encounter intro card ----------------------------------------------------- */
+.retro .encounter{
+  clip-path:var(--notch); background:var(--card); padding:16px; text-align:center;
+  box-shadow:inset 0 0 0 2px var(--teal),inset 0 0 0 4px rgba(0,0,0,.3);
+  animation:rt-pop .32s cubic-bezier(.2,1.3,.4,1); }
+.retro .encounter .art{
+  width:100%; height:96px; image-rendering:pixelated; display:block;
+  clip-path:var(--notch); margin-bottom:12px;
+  box-shadow:inset 0 0 0 2px var(--line); }
+.retro .encounter-title{ color:var(--teal); font-size:17px; margin:0; text-shadow:2px 2px 0 var(--ink); }
+.retro .encounter-sub{ color:var(--text); opacity:.7; font-size:10px; margin:6px 0 14px; }
+
+/* streak / HP bar ---------------------------------------------------------- */
+.retro .hpbar{ display:flex; align-items:center; gap:8px; }
+.retro .hp-label{ font-size:9px; color:var(--text); opacity:.7; }
+.retro .hp{
+  flex:1 1 auto; height:14px; background:var(--bg); clip-path:var(--notch);
+  box-shadow:inset 0 0 0 2px var(--line); position:relative; overflow:hidden; }
+.retro .hp > i{
+  position:absolute; inset:2px; width:var(--hp,100%);
+  background:repeating-linear-gradient(90deg,var(--green) 0 8px,#5aa851 8px 10px);
+  transition:width .35s steps(6); }
+.retro .hp.low > i{ background:repeating-linear-gradient(90deg,var(--wrong) 0 8px,#c4603f 8px 10px); }
+/* hearts variant */
+.retro .hearts{ letter-spacing:3px; font-family:var(--pf); color:var(--wrong); font-size:14px; }
+.retro .hearts .off{ color:var(--line); }
+
+/* streak counter pill */
+.retro .streak{ font-family:var(--pf); color:var(--gold); font-size:11px; letter-spacing:1px; }
+
+/* victory flourish --------------------------------------------------------- */
+.retro .victory{
+  text-align:center; color:var(--gold); font-size:20px; text-shadow:2px 2px 0 var(--ink);
+  animation:rt-pop .4s cubic-bezier(.2,1.4,.4,1); }
+.retro .victory .sub{ display:block; color:var(--text); font-size:10px; opacity:.8; margin-top:8px; }
+.retro .victory .frag{
+  display:inline-block; margin-top:12px; color:var(--teal); font-size:12px;
+  animation:rt-bob .9s ease-in-out infinite; }
+.retro .burst{ animation:rt-flash 1.2s ease-out; }
+
+/* PRESS START prompt / blinking caret ------------------------------------- */
+.retro .blink{ animation:rt-blink 1s steps(1) infinite; }
+
+/* ---- keyframes ----------------------------------------------------------- */
+@keyframes rt-blink{ 50%{ opacity:0; } }
+@keyframes rt-bob{ 50%{ transform:translateY(-3px); } }
+@keyframes rt-pop{ from{ transform:scale(.86); opacity:0; } }
+@keyframes rt-shake{ 33%{ transform:translateX(-3px);} 66%{ transform:translateX(3px);} }
+@keyframes rt-flash{ 0%{ filter:brightness(2.2);} 100%{ filter:brightness(1);} }
+@media (prefers-reduced-motion:reduce){ .retro *{ animation:none!important; } }
+
+</style>
+
+<div class="toolbar">
+  <span>Theme:</span>
+  <button id="tRetro" class="on">Retro skin</button>
+  <button id="tPlain">Boring mode</button>
+  <span class="spacer"></span>
+  <button id="tSound" class="on">Sound: on</button>
+</div>
+
+<div class="device">
+ <div class="app retro" id="app">
+  <div class="flash" id="flash"></div>
+
+  <!-- ============ BOOT / TITLE ============ -->
+  <section class="screen on" id="s-boot">
+    <div class="center">
+      <img class="ic" id="starmark" style="width:34px;height:34px" alt="WeJam">
+      <div class="hero-title">
+        <div class="screen-title" style="font-size:34px;color:var(--teal)">NUMBER</div>
+        <div class="screen-title" style="font-size:34px;color:var(--green);margin-top:2px">SONG</div>
+      </div>
+      <div class="hint" style="font-size:10px">A WEJAM EAR-TRAINING QUEST</div>
+      <div style="height:22px"></div>
+      <button class="primary" id="startBtn">PRESS START</button>
+      <div class="hint blink" style="font-size:9px;opacity:.7">&#9654; TAP TO BEGIN</div>
+    </div>
+    <div class="foot">HOME NEVER MOVES.</div>
+  </section>
+
+  <!-- ============ MAIN MENU ============ -->
+  <section class="screen" id="s-menu">
+    <div class="topbar">
+      <img class="ic" id="logo1" style="width:auto;height:26px" alt="WeJam">
+      <span class="spacer"></span>
+      <button class="back" data-icon="gear" id="gear" aria-label="Settings"></button>
+    </div>
+    <div class="screen-title">MAIN MENU</div>
+    <p class="kicker">CHOOSE YOUR PATH</p>
+    <div class="list" style="margin-top:12px;gap:11px">
+      <button class="menu-item level" data-go="levels" data-ic="sword">
+        <span class="ic" data-icon="sword"></span>
+        <span class="name">ADVENTURE</span>
+        <span class="stars">3/8 &#10035;</span>
+      </button>
+      <button class="menu-item level" data-go="basic" data-ic="target">
+        <span class="ic" data-icon="target"></span>
+        <span class="name">BASIC TRAINING</span>
+        <span class="stars" style="color:var(--teal)">&#9654;</span>
+      </button>
+      <button class="menu-item level" data-go="free" data-ic="pick">
+        <span class="ic" data-icon="pick"></span>
+        <span class="name">FREE PLAY</span>
+        <span class="stars" style="color:var(--blue)">&#9654;</span>
+      </button>
+    </div>
+    <div class="spacer"></div>
+    <div class="foot">&#9654; SELECT &nbsp; KEY OF C &nbsp; &#10035; 54 STARS</div>
+  </section>
+
+  <!-- ============ BASIC TRAINING SUBMENU ============ -->
+  <section class="screen" id="s-basic">
+    <div class="topbar"><button class="back" data-back="menu">&#60; BACK</button></div>
+    <div class="screen-title">BASIC TRAINING</div>
+    <p class="kicker">PICK A LESSON LINE</p>
+    <div class="list" style="margin-top:12px;gap:11px">
+      <button class="menu-item level current" data-go="levels" data-ic="note">
+        <span class="ic" data-icon="note"></span><span class="name">SINGLE NOTES</span>
+        <span class="stars">&#9733;&#9733;&#9733;&#9733;</span></button>
+      <button class="menu-item level" data-go="levels" data-ic="stack">
+        <span class="ic" data-icon="stack"></span><span class="name">CHORD TONES</span>
+        <span class="stars">&#9733;&#9733;</span></button>
+      <button class="menu-item level" data-go="levels" data-ic="wave">
+        <span class="ic" data-icon="wave"></span><span class="name">CHORD PROGRESSIONS</span>
+        <span class="stars" style="opacity:.4">&#9733;</span></button>
+    </div>
+    <div class="spacer"></div>
+    <div class="foot">&#9654; SELECT &nbsp; &#60; BACK</div>
+  </section>
+
+  <!-- ============ LEVEL LIST (reskinned) ============ -->
+  <section class="screen" id="s-levels">
+    <div class="topbar">
+      <button class="back" data-back="basic">&#60; BACK</button><span class="spacer"></span>
+      <span class="chip"><span class="g">&#9733;</span> 16/18</span>
+    </div>
+    <p class="kicker">STAIRCASE MEADOWS</p>
+    <div class="screen-title">SINGLE NOTES</div>
+    <div class="list" style="margin-top:12px">
+      <button class="level" data-go="session"><span class="idx">1</span><span class="name">HOME &amp; THE FIVE</span><span class="stars">&#9733;&#9733;&#9733;</span></button>
+      <button class="level" data-go="session"><span class="idx">2</span><span class="name">STEPS 2 &amp; 3</span><span class="stars">&#9733;&#9733;&#9733;</span></button>
+      <button class="level current" data-go="session"><span class="idx">3</span><span class="name">THE FULL LADDER</span><span class="stars">&#9733;&#9733;&#9734;</span></button>
+      <button class="level" data-go="session"><span class="idx">4</span><span class="name">ANY OCTAVE</span><span class="stars">&#9733;&#9734;&#9734;</span></button>
+      <button class="level locked"><span class="idx">5</span><span class="name">LEAPS HOME</span><span class="stars">&#128274;</span></button>
+      <button class="level gold locked"><span class="idx">6</span><span class="name">CAPSTONE: BLINDFOLD</span><span class="stars">&#9670;</span></button>
+    </div>
+    <div class="spacer"></div>
+    <div class="foot">CLEAR THE CAPSTONE TO WIN A SWORD FRAGMENT.</div>
+  </section>
+
+  <!-- ============ SESSION (framed drill) ============ -->
+  <section class="screen" id="s-session">
+    <div class="topbar">
+      <button class="back" data-back="levels">&#60; QUIT</button>
+      <span class="spacer"></span>
+      <span class="streak">STREAK 3</span>
+    </div>
+    <div class="hpbar" style="margin-bottom:14px">
+      <span class="hp-label">HP</span>
+      <div class="hp" id="hp"><i style="--hp:100%"></i></div>
+      <span class="chip">R<span id="rnum">1</span>/5</span>
+    </div>
+
+    <div class="panel" style="text-align:center;padding:18px">
+      <p class="hint" style="margin:0 0 12px">WHICH NUMBER IS THIS?</p>
+      <button class="ghost" id="playBtn">&#9654; PLAY</button>
+      <p class="hint" id="fb" style="margin:14px 0 0;min-height:14px">&nbsp;</p>
+    </div>
+
+    <div class="numpad" style="margin-top:14px">
+      <div class="key-row">
+        <button class="num tonic" data-n="1">1</button>
+        <button class="num" data-n="2">2</button>
+        <button class="num" data-n="3">3</button>
+        <button class="num" data-n="4">4</button>
+      </div>
+      <div class="key-row" style="margin-top:8px">
+        <button class="num" data-n="5">5</button>
+        <button class="num" data-n="6">6</button>
+        <button class="num" data-n="7">7</button>
+        <button class="num tonic" data-n="8">1&#39;</button>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="foot">HEAR IT &#183; NAME THE NUMBER &#183; RESOLVE HOME</div>
+
+    <!-- encounter intro overlay -->
+    <div class="overlay on" id="encounter">
+      <div class="box encounter">
+        <canvas class="art" id="art" width="160" height="72"></canvas>
+        <p class="encounter-title">LOWMOOR FEN</p>
+        <p class="encounter-sub">DIATONIC MINOR &#183; ROUND 1 OF 5</p>
+        <button class="primary" id="goBtn" style="width:100%">GO</button>
+      </div>
+    </div>
+    <!-- victory overlay -->
+    <div class="overlay" id="victory">
+      <div class="box" style="text-align:center">
+        <div class="victory burst">REGION CLEARED!
+          <span class="sub">3 OF 5 PERFECT &#183; &#9733;&#9733;&#9734;</span>
+          <span class="frag">&#10035; SWORD FRAGMENT WON</span>
+        </div>
+        <button class="primary" id="vBtn" style="width:100%;margin-top:22px">CONTINUE</button>
+      </div>
+    </div>
+  </section>
+ </div>
+</div>
+
+<p class="cap"><b>Retro skin concept — one cohesive game shell.</b> Boot &rarr; menu &rarr; a reskinned level list &rarr; a framed training session. Toggle <b>Boring mode</b> to see the same markup with the retro layer removed. Numbers stay Archivo for readability; only the chrome is pixel. Sound is live (tap around).</p>
+
+<script>
+const ASSETS={logo:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAWCAYAAADXYyzPAAAAyklEQVR42mNgGG4g/NiR/wQVZe2P+4+ND6LRMdUt1tLX+4/Oh9HomBjLcLFJspjUIEbHBH2MHMQwPqnBDLJo25tXpFuMjSYUzNh8iW45Vkcg+wjGpmtQwyzBFdTEBDdJFoMAus9gfJqm6gErQAbM4pq1F/+jY2xyyGLo+sl2ISz+QIYgs9HlkB2DzCY19WP1PcwQdANhfGQamzqqWIyO0S1GpsmyDJ+P0aMBWQ3FFmMLXkJBjU0/WZYjJya6WYyceokt0fCpGwXoAADXWdX2qwed0gAAAABJRU5ErkJggg==',tileset:'data:image/png;base64,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',
+  grid:[[11, 10, 10, 11, 10, 10, 10, 10, 10, 10, 10, 10, 11, 10, 10, 11], [10, 10, 11, 10, 10, 10, 10, 10, 10, 10, 10, 11, 10, 10, 11, 10], [10, 11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 11, 10, 10], [1, 1, 1, 10, 10, 10, 10, 21, 10, 10, 10, 10, 1, 1, 1, 1], [1, 1, 1, 1, 10, 10, 10, 13, 10, 10, 10, 2, 2, 2, 1, 1], [1, 1, 1, 1, 10, 10, 10, 13, 10, 10, 10, 2, 2, 2, 2, 1], [1, 1, 1, 1, 1, 10, 10, 14, 12, 12, 12, 12, 18, 2, 2, 2], [1, 1, 1, 1, 1, 3, 3, 4, 3, 3, 2, 2, 20, 2, 2, 1], [1, 9, 9, 9, 3, 3, 3, 3, 18, 12, 12, 12, 15, 2, 1, 1], [9, 9, 9, 9, 9, 3, 3, 3, 13, 4, 3, 3, 1, 1, 1, 1], [9, 9, 9, 9, 9, 3, 3, 3, 13, 3, 3, 3, 1, 1, 1, 1], [9, 9, 9, 18, 12, 12, 12, 12, 15, 3, 3, 1, 1, 1, 1, 1], [9, 9, 9, 13, 9, 9, 9, 5, 5, 5, 5, 1, 1, 1, 1, 1], [9, 9, 9, 13, 9, 9, 8, 5, 5, 5, 5, 1, 1, 1, 1, 1], [1, 9, 9, 14, 12, 12, 12, 18, 5, 5, 5, 5, 5, 5, 5, 5], [1, 1, 1, 1, 5, 5, 5, 13, 8, 5, 5, 5, 5, 5, 5, 5], [1, 1, 1, 1, 5, 5, 5, 13, 5, 5, 5, 6, 5, 5, 6, 5], [1, 1, 1, 1, 1, 5, 5, 14, 12, 12, 12, 12, 12, 18, 5, 5], [1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 5, 5, 6, 13, 5, 5], [1, 1, 1, 1, 1, 1, 1, 3, 3, 3, 5, 5, 5, 13, 5, 5], [1, 2, 2, 2, 2, 2, 1, 3, 3, 4, 3, 5, 5, 13, 5, 5], [2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 18, 12, 12, 15, 3, 1], [2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 13, 4, 3, 3, 1, 1], [2, 2, 2, 18, 12, 12, 12, 12, 12, 12, 15, 3, 3, 3, 1, 1], [2, 2, 19, 15, 2, 2, 2, 1, 3, 3, 3, 3, 3, 1, 1, 1], [2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1]],T:16,SCOLS:8};
+const app=document.getElementById('app');
+const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+/* ---------- pixel icons (own 11x11 bitmaps -> inline canvas) ---------- */
+const ICON={
+ gear:["  ###  "," #   # ","## # ##","#  #  #","## # ##"," #   # ","  ###  "],
+ sword:["      #","     ##","   ### ","  ###  "," ###   ","# #    ","##     "],
+ target:["#######","#     #","# ### #","# #@# #","# ### #","#     #","#######"],
+ pick:["  ###  "," ##### ","#######","#######"," ##### ","  ###  ","   #   "],
+ note:["   ###","   # #","   #  ","   #  "," ###  ","####  "," ##   "],
+ stack:["#####","     ","#####","     ","#####","  #  ","  #  "],
+ wave:["#    ","##  #","# ## ","#  ##","    #","     ","     "],
+};
+const IC_COL={gear:'#EDF2EE',sword:'#57C6C4',target:'#6ABF5E',pick:'#7CADD1',
+  note:'#57C6C4',stack:'#7CADD1',wave:'#6ABF5E'};
+function iconSVG(name,col){const b=ICON[name]||ICON.note;const w=b[0].length,h=b.length;
+  let r='';for(let y=0;y<h;y++)for(let x=0;x<w;x++){const c=b[y][x];
+    if(c==='#')r+='<rect x="'+x+'" y="'+y+'" width="1" height="1" fill="'+(col||IC_COL[name]||'#EDF2EE')+'"/>';
+    else if(c==='@')r+='<rect x="'+x+'" y="'+y+'" width="1" height="1" fill="#E07856"/>';}
+  return 'data:image/svg+xml;utf8,'+encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" shape-rendering="crispEdges">'+r+'</svg>');}
+document.querySelectorAll('[data-icon]').forEach(el=>{
+  const n=el.getAttribute('data-icon');
+  const img=document.createElement('img');img.className='ic';img.src=iconSVG(n);
+  img.style.imageRendering='pixelated';el.textContent='';el.appendChild(img);});
+document.querySelectorAll('.ic[data-icon]').forEach(()=>{});
+// star mark + logo
+document.getElementById('starmark').src=iconSVG('target','#57C6C4'); // placeholder star handled below
+document.getElementById('logo1').src=ASSETS.logo;
+// use the WeJam pixel logo as the boot star mark too (crisp)
+const sm=document.getElementById('starmark'); sm.src=ASSETS.logo; sm.style.height='30px';sm.style.width='auto';
+
+/* ---------- retro icons injected inside menu items ---------- */
+document.querySelectorAll('.menu-item[data-ic]').forEach(el=>{
+  const holder=el.querySelector('.ic');});
+
+/* ---------- WebAudio retro SFX ---------- */
+let AC=null,soundOn=true;
+function ac(){if(!AC){AC=new (window.AudioContext||window.webkitAudioContext)();}return AC;}
+function tone(freqs,dur,type,gain,stagger,bendTo){
+  if(!soundOn)return; const c=ac(); let t=c.currentTime;
+  freqs.forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();
+    o.type=type; o.frequency.setValueAtTime(f,t);
+    if(bendTo)o.frequency.exponentialRampToValueAtTime(bendTo,t+dur/1000);
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(gain,t+0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur/1000);
+    o.connect(g).connect(c.destination); o.start(t); o.stop(t+dur/1000+0.02);
+    t+=(stagger||dur)/1000;});
+}
+const SFX={
+  move:()=>tone([494],45,'square',.05),
+  select:()=>tone([659,988],80,'square',.06,60),
+  back:()=>tone([392,294],65,'square',.06,60),
+  boot:()=>tone([523,659,784,1047],150,'triangle',.06,70),
+  correct:()=>tone([880,1319],90,'triangle',.07,70),
+  wrong:()=>tone([160],200,'square',.08,0,90),
+  victory:()=>{tone([659,784,1047],110,'square',.06,95);
+    setTimeout(()=>tone([1047,1319],320,'triangle',.06,120),330);},
+};
+
+/* ---------- screen navigation + transitions ---------- */
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  document.getElementById('s-'+id).classList.add('on');}
+function flash(){if(reduce)return;const f=document.getElementById('flash');
+  f.classList.remove('go');void f.offsetWidth;f.classList.add('go');}
+
+document.getElementById('startBtn').addEventListener('click',()=>{ac();SFX.boot();flash();
+  setTimeout(()=>show('menu'),140);});
+document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{
+  SFX.select();const g=b.getAttribute('data-go');
+  if(g==='free'){toast('FREE PLAY → (opens Free Play)');return;}
+  show(g); if(g==='session')resetSession();}));
+document.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click',()=>{
+  SFX.back();show(b.getAttribute('data-back'));}));
+document.getElementById('gear').addEventListener('click',()=>{SFX.select();toast('⚙ SETTINGS');});
+// move blip on hover/focus of menu-ish items
+document.querySelectorAll('.menu-item,.level,.tab,.seg').forEach(el=>{
+  el.addEventListener('pointerenter',()=>SFX.move());
+  el.addEventListener('focus',()=>SFX.move());});
+
+function toast(msg){const f=document.querySelectorAll('.screen.on .foot')[0];
+  if(!f)return;const old=f.textContent;f.textContent=msg;setTimeout(()=>f.textContent=old,1400);}
+
+/* ---------- encounter art: crop the Harmonia map around Lowmoor Fen ---------- */
+const sheet=new Image(); sheet.src=ASSETS.tileset;
+sheet.onload=()=>{const cv=document.getElementById('art');const cx=cv.getContext('2d');
+  cx.imageSmoothingEnabled=false;const T=ASSETS.T,SC=ASSETS.SCOLS;
+  const c0=6,r0=18,cols=10,rows=6;                 // crop window over the fen
+  const scale=cv.width/(cols*T);
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const idx=ASSETS.grid[r0+r]&&ASSETS.grid[r0+r][c0+c]; if(idx==null)continue;
+    cx.drawImage(sheet,(idx%SC)*T,((idx/SC)|0)*T,T,T,c*T*scale,r*T*scale,T*scale,T*scale);}
+};
+
+/* ---------- session drill logic ---------- */
+let hp=100,round=1,answer=4;
+function resetSession(){hp=100;round=1;answer=4;
+  document.getElementById('encounter').classList.add('on');
+  document.getElementById('victory').classList.remove('on');
+  updateHP();document.getElementById('rnum').textContent=round;
+  document.getElementById('fb').innerHTML='&nbsp;';
+  document.querySelectorAll('.num').forEach(n=>n.classList.remove('correct','wrong'));}
+function updateHP(){const bar=document.getElementById('hp');
+  bar.querySelector('i').style.width=hp+'%';bar.classList.toggle('low',hp<=40);}
+document.getElementById('goBtn').addEventListener('click',()=>{SFX.select();
+  document.getElementById('encounter').classList.remove('on');
+  document.querySelector('#s-session .streak').textContent='STREAK 3';});
+document.getElementById('playBtn').addEventListener('click',()=>{
+  // "play" the target degree as a friendly tone (C major scale)
+  const scale={1:523,2:587,3:659,4:698,5:784,6:880,7:988,8:1047};
+  tone([scale[answer]],420,'triangle',.08);});
+document.querySelectorAll('.num').forEach(btn=>btn.addEventListener('click',()=>{
+  const n=+btn.getAttribute('data-n');
+  document.querySelectorAll('.num').forEach(x=>x.classList.remove('correct','wrong'));
+  if(n===answer){btn.classList.add('correct');SFX.correct();
+    document.getElementById('fb').innerHTML='<span style="color:var(--green)">YES &#183; THAT’S 4</span>';
+    setTimeout(nextRound,650);}
+  else{btn.classList.add('wrong');SFX.wrong();hp=Math.max(0,hp-20);updateHP();
+    document.getElementById('fb').innerHTML='<span style="color:var(--wrong)">NOT QUITE &#183; LISTEN AGAIN</span>';}
+}));
+function nextRound(){round++;
+  if(round>4){win();return;}
+  answer=[4,2,5,3][(round-1)%4];
+  document.getElementById('rnum').textContent=round;
+  document.querySelectorAll('.num').forEach(x=>x.classList.remove('correct','wrong'));
+  document.getElementById('fb').innerHTML='&nbsp;';
+  document.querySelector('#s-session .streak').textContent='STREAK '+(2+round);}
+function win(){SFX.victory();document.getElementById('victory').classList.add('on');}
+document.getElementById('vBtn').addEventListener('click',()=>{SFX.select();
+  document.getElementById('victory').classList.remove('on');show('levels');});
+
+/* ---------- theme + sound toggles ---------- */
+document.getElementById('tRetro').addEventListener('click',()=>{app.classList.add('retro');
+  tRetro.classList.add('on');tPlain.classList.remove('on');});
+document.getElementById('tPlain').addEventListener('click',()=>{app.classList.remove('retro');
+  tPlain.classList.add('on');tRetro.classList.remove('on');});
+document.getElementById('tSound').addEventListener('click',function(){soundOn=!soundOn;ac();
+  this.textContent='Sound: '+(soundOn?'on':'off');this.classList.toggle('on',soundOn);});
+</script>
