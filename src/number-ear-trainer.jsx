@@ -998,10 +998,11 @@ function drawHero(ctx, x, y) {
   ctx.moveTo(x - 3, y + 11); ctx.lineTo(x + 3, y + 11); ctx.lineTo(x, y + 14); ctx.closePath(); ctx.fill();
 }
 
-function AdventureMap({ nodes, currentId, collected, onEnter }) {
+function AdventureMap({ nodes, currentId, collected, onEnter, onSettings, onGuide, onFree }) {
   const H = window.HARMONIA;
   const mapRef = useRef(null);
   const swordRef = useRef(null);
+  const scrollRef = useRef(null);
   const [tileset, setTileset] = useState(null);
   const [swordImg, setSwordImg] = useState(null);
 
@@ -1009,6 +1010,16 @@ function AdventureMap({ nodes, currentId, collected, onEnter }) {
     const a = new Image(); a.onload = () => setTileset(a); a.src = H.tileset;
     const b = new Image(); b.onload = () => setSwordImg(b); b.src = H.sword;
   }, []);
+
+  // center the view on the hero / current node once the map is drawn
+  useEffect(() => {
+    const sc = scrollRef.current, cv = mapRef.current;
+    if (!sc || !cv || !tileset) return;
+    const cn = nodes.find((n) => n.id === currentId);
+    if (!cn) return;
+    const mapH = cv.getBoundingClientRect().height;
+    sc.scrollTop = Math.max(0, ((cn.r + 0.5) / H.gr) * mapH - sc.clientHeight * 0.5);
+  }, [tileset, currentId]);
 
   useEffect(() => {
     if (!tileset) return;
@@ -1079,19 +1090,28 @@ function AdventureMap({ nodes, currentId, collected, onEnter }) {
   const have = collected.size;
   const next = nodes.find((n) => !collected.has(H.stageFrag[n.id]));
   return (
-    <>
-      <div className="adv-map-wrap">
+    <div className="adv-screen">
+      <style>{CSS}</style>
+      <div className="adv-scroll" ref={scrollRef}>
         <canvas ref={mapRef} className="adv-map" onClick={tapMap} role="img" aria-label="Harmonia world map" />
       </div>
-      <div className="adv-forge">
-        <canvas ref={swordRef} className="adv-sword" />
-        <div className="adv-forge-info">
-          <div className="adv-forge-title">EXCALIBAR</div>
-          <div className="adv-frag-count">{have} / 8 fragments</div>
-          <div className="adv-frag-next">{have === 8 ? "Blade reforged. Home is yours." : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""}</div>
+      <div className="adv-hud adv-hud-top">
+        <img className="adv-logo" src={typeof window !== "undefined" ? window.WEJAM_LOGO : ""} alt="WeJam" />
+        <span className="adv-title">Harmonia</span>
+        <button className="gear" onClick={onSettings} aria-label="Settings">⚙</button>
+      </div>
+      <div className="adv-hud adv-hud-bottom">
+        <canvas ref={swordRef} className="adv-sword-mini" aria-label="Excalibar forge progress" />
+        <div className="adv-forge-txt">
+          <b>{have} / 8</b> fragments
+          <span>{have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""}</span>
+        </div>
+        <div className="adv-hud-actions">
+          <button className="ghost" onClick={onGuide} aria-label="How music works">📖</button>
+          <button className="ghost" onClick={onFree} aria-label="Free play">🎸</button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -1680,20 +1700,11 @@ export default function NumberEarTrainer() {
 
   if (screen === "adventure") {
     return (
-      <div className="app">
-        <style>{CSS}</style>
-        <header className="top-slim adv-top">
-          <img className="adv-logo" src={typeof window !== "undefined" ? window.WEJAM_LOGO : ""} alt="WeJam" />
-          <h2 className="screen-title adv-title">Harmonia</h2>
-          <button className="gear" onClick={() => setScreen("settings")} aria-label="Settings">⚙</button>
-        </header>
-        <AdventureMap nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={enterStage} />
-        <div className="adv-actions">
-          <button className="ghost" onClick={() => { setGuidePage(0); setScreen("guide"); }}>📖 How music works</button>
-          <button className="ghost" onClick={() => { setFpTab("notes"); setScreen("learn"); }}>🎸 Free play</button>
-        </div>
-        <footer className="foot">Clear a region to claim its fragment of Excalibar. Home never moves.</footer>
-      </div>
+      <AdventureMap
+        nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={enterStage}
+        onSettings={() => setScreen("settings")}
+        onGuide={() => { setGuidePage(0); setScreen("guide"); }}
+        onFree={() => { setFpTab("notes"); setScreen("learn"); }} />
     );
   }
 
@@ -2790,26 +2801,27 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .card.adventure { border-color: var(--teal); }
 .card.adventure .card-title { color: var(--teal); }
 .card.adventure:hover { border-color: var(--green); }
-.adv-top { justify-content: space-between; }
-.adv-logo { height: 28px; width: auto; image-rendering: pixelated; }
-.adv-title { flex: 1; font-size: 1.05rem; letter-spacing: 0.06em; color: var(--teal); text-transform: uppercase; }
-.adv-map-wrap {
-  display: flex; justify-content: center;
-  background: #232725; border: 1.5px solid var(--line); border-radius: 14px;
-  padding: 10px; overflow: auto; max-height: 60vh;
+/* full-screen immersive adventure: the map fills the screen, HUD floats on top */
+.adv-screen { position: fixed; inset: 0; z-index: 40; background: #1b1f1d; overflow: hidden; }
+.adv-scroll { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; display: flex; justify-content: center; }
+.adv-map { image-rendering: pixelated; width: 100%; max-width: 460px; height: auto; align-self: flex-start; cursor: pointer; }
+.adv-hud { position: absolute; left: 0; right: 0; z-index: 2; display: flex; align-items: center; gap: 12px; pointer-events: none; }
+.adv-hud > * { pointer-events: auto; }
+.adv-hud-top {
+  top: 0; padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 22px;
+  background: linear-gradient(180deg, rgba(20,23,21,0.95) 40%, rgba(20,23,21,0));
 }
-.adv-map { image-rendering: pixelated; width: 100%; max-width: 300px; height: auto; cursor: pointer; }
-.adv-forge {
-  display: flex; align-items: center; gap: 16px;
-  background: var(--card); border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 16px;
+.adv-hud-bottom {
+  bottom: 0; padding: 22px 16px calc(env(safe-area-inset-bottom, 0px) + 14px);
+  background: linear-gradient(0deg, rgba(20,23,21,0.96) 55%, rgba(20,23,21,0));
 }
-.adv-sword { image-rendering: pixelated; height: 104px; width: auto; flex-shrink: 0; }
-.adv-forge-info { display: flex; flex-direction: column; gap: 4px; }
-.adv-forge-title { font-family: 'Archivo Black', sans-serif; font-size: 1.1rem; color: var(--teal); letter-spacing: 0.05em; }
-.adv-frag-count { font-family: 'Archivo Black', sans-serif; font-size: 0.95rem; color: var(--text); }
-.adv-frag-next { font-size: 0.82rem; color: var(--text-soft); }
-.adv-actions { display: flex; gap: 10px; }
-.adv-actions .ghost { flex: 1; }
+.adv-logo { height: 26px; width: auto; image-rendering: pixelated; }
+.adv-title { flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; letter-spacing: 0.08em; color: var(--teal); text-transform: uppercase; }
+.adv-sword-mini { image-rendering: pixelated; height: 64px; width: auto; flex-shrink: 0; }
+.adv-forge-txt { flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: 0.82rem; color: var(--text-soft); }
+.adv-forge-txt b { font-family: 'Archivo Black', sans-serif; font-size: 1rem; color: var(--teal); }
+.adv-hud-actions { display: flex; gap: 8px; }
+.adv-hud-actions .ghost { padding: 8px 11px; font-size: 1.1rem; }
 .settings { display: flex; flex-direction: column; gap: 20px; }
 .set-block {
   display: flex; flex-direction: column; gap: 10px;
