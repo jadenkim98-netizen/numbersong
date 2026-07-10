@@ -145,44 +145,8 @@
 .retro .stack .num{ box-shadow:none; background:transparent; padding:2px 0; font-size:18px; }
 
 /* =====================  RETRO GAME COMPONENTS  ============================= */
-/* encounter intro card ----------------------------------------------------- */
-.retro .encounter{
-  clip-path:var(--notch); background:var(--card); padding:16px; text-align:center;
-  box-shadow:inset 0 0 0 2px var(--teal),inset 0 0 0 4px rgba(0,0,0,.3);
-  animation:rt-pop .32s cubic-bezier(.2,1.3,.4,1); }
-.retro .encounter .art{
-  width:100%; height:96px; image-rendering:pixelated; display:block;
-  clip-path:var(--notch); margin-bottom:12px;
-  box-shadow:inset 0 0 0 2px var(--line); }
-.retro .encounter-title{ color:var(--teal); font-size:17px; margin:0; text-shadow:2px 2px 0 var(--ink); }
-.retro .encounter-sub{ color:var(--text); opacity:.7; font-size:10px; margin:6px 0 14px; }
-
-/* streak / HP bar ---------------------------------------------------------- */
-.retro .hpbar{ display:flex; align-items:center; gap:8px; }
-.retro .hp-label{ font-size:9px; color:var(--text); opacity:.7; }
-.retro .hp{
-  flex:1 1 auto; height:14px; background:var(--bg); clip-path:var(--notch);
-  box-shadow:inset 0 0 0 2px var(--line); position:relative; overflow:hidden; }
-.retro .hp > i{
-  position:absolute; inset:2px; width:var(--hp,100%);
-  background:repeating-linear-gradient(90deg,var(--green) 0 8px,#5aa851 8px 10px);
-  transition:width .35s steps(6); }
-.retro .hp.low > i{ background:repeating-linear-gradient(90deg,var(--wrong) 0 8px,#c4603f 8px 10px); }
-/* hearts variant */
-.retro .hearts{ letter-spacing:3px; font-family:var(--pf); color:var(--wrong); font-size:14px; }
-.retro .hearts .off{ color:var(--line); }
-
-/* streak counter pill */
+/* streak counter pill (encounter / trial gauge / victory live in the Phase-2 block at the end) */
 .retro .streak{ font-family:var(--pf); color:var(--gold); font-size:11px; letter-spacing:1px; }
-
-/* victory flourish --------------------------------------------------------- */
-.retro .victory{
-  text-align:center; color:var(--gold); font-size:20px; text-shadow:2px 2px 0 var(--ink);
-  animation:rt-pop .4s cubic-bezier(.2,1.4,.4,1); }
-.retro .victory .sub{ display:block; color:var(--text); font-size:10px; opacity:.8; margin-top:8px; }
-.retro .victory .frag{
-  display:inline-block; margin-top:12px; color:var(--teal); font-size:12px;
-  animation:rt-bob .9s ease-in-out infinite; }
 .retro .burst{ animation:rt-flash 1.2s ease-out; }
 
 /* PRESS START prompt / blinking caret ------------------------------------- */
@@ -262,3 +226,126 @@
   box-shadow:inset 0 0 0 2px var(--teal),inset 0 0 0 4px rgba(0,0,0,.25); }
 .retro .stage-goal{ font-family:var(--sans); }
 .retro .stage-meta{ font-family:var(--pf); letter-spacing:1px; }
+
+/* =====================  PHASE 2 — ENCOUNTERS (The Eight Keepers)  ========== */
+
+/* ---- 1) region encounter card (levels screen, adventure entry) ----------
+   Replaces the plain .stage-intro when .retro + fromAdventure. Titles are
+   pixel; the keeper's speech and the teaching text stay --sans (sacred). */
+.retro .encounter{
+  clip-path:var(--notch); background:var(--card); padding:0; text-align:left;
+  box-shadow:inset 0 0 0 2px var(--em,var(--teal)),inset 0 0 0 4px rgba(0,0,0,.3);
+  margin:0 0 14px; animation:rt-pop .32s cubic-bezier(.2,1.3,.4,1);
+}
+.retro .encounter.mood-major { --em:var(--green); }
+.retro .encounter.mood-minor { --em:var(--blue);  }
+.retro .encounter.mood-mystic{ --em:var(--teal);  }
+.retro .encounter.mood-cave  { --em:#9b8ec4;      }
+.retro .encounter.mood-coast { --em:var(--blue);  }
+.retro .encounter.mood-bridge{ --em:var(--gold);  }
+.retro .encounter.mood-forge { --em:var(--wrong); }
+
+.retro .enc-head{
+  display:flex; align-items:center; gap:12px; padding:12px 14px;
+  background:rgba(0,0,0,.22); box-shadow:inset 0 -2px 0 0 var(--line);
+}
+.retro .enc-emblem{
+  flex:0 0 auto; width:44px; height:44px; display:flex; align-items:center;
+  justify-content:center; font-size:24px; clip-path:var(--notch);
+  background:var(--bg); box-shadow:inset 0 0 0 2px var(--em,var(--teal));
+  image-rendering:pixelated;
+}
+.retro .enc-emblem img{ width:32px; height:32px; image-rendering:pixelated; }
+.retro .enc-titles{ flex:1 1 auto; min-width:0; }
+.retro .enc-titles .kicker{ display:block; font-family:var(--pf); text-transform:uppercase; letter-spacing:1px; color:var(--text); opacity:.5; font-size:8px; margin-bottom:3px; }
+.retro .encounter-title{
+  font-family:var(--pf); text-transform:uppercase; letter-spacing:1px;
+  color:var(--em,var(--teal)); font-size:15px; line-height:1.2; margin:0;
+  text-shadow:2px 2px 0 var(--ink);
+}
+.retro .encounter-sub{ display:block; font-family:var(--pf); text-transform:uppercase; letter-spacing:1px; color:var(--text); opacity:.65; font-size:9px; margin:4px 0 0; }
+.retro .enc-frag{
+  flex:0 0 auto; font-family:var(--pf); font-size:9px; letter-spacing:1px;
+  text-transform:uppercase; color:var(--gold); text-align:right; line-height:1.6;
+}
+.retro .enc-frag .gem{ display:block; font-size:14px; animation:rt-bob 1.4s ease-in-out infinite; }
+
+.retro .keeper-line{
+  margin:0; padding:12px 14px 0; font-family:var(--sans); font-size:.95rem;
+  line-height:1.5; color:var(--text); text-transform:none; letter-spacing:normal;
+}
+.retro .keeper-name{
+  display:block; font-family:var(--pf); font-size:10px; letter-spacing:1px;
+  text-transform:uppercase; color:var(--em,var(--teal)); margin-bottom:5px;
+}
+.retro .keeper-line q{ quotes:"\201C" "\201D"; font-style:italic; opacity:.95; }
+
+.retro .encounter .stage-goal{
+  margin:0; padding:10px 14px 0; font-family:var(--sans); font-size:.92rem;
+  line-height:1.5; text-transform:none; letter-spacing:normal;
+}
+.retro .encounter .stage-meta{
+  display:block; padding:10px 14px 13px; font-family:var(--pf); font-size:8px;
+  letter-spacing:1px; text-transform:uppercase; color:var(--text); opacity:.55;
+}
+
+/* ---- 2) TRIAL gauge (session screen) ------------------------------------- */
+.retro .progressbar{ display:none; }
+.retro .hpbar{ display:flex; align-items:center; gap:8px; margin:2px 0; }
+.retro .hp-label{
+  font-family:var(--pf); font-size:9px; letter-spacing:1px;
+  text-transform:uppercase; color:var(--text); opacity:.7; flex:0 0 auto;
+}
+.retro .trial-cells{
+  flex:1 1 auto; display:flex; gap:3px; height:14px; padding:3px;
+  background:var(--bg); clip-path:var(--notch);
+  box-shadow:inset 0 0 0 2px var(--line);
+}
+.retro .trial-cells .cell{ flex:1 1 0; background:rgba(237,242,238,.07); position:relative; }
+.retro .trial-cells .cell.hit{
+  background:var(--green);
+  box-shadow:inset 0 -2px 0 rgba(0,0,0,.3),inset 0 2px 0 rgba(255,255,255,.25);
+}
+.retro .trial-cells .cell.miss{ background:var(--line); opacity:.55; }
+.retro .trial-cells .cell.mark::after{
+  content:""; position:absolute; top:-5px; bottom:-5px; right:-2.5px; width:2px;
+  background:var(--gold); box-shadow:0 0 4px var(--gold);
+}
+.retro .trial-cells .cell.hot{ animation:rt-hot .7s steps(2) infinite; }
+@keyframes rt-hot{ 50%{ filter:brightness(1.5); } }
+.retro .combo{
+  font-family:var(--pf); font-size:10px; letter-spacing:1px; color:var(--gold);
+  flex:0 0 auto; animation:rt-pop .25s cubic-bezier(.2,1.4,.4,1);
+}
+.retro .session-score{ font-family:var(--pf); font-size:11px; letter-spacing:1px; }
+.retro .session-score .streak{ margin-right:8px; }
+
+/* ---- 3) victory + fragment flourish (results screen) --------------------- */
+.retro .victory{
+  clip-path:var(--notch); background:var(--card); width:100%;
+  padding:18px 16px 16px; text-align:center; margin:0 0 16px;
+  box-shadow:inset 0 0 0 2px var(--gold),inset 0 0 0 4px rgba(0,0,0,.3);
+  animation:rt-pop .4s cubic-bezier(.2,1.4,.4,1);
+}
+.retro .victory-title{
+  font-family:var(--pf); color:var(--gold); font-size:17px; margin:0;
+  letter-spacing:1px; text-transform:uppercase; text-shadow:2px 2px 0 var(--ink);
+  animation:rt-flash 1.2s ease-out;
+}
+.retro .victory-quote{
+  display:block; margin:10px 0 0; font-family:var(--sans); font-size:.95rem;
+  line-height:1.5; color:var(--text); text-transform:none; letter-spacing:normal;
+}
+.retro .victory .frag-chip{
+  display:inline-flex; align-items:center; gap:8px; margin-top:14px;
+  padding:8px 14px; clip-path:var(--notch); background:var(--bg);
+  box-shadow:inset 0 0 0 2px var(--teal);
+  font-family:var(--pf); font-size:10px; letter-spacing:1px;
+  text-transform:uppercase; color:var(--teal);
+}
+.retro .victory .frag-chip .gem{ font-size:16px; color:var(--gold); animation:rt-bob .9s ease-in-out infinite; }
+.retro .victory .forge-count{
+  display:block; margin-top:10px; font-family:var(--pf); font-size:9px;
+  letter-spacing:1px; text-transform:uppercase; color:var(--text); opacity:.6;
+}
+.retro .adv-sword-mini.burst{ animation:rt-flash 1.4s ease-out; }

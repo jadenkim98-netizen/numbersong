@@ -305,12 +305,12 @@ function stageGoal(mode, name) {
   if (mode === "melody") return ({
     "Diatonic · major": "Hear any of the seven degrees (1–7) in a major key and name it by number — building from 1·2·3 up to the full key, then any octave, then any key.",
     "Diatonic · minor": "The same seven degrees, but home is 6 (la-based minor). Learn to feel 6 as the resting place.",
-    "Chromatic · major": "Add the five colour notes between the scale steps (♭2 ♭3 ♯4 ♭6 ♭7) — hearing all twelve notes of the major key.",
-    "Chromatic · minor": "All twelve notes around a minor home (6) — the colour notes in the minor world.",
+    "Chromatic · major": "Add the five color notes between the scale steps (♭2 ♭3 ♯4 ♭6 ♭7) — hearing all twelve notes of the major key.",
+    "Chromatic · minor": "All twelve notes around a minor home (6) — the color notes in the minor world.",
   })[name] || "";
   if (mode === "chords") return name.startsWith("Major")
     ? "Hear a chord and pick out its notes as numbers. Master the four workhorse chords of a major key: 1, 4, 5D and 6-."
-    : "Pick out chord notes centred on a minor home — the four chords 6-, 2-, 3- and 4.";
+    : "Pick out chord notes centered on a minor home — the four chords 6-, 2-, 3- and 4.";
   return name.startsWith("Major")
     ? "Hear two-to-four chords in a row and name each in order — the 1-4-5-6 family behind most songs."
     : "Follow minor progressions from the 6-2-3-4 family and name each chord in order.";
@@ -1056,7 +1056,7 @@ function drawHero(ctx, cx, cy, coda) {
   ctx.restore();
 }
 
-function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree }) {
+function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, burst }) {
   const H = window.HARMONIA;
   const mapRef = useRef(null);
   const swordRef = useRef(null);
@@ -1164,7 +1164,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
         <canvas ref={mapRef} className="adv-map" onClick={tapMap} role="img" aria-label="Harmonia world map" />
       </div>
       <div className="adv-hud adv-hud-bottom">
-        <canvas ref={swordRef} className="adv-sword-mini" aria-label="Excalibar forge progress" />
+        <canvas ref={swordRef} className={"adv-sword-mini" + (burst ? " burst" : "")} aria-label="Excalibar forge progress" />
         <div className="adv-forge-txt">
           <b>{have} / 8</b> fragments
           <span>{have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""}</span>
@@ -1191,6 +1191,9 @@ export default function NumberEarTrainer() {
   const [chordChapter, setChordChapter] = useState(null); // which chord chapter is open (null = chapter picker)
   const [progChapter, setProgChapter] = useState(null);   // which progression chapter is open
   const [fromAdventure, setFromAdventure] = useState(false); // entered a stage from the map? (back → map)
+  const [advStageId, setAdvStageId] = useState(null);        // region node entered from the map (encounter/victory)
+  const [swordBurst, setSwordBurst] = useState(false);       // one-shot forge flash after earning a fragment
+  const sessWasClearedRef = useRef(false);                   // was the region already cleared before this session?
   const [melTab, setMelTab] = useState("stages");  // stages | custom
   const [sessLvl, setSessLvl] = useState(null);     // the level object being played (may be a custom one)
 
@@ -1233,6 +1236,12 @@ export default function NumberEarTrainer() {
   useEffect(() => {
     document.documentElement.classList.toggle("retro", window.HARMONIA && !boringMode);
   }, [boringMode]);
+  // one-shot forge flash after earning a fragment (clears itself)
+  useEffect(() => {
+    if (!swordBurst) return;
+    const t = setTimeout(() => setSwordBurst(false), 1500);
+    return () => clearTimeout(t);
+  }, [swordBurst]);
   // boot screen: any key / tap starts the game (and unlocks audio)
   useEffect(() => {
     if (screen !== "boot") return;
@@ -1523,6 +1532,8 @@ export default function NumberEarTrainer() {
   const finishSession = () => {
     const s = sess.current;
     const firstTries = s.results.filter((r) => r.firstTry).length;
+    // snapshot region-clear state BEFORE saving this session's progress (for the victory flourish)
+    sessWasClearedRef.current = (fromAdventure && advStageId != null) ? stageClearedAdv(advStageId) : false;
     if (s.levelIdx != null) { // custom sessions aren't recorded
       setProgress((prev) => {
         const cur = (prev[s.mode] && prev[s.mode][s.levelIdx]) || 0;
@@ -1767,6 +1778,7 @@ export default function NumberEarTrainer() {
   const enterStage = (n) => {
     const s = ADV_STAGES[n.id - 1]; if (!s) return;
     setFromAdventure(true);
+    setAdvStageId(n.id);
     setMode(s.mode);
     if (s.mode === "melody") setMelGroup(s.gi);
     else if (s.mode === "chords") setChordChapter(s.gi);
@@ -1838,6 +1850,7 @@ export default function NumberEarTrainer() {
     return (
       <AdventureMap
         nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={enterStage}
+        burst={swordBurst}
         onMenu={() => setScreen(boringMode ? "home" : "menu")}
         onSettings={() => setScreen("settings")}
         onGuide={() => { setGuidePage(0); setScreen("guide"); }}
@@ -2101,7 +2114,7 @@ export default function NumberEarTrainer() {
               );
             })}
           </div>
-          <p className="hint center">Master the four chords of a key. Minor is the same four, centred on 6.</p>
+          <p className="hint center">Master the four chords of a key. Minor is the same four, centered on 6.</p>
         </div>
       );
     }
@@ -2114,6 +2127,9 @@ export default function NumberEarTrainer() {
       ? () => { setFromAdventure(false); setScreen("adventure"); }
       : mode === "melody" ? () => setMelGroup(null) : () => setChapter(null);
     const backLabel = fromAdventure ? "← Map" : mode === "melody" ? "← Worlds" : "← Chapters";
+    const modeLabel = mode === "melody" ? "single notes" : mode === "chords" ? "chord tones" : "chord progressions";
+    const advNode = fromAdventure && !boringMode && advStageId && window.HARMONIA ? window.HARMONIA.nodes[advStageId - 1] : null;
+    const fragName = advNode ? window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[advStageId]] : "";
     return (
       <div className="app">
         <style>{CSS}</style>
@@ -2121,10 +2137,30 @@ export default function NumberEarTrainer() {
           <button className="back" onClick={onBack}>{backLabel}</button>
           <h2 className="screen-title">{title}</h2>
         </header>
-        <div className="stage-intro">
-          <p className="stage-goal">{stageGoal(mode, title)}</p>
-          <span className="stage-meta">{list.length} levels · {mode === "melody" ? "single notes" : mode === "chords" ? "chord tones" : "chord progressions"}</span>
-        </div>
+        {advNode ? (
+          <div className={"encounter mood-" + advNode.mood}>
+            <div className="enc-head">
+              <span className="enc-emblem" aria-hidden="true">{advNode.emblem}</span>
+              <div className="enc-titles">
+                <span className="kicker">Region {advStageId} · Harmonia</span>
+                <h2 className="encounter-title">{advNode.name}</h2>
+                <span className="encounter-sub">{title}</span>
+              </div>
+              <span className="enc-frag"><span className="gem">◆</span>{fragName}</span>
+            </div>
+            <p className="keeper-line">
+              <b className="keeper-name">{advNode.keeper}</b>
+              <q>{advNode.greet}</q>
+            </p>
+            <p className="stage-goal">{stageGoal(mode, title)}</p>
+            <span className="stage-meta">{list.length} levels · {modeLabel} · earn {advNode.short}'s mark → ◆</span>
+          </div>
+        ) : (
+          <div className="stage-intro">
+            <p className="stage-goal">{stageGoal(mode, title)}</p>
+            <span className="stage-meta">{list.length} levels · {modeLabel}</span>
+          </div>
+        )}
         {mode === "chords" && (
           <div className="key-row">
             <label className="key-label">
@@ -2190,6 +2226,22 @@ export default function NumberEarTrainer() {
           <span className="session-score">{streak >= 2 && <span className="streak">🔥{streak}</span>}{score} ✓</span>
         </header>
         <div className="progressbar"><div className="fill" style={{ width: `${(qNum / qCountOf(lvl)) * 100}%` }} /></div>
+        {!boringMode && (
+          <div className="hpbar">
+            <span className="hp-label">Trial</span>
+            <div className="trial-cells">
+              {Array.from({ length: qCountOf(lvl) }).map((_, i) => {
+                const r = sessionResults[i];
+                const cls = "cell"
+                  + (r ? (r.firstTry ? " hit" : " miss") : "")
+                  + (i === passCountFor(lvl) - 1 ? " mark" : "")
+                  + (streak >= 2 && i === sessionResults.length - 1 && r && r.firstTry ? " hot" : "");
+                return <i key={i} className={cls} />;
+              })}
+            </div>
+            {streak >= 2 && <span className="combo">×{streak}</span>}
+          </div>
+        )}
         <p className="qcount">Question {Math.min(qNum + 1, qCountOf(lvl))} of {qCountOf(lvl)} · {displayKey}{lvl.keyMode === "random" ? " (changes every question)" : ""}</p>
 
         {mode === "melody" && (
@@ -2344,6 +2396,10 @@ export default function NumberEarTrainer() {
     const lvls = levels;
     const isCustom = levelIdx == null;
     const resultName = (sessLvl && sessLvl.name) || (lvls[levelIdx] && lvls[levelIdx].name) || "Session";
+    // region just fully cleared? → Keeper's mark + fragment flourish (game mode only)
+    const advNode = fromAdventure && !boringMode && advStageId && window.HARMONIA ? window.HARMONIA.nodes[advStageId - 1] : null;
+    const justCleared = advNode && !sessWasClearedRef.current && stageClearedAdv(advStageId);
+    const fragName = advNode ? window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[advStageId]] : "";
     const hasNext = !isCustom && levelIdx + 1 < lvls.length;
 
     // best first-try streak this session
@@ -2364,10 +2420,18 @@ export default function NumberEarTrainer() {
       <div className="app">
         <style>{CSS}</style>
         <header className="top-slim">
-          <button className="back" onClick={() => setScreen("levels")}>← Levels</button>
+          <button className="back" onClick={() => { if (fromAdventure) { setSwordBurst(!!justCleared); setScreen("adventure"); } else { setScreen("levels"); } }}>{fromAdventure ? "← To the map" : "← Levels"}</button>
           <h2 className="screen-title">{resultName}</h2>
         </header>
         <div className="results">
+          {justCleared && (
+            <div className="victory">
+              <h3 className="victory-title">{advNode.winTitle}</h3>
+              <span className="victory-quote">“{advNode.win}”</span>
+              <span className="frag-chip"><span className="gem">◆</span>{fragName} — forged into Excalibar</span>
+              <span className="forge-count">{advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments"}</span>
+            </div>
+          )}
           <div className={"score-big" + (passed ? " pass" : "")}>{pct}%</div>
           <p className="hint center">
             {isCustom
