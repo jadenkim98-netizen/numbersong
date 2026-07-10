@@ -237,3 +237,22 @@
 .retro .menu-item{ font-family:var(--pf); text-transform:uppercase; letter-spacing:1px; font-size:13px; border:0; clip-path:var(--notch); box-shadow:inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh); }
 .retro .menu-item:active{ box-shadow:inset -2px -2px 0 var(--hl),inset 2px 2px 0 var(--sh); transform:translateY(1px); }
 .menu-item .mi-icon{ font-size:1.3rem; flex:0 0 auto; }
+
+/* ---- readability rescue: the session prompt + chord feedback use .hint,
+   which the kit rendered as 9px UPPERCASE pixel — unreadable for sentences.
+   Keep instructional text clean sans; game flavor stays in titles/buttons. */
+.retro .hint{ font-family:var(--sans); text-transform:none; letter-spacing:normal;
+  font-size:.98rem; line-height:1.5; opacity:.92; }
+.retro .hint strong{ color:var(--teal); font-family:var(--sans); }
+.retro .hint em,.retro .hint .numlabel{ font-style:normal; color:var(--gold); font-family:var(--sans); }
+/* the retro Repeat/Voice buttons are chunkier than boring's — let the feedback
+   line drop to its own full-width row instead of getting squeezed to a sliver */
+.retro .quiz-bar{ flex-wrap:wrap; align-items:center; }
+.retro .quiz-bar .hint{ flex:1 1 100%; min-width:0; margin:4px 2px 0; text-align:left; }
+
+/* selected segments in Settings: the app paints .on text teal, which on our blue
+   fill is teal-on-blue (unreadable). Force dark ink for contrast. */
+.retro .set-block .seg button.on{ background:var(--blue); color:var(--ink); border-color:var(--blue); }
+
+/* keep the big pixel title from clipping the right edge on narrow phones */
+.retro .boot-title,.retro .menu-logo{ font-size:clamp(1.7rem,8.4vw,2.6rem); }

@@ -1135,8 +1135,8 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onSettings, onGuid
 export default function NumberEarTrainer() {
   const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
 
-  const [boringMode, setBoringMode] = useState(() => loadPref("boring", "1") === "1"); // classic UI vs Adventure
-  const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "1") === "0" ? "boot" : "home")); // boot | menu | training | home | adventure | levels | session | results | learn | guide | settings
+  const [boringMode, setBoringMode] = useState(() => loadPref("boring", "0") === "1"); // classic UI vs Adventure
+  const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home")); // boot | menu | training | home | adventure | levels | session | results | learn | guide | settings
   const [mode, setMode] = useState("melody");     // melody | chords
   const [levelIdx, setLevelIdx] = useState(0);
   const [melGroup, setMelGroup] = useState(null);  // which of the 4 melody worlds is open (null = world picker)
@@ -1853,7 +1853,7 @@ export default function NumberEarTrainer() {
       <div className="app">
         <style>{CSS}</style>
         <header className="top-slim">
-          <button className="back" onClick={() => setScreen(boringMode ? "home" : "menu")}>← Home</button>
+          <button className="back" onClick={() => setScreen(boringMode ? "home" : "menu")}>{boringMode ? "← Home" : "← Menu"}</button>
           <h2 className="screen-title">Settings</h2>
         </header>
         <div className="settings">
@@ -1936,7 +1936,7 @@ export default function NumberEarTrainer() {
         <div className="app">
           <style>{CSS}</style>
           <header className="top-slim">
-            <button className="back" onClick={() => setScreen(boringMode ? "home" : "menu")}>← Home</button>
+            <button className="back" onClick={() => setScreen(boringMode ? "home" : "menu")}>{boringMode ? "← Home" : "← Menu"}</button>
             <h2 className="screen-title">Single notes</h2>
           </header>
           <div className="tabs">
@@ -2030,7 +2030,7 @@ export default function NumberEarTrainer() {
         <div className="app">
           <style>{CSS}</style>
           <header className="top-slim">
-            <button className="back" onClick={() => setScreen(boringMode ? "home" : "menu")}>← Home</button>
+            <button className="back" onClick={() => setScreen(boringMode ? "home" : "menu")}>{boringMode ? "← Home" : "← Menu"}</button>
             <h2 className="screen-title">{mode === "chords" ? "Chord tones" : "Chord progressions"}</h2>
           </header>
           <div className="levels">
@@ -2400,7 +2400,7 @@ export default function NumberEarTrainer() {
       <div className="app">
         <style>{CSS}</style>
         <header className="top-slim">
-          <button className="back" onClick={() => { killSession(); setBusy(false); setScreen(boringMode ? "home" : "menu"); }}>← Home</button>
+          <button className="back" onClick={() => { killSession(); setBusy(false); setScreen(boringMode ? "home" : "menu"); }}>{boringMode ? "← Home" : "← Menu"}</button>
           <h2 className="screen-title">How music works</h2>
         </header>
         <section className="panel">{pages[guidePage]}</section>
@@ -2423,7 +2423,7 @@ export default function NumberEarTrainer() {
     <div className="app">
       <style>{CSS}</style>
       <header className="top-slim">
-        <button className="back" onClick={() => { setDroneOn(false); stopPath(); killSession(); setBusy(false); setScreen(boringMode ? "home" : "menu"); }}>← Home</button>
+        <button className="back" onClick={() => { setDroneOn(false); stopPath(); killSession(); setBusy(false); setScreen(boringMode ? "home" : "menu"); }}>{boringMode ? "← Home" : "← Menu"}</button>
         <h2 className="screen-title">Free play</h2>
       </header>
       {keyRow}
@@ -2888,7 +2888,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 /* full-screen immersive adventure: the map fills the screen, HUD floats on top */
 .adv-screen { position: fixed; inset: 0; z-index: 40; background: #1b1f1d; overflow: hidden; }
 .adv-scroll { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; display: flex; justify-content: center; }
-.adv-map { image-rendering: pixelated; width: 100%; max-width: 460px; height: auto; align-self: flex-start; cursor: pointer; }
+.adv-map { image-rendering: pixelated; width: 100%; max-width: 460px; height: auto; align-self: center; margin: auto 0; cursor: pointer; }
 .adv-hud { position: absolute; left: 0; right: 0; z-index: 2; display: flex; align-items: center; gap: 12px; pointer-events: none; }
 .adv-hud > * { pointer-events: auto; }
 .adv-hud-top {
