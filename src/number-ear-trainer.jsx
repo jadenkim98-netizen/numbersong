@@ -1175,6 +1175,21 @@ function ForgeSword({ collected, className }) {
   return <canvas ref={ref} className={className} aria-label="Excalibar" />;
 }
 
+// The Dojo = Free Play as an actual place on the map (sits on the home-hearth tile).
+const DOJO = { c: 2, r: 24, name: "The Dojo" };
+function drawDojo(ctx, cx, cy) {
+  ctx.save();
+  ctx.shadowColor = "#7CADD1"; ctx.shadowBlur = 6;
+  ctx.fillStyle = "#39474f"; ctx.fillRect(cx - 6, cy, 12, 6);            // body
+  ctx.fillStyle = "#7CADD1";                                            // pagoda roof
+  ctx.beginPath(); ctx.moveTo(cx - 9, cy + 1); ctx.lineTo(cx, cy - 7); ctx.lineTo(cx + 9, cy + 1); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = "#1a2422"; ctx.fillRect(cx - 2, cy + 1, 4, 5);        // door
+  ctx.fillStyle = "#7CADD1"; ctx.font = "bold 7px Archivo, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  ctx.fillText("DOJO", cx, cy + 7);
+}
+
 function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, burst, boringMode, celebrateNode, onCelebrateDone }) {
   const H = window.HARMONIA;
   const mapRef = useRef(null);
@@ -1234,6 +1249,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       ctx.font = "bold 8px Archivo, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(cleared ? "★" : String(n.id), x, y + 0.5);
     });
+    drawDojo(ctx, (DOJO.c + 0.5) * T, (DOJO.r + 0.5) * T);
     drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, codaImg, bob);
   }, [tileset, nodes, currentId, collected, codaImg]);
 
@@ -1333,11 +1349,18 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
     const nx = (e.clientX - rect.left) * (cv.width / rect.width);
     const ny = (e.clientY - rect.top) * (cv.height / rect.height);
     const T = H.tile;
+    const dojoD = ((DOJO.c + 0.5) * T - nx) ** 2 + ((DOJO.r + 0.5) * T - ny) ** 2;
     let best = null, bd = 1e9;
     nodes.forEach((n) => {
       const d = ((n.c + 0.5) * T - nx) ** 2 + ((n.r + 0.5) * T - ny) ** 2;
       if (d < bd) { bd = d; best = n; }
     });
+    if (dojoD < 16 * 16 && dojoD <= bd) { // the dojo (Free Play) was tapped
+      const c0 = codaRef.current;
+      const atDojo = c0 && Math.round(c0.c) === DOJO.c && Math.round(c0.r) === DOJO.r;
+      if (boringMode || atDojo) onFree(); else walkTo(DOJO, () => onFree());
+      return;
+    }
     if (!best || bd >= 16 * 16) return;
     const cur = codaRef.current;
     const atNode = cur && Math.round(cur.c) === best.c && Math.round(cur.r) === best.r;
@@ -1762,7 +1785,8 @@ export default function NumberEarTrainer() {
       if (clears) {
         setMapCelebrateNode(advStageId);
         const others = advNodes.filter((n) => n.id !== advStageId && stageClearedAdv(n.id)).length;
-        if (others >= 7) grandFanfare(); else fanfare();
+        if (others >= 7) { grandFanfare(); try { navigator.vibrate && navigator.vibrate([90, 60, 90, 60, 90, 60, 320]); } catch (e) {} }
+        else { fanfare(); try { navigator.vibrate && navigator.vibrate(60); } catch (e) {} }
       }
     }
     setPhase("idle");
