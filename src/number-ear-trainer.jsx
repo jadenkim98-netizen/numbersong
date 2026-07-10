@@ -1176,18 +1176,19 @@ function ForgeSword({ collected, className }) {
 }
 
 // The Dojo = Free Play as an actual place on the map (sits on the home-hearth tile).
-const DOJO = { c: 2, r: 24, name: "The Dojo" };
+const DOJO = { c: 2, r: 20, name: "The Dojo" };
 function drawDojo(ctx, cx, cy) {
   ctx.save();
-  ctx.shadowColor = "#7CADD1"; ctx.shadowBlur = 6;
-  ctx.fillStyle = "#39474f"; ctx.fillRect(cx - 6, cy, 12, 6);            // body
-  ctx.fillStyle = "#7CADD1";                                            // pagoda roof
-  ctx.beginPath(); ctx.moveTo(cx - 9, cy + 1); ctx.lineTo(cx, cy - 7); ctx.lineTo(cx + 9, cy + 1); ctx.closePath(); ctx.fill();
+  ctx.shadowColor = "#7CADD1"; ctx.shadowBlur = 9;
+  ctx.fillStyle = "#39474f"; ctx.fillRect(cx - 10, cy - 1, 20, 11);         // body
+  ctx.fillStyle = "#7CADD1";                                               // pagoda roof
+  ctx.beginPath(); ctx.moveTo(cx - 15, cy + 1); ctx.lineTo(cx, cy - 12); ctx.lineTo(cx + 15, cy + 1); ctx.closePath(); ctx.fill();
+  ctx.fillRect(cx - 15, cy + 1, 30, 2);                                    // eaves
   ctx.restore();
-  ctx.fillStyle = "#1a2422"; ctx.fillRect(cx - 2, cy + 1, 4, 5);        // door
-  ctx.fillStyle = "#7CADD1"; ctx.font = "bold 7px Archivo, sans-serif";
-  ctx.textAlign = "center"; ctx.textBaseline = "top";
-  ctx.fillText("DOJO", cx, cy + 7);
+  ctx.fillStyle = "#1a2422"; ctx.fillRect(cx - 3, cy + 2, 6, 8);           // door
+  ctx.font = "bold 10px 'Archivo Black', Archivo, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+  ctx.fillStyle = "#12201d"; ctx.fillText("DOJO", cx + 1, cy + 14);        // label shadow
+  ctx.fillStyle = "#EDF2EE"; ctx.fillText("DOJO", cx, cy + 13);            // label
 }
 
 function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, burst, boringMode, celebrateNode, onCelebrateDone }) {
@@ -1355,7 +1356,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       const d = ((n.c + 0.5) * T - nx) ** 2 + ((n.r + 0.5) * T - ny) ** 2;
       if (d < bd) { bd = d; best = n; }
     });
-    if (dojoD < 16 * 16 && dojoD <= bd) { // the dojo (Free Play) was tapped
+    if (dojoD < 22 * 22 && dojoD <= bd) { // the dojo (Free Play) was tapped
       const c0 = codaRef.current;
       const atDojo = c0 && Math.round(c0.c) === DOJO.c && Math.round(c0.r) === DOJO.r;
       if (boringMode || atDojo) onFree(); else walkTo(DOJO, () => onFree());
@@ -2728,6 +2729,9 @@ export default function NumberEarTrainer() {
               <div className="finale-forge">
                 <ForgeSword collected={advCollected} className="finale-sword" />
                 <span className="finale-shine" aria-hidden="true" />
+                {typeof window !== "undefined" && window.CODA_VICTORY && (
+                  <img className="finale-coda" src={window.CODA_VICTORY} alt="Coda, victorious" aria-hidden="true" />
+                )}
               </div>
               <h2 className="finale-title">EXCALIBAR<br />REFORGED</h2>
               <span className="finale-quote">“{advNode.win}”</span>
@@ -2878,7 +2882,7 @@ export default function NumberEarTrainer() {
       {keyRow}
       <div className="tabs">
         <button className={"tab" + (fpTab === "notes" ? " on" : "")} onClick={() => setFpTab("notes")}>7 worlds</button>
-        <button className={"tab" + (fpTab === "paths" ? " on" : "")} onClick={() => setFpTab("paths")}>Paths</button>
+        <button className={"tab" + (fpTab === "paths" ? " on" : "")} onClick={() => { setDroneOn(false); setFpTab("paths"); }}>Paths</button>
       </div>
       {fpTab === "paths" ? (
         <>
