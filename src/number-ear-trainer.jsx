@@ -566,14 +566,14 @@ function useAudio() {
     const f = fanfareRef.current, t = Tone.now() + 0.06;
     const P = (inst, notes, dur, at) => { try { inst.triggerAttackRelease(notes, dur, t + at); } catch (e) {} };
     // pickup, then the Super-Mario course-clear cadence: ♭VI – ♭VII – I
-    // (in C: Ab → Bb → C), ascending chord stabs that land on a held tonic.
-    P(f.lead, "G4", 0.1, 0.00); P(f.lead, "C5", 0.1, 0.10);
-    P(f.lead, ["Ab4", "C5", "Eb5"], 0.18, 0.22); P(f.bass, "Ab2", 0.2, 0.22);   // ♭VI
-    P(f.lead, ["Bb4", "D5", "F5"], 0.18, 0.42);  P(f.bass, "Bb2", 0.2, 0.42);   // ♭VII
-    P(f.lead, ["C5", "E5", "G5", "C6"], 1.3, 0.62); P(f.bass, "C2", 1.5, 0.62);  // I — landing, held
+    // (in C: Ab → Bb → C). Each chord is held so it breathes, landing on a long tonic.
+    P(f.lead, "G4", 0.12, 0.00); P(f.lead, "C5", 0.14, 0.12);
+    P(f.lead, ["Ab4", "C5", "Eb5"], 0.46, 0.28); P(f.bass, "Ab2", 0.48, 0.28);   // ♭VI (held)
+    P(f.lead, ["Bb4", "D5", "F5"], 0.46, 0.78);  P(f.bass, "Bb2", 0.48, 0.78);   // ♭VII (held)
+    P(f.lead, ["C5", "E5", "G5", "C6"], 2.4, 1.28); P(f.bass, "C2", 2.6, 1.28);   // I — landing, long hold
     // choir swell + bell sparkles on the landing
-    P(f.choir, ["C4", "E4", "G4", "C5"], 1.6, 0.60);
-    P(f.bell, "E6", 0.4, 0.66); P(f.bell, "G6", 0.5, 0.80); P(f.bell, "C7", 0.9, 0.96);
+    P(f.choir, ["C4", "E4", "G4", "C5"], 2.8, 1.26);
+    P(f.bell, "E6", 0.4, 1.34); P(f.bell, "G6", 0.5, 1.5); P(f.bell, "C7", 1.3, 1.7);
   }, [ensure]);
 
   // Sustaining voice (Free Play): attack on hold, release on let-go. "piano" reuses
