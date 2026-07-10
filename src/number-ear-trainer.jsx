@@ -1123,13 +1123,13 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onSettings, onGuid
   return (
     <div className="adv-screen">
       <style>{CSS}</style>
-      <div className="adv-scroll" ref={scrollRef}>
-        <canvas ref={mapRef} className="adv-map" onClick={tapMap} role="img" aria-label="Harmonia world map" />
-      </div>
       <div className="adv-hud adv-hud-top">
         <img className="adv-logo" src={typeof window !== "undefined" ? window.WEJAM_LOGO : ""} alt="WeJam" />
         <span className="adv-title">Harmonia</span>
         <button className="gear" onClick={onSettings} aria-label="Settings">⚙</button>
+      </div>
+      <div className="adv-scroll" ref={scrollRef}>
+        <canvas ref={mapRef} className="adv-map" onClick={tapMap} role="img" aria-label="Harmonia world map" />
       </div>
       <div className="adv-hud adv-hud-bottom">
         <canvas ref={swordRef} className="adv-sword-mini" aria-label="Excalibar forge progress" />
@@ -2902,18 +2902,19 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .card.adventure .card-title { color: var(--teal); }
 .card.adventure:hover { border-color: var(--green); }
 /* full-screen immersive adventure: the map fills the screen, HUD floats on top */
-.adv-screen { position: fixed; inset: 0; z-index: 40; background: #1b1f1d; overflow: hidden; }
-.adv-scroll { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; display: flex; justify-content: center; }
+/* flex column: solid HUD bars top & bottom, the map lives fully BETWEEN them
+   (never scrolls under a bar), so nothing obscures the terrain or Coda. */
+.adv-screen { position: fixed; inset: 0; z-index: 40; background: #1b1f1d; overflow: hidden; display: flex; flex-direction: column; }
+.adv-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; justify-content: center; }
 .adv-map { image-rendering: pixelated; width: 100%; max-width: 460px; height: auto; align-self: center; margin: auto 0; cursor: pointer; }
-.adv-hud { position: absolute; left: 0; right: 0; z-index: 2; display: flex; align-items: center; gap: 12px; pointer-events: none; }
-.adv-hud > * { pointer-events: auto; }
+.adv-hud { flex: 0 0 auto; z-index: 2; display: flex; align-items: center; gap: 12px; }
 .adv-hud-top {
-  top: 0; padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 22px;
-  background: linear-gradient(180deg, rgba(20,23,21,0.95) 40%, rgba(20,23,21,0));
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 12px;
+  background: #161a18; border-bottom: 2px solid #2b322d;
 }
 .adv-hud-bottom {
-  bottom: 0; padding: 22px 16px calc(env(safe-area-inset-bottom, 0px) + 14px);
-  background: linear-gradient(0deg, rgba(20,23,21,0.96) 55%, rgba(20,23,21,0));
+  padding: 12px 16px calc(env(safe-area-inset-bottom, 0px) + 12px);
+  background: #161a18; border-top: 2px solid #2b322d;
 }
 .adv-logo { height: 26px; width: auto; image-rendering: pixelated; }
 .adv-title { flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; letter-spacing: 0.08em; color: var(--teal); text-transform: uppercase; }
