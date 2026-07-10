@@ -287,6 +287,12 @@
 /* keep the big pixel title from clipping the right edge on narrow phones */
 .retro .boot-title,.retro .menu-logo{ font-size:clamp(1.7rem,8.4vw,2.6rem); }
 
+/* stage "what you'll learn" preview card — pixel frame, but body text stays sans */
+.retro .stage-intro{ clip-path:var(--notch); border:0; border-left:0;
+  box-shadow:inset 0 0 0 2px var(--teal),inset 0 0 0 4px rgba(0,0,0,.25); }
+.retro .stage-goal{ font-family:var(--sans); }
+.retro .stage-meta{ font-family:var(--pf); letter-spacing:1px; }
+
 </style>
 </head>
 <body>
@@ -587,6 +593,35 @@ window.HARMONIA_decodeMask = decodeMask;
     return chs;
   }, []);
   const progChapterIndexOf = (li) => PROG_CHAPTERS.findIndex((c) => li >= c.start && li < c.start + c.levels.length);
+  const ADV_STAGES = [
+    { mode: "melody", gi: 0 },
+    // 1  diatonic major — single notes
+    { mode: "melody", gi: 1 },
+    // 2  diatonic minor — single notes
+    { mode: "chords", gi: 0 },
+    // 3  chord tones, major (1 4 5 6)
+    { mode: "chords", gi: 1 },
+    // 4  chord tones, minor (6 2 3 4)
+    { mode: "progressions", gi: 0 },
+    // 5  progressions, major
+    { mode: "progressions", gi: 1 },
+    // 6  progressions, minor
+    { mode: "melody", gi: 2 },
+    // 7  chromatic major — single notes
+    { mode: "melody", gi: 3 }
+    // 8  chromatic minor — single notes
+  ];
+  const advGroupOf = (s) => s.mode === "melody" ? MELODY_GROUPS[s.gi] : s.mode === "chords" ? CHORD_CHAPTERS[s.gi] : PROG_CHAPTERS[s.gi];
+  function stageGoal(mode, name) {
+    if (mode === "melody") return {
+      "Diatonic · major": "Hear any of the seven degrees (1–7) in a major key and name it by number — building from 1·2·3 up to the full key, then any octave, then any key.",
+      "Diatonic · minor": "The same seven degrees, but home is 6 (la-based minor). Learn to feel 6 as the resting place.",
+      "Chromatic · major": "Add the five colour notes between the scale steps (♭2 ♭3 ♯4 ♭6 ♭7) — hearing all twelve notes of the major key.",
+      "Chromatic · minor": "All twelve notes around a minor home (6) — the colour notes in the minor world."
+    }[name] || "";
+    if (mode === "chords") return name.startsWith("Major") ? "Hear a chord and pick out its notes as numbers. Master the four workhorse chords of a major key: 1, 4, 5D and 6-." : "Pick out chord notes centred on a minor home — the four chords 6-, 2-, 3- and 4.";
+    return name.startsWith("Major") ? "Hear two-to-four chords in a row and name each in order — the 1-4-5-6 family behind most songs." : "Follow minor progressions from the 6-2-3-4 family and name each chord in order.";
+  }
   const PATH_PRESETS = [
     ["I", "V", "vi", "IV"],
     // 1 5 6 4
@@ -1314,7 +1349,7 @@ window.HARMONIA_decodeMask = decodeMask;
     ctx.fillRect(cx - 1.5, y - 1.5, 2, 2);
     ctx.restore();
   }
-  function AdventureMap({ nodes, currentId, collected, onEnter, onSettings, onGuide, onFree }) {
+  function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree }) {
     const H = window.HARMONIA;
     const mapRef = useRef(null);
     const swordRef = useRef(null);
@@ -1427,7 +1462,7 @@ window.HARMONIA_decodeMask = decodeMask;
     };
     const have = collected.size;
     const next = nodes.find((n) => !collected.has(H.stageFrag[n.id]));
-    return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, "Harmonia"), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onSettings, "aria-label": "Settings" }, "⚙")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini", "aria-label": "Excalibar forge progress" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : "")), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onFree, "aria-label": "Free play" }, "🎸"))));
+    return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, "Harmonia"), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onSettings, "aria-label": "Settings" }, "⚙")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini", "aria-label": "Excalibar forge progress" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : "")), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onFree, "aria-label": "Free play" }, "🎸"))));
   }
   function NumberEarTrainer() {
     const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
@@ -1438,6 +1473,7 @@ window.HARMONIA_decodeMask = decodeMask;
     const [melGroup, setMelGroup] = useState(null);
     const [chordChapter, setChordChapter] = useState(null);
     const [progChapter, setProgChapter] = useState(null);
+    const [fromAdventure, setFromAdventure] = useState(false);
     const [melTab, setMelTab] = useState("stages");
     const [sessLvl, setSessLvl] = useState(null);
     const [cuMode, setCuMode] = useState("major");
@@ -2006,20 +2042,21 @@ window.HARMONIA_decodeMask = decodeMask;
     })());
     const brand = /* @__PURE__ */ React.createElement("div", { className: "brand" }, /* @__PURE__ */ React.createElement("div", { className: "brand-line" }, /* @__PURE__ */ React.createElement("h1", null, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG")), /* @__PURE__ */ React.createElement("img", { className: "wejam-logo", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" })), /* @__PURE__ */ React.createElement("p", null, "Learn to speak and understand the true language of music"));
     const advNodes = window.HARMONIA && window.HARMONIA.nodes || [];
-    const stageClearedAdv = (id) => id <= 4 ? MELODY_GROUPS[id - 1].levels.every((l) => isPassed("melody", l.idx)) : id <= 6 ? CHORD_CHAPTERS[id - 5].levels.every((l) => isPassed("chords", l.idx)) : PROG_CHAPTERS[id - 7].levels.every((l) => isPassed("progressions", l.idx));
+    const stageClearedAdv = (id) => {
+      const s = ADV_STAGES[id - 1];
+      if (!s) return false;
+      return advGroupOf(s).levels.every((l) => isPassed(s.mode, l.idx));
+    };
     const advCollected = new Set(advNodes.filter((n) => stageClearedAdv(n.id)).map((n) => window.HARMONIA.stageFrag[n.id]));
     const advCurrentId = (advNodes.find((n) => !stageClearedAdv(n.id)) || advNodes[advNodes.length - 1] || {}).id;
     const enterStage = (n) => {
-      if (n.id <= 4) {
-        setMode("melody");
-        setMelGroup(n.id - 1);
-      } else if (n.id <= 6) {
-        setMode("chords");
-        setChordChapter(n.id - 5);
-      } else {
-        setMode("progressions");
-        setProgChapter(n.id - 7);
-      }
+      const s = ADV_STAGES[n.id - 1];
+      if (!s) return;
+      setFromAdventure(true);
+      setMode(s.mode);
+      if (s.mode === "melody") setMelGroup(s.gi);
+      else if (s.mode === "chords") setChordChapter(s.gi);
+      else setProgChapter(s.gi);
       setScreen("levels");
     };
     const setBoring = (v) => {
@@ -2073,6 +2110,7 @@ window.HARMONIA_decodeMask = decodeMask;
           currentId: advCurrentId,
           collected: advCollected,
           onEnter: enterStage,
+          onMenu: () => setScreen(boringMode ? "home" : "menu"),
           onSettings: () => setScreen("settings"),
           onGuide: () => {
             setGuidePage(0);
@@ -2175,7 +2213,10 @@ window.HARMONIA_decodeMask = decodeMask;
       if (mode === "melody" && melGroup === null) {
         return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => setScreen(boringMode ? "home" : "menu") }, boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Single notes")), /* @__PURE__ */ React.createElement("div", { className: "tabs" }, /* @__PURE__ */ React.createElement("button", { className: "tab" + (melTab === "stages" ? " on" : ""), onClick: () => setMelTab("stages") }, "Stages"), /* @__PURE__ */ React.createElement("button", { className: "tab" + (melTab === "custom" ? " on" : ""), onClick: () => setMelTab("custom") }, "Custom")), melTab === "stages" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "levels" }, MELODY_GROUPS.map((g, gi) => {
           const done = g.levels.filter((l) => isPassed("melody", l.idx)).length;
-          return /* @__PURE__ */ React.createElement("button", { key: gi, className: "level world", onClick: () => setMelGroup(gi) }, /* @__PURE__ */ React.createElement("span", { className: "level-num" }, gi + 1), /* @__PURE__ */ React.createElement("span", { className: "level-body" }, /* @__PURE__ */ React.createElement("span", { className: "level-name" }, g.name), /* @__PURE__ */ React.createElement("span", { className: "level-desc" }, done, " of ", g.levels.length, " passed")), /* @__PURE__ */ React.createElement("span", { className: "level-state" }, done === g.levels.length ? "✓" : "›"));
+          return /* @__PURE__ */ React.createElement("button", { key: gi, className: "level world", onClick: () => {
+            setFromAdventure(false);
+            setMelGroup(gi);
+          } }, /* @__PURE__ */ React.createElement("span", { className: "level-num" }, gi + 1), /* @__PURE__ */ React.createElement("span", { className: "level-body" }, /* @__PURE__ */ React.createElement("span", { className: "level-name" }, g.name), /* @__PURE__ */ React.createElement("span", { className: "level-desc" }, done, " of ", g.levels.length, " passed")), /* @__PURE__ */ React.createElement("span", { className: "level-state" }, done === g.levels.length ? "✓" : "›"));
         })), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, SESSION_LEN, " questions per session · ", Math.round(PASS_RATE * 100), "% on first tries earns the ✓")) : /* @__PURE__ */ React.createElement("div", { className: "custom-builder" }, /* @__PURE__ */ React.createElement("div", { className: "cu-row" }, /* @__PURE__ */ React.createElement("span", { className: "cu-label" }, "Feel"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: cuMode === "major" ? "on" : "", onClick: () => setCuMode("major") }, "Major"), /* @__PURE__ */ React.createElement("button", { className: cuMode === "minor" ? "on" : "", onClick: () => setCuMode("minor") }, "Minor"))), /* @__PURE__ */ React.createElement("div", { className: "cu-row" }, /* @__PURE__ */ React.createElement("span", { className: "cu-label" }, "Key"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: cuKey === "c" ? "on" : "", onClick: () => setCuKey("c") }, cuMode === "minor" ? "A minor" : "C major"), /* @__PURE__ */ React.createElement("button", { className: cuKey === "not-c" ? "on" : "", onClick: () => setCuKey("not-c") }, "New key"), /* @__PURE__ */ React.createElement("button", { className: cuKey === "random" ? "on" : "", onClick: () => setCuKey("random") }, "Every key"))), /* @__PURE__ */ React.createElement("div", { className: "cu-row" }, /* @__PURE__ */ React.createElement("span", { className: "cu-label" }, "Octaves"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: !cuOct ? "on" : "", onClick: () => setCuOct(false) }, "One"), /* @__PURE__ */ React.createElement("button", { className: cuOct ? "on" : "", onClick: () => setCuOct(true) }, "Many"))), /* @__PURE__ */ React.createElement("div", { className: "cu-notes-head" }, /* @__PURE__ */ React.createElement("span", { className: "cu-label" }, "Notes (", cuNotes.length, ")"), /* @__PURE__ */ React.createElement("div", { className: "cu-presets" }, /* @__PURE__ */ React.createElement("button", { onClick: () => setCuNotes([...NAT_PCS]) }, "Scale"), /* @__PURE__ */ React.createElement("button", { onClick: () => setCuNotes([...ALL12]) }, "All 12"))), /* @__PURE__ */ React.createElement("div", { className: "cu-notes" }, ALL12.map((pc) => {
           const on = cuNotes.includes(pc);
           return /* @__PURE__ */ React.createElement(
@@ -2211,14 +2252,20 @@ window.HARMONIA_decodeMask = decodeMask;
       if ((mode === "chords" || mode === "progressions") && activeChapter === null) {
         return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => setScreen(boringMode ? "home" : "menu") }, boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, mode === "chords" ? "Chord tones" : "Chord progressions")), /* @__PURE__ */ React.createElement("div", { className: "levels" }, chapters.map((c, ci) => {
           const done = c.levels.filter((l) => isPassed(mode, l.idx)).length;
-          return /* @__PURE__ */ React.createElement("button", { key: ci, className: "level world", onClick: () => setChapter(ci) }, /* @__PURE__ */ React.createElement("span", { className: "level-num" }, ci + 1), /* @__PURE__ */ React.createElement("span", { className: "level-body" }, /* @__PURE__ */ React.createElement("span", { className: "level-name" }, c.name), /* @__PURE__ */ React.createElement("span", { className: "level-desc" }, done, " of ", c.levels.length, " passed")), /* @__PURE__ */ React.createElement("span", { className: "level-state" }, done === c.levels.length ? "✓" : "›"));
+          return /* @__PURE__ */ React.createElement("button", { key: ci, className: "level world", onClick: () => {
+            setFromAdventure(false);
+            setChapter(ci);
+          } }, /* @__PURE__ */ React.createElement("span", { className: "level-num" }, ci + 1), /* @__PURE__ */ React.createElement("span", { className: "level-body" }, /* @__PURE__ */ React.createElement("span", { className: "level-name" }, c.name), /* @__PURE__ */ React.createElement("span", { className: "level-desc" }, done, " of ", c.levels.length, " passed")), /* @__PURE__ */ React.createElement("span", { className: "level-state" }, done === c.levels.length ? "✓" : "›"));
         })), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, "Master the four chords of a key. Minor is the same four, centred on 6."));
       }
       const list = mode === "melody" ? MELODY_GROUPS[melGroup].levels : chapters[activeChapter].levels;
       const title = mode === "melody" ? MELODY_GROUPS[melGroup].name : chapters[activeChapter].name;
-      const onBack = mode === "melody" ? () => setMelGroup(null) : () => setChapter(null);
-      const backLabel = mode === "melody" ? "← Worlds" : "← Chapters";
-      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: onBack }, backLabel), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, title)), mode === "chords" && /* @__PURE__ */ React.createElement("div", { className: "key-row" }, /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Key", /* @__PURE__ */ React.createElement("select", { value: musicKey, onChange: (e) => {
+      const onBack = fromAdventure ? () => {
+        setFromAdventure(false);
+        setScreen("adventure");
+      } : mode === "melody" ? () => setMelGroup(null) : () => setChapter(null);
+      const backLabel = fromAdventure ? "← Map" : mode === "melody" ? "← Worlds" : "← Chapters";
+      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: onBack }, backLabel), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, title)), /* @__PURE__ */ React.createElement("div", { className: "stage-intro" }, /* @__PURE__ */ React.createElement("p", { className: "stage-goal" }, stageGoal(mode, title)), /* @__PURE__ */ React.createElement("span", { className: "stage-meta" }, list.length, " levels · ", mode === "melody" ? "single notes" : mode === "chords" ? "chord tones" : "chord progressions")), mode === "chords" && /* @__PURE__ */ React.createElement("div", { className: "key-row" }, /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Key", /* @__PURE__ */ React.createElement("select", { value: musicKey, onChange: (e) => {
         setMusicKey(e.target.value);
         e.target.blur();
       } }, KEYS.map((k) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, k, " major")))), /* @__PURE__ */ React.createElement(
@@ -2653,6 +2700,12 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 
 /* level list */
 .levels { display: flex; flex-direction: column; gap: 10px; }
+.stage-intro {
+  background: var(--card); border: 1.5px solid var(--line); border-left: 3px solid var(--teal);
+  border-radius: 12px; padding: 12px 14px; margin: 0 0 14px;
+}
+.stage-goal { margin: 0; font-size: 0.92rem; line-height: 1.5; color: var(--text); }
+.stage-meta { display: block; margin-top: 7px; font-size: 0.72rem; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.06em; }
 .level {
   display: flex; align-items: center; gap: 14px; text-align: left;
   background: var(--card); border: 1.5px solid var(--line); border-radius: 14px;

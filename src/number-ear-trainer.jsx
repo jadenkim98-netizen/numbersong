@@ -285,6 +285,37 @@ const PROG_CHAPTERS = PROG_LEVELS.reduce((chs, lvl, idx) => {
 }, []);
 const progChapterIndexOf = (li) => PROG_CHAPTERS.findIndex((c) => li >= c.start && li < c.start + c.levels.length);
 
+// Adventure region order = the teaching spine (map nodes 1→8):
+// diatonic notes → chord tones → progressions → chromatic notes (the hard stuff last).
+// gi = index within that mode's group/chapter array.
+const ADV_STAGES = [
+  { mode: "melody",       gi: 0 }, // 1  diatonic major — single notes
+  { mode: "melody",       gi: 1 }, // 2  diatonic minor — single notes
+  { mode: "chords",       gi: 0 }, // 3  chord tones, major (1 4 5 6)
+  { mode: "chords",       gi: 1 }, // 4  chord tones, minor (6 2 3 4)
+  { mode: "progressions", gi: 0 }, // 5  progressions, major
+  { mode: "progressions", gi: 1 }, // 6  progressions, minor
+  { mode: "melody",       gi: 2 }, // 7  chromatic major — single notes
+  { mode: "melody",       gi: 3 }, // 8  chromatic minor — single notes
+];
+const advGroupOf = (s) => s.mode === "melody" ? MELODY_GROUPS[s.gi] : s.mode === "chords" ? CHORD_CHAPTERS[s.gi] : PROG_CHAPTERS[s.gi];
+
+// One-line "what you'll learn" preview shown at the top of a stage's level list.
+function stageGoal(mode, name) {
+  if (mode === "melody") return ({
+    "Diatonic · major": "Hear any of the seven degrees (1–7) in a major key and name it by number — building from 1·2·3 up to the full key, then any octave, then any key.",
+    "Diatonic · minor": "The same seven degrees, but home is 6 (la-based minor). Learn to feel 6 as the resting place.",
+    "Chromatic · major": "Add the five colour notes between the scale steps (♭2 ♭3 ♯4 ♭6 ♭7) — hearing all twelve notes of the major key.",
+    "Chromatic · minor": "All twelve notes around a minor home (6) — the colour notes in the minor world.",
+  })[name] || "";
+  if (mode === "chords") return name.startsWith("Major")
+    ? "Hear a chord and pick out its notes as numbers. Master the four workhorse chords of a major key: 1, 4, 5D and 6-."
+    : "Pick out chord notes centred on a minor home — the four chords 6-, 2-, 3- and 4.";
+  return name.startsWith("Major")
+    ? "Hear two-to-four chords in a row and name each in order — the 1-4-5-6 family behind most songs."
+    : "Follow minor progressions from the 6-2-3-4 family and name each chord in order.";
+}
+
 // Melody Paths (Free Play jam) — preset progressions. The tonic is repeated so a
 // "251" or "145" stays an even 4-bar loop instead of an odd 3-bar one.
 const PATH_PRESETS = [
@@ -1025,7 +1056,7 @@ function drawHero(ctx, cx, cy, coda) {
   ctx.restore();
 }
 
-function AdventureMap({ nodes, currentId, collected, onEnter, onSettings, onGuide, onFree }) {
+function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree }) {
   const H = window.HARMONIA;
   const mapRef = useRef(null);
   const swordRef = useRef(null);
@@ -1126,6 +1157,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onSettings, onGuid
       <div className="adv-hud adv-hud-top">
         <img className="adv-logo" src={typeof window !== "undefined" ? window.WEJAM_LOGO : ""} alt="WeJam" />
         <span className="adv-title">Harmonia</span>
+        <button className="gear" onClick={onMenu} aria-label="Main menu">☰</button>
         <button className="gear" onClick={onSettings} aria-label="Settings">⚙</button>
       </div>
       <div className="adv-scroll" ref={scrollRef}>
@@ -1158,6 +1190,7 @@ export default function NumberEarTrainer() {
   const [melGroup, setMelGroup] = useState(null);  // which of the 4 melody worlds is open (null = world picker)
   const [chordChapter, setChordChapter] = useState(null); // which chord chapter is open (null = chapter picker)
   const [progChapter, setProgChapter] = useState(null);   // which progression chapter is open
+  const [fromAdventure, setFromAdventure] = useState(false); // entered a stage from the map? (back → map)
   const [melTab, setMelTab] = useState("stages");  // stages | custom
   const [sessLvl, setSessLvl] = useState(null);     // the level object being played (may be a custom one)
 
@@ -1725,16 +1758,19 @@ export default function NumberEarTrainer() {
 
   /* ── adventure (Harmonia) — nodes derived from real progress ── */
   const advNodes = (window.HARMONIA && window.HARMONIA.nodes) || [];
-  const stageClearedAdv = (id) =>
-    id <= 4 ? MELODY_GROUPS[id - 1].levels.every((l) => isPassed("melody", l.idx))
-    : id <= 6 ? CHORD_CHAPTERS[id - 5].levels.every((l) => isPassed("chords", l.idx))
-    : PROG_CHAPTERS[id - 7].levels.every((l) => isPassed("progressions", l.idx));
+  const stageClearedAdv = (id) => {
+    const s = ADV_STAGES[id - 1]; if (!s) return false;
+    return advGroupOf(s).levels.every((l) => isPassed(s.mode, l.idx));
+  };
   const advCollected = new Set(advNodes.filter((n) => stageClearedAdv(n.id)).map((n) => window.HARMONIA.stageFrag[n.id]));
   const advCurrentId = (advNodes.find((n) => !stageClearedAdv(n.id)) || advNodes[advNodes.length - 1] || {}).id;
   const enterStage = (n) => {
-    if (n.id <= 4) { setMode("melody"); setMelGroup(n.id - 1); }
-    else if (n.id <= 6) { setMode("chords"); setChordChapter(n.id - 5); }
-    else { setMode("progressions"); setProgChapter(n.id - 7); }
+    const s = ADV_STAGES[n.id - 1]; if (!s) return;
+    setFromAdventure(true);
+    setMode(s.mode);
+    if (s.mode === "melody") setMelGroup(s.gi);
+    else if (s.mode === "chords") setChordChapter(s.gi);
+    else setProgChapter(s.gi);
     setScreen("levels");
   };
   const setBoring = (v) => { setBoringMode(v); savePref("boring", v ? "1" : "0"); setScreen(v ? "home" : "menu"); };
@@ -1802,6 +1838,7 @@ export default function NumberEarTrainer() {
     return (
       <AdventureMap
         nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={enterStage}
+        onMenu={() => setScreen(boringMode ? "home" : "menu")}
         onSettings={() => setScreen("settings")}
         onGuide={() => { setGuidePage(0); setScreen("guide"); }}
         onFree={() => { setFpTab("notes"); setScreen("learn"); }} />
@@ -1965,7 +2002,7 @@ export default function NumberEarTrainer() {
                 {MELODY_GROUPS.map((g, gi) => {
                   const done = g.levels.filter((l) => isPassed("melody", l.idx)).length;
                   return (
-                    <button key={gi} className="level world" onClick={() => setMelGroup(gi)}>
+                    <button key={gi} className="level world" onClick={() => { setFromAdventure(false); setMelGroup(gi); }}>
                       <span className="level-num">{gi + 1}</span>
                       <span className="level-body">
                         <span className="level-name">{g.name}</span>
@@ -2053,7 +2090,7 @@ export default function NumberEarTrainer() {
             {chapters.map((c, ci) => {
               const done = c.levels.filter((l) => isPassed(mode, l.idx)).length;
               return (
-                <button key={ci} className="level world" onClick={() => setChapter(ci)}>
+                <button key={ci} className="level world" onClick={() => { setFromAdventure(false); setChapter(ci); }}>
                   <span className="level-num">{ci + 1}</span>
                   <span className="level-body">
                     <span className="level-name">{c.name}</span>
@@ -2073,8 +2110,10 @@ export default function NumberEarTrainer() {
       ? MELODY_GROUPS[melGroup].levels
       : chapters[activeChapter].levels;
     const title = mode === "melody" ? MELODY_GROUPS[melGroup].name : chapters[activeChapter].name;
-    const onBack = mode === "melody" ? () => setMelGroup(null) : () => setChapter(null);
-    const backLabel = mode === "melody" ? "← Worlds" : "← Chapters";
+    const onBack = fromAdventure
+      ? () => { setFromAdventure(false); setScreen("adventure"); }
+      : mode === "melody" ? () => setMelGroup(null) : () => setChapter(null);
+    const backLabel = fromAdventure ? "← Map" : mode === "melody" ? "← Worlds" : "← Chapters";
     return (
       <div className="app">
         <style>{CSS}</style>
@@ -2082,6 +2121,10 @@ export default function NumberEarTrainer() {
           <button className="back" onClick={onBack}>{backLabel}</button>
           <h2 className="screen-title">{title}</h2>
         </header>
+        <div className="stage-intro">
+          <p className="stage-goal">{stageGoal(mode, title)}</p>
+          <span className="stage-meta">{list.length} levels · {mode === "melody" ? "single notes" : mode === "chords" ? "chord tones" : "chord progressions"}</span>
+        </div>
         {mode === "chords" && (
           <div className="key-row">
             <label className="key-label">
@@ -2679,6 +2722,12 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 
 /* level list */
 .levels { display: flex; flex-direction: column; gap: 10px; }
+.stage-intro {
+  background: var(--card); border: 1.5px solid var(--line); border-left: 3px solid var(--teal);
+  border-radius: 12px; padding: 12px 14px; margin: 0 0 14px;
+}
+.stage-goal { margin: 0; font-size: 0.92rem; line-height: 1.5; color: var(--text); }
+.stage-meta { display: block; margin-top: 7px; font-size: 0.72rem; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.06em; }
 .level {
   display: flex; align-items: center; gap: 14px; text-align: left;
   background: var(--card); border: 1.5px solid var(--line); border-radius: 14px;
