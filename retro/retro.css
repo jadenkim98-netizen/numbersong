@@ -544,3 +544,15 @@
   animation:rt-finale-coda .8s cubic-bezier(.15,1.2,.3,1) .55s both;
 }
 @keyframes rt-finale-coda{ from{ transform:translate(-50%,18px); opacity:0; } to{ transform:translate(-50%,0); opacity:1; } }
+
+/* post-game "Harmonia restored" — a golden shimmer over the map + gold forge HUD */
+.retro .adv-screen.restored::after{
+  content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:radial-gradient(130% 85% at 50% 45%, rgba(217,180,91,.15), transparent 62%);
+  animation:rt-restored-glow 4s ease-in-out infinite;
+}
+@keyframes rt-restored-glow{ 50%{ opacity:.5; } }
+.retro .adv-restored-tag{ font-style:normal; color:var(--gold); }
+.retro .adv-screen.restored .adv-forge-txt span{ color:var(--gold); text-shadow:0 0 6px rgba(217,180,91,.5); }
+.retro .adv-screen.restored .adv-forge-txt b{ color:var(--gold); }
+.retro .adv-screen.restored .adv-sword-mini{ filter:drop-shadow(0 0 7px rgba(217,180,91,.8)); }

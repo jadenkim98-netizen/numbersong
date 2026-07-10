@@ -1251,8 +1251,16 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       ctx.fillText(cleared ? "★" : String(n.id), x, y + 0.5);
     });
     drawDojo(ctx, (DOJO.c + 0.5) * T, (DOJO.r + 0.5) * T);
+    if (collected.size >= 8 && swordImg) {            // post-game: Excalibar rests, glowing, at home
+      const mx = (2 + 0.5) * T, my = (24 + 0.5) * T;
+      ctx.save();
+      ctx.shadowColor = "#D9B45B"; ctx.shadowBlur = 13;
+      const sh = 30, sw = swordImg.width * (sh / swordImg.height);
+      ctx.drawImage(swordImg, mx - sw / 2, my + 5 - sh, sw, sh);
+      ctx.restore();
+    }
     drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, codaImg, bob);
-  }, [tileset, nodes, currentId, collected, codaImg]);
+  }, [tileset, nodes, currentId, collected, codaImg, swordImg]);
 
   // static render: Coda rests on the current node (unless mid-walk)
   useEffect(() => {
@@ -1370,13 +1378,14 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
   };
 
   const have = collected.size;
+  const restored = have >= 8; // whole sword reforged → post-game state
   const next = nodes.find((n) => !collected.has(H.stageFrag[n.id]));
   return (
-    <div className="adv-screen">
+    <div className={"adv-screen" + (restored ? " restored" : "")}>
       <style>{CSS}</style>
       <div className="adv-hud adv-hud-top">
         <img className="adv-logo" src={typeof window !== "undefined" ? window.WEJAM_LOGO : ""} alt="WeJam" />
-        <span className="adv-title">Harmonia</span>
+        <span className="adv-title">Harmonia{restored && <em className="adv-restored-tag"> · restored</em>}</span>
         <button className="gear" onClick={onMenu} aria-label="Main menu">☰</button>
         <button className="gear" onClick={onSettings} aria-label="Settings">⚙</button>
       </div>
@@ -1470,6 +1479,24 @@ export default function NumberEarTrainer() {
   useEffect(() => {
     if (screen === "adventure" && mapCelebrateNode) sfx("twinkle");
   }, [screen, mapCelebrateNode]);
+
+  // Haptics: navigator.vibrate (Android) + a hidden iOS <input switch> whose
+  // toggle produces a light haptic on iOS 17.4+ (best effort; iOS blocks vibrate).
+  const hapticRef = useRef(null);
+  useEffect(() => {
+    const inp = document.createElement("input");
+    inp.type = "checkbox"; inp.setAttribute("switch", ""); inp.setAttribute("aria-hidden", "true"); inp.tabIndex = -1;
+    inp.style.cssText = "position:fixed;bottom:0;right:0;width:1px;height:1px;opacity:0;pointer-events:none;";
+    document.body.appendChild(inp); hapticRef.current = inp;
+    return () => { try { document.body.removeChild(inp); } catch (e) {} };
+  }, []);
+  const haptic = (big) => {
+    try { if (navigator.vibrate) navigator.vibrate(big ? [90, 60, 90, 60, 90, 60, 320] : 55); } catch (e) {}
+    try {
+      const el = hapticRef.current;
+      if (el) { el.click(); if (big) { setTimeout(() => el.click(), 130); setTimeout(() => el.click(), 270); setTimeout(() => el.click(), 430); } }
+    } catch (e) {}
+  };
   // one-shot forge flash after earning a fragment (clears itself)
   useEffect(() => {
     if (!swordBurst) return;
@@ -1479,7 +1506,7 @@ export default function NumberEarTrainer() {
   // boot screen: any key / tap starts the game (and unlocks audio)
   useEffect(() => {
     if (screen !== "boot") return;
-    const go = () => { bootChime(); setScreen("menu"); };
+    const go = () => { bootChime(); haptic(false); setScreen("menu"); };
     window.addEventListener("keydown", go, { once: true });
     window.addEventListener("pointerdown", go, { once: true });
     return () => { window.removeEventListener("keydown", go); window.removeEventListener("pointerdown", go); };
@@ -1786,8 +1813,8 @@ export default function NumberEarTrainer() {
       if (clears) {
         setMapCelebrateNode(advStageId);
         const others = advNodes.filter((n) => n.id !== advStageId && stageClearedAdv(n.id)).length;
-        if (others >= 7) { grandFanfare(); try { navigator.vibrate && navigator.vibrate([90, 60, 90, 60, 90, 60, 320]); } catch (e) {} }
-        else { fanfare(); try { navigator.vibrate && navigator.vibrate(60); } catch (e) {} }
+        if (others >= 7) { grandFanfare(); haptic(true); }
+        else { fanfare(); haptic(false); }
       }
     }
     setPhase("idle");

@@ -575,6 +575,18 @@
 }
 @keyframes rt-finale-coda{ from{ transform:translate(-50%,18px); opacity:0; } to{ transform:translate(-50%,0); opacity:1; } }
 
+/* post-game "Harmonia restored" — a golden shimmer over the map + gold forge HUD */
+.retro .adv-screen.restored::after{
+  content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:radial-gradient(130% 85% at 50% 45%, rgba(217,180,91,.15), transparent 62%);
+  animation:rt-restored-glow 4s ease-in-out infinite;
+}
+@keyframes rt-restored-glow{ 50%{ opacity:.5; } }
+.retro .adv-restored-tag{ font-style:normal; color:var(--gold); }
+.retro .adv-screen.restored .adv-forge-txt span{ color:var(--gold); text-shadow:0 0 6px rgba(217,180,91,.5); }
+.retro .adv-screen.restored .adv-forge-txt b{ color:var(--gold); }
+.retro .adv-screen.restored .adv-sword-mini{ filter:drop-shadow(0 0 7px rgba(217,180,91,.8)); }
+
 </style>
 </head>
 <body>
@@ -1885,8 +1897,17 @@ window.HARMONIA_decodeMask = decodeMask;
         ctx.fillText(cleared ? "★" : String(n.id), x, y + 0.5);
       });
       drawDojo(ctx, (DOJO.c + 0.5) * T, (DOJO.r + 0.5) * T);
+      if (collected.size >= 8 && swordImg) {
+        const mx = (2 + 0.5) * T, my = (24 + 0.5) * T;
+        ctx.save();
+        ctx.shadowColor = "#D9B45B";
+        ctx.shadowBlur = 13;
+        const sh = 30, sw = swordImg.width * (sh / swordImg.height);
+        ctx.drawImage(swordImg, mx - sw / 2, my + 5 - sh, sw, sh);
+        ctx.restore();
+      }
       drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, codaImg, bob);
-    }, [tileset, nodes, currentId, collected, codaImg]);
+    }, [tileset, nodes, currentId, collected, codaImg, swordImg]);
     useEffect(() => {
       const cn = nodes.find((n) => n.id === currentId);
       if (!cn || walkRef.current) return;
@@ -2023,8 +2044,9 @@ window.HARMONIA_decodeMask = decodeMask;
       else walkTo(best, () => onEnter(best));
     };
     const have = collected.size;
+    const restored = have >= 8;
     const next = nodes.find((n) => !collected.has(H.stageFrag[n.id]));
-    return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, "Harmonia"), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onSettings, "aria-label": "Settings" }, "⚙")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), celebrateNode && H.nodes[celebrateNode - 1] && /* @__PURE__ */ React.createElement("div", { className: "map-cleared", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "map-cleared-star" }, "★"), /* @__PURE__ */ React.createElement("span", { className: "map-cleared-text" }, H.nodes[celebrateNode - 1].name, /* @__PURE__ */ React.createElement("em", null, "region cleared"))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : "")), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onFree, "aria-label": "Free play" }, "🎸"))));
+    return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" + (restored ? " restored" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, "Harmonia", restored && /* @__PURE__ */ React.createElement("em", { className: "adv-restored-tag" }, " · restored")), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onSettings, "aria-label": "Settings" }, "⚙")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), celebrateNode && H.nodes[celebrateNode - 1] && /* @__PURE__ */ React.createElement("div", { className: "map-cleared", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "map-cleared-star" }, "★"), /* @__PURE__ */ React.createElement("span", { className: "map-cleared-text" }, H.nodes[celebrateNode - 1].name, /* @__PURE__ */ React.createElement("em", null, "region cleared"))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : "")), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onFree, "aria-label": "Free play" }, "🎸"))));
   }
   function NumberEarTrainer() {
     const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
@@ -2080,6 +2102,41 @@ window.HARMONIA_decodeMask = decodeMask;
     useEffect(() => {
       if (screen === "adventure" && mapCelebrateNode) sfx("twinkle");
     }, [screen, mapCelebrateNode]);
+    const hapticRef = useRef(null);
+    useEffect(() => {
+      const inp = document.createElement("input");
+      inp.type = "checkbox";
+      inp.setAttribute("switch", "");
+      inp.setAttribute("aria-hidden", "true");
+      inp.tabIndex = -1;
+      inp.style.cssText = "position:fixed;bottom:0;right:0;width:1px;height:1px;opacity:0;pointer-events:none;";
+      document.body.appendChild(inp);
+      hapticRef.current = inp;
+      return () => {
+        try {
+          document.body.removeChild(inp);
+        } catch (e) {
+        }
+      };
+    }, []);
+    const haptic = (big) => {
+      try {
+        if (navigator.vibrate) navigator.vibrate(big ? [90, 60, 90, 60, 90, 60, 320] : 55);
+      } catch (e) {
+      }
+      try {
+        const el = hapticRef.current;
+        if (el) {
+          el.click();
+          if (big) {
+            setTimeout(() => el.click(), 130);
+            setTimeout(() => el.click(), 270);
+            setTimeout(() => el.click(), 430);
+          }
+        }
+      } catch (e) {
+      }
+    };
     useEffect(() => {
       if (!swordBurst) return;
       const t = setTimeout(() => setSwordBurst(false), 1500);
@@ -2089,6 +2146,7 @@ window.HARMONIA_decodeMask = decodeMask;
       if (screen !== "boot") return;
       const go = () => {
         bootChime();
+        haptic(false);
         setScreen("menu");
       };
       window.addEventListener("keydown", go, { once: true });
@@ -2436,16 +2494,10 @@ window.HARMONIA_decodeMask = decodeMask;
           const others = advNodes.filter((n) => n.id !== advStageId && stageClearedAdv(n.id)).length;
           if (others >= 7) {
             grandFanfare();
-            try {
-              navigator.vibrate && navigator.vibrate([90, 60, 90, 60, 90, 60, 320]);
-            } catch (e) {
-            }
+            haptic(true);
           } else {
             fanfare();
-            try {
-              navigator.vibrate && navigator.vibrate(60);
-            } catch (e) {
-            }
+            haptic(false);
           }
         }
       }
