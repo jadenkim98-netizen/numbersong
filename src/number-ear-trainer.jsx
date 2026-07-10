@@ -847,7 +847,7 @@ function useMusic() {
   const nameRef = useRef(null);
   const onRef = useRef(loadPref("music", "1") === "1");
   const bus = () => {
-    if (!busRef.current) busRef.current = new Tone.Gain(onRef.current ? 0.3 : 0).toDestination();
+    if (!busRef.current) busRef.current = new Tone.Gain(onRef.current ? 0.12 : 0).toDestination();
     return busRef.current;
   };
   const disposeCur = () => {
@@ -890,18 +890,18 @@ function useMusic() {
       if (T) {
         build(T);
         try { Tone.Transport.start("+0.06"); } catch (e) {}
-        try { g.gain.rampTo(onRef.current ? 0.3 : 0, 0.6); } catch (e) {}
+        try { g.gain.rampTo(onRef.current ? 0.12 : 0, 0.6); } catch (e) {}
       }
     }, 520);
   }, []);
   const stopMusic = useCallback((fast) => {
     nameRef.current = null;
-    const g = busRef.current; if (g) try { g.gain.rampTo(0, fast ? 0.3 : 0.7); } catch (e) {}
+    const g = busRef.current; if (g) try { g.gain.rampTo(0, fast ? 0.12 : 0.7); } catch (e) {}
     setTimeout(() => { try { Tone.Transport.stop(); Tone.Transport.cancel(); } catch (e) {} disposeCur(); }, fast ? 320 : 720);
   }, []);
   const setMusicOn = useCallback((on) => {
     onRef.current = on; savePref("music", on ? "1" : "0");
-    const g = busRef.current; if (g) try { g.gain.rampTo(on ? 0.3 : 0, 0.4); } catch (e) {}
+    const g = busRef.current; if (g) try { g.gain.rampTo(on ? 0.12 : 0, 0.4); } catch (e) {}
   }, []);
   return { playTheme, stopMusic, setMusicOn };
 }

@@ -1680,7 +1680,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const nameRef = useRef(null);
     const onRef = useRef(loadPref("music", "1") === "1");
     const bus = () => {
-      if (!busRef.current) busRef.current = new Tone.Gain(onRef.current ? 0.3 : 0).toDestination();
+      if (!busRef.current) busRef.current = new Tone.Gain(onRef.current ? 0.12 : 0).toDestination();
       return busRef.current;
     };
     const disposeCur = () => {
@@ -1762,7 +1762,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           } catch (e) {
           }
           try {
-            g.gain.rampTo(onRef.current ? 0.3 : 0, 0.6);
+            g.gain.rampTo(onRef.current ? 0.12 : 0, 0.6);
           } catch (e) {
           }
         }
@@ -1772,7 +1772,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       nameRef.current = null;
       const g = busRef.current;
       if (g) try {
-        g.gain.rampTo(0, fast ? 0.3 : 0.7);
+        g.gain.rampTo(0, fast ? 0.12 : 0.7);
       } catch (e) {
       }
       setTimeout(() => {
@@ -1789,7 +1789,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       savePref("music", on ? "1" : "0");
       const g = busRef.current;
       if (g) try {
-        g.gain.rampTo(on ? 0.3 : 0, 0.4);
+        g.gain.rampTo(on ? 0.12 : 0, 0.4);
       } catch (e) {
       }
     }, []);
