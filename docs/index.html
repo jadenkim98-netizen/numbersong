@@ -664,15 +664,20 @@ window.HARMONIA_decodeMask = decodeMask;
   function resolutionSemis(pc, mode) {
     const deg = PC_TO_DEGREE[pc];
     if (deg != null) return (mode === "minor" ? RES_MINOR : RES_MAJOR)[deg];
-    if (mode === "minor") {
-      let best = 9, bd = 99;
-      for (const h of [-3, 9, 21]) if (Math.abs(pc - h) < bd) {
-        bd = Math.abs(pc - h);
-        best = h;
+    const homes = mode === "minor" ? [-3, 9, 21] : [0, 12];
+    let H = homes[0], bd = 1e9;
+    for (const h of homes) {
+      const d = Math.abs(pc - h);
+      if (d < bd) {
+        bd = d;
+        H = h;
       }
-      return [pc, best];
     }
-    return pc < 6 ? [pc, 0] : [pc, 12];
+    const tied = homes.filter((h) => Math.abs(pc - h) === bd);
+    if (tied.length > 1) H = mode === "minor" ? Math.min(...tied) : Math.max(...tied);
+    const DIA = [0, 2, 4, 5, 7, 9, 11];
+    const dia = H > pc ? DIA.find((d) => d > pc) : [...DIA].reverse().find((d) => d < pc);
+    return [pc, ...(mode === "minor" ? RES_MINOR : RES_MAJOR)[PC_TO_DEGREE[dia]]];
   }
   const ALT_QUIPS = {
     1: "♭2 — right above home.",

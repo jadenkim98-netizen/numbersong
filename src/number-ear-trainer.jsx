@@ -68,13 +68,17 @@ const RES_MINOR = { 1: [0, -1, -3], 2: [2, 0, -1, -3], 3: [4, 2, 0, -1, -3], 4: 
 function resolutionSemis(pc, mode) {
   const deg = PC_TO_DEGREE[pc];
   if (deg != null) return (mode === "minor" ? RES_MINOR : RES_MAJOR)[deg];
-  // altered (chromatic) note: glide straight to the nearest home
-  if (mode === "minor") {
-    let best = 9, bd = 99;
-    for (const h of [-3, 9, 21]) if (Math.abs(pc - h) < bd) { bd = Math.abs(pc - h); best = h; }
-    return [pc, best];
-  }
-  return pc < 6 ? [pc, 0] : [pc, 12];
+  // altered (chromatic) note: step to the nearest diatonic note in the direction
+  // of the closest home (1 in major, 6 in minor), then ride that note's usual
+  // scale resolution the rest of the way home.
+  const homes = mode === "minor" ? [-3, 9, 21] : [0, 12];
+  let H = homes[0], bd = 1e9;
+  for (const h of homes) { const d = Math.abs(pc - h); if (d < bd) { bd = d; H = h; } }
+  const tied = homes.filter((h) => Math.abs(pc - h) === bd);
+  if (tied.length > 1) H = mode === "minor" ? Math.min(...tied) : Math.max(...tied); // ♯4 leans up; minor leans down
+  const DIA = [0, 2, 4, 5, 7, 9, 11];
+  const dia = H > pc ? DIA.find((d) => d > pc) : [...DIA].reverse().find((d) => d < pc);
+  return [pc, ...(mode === "minor" ? RES_MINOR : RES_MAJOR)[PC_TO_DEGREE[dia]]];
 }
 
 // A word for each note when you name it right
