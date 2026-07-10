@@ -548,6 +548,7 @@ function useAudio() {
     else if (name === "boot") [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.15, i * 0.07, "triangle"));
     else if (name === "correct") { beep(880, 0.09, 0, "triangle"); beep(1319, 0.1, 0.09, "triangle"); }
     else if (name === "victory") [659, 784, 1047, 1319].forEach((f, i) => beep(f, 0.18, i * 0.095, "triangle"));
+    else if (name === "twinkle") [2093, 2637, 3136, 2349, 1760].forEach((fr, i) => beep(fr, 0.11, i * 0.05, "triangle"));
   }, [ensure]);
 
   // big triumphant fanfare for forging a fragment — layered: lead run + chord,
@@ -609,6 +610,24 @@ function useAudio() {
     P(f.bass, "C2", 5.2, at);
     P(f.choir, ["C3", "G3", "C4", "E4", "G4", "C5"], 5.2, at);
     P(f.bell, "C6", 1.2, at + 0.1); P(f.bell, "E6", 1.0, at + 0.3); P(f.bell, "G6", 1.0, at + 0.5); P(f.bell, "C7", 3.2, at + 0.75);
+  }, [ensure]);
+
+  // robust "power on" chime for the Press-Any-Key boot: rising arpeggio into a
+  // bright major chord with a sparkle up top.
+  const bootRef = useRef(null);
+  const bootChime = useCallback(async () => {
+    await ensure();
+    if (!bootRef.current) {
+      bootRef.current = {
+        lead:  new Tone.PolySynth(Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 0.005, decay: 0.2, sustain: 0.25, release: 0.6 }, volume: -9 }).toDestination(),
+        spark: new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.002, decay: 0.4, sustain: 0, release: 0.5 }, volume: -13 }).toDestination(),
+      };
+    }
+    const s = bootRef.current, t = Tone.now() + 0.09;
+    const P = (inst, notes, dur, at) => { try { inst.triggerAttackRelease(notes, dur, t + at); } catch (e) {} };
+    P(s.lead, "C4", 0.1, 0.00); P(s.lead, "E4", 0.1, 0.08); P(s.lead, "G4", 0.1, 0.16); P(s.lead, "C5", 0.12, 0.24);
+    P(s.lead, ["C5", "E5", "G5", "C6"], 0.95, 0.36);
+    P(s.spark, "E6", 0.25, 0.42); P(s.spark, "G6", 0.3, 0.56); P(s.spark, "C7", 0.6, 0.7);
   }, [ensure]);
 
   // Sustaining voice (Free Play): attack on hold, release on let-go. "piano" reuses
@@ -805,7 +824,7 @@ function useAudio() {
     }
   }, []);
 
-  return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
+  return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
 }
 
 function speak(text, enabled) {
@@ -1360,7 +1379,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
 /* ─────────────────────────────  APP  ───────────────────────────── */
 
 export default function NumberEarTrainer() {
-  const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
+  const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
 
   const [boringMode, setBoringMode] = useState(() => loadPref("boring", "0") === "1"); // classic UI vs Adventure
   const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home")); // boot | menu | training | home | adventure | levels | session | results | learn | guide | settings
@@ -1419,6 +1438,10 @@ export default function NumberEarTrainer() {
   useEffect(() => {
     document.documentElement.classList.toggle("retro", window.HARMONIA && !boringMode);
   }, [boringMode]);
+  // twinkle when landing on the map right after clearing a region
+  useEffect(() => {
+    if (screen === "adventure" && mapCelebrateNode) sfx("twinkle");
+  }, [screen, mapCelebrateNode]);
   // one-shot forge flash after earning a fragment (clears itself)
   useEffect(() => {
     if (!swordBurst) return;
@@ -1428,7 +1451,7 @@ export default function NumberEarTrainer() {
   // boot screen: any key / tap starts the game (and unlocks audio)
   useEffect(() => {
     if (screen !== "boot") return;
-    const go = () => { sfx("boot"); setScreen("menu"); };
+    const go = () => { bootChime(); setScreen("menu"); };
     window.addEventListener("keydown", go, { once: true });
     window.addEventListener("pointerdown", go, { once: true });
     return () => { window.removeEventListener("keydown", go); window.removeEventListener("pointerdown", go); };

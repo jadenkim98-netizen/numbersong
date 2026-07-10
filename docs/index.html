@@ -1134,6 +1134,7 @@ window.HARMONIA_decodeMask = decodeMask;
         beep(880, 0.09, 0, "triangle");
         beep(1319, 0.1, 0.09, "triangle");
       } else if (name === "victory") [659, 784, 1047, 1319].forEach((f, i) => beep(f, 0.18, i * 0.095, "triangle"));
+      else if (name === "twinkle") [2093, 2637, 3136, 2349, 1760].forEach((fr, i) => beep(fr, 0.11, i * 0.05, "triangle"));
     }, [ensure]);
     const fanfareRef = useRef(null);
     const fanfare = useCallback(async () => {
@@ -1210,6 +1211,31 @@ window.HARMONIA_decodeMask = decodeMask;
       P(f.bell, "E6", 1, at + 0.3);
       P(f.bell, "G6", 1, at + 0.5);
       P(f.bell, "C7", 3.2, at + 0.75);
+    }, [ensure]);
+    const bootRef = useRef(null);
+    const bootChime = useCallback(async () => {
+      await ensure();
+      if (!bootRef.current) {
+        bootRef.current = {
+          lead: new Tone.PolySynth(Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 5e-3, decay: 0.2, sustain: 0.25, release: 0.6 }, volume: -9 }).toDestination(),
+          spark: new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 2e-3, decay: 0.4, sustain: 0, release: 0.5 }, volume: -13 }).toDestination()
+        };
+      }
+      const s = bootRef.current, t = Tone.now() + 0.09;
+      const P = (inst, notes, dur, at) => {
+        try {
+          inst.triggerAttackRelease(notes, dur, t + at);
+        } catch (e) {
+        }
+      };
+      P(s.lead, "C4", 0.1, 0);
+      P(s.lead, "E4", 0.1, 0.08);
+      P(s.lead, "G4", 0.1, 0.16);
+      P(s.lead, "C5", 0.12, 0.24);
+      P(s.lead, ["C5", "E5", "G5", "C6"], 0.95, 0.36);
+      P(s.spark, "E6", 0.25, 0.42);
+      P(s.spark, "G6", 0.3, 0.56);
+      P(s.spark, "C7", 0.6, 0.7);
     }, [ensure]);
     const susRef = useRef(null);
     const susVoiceRef = useRef("piano");
@@ -1436,7 +1462,7 @@ window.HARMONIA_decodeMask = decodeMask;
         padRef.current = synthRef.current;
       }
     }, []);
-    return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
+    return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
   }
   function speak(text, enabled) {
     if (!enabled || !window.speechSynthesis) return;
@@ -1943,7 +1969,7 @@ window.HARMONIA_decodeMask = decodeMask;
     return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, "Harmonia"), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onSettings, "aria-label": "Settings" }, "⚙")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), celebrateNode && H.nodes[celebrateNode - 1] && /* @__PURE__ */ React.createElement("div", { className: "map-cleared", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "map-cleared-star" }, "★"), /* @__PURE__ */ React.createElement("span", { className: "map-cleared-text" }, H.nodes[celebrateNode - 1].name, /* @__PURE__ */ React.createElement("em", null, "region cleared"))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : "")), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onFree, "aria-label": "Free play" }, "🎸"))));
   }
   function NumberEarTrainer() {
-    const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
+    const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
     const [boringMode, setBoringMode] = useState(() => loadPref("boring", "0") === "1");
     const [screen, setScreen] = useState(() => window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home");
     const [mode, setMode] = useState("melody");
@@ -1994,6 +2020,9 @@ window.HARMONIA_decodeMask = decodeMask;
       document.documentElement.classList.toggle("retro", window.HARMONIA && !boringMode);
     }, [boringMode]);
     useEffect(() => {
+      if (screen === "adventure" && mapCelebrateNode) sfx("twinkle");
+    }, [screen, mapCelebrateNode]);
+    useEffect(() => {
       if (!swordBurst) return;
       const t = setTimeout(() => setSwordBurst(false), 1500);
       return () => clearTimeout(t);
@@ -2001,7 +2030,7 @@ window.HARMONIA_decodeMask = decodeMask;
     useEffect(() => {
       if (screen !== "boot") return;
       const go = () => {
-        sfx("boot");
+        bootChime();
         setScreen("menu");
       };
       window.addEventListener("keydown", go, { once: true });
