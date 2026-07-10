@@ -1853,6 +1853,9 @@ export default function NumberEarTrainer() {
           </button>
         );
       })()}
+      {typeof window !== "undefined" && window.CODA_MEDITATE && (
+        <img className="fp-coda" src={window.CODA_MEDITATE} alt="Coda, meditating" aria-hidden="true" />
+      )}
     </div>
   );
 
@@ -2893,6 +2896,7 @@ button { touch-action: manipulation; }
 .wejam-logo { display: block; height: 46px; width: auto; }
 .brand p { margin: 6px 0 0; color: var(--text-soft); font-size: 0.95rem; }
 .key-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.fp-coda { height: 46px; width: auto; image-rendering: pixelated; align-self: center; opacity: 0.92; }
 .key-label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-soft); }
 select {
   font-family: inherit; font-size: 0.95rem; color: var(--text);

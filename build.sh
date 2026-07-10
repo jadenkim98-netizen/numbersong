@@ -27,6 +27,7 @@ voices = json.dumps({str(base): {str(i): base64.b64encode(open(f"voice/{base}/{i
 icon_data = "data:image/png;base64," + base64.b64encode(open("icon.png","rb").read()).decode()
 logo_data = "data:image/png;base64," + base64.b64encode(open("wejam.png","rb").read()).decode()
 coda_data = "data:image/png;base64," + base64.b64encode(open("coda.png","rb").read()).decode()
+coda_med_data = "data:image/png;base64," + base64.b64encode(open("coda_meditate.png","rb").read()).decode()
 adventure = open("adventure/assets.js").read().replace("export const", "const").replace("export function", "function")
 assert "</script" not in adventure
 retro_css = open("retro/retro.css").read().replace("__FONT_B64__", open("retro/pixelfont.b64").read().strip())
@@ -98,6 +99,7 @@ html = f'''<!DOCTYPE html>
 window.SUNG_NUMBERS = {voices};
 window.WEJAM_LOGO = "{logo_data}";
 window.CODA_SPRITE = "{coda_data}";
+window.CODA_MEDITATE = "{coda_med_data}";
 </script>
 <script>
 {adventure}
