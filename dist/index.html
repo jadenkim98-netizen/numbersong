@@ -474,6 +474,33 @@
 .retro .forge-sparks i:nth-child(8){ --tx:-45px;  --ty:-45px; }
 .retro .victory-kicker{ animation:rt-blink 1.6s steps(1) 3; }
 
+/* ---- full-screen forge celebration: flash + confetti + card slam --------- */
+.retro .fx-flash{
+  position:fixed; inset:0; z-index:199; pointer-events:none;
+  background:radial-gradient(circle at 50% 34%, rgba(255,245,215,.95), rgba(217,180,91,.45) 42%, transparent 72%);
+  animation:rt-bigflash .6s ease-out forwards;
+}
+@keyframes rt-bigflash{ 0%{ opacity:0; } 10%{ opacity:1; } 100%{ opacity:0; } }
+.retro .confetti{ position:fixed; inset:0; z-index:200; pointer-events:none; overflow:hidden; }
+.retro .confetti i{
+  position:absolute; top:-18px; width:10px; height:16px; opacity:.96;
+  box-shadow:0 0 3px rgba(0,0,0,.3);
+  animation:rt-confetti 3.4s linear forwards;
+}
+.retro .confetti i:nth-child(3n){ width:8px; height:8px; border-radius:50%; }
+.retro .confetti i:nth-child(4n){ height:12px; animation-duration:2.7s; }
+.retro .confetti i:nth-child(4n+1){ animation-duration:4.2s; }
+.retro .confetti i:nth-child(4n+2){ animation-duration:3.6s; animation-delay:.28s; }
+.retro .confetti i:nth-child(4n+3){ animation-duration:4.6s; animation-delay:.55s; }
+.retro .confetti i:nth-child(3n+1){ animation-delay:.18s; }
+.retro .confetti i:nth-child(5n){ animation-delay:.8s; }
+@keyframes rt-confetti{
+  0%{ transform:translate(0,-20px) rotate(0); opacity:1; }
+  100%{ transform:translate(var(--drift,0), 106vh) rotate(760deg); opacity:.85; }
+}
+.retro .victory{ animation:rt-slam .55s cubic-bezier(.2,1.4,.35,1); }
+@keyframes rt-slam{ 0%{ transform:scale(1.5); opacity:0; } 55%{ transform:scale(.97); opacity:1; } 78%{ transform:scale(1.02); } 100%{ transform:scale(1); } }
+
 </style>
 </head>
 <body>
@@ -1054,27 +1081,31 @@ window.HARMONIA_decodeMask = decodeMask;
     const fanfare = useCallback(async () => {
       await ensure();
       if (!fanfareRef.current) {
-        fanfareRef.current = new Tone.PolySynth(Tone.Synth, {
-          oscillator: { type: "triangle" },
-          envelope: { attack: 8e-3, decay: 0.18, sustain: 0.35, release: 0.7 },
-          volume: -9
-        }).toDestination();
+        fanfareRef.current = {
+          lead: new Tone.PolySynth(Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 8e-3, decay: 0.18, sustain: 0.35, release: 0.7 }, volume: -9 }).toDestination(),
+          bass: new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.3, sustain: 0.6, release: 0.9 }, volume: -5 }).toDestination(),
+          choir: new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sine" }, envelope: { attack: 0.35, decay: 0.2, sustain: 0.7, release: 1.3 }, volume: -15 }).toDestination(),
+          bell: new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 2e-3, decay: 0.5, sustain: 0, release: 0.6 }, volume: -11 }).toDestination()
+        };
       }
-      const s = fanfareRef.current, t = Tone.now() + 0.06;
-      const N = (notes, dur, at) => {
+      const f = fanfareRef.current, t = Tone.now() + 0.06;
+      const P = (inst, notes, dur, at) => {
         try {
-          s.triggerAttackRelease(notes, dur, t + at);
+          inst.triggerAttackRelease(notes, dur, t + at);
         } catch (e) {
         }
       };
-      N("G4", 0.12, 0);
-      N("C5", 0.12, 0.1);
-      N("E5", 0.12, 0.2);
-      N("G5", 0.14, 0.3);
-      N(["C5", "E5", "G5", "C6"], 1.1, 0.44);
-      N("E6", 0.5, 0.6);
-      N("G6", 0.7, 0.74);
-      N("C7", 0.9, 0.9);
+      P(f.lead, "G4", 0.12, 0);
+      P(f.lead, "C5", 0.12, 0.1);
+      P(f.lead, "E5", 0.12, 0.2);
+      P(f.lead, "G5", 0.14, 0.3);
+      P(f.lead, ["C5", "E5", "G5", "C6"], 1.2, 0.44);
+      P(f.bass, "C2", 1.4, 0.42);
+      P(f.choir, ["C4", "E4", "G4", "C5"], 1.7, 0.4);
+      P(f.bell, "C6", 0.5, 0.52);
+      P(f.bell, "E6", 0.5, 0.66);
+      P(f.bell, "G6", 0.6, 0.8);
+      P(f.bell, "C7", 0.9, 0.96);
     }, [ensure]);
     const susRef = useRef(null);
     const susVoiceRef = useRef("piano");
@@ -1557,6 +1588,13 @@ window.HARMONIA_decodeMask = decodeMask;
     ctx.fillRect(cx - 1.5, y - 1.5, 2, 2);
     ctx.restore();
   }
+  const CONFETTI = Array.from({ length: 30 }, (_, i) => ({
+    left: i * 37 % 100,
+    delay: i % 9 * 0.1,
+    dur: 2.4 + i % 6 * 0.4,
+    color: ["var(--gold)", "var(--teal)", "var(--green)", "var(--blue)", "#fff"][i % 5],
+    drift: (i % 7 - 3) * 16
+  }));
   function ForgeSword({ collected, className }) {
     const H = window.HARMONIA;
     const ref = useRef(null);
@@ -2858,7 +2896,7 @@ window.HARMONIA_decodeMask = decodeMask;
         byTarget[k].total += 1;
         if (r.firstTry) byTarget[k].right += 1;
       });
-      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), justCleared && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), justCleared && /* @__PURE__ */ React.createElement("div", { className: "confetti", "aria-hidden": "true" }, CONFETTI.map((cf, i) => /* @__PURE__ */ React.createElement("i", { key: i, style: { left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px" } }))), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
         if (fromAdventure) {
           setSwordBurst(!!justCleared);
           setScreen("adventure");

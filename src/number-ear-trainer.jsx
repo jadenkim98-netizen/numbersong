@@ -549,24 +549,29 @@ function useAudio() {
     else if (name === "victory") [659, 784, 1047, 1319].forEach((f, i) => beep(f, 0.18, i * 0.095, "triangle"));
   }, [ensure]);
 
-  // big triumphant fanfare for forging a fragment (poly so the final chord rings)
+  // big triumphant fanfare for forging a fragment — layered: lead run + chord,
+  // a deep bass boom, a soft choir "aah" swell, and bright bell sparkles.
   const fanfareRef = useRef(null);
   const fanfare = useCallback(async () => {
     await ensure();
     if (!fanfareRef.current) {
-      fanfareRef.current = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: "triangle" },
-        envelope: { attack: 0.008, decay: 0.18, sustain: 0.35, release: 0.7 },
-        volume: -9,
-      }).toDestination();
+      fanfareRef.current = {
+        lead:  new Tone.PolySynth(Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 0.008, decay: 0.18, sustain: 0.35, release: 0.7 }, volume: -9 }).toDestination(),
+        bass:  new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.3, sustain: 0.6, release: 0.9 }, volume: -5 }).toDestination(),
+        choir: new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sine" }, envelope: { attack: 0.35, decay: 0.2, sustain: 0.7, release: 1.3 }, volume: -15 }).toDestination(),
+        bell:  new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.002, decay: 0.5, sustain: 0, release: 0.6 }, volume: -11 }).toDestination(),
+      };
     }
-    const s = fanfareRef.current, t = Tone.now() + 0.06;
-    const N = (notes, dur, at) => { try { s.triggerAttackRelease(notes, dur, t + at); } catch (e) {} };
-    // quick rising run …
-    N("G4", 0.12, 0.00); N("C5", 0.12, 0.10); N("E5", 0.12, 0.20); N("G5", 0.14, 0.30);
-    // … into a held C-major chord, with a sparkle up top
-    N(["C5", "E5", "G5", "C6"], 1.1, 0.44);
-    N("E6", 0.5, 0.60); N("G6", 0.7, 0.74); N("C7", 0.9, 0.9);
+    const f = fanfareRef.current, t = Tone.now() + 0.06;
+    const P = (inst, notes, dur, at) => { try { inst.triggerAttackRelease(notes, dur, t + at); } catch (e) {} };
+    // lead: quick rising run into a held C-major chord
+    P(f.lead, "G4", 0.12, 0.00); P(f.lead, "C5", 0.12, 0.10); P(f.lead, "E5", 0.12, 0.20); P(f.lead, "G5", 0.14, 0.30);
+    P(f.lead, ["C5", "E5", "G5", "C6"], 1.2, 0.44);
+    // deep boom + choir swell for weight
+    P(f.bass, "C2", 1.4, 0.42);
+    P(f.choir, ["C4", "E4", "G4", "C5"], 1.7, 0.40);
+    // bell sparkles up top
+    P(f.bell, "C6", 0.5, 0.52); P(f.bell, "E6", 0.5, 0.66); P(f.bell, "G6", 0.6, 0.80); P(f.bell, "C7", 0.9, 0.96);
   }, [ensure]);
 
   // Sustaining voice (Free Play): attack on hold, release on let-go. "piano" reuses
@@ -1077,6 +1082,15 @@ function drawHero(ctx, cx, cy, coda, bob) {
   ctx.fillStyle = "#EDF2EE"; ctx.fillRect(cx - 1.5, y - 1.5, 2, 2);
   ctx.restore();
 }
+
+// deterministic confetti pieces for the forge celebration (stable across re-renders)
+const CONFETTI = Array.from({ length: 30 }, (_, i) => ({
+  left: (i * 37) % 100,
+  delay: (i % 9) * 0.1,
+  dur: 2.4 + (i % 6) * 0.4,
+  color: ["var(--gold)", "var(--teal)", "var(--green)", "var(--blue)", "#fff"][i % 5],
+  drift: ((i % 7) - 3) * 16,
+}));
 
 // Excalibar rendered from the sword sheet; collected parts are solid, the rest ghosted.
 function ForgeSword({ collected, className }) {
@@ -2582,6 +2596,14 @@ export default function NumberEarTrainer() {
     return (
       <div className="app">
         <style>{CSS}</style>
+        {justCleared && <div className="fx-flash" aria-hidden="true" />}
+        {justCleared && (
+          <div className="confetti" aria-hidden="true">
+            {CONFETTI.map((cf, i) => (
+              <i key={i} style={{ left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px" }} />
+            ))}
+          </div>
+        )}
         <header className="top-slim">
           <button className="back" onClick={() => { if (fromAdventure) { setSwordBurst(!!justCleared); setScreen("adventure"); } else { setScreen("levels"); } }}>{fromAdventure ? "← To the map" : "← Levels"}</button>
           <h2 className="screen-title">{resultName}</h2>
