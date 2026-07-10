@@ -5,3 +5,18 @@
 [build]
   command = "true"
   publish = "dist"
+
+# Never let the browser/PWA serve a stale app: always revalidate the HTML so a
+# new deploy shows up on next load (phones cache index.html aggressively).
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

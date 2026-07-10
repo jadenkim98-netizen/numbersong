@@ -1774,7 +1774,9 @@ window.HARMONIA_decodeMask = decodeMask;
         return;
       }
       walkRef.current = true;
-      const SPEED = 6.5;
+      const len = route.reduce((a, p, i) => i ? a + Math.hypot(p.c - route[i - 1].c, p.r - route[i - 1].r) : 0, 0);
+      const dur = Math.min(2, Math.max(0.9, len / 13));
+      const SPEED = len / dur;
       let seg = 1, prevTs = 0;
       const step = (ts) => {
         if (!prevTs) prevTs = ts;

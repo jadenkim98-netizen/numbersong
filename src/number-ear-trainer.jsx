@@ -1238,7 +1238,12 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
     const route = buildRoute(start, target.c, target.r);
     if (route.length < 2) { done && done(); return; }
     walkRef.current = true;
-    const SPEED = 6.5; // tiles per second
+    // keep the walk time roughly constant regardless of distance: a long route
+    // (e.g. stage 1 → 7) walks proportionally faster so it doesn't drag; short
+    // hops stay natural. Duration lands ~0.9–2.0s either way.
+    const len = route.reduce((a, p, i) => (i ? a + Math.hypot(p.c - route[i - 1].c, p.r - route[i - 1].r) : 0), 0);
+    const dur = Math.min(2.0, Math.max(0.9, len / 13));
+    const SPEED = len / dur; // tiles per second
     let seg = 1, prevTs = 0;
     const step = (ts) => {
       if (!prevTs) prevTs = ts;
