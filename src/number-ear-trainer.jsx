@@ -847,7 +847,7 @@ function useMusic() {
   const nameRef = useRef(null);
   const onRef = useRef(loadPref("music", "1") === "1");
   const bus = () => {
-    if (!busRef.current) busRef.current = new Tone.Gain(onRef.current ? 0.85 : 0).toDestination();
+    if (!busRef.current) busRef.current = new Tone.Gain(onRef.current ? 0.3 : 0).toDestination();
     return busRef.current;
   };
   const disposeCur = () => {
@@ -890,7 +890,7 @@ function useMusic() {
       if (T) {
         build(T);
         try { Tone.Transport.start("+0.06"); } catch (e) {}
-        try { g.gain.rampTo(onRef.current ? 0.85 : 0, 0.6); } catch (e) {}
+        try { g.gain.rampTo(onRef.current ? 0.3 : 0, 0.6); } catch (e) {}
       }
     }, 520);
   }, []);
@@ -901,7 +901,7 @@ function useMusic() {
   }, []);
   const setMusicOn = useCallback((on) => {
     onRef.current = on; savePref("music", on ? "1" : "0");
-    const g = busRef.current; if (g) try { g.gain.rampTo(on ? 0.85 : 0, 0.4); } catch (e) {}
+    const g = busRef.current; if (g) try { g.gain.rampTo(on ? 0.3 : 0, 0.4); } catch (e) {}
   }, []);
   return { playTheme, stopMusic, setMusicOn };
 }
@@ -1266,7 +1266,7 @@ function drawDojo(ctx, cx, cy) {
   ctx.fillStyle = "#EDF2EE"; ctx.fillText("DOJO", cx, cy + 13);            // label
 }
 
-function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, burst, boringMode, celebrateNode, onCelebrateDone, skinTint }) {
+function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, burst, boringMode, celebrateNode, onCelebrateDone, skinTint }) {
   const H = window.HARMONIA;
   const mapRef = useRef(null);
   const swordRef = useRef(null);
@@ -1490,6 +1490,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
           <span>{have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""}</span>
         </div>
         <div className="adv-hud-actions">
+          <button className="ghost shop-btn" onClick={onShop} aria-label="Shop">★</button>
           <button className="ghost" onClick={onGuide} aria-label="How music works">📖</button>
           <button className="ghost" onClick={onFree} aria-label="Free play">🎸</button>
         </div>
@@ -1718,12 +1719,12 @@ export default function NumberEarTrainer() {
   useEffect(() => {
     const S = (typeof window !== "undefined") && window.SOUNDTRACK;
     if (!S) return;
-    if (screen === "boot" || screen === "results") return;
-    if (screen === "session") { stopMusic(); return; }
-    if (screen === "learn") { if (droneOn || fpTab === "paths") stopMusic(true); else playTheme("dojo", S.dojo); return; }
     if (screen === "adventure" || screen === "levels") { playTheme("map", S.map); return; }
-    playTheme("title", S.title);
-  }, [screen, droneOn, fpTab]);
+    if (screen === "menu" || screen === "training" || screen === "home" || screen === "shop") { playTheme("title", S.title); return; }
+    // dojo/Free Play (explore sounds freely), How-music-works + Settings (audio demos),
+    // sessions, results, boot → silent.
+    stopMusic(screen === "session");
+  }, [screen]);
 
   // Stop the paths loop whenever we leave Free Play or the paths tab.
   useEffect(() => {
@@ -2271,6 +2272,7 @@ export default function NumberEarTrainer() {
           nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={onTapNode} skinTint={skinTint}
           burst={swordBurst} boringMode={boringMode} onForge={() => { sfx("select"); setForgeOpen(true); }}
           celebrateNode={mapCelebrateNode} onCelebrateDone={() => setMapCelebrateNode(null)}
+          onShop={() => { setAuxReturn("adventure"); setScreen("shop"); }}
           onMenu={() => setScreen(boringMode ? "home" : "menu")}
           onSettings={() => { setAuxReturn("adventure"); setScreen("settings"); }}
           onGuide={() => { setAuxReturn("adventure"); setGuidePage(0); setScreen("guide"); }}
@@ -2979,7 +2981,7 @@ export default function NumberEarTrainer() {
       <div className="app">
         <style>{CSS}</style>
         <header className="top-slim">
-          <button className="back" onClick={() => setScreen(boringMode ? "home" : "menu")}>{boringMode ? "← Home" : "← Menu"}</button>
+          <button className="back" onClick={() => setScreen(auxReturn || (boringMode ? "home" : "menu"))}>{auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"}</button>
           <h2 className="screen-title">Shop</h2>
         </header>
         <div className="shop-balance"><span className="star">★</span> {bal} <em>stars to spend</em></div>
