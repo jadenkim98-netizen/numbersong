@@ -346,8 +346,9 @@ const KEY_MAP = {
 
 // Per-level rigor: most levels are 10 questions at 80%; capstones override these.
 const levelsFor = (m) => (m === "melody" ? MELODY_LEVELS : m === "chords" ? CHORD_LEVELS : PROG_LEVELS);
-const qCountOf = (lvl) => (lvl && lvl.qCount) || SESSION_LEN;
-const passRateOf = (lvl) => (lvl && lvl.pass) || PASS_RATE;
+const TEST_MODE = true; // TODO remove: 3-question sessions for celebration testing
+const qCountOf = (lvl) => TEST_MODE ? 3 : ((lvl && lvl.qCount) || SESSION_LEN);
+const passRateOf = (lvl) => TEST_MODE ? 0.6 : ((lvl && lvl.pass) || PASS_RATE);
 const passCountFor = (lvl) => Math.ceil(passRateOf(lvl) * qCountOf(lvl));
 
 // Progress is a per-level best-score map: { melody: {levelIdx: bestFirstTries}, chords: {…} }.
@@ -1084,12 +1085,12 @@ function drawHero(ctx, cx, cy, coda, bob) {
 }
 
 // deterministic confetti pieces for the forge celebration (stable across re-renders)
-const CONFETTI = Array.from({ length: 30 }, (_, i) => ({
-  left: (i * 37) % 100,
-  delay: (i % 9) * 0.1,
-  dur: 2.4 + (i % 6) * 0.4,
-  color: ["var(--gold)", "var(--teal)", "var(--green)", "var(--blue)", "#fff"][i % 5],
-  drift: ((i % 7) - 3) * 16,
+const CONFETTI = Array.from({ length: 140 }, (_, i) => ({
+  left: (i * 41) % 100,
+  delay: ((i * 7) % 24) / 10,       // 0 – 2.3s staggered (rains for several seconds)
+  dur: 3.4 + ((i * 13) % 34) / 10,  // 3.4 – 6.7s slow fall so it lingers
+  color: ["var(--gold)", "var(--teal)", "var(--green)", "var(--blue)", "#fff", "var(--wrong)"][i % 6],
+  drift: (((i * 17) % 13) - 6) * 16,
 }));
 
 // Excalibar rendered from the sword sheet; collected parts are solid, the rest ghosted.
@@ -1910,6 +1911,7 @@ export default function NumberEarTrainer() {
   const stageClearedAdv = (id) => {
     const s = ADV_STAGES[id - 1]; if (!s) return false;
     const lv = advGroupOf(s).levels;
+    if (TEST_MODE) return lv.some((l) => isPassed(s.mode, l.idx)); // testing: any level clears it
     return isPassed(s.mode, lv[lv.length - 1].idx);
   };
   const advCollected = new Set(advNodes.filter((n) => stageClearedAdv(n.id)).map((n) => window.HARMONIA.stageFrag[n.id]));
@@ -2600,7 +2602,7 @@ export default function NumberEarTrainer() {
         {justCleared && (
           <div className="confetti" aria-hidden="true">
             {CONFETTI.map((cf, i) => (
-              <i key={i} style={{ left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px" }} />
+              <i key={i} style={{ left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" }} />
             ))}
           </div>
         )}

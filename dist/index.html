@@ -483,20 +483,16 @@
 @keyframes rt-bigflash{ 0%{ opacity:0; } 10%{ opacity:1; } 100%{ opacity:0; } }
 .retro .confetti{ position:fixed; inset:0; z-index:200; pointer-events:none; overflow:hidden; }
 .retro .confetti i{
-  position:absolute; top:-18px; width:10px; height:16px; opacity:.96;
-  box-shadow:0 0 3px rgba(0,0,0,.3);
-  animation:rt-confetti 3.4s linear forwards;
+  position:absolute; top:-24px; width:12px; height:18px; opacity:.97;
+  box-shadow:0 0 3px rgba(0,0,0,.35);
+  animation:rt-confetti var(--dur,4.5s) linear var(--delay,0s) forwards;
 }
-.retro .confetti i:nth-child(3n){ width:8px; height:8px; border-radius:50%; }
-.retro .confetti i:nth-child(4n){ height:12px; animation-duration:2.7s; }
-.retro .confetti i:nth-child(4n+1){ animation-duration:4.2s; }
-.retro .confetti i:nth-child(4n+2){ animation-duration:3.6s; animation-delay:.28s; }
-.retro .confetti i:nth-child(4n+3){ animation-duration:4.6s; animation-delay:.55s; }
-.retro .confetti i:nth-child(3n+1){ animation-delay:.18s; }
-.retro .confetti i:nth-child(5n){ animation-delay:.8s; }
+.retro .confetti i:nth-child(3n){ width:10px; height:10px; border-radius:50%; }
+.retro .confetti i:nth-child(4n){ height:14px; }
 @keyframes rt-confetti{
-  0%{ transform:translate(0,-20px) rotate(0); opacity:1; }
-  100%{ transform:translate(var(--drift,0), 106vh) rotate(760deg); opacity:.85; }
+  0%{ transform:translate(0,-24px) rotate(0); opacity:1; }
+  12%{ opacity:1; }
+  100%{ transform:translate(var(--drift,0), 114vh) rotate(900deg); opacity:.9; }
 }
 .retro .victory{ animation:rt-slam .55s cubic-bezier(.2,1.4,.35,1); }
 @keyframes rt-slam{ 0%{ transform:scale(1.5); opacity:0; } 55%{ transform:scale(.97); opacity:1; } 78%{ transform:scale(1.02); } 100%{ transform:scale(1); } }
@@ -874,8 +870,9 @@ window.HARMONIA_decodeMask = decodeMask;
     "=": { d: 5, oct: 5 }
   };
   const levelsFor = (m) => m === "melody" ? MELODY_LEVELS : m === "chords" ? CHORD_LEVELS : PROG_LEVELS;
-  const qCountOf = (lvl) => lvl && lvl.qCount || SESSION_LEN;
-  const passRateOf = (lvl) => lvl && lvl.pass || PASS_RATE;
+  const TEST_MODE = true;
+  const qCountOf = (lvl) => TEST_MODE ? 3 : lvl && lvl.qCount || SESSION_LEN;
+  const passRateOf = (lvl) => TEST_MODE ? 0.6 : lvl && lvl.pass || PASS_RATE;
   const passCountFor = (lvl) => Math.ceil(passRateOf(lvl) * qCountOf(lvl));
   function loadProgress() {
     try {
@@ -1588,12 +1585,14 @@ window.HARMONIA_decodeMask = decodeMask;
     ctx.fillRect(cx - 1.5, y - 1.5, 2, 2);
     ctx.restore();
   }
-  const CONFETTI = Array.from({ length: 30 }, (_, i) => ({
-    left: i * 37 % 100,
-    delay: i % 9 * 0.1,
-    dur: 2.4 + i % 6 * 0.4,
-    color: ["var(--gold)", "var(--teal)", "var(--green)", "var(--blue)", "#fff"][i % 5],
-    drift: (i % 7 - 3) * 16
+  const CONFETTI = Array.from({ length: 140 }, (_, i) => ({
+    left: i * 41 % 100,
+    delay: i * 7 % 24 / 10,
+    // 0 – 2.3s staggered (rains for several seconds)
+    dur: 3.4 + i * 13 % 34 / 10,
+    // 3.4 – 6.7s slow fall so it lingers
+    color: ["var(--gold)", "var(--teal)", "var(--green)", "var(--blue)", "#fff", "var(--wrong)"][i % 6],
+    drift: (i * 17 % 13 - 6) * 16
   }));
   function ForgeSword({ collected, className }) {
     const H = window.HARMONIA;
@@ -2428,6 +2427,7 @@ window.HARMONIA_decodeMask = decodeMask;
       const s = ADV_STAGES[id - 1];
       if (!s) return false;
       const lv = advGroupOf(s).levels;
+      if (TEST_MODE) return lv.some((l) => isPassed(s.mode, l.idx));
       return isPassed(s.mode, lv[lv.length - 1].idx);
     };
     const advCollected = new Set(advNodes.filter((n) => stageClearedAdv(n.id)).map((n) => window.HARMONIA.stageFrag[n.id]));
@@ -2896,7 +2896,7 @@ window.HARMONIA_decodeMask = decodeMask;
         byTarget[k].total += 1;
         if (r.firstTry) byTarget[k].right += 1;
       });
-      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), justCleared && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), justCleared && /* @__PURE__ */ React.createElement("div", { className: "confetti", "aria-hidden": "true" }, CONFETTI.map((cf, i) => /* @__PURE__ */ React.createElement("i", { key: i, style: { left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px" } }))), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), justCleared && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), justCleared && /* @__PURE__ */ React.createElement("div", { className: "confetti", "aria-hidden": "true" }, CONFETTI.map((cf, i) => /* @__PURE__ */ React.createElement("i", { key: i, style: { left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" } }))), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
         if (fromAdventure) {
           setSwordBurst(!!justCleared);
           setScreen("adventure");
