@@ -117,6 +117,9 @@ print("index.html built — open it in a browser or deploy it")
 EOF
 rm -f .app.jsx .app.compiled.js
 
-# 4) Assemble a clean publish folder (this is what Netlify serves)
-mkdir -p dist
+# 4) Assemble the publish folders.
+#    dist/ = Netlify (manual drag-drop);  docs/ = GitHub Pages (deploy from branch).
+mkdir -p dist docs
 cp index.html manifest.json icon.png dist/
+cp index.html manifest.json icon.png docs/
+touch docs/.nojekyll   # tell GitHub Pages not to run Jekyll on our files
