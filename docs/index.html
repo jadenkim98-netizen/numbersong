@@ -1092,16 +1092,17 @@ window.HARMONIA_decodeMask = decodeMask;
         } catch (e) {
         }
       };
-      P(f.lead, "G4", 0.12, 0);
-      P(f.lead, "C5", 0.12, 0.1);
-      P(f.lead, "E5", 0.12, 0.2);
-      P(f.lead, "G5", 0.14, 0.3);
-      P(f.lead, ["C5", "E5", "G5", "C6"], 1.2, 0.44);
-      P(f.bass, "C2", 1.4, 0.42);
-      P(f.choir, ["C4", "E4", "G4", "C5"], 1.7, 0.4);
-      P(f.bell, "C6", 0.5, 0.52);
-      P(f.bell, "E6", 0.5, 0.66);
-      P(f.bell, "G6", 0.6, 0.8);
+      P(f.lead, "G4", 0.1, 0);
+      P(f.lead, "C5", 0.1, 0.1);
+      P(f.lead, ["Ab4", "C5", "Eb5"], 0.18, 0.22);
+      P(f.bass, "Ab2", 0.2, 0.22);
+      P(f.lead, ["Bb4", "D5", "F5"], 0.18, 0.42);
+      P(f.bass, "Bb2", 0.2, 0.42);
+      P(f.lead, ["C5", "E5", "G5", "C6"], 1.3, 0.62);
+      P(f.bass, "C2", 1.5, 0.62);
+      P(f.choir, ["C4", "E4", "G4", "C5"], 1.6, 0.6);
+      P(f.bell, "E6", 0.4, 0.66);
+      P(f.bell, "G6", 0.5, 0.8);
       P(f.bell, "C7", 0.9, 0.96);
     }, [ensure]);
     const susRef = useRef(null);
