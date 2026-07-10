@@ -576,6 +576,41 @@ function useAudio() {
     P(f.bell, "E6", 0.4, 1.34); P(f.bell, "G6", 0.5, 1.5); P(f.bell, "C7", 1.3, 1.7);
   }, [ensure]);
 
+  // EPIC finale — reforging the WHOLE sword. The ♭VI–♭VII rise happens three
+  // times, climbing an octave each round, then lands on the biggest, widest,
+  // longest C-major chord of all time.
+  const grandFanfare = useCallback(async () => {
+    await ensure();
+    if (!fanfareRef.current) {
+      fanfareRef.current = {
+        lead:  new Tone.PolySynth(Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 0.008, decay: 0.18, sustain: 0.35, release: 0.7 }, volume: -9 }).toDestination(),
+        bass:  new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.3, sustain: 0.6, release: 0.9 }, volume: -5 }).toDestination(),
+        choir: new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sine" }, envelope: { attack: 0.35, decay: 0.2, sustain: 0.7, release: 1.3 }, volume: -15 }).toDestination(),
+        bell:  new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.002, decay: 0.5, sustain: 0, release: 0.6 }, volume: -11 }).toDestination(),
+      };
+    }
+    const f = fanfareRef.current, t = Tone.now() + 0.06;
+    const P = (inst, notes, dur, at) => { try { inst.triggerAttackRelease(notes, dur, t + at); } catch (e) {} };
+    const rounds = [
+      { six: ["Ab3", "C4", "Eb4"], sev: ["Bb3", "D4", "F4"], r6: "Ab2", r7: "Bb2" },
+      { six: ["Ab4", "C5", "Eb5"], sev: ["Bb4", "D5", "F5"], r6: "Ab2", r7: "Bb2" },
+      { six: ["Ab5", "C6", "Eb6"], sev: ["Bb5", "D6", "F6"], r6: "Ab3", r7: "Bb3" },
+    ];
+    let at = 0; const step = 0.42;
+    rounds.forEach((r) => {
+      P(f.lead, r.six, step * 0.9, at); P(f.bass, r.r6, step, at); at += step;
+      P(f.lead, r.sev, step * 0.9, at); P(f.bass, r.r7, step, at); at += step;
+    });
+    // rising run into the landing
+    P(f.lead, "F6", 0.1, at); P(f.lead, "G6", 0.1, at + 0.1); P(f.lead, "A6", 0.1, at + 0.2); P(f.lead, "B6", 0.12, at + 0.3);
+    at += 0.46;
+    // THE biggest I chord of all time — C major across the whole range, very long
+    P(f.lead, ["C5", "E5", "G5", "C6", "E6", "G6"], 4.6, at);
+    P(f.bass, "C2", 5.2, at);
+    P(f.choir, ["C3", "G3", "C4", "E4", "G4", "C5"], 5.2, at);
+    P(f.bell, "C6", 1.2, at + 0.1); P(f.bell, "E6", 1.0, at + 0.3); P(f.bell, "G6", 1.0, at + 0.5); P(f.bell, "C7", 3.2, at + 0.75);
+  }, [ensure]);
+
   // Sustaining voice (Free Play): attack on hold, release on let-go. "piano" reuses
   // the loaded Salamander sampler (synthRef); the others are dedicated synths.
   const susRef = useRef(null);
@@ -770,7 +805,7 @@ function useAudio() {
     }
   }, []);
 
-  return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
+  return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
 }
 
 function speak(text, enabled) {
@@ -1117,7 +1152,7 @@ function ForgeSword({ collected, className }) {
   return <canvas ref={ref} className={className} aria-label="Excalibar" />;
 }
 
-function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, burst, boringMode }) {
+function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, burst, boringMode, celebrateNode, onCelebrateDone }) {
   const H = window.HARMONIA;
   const mapRef = useRef(null);
   const swordRef = useRef(null);
@@ -1188,6 +1223,13 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
   }, [draw, currentId, nodes]);
 
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+
+  // "region cleared" banner auto-dismisses after a beat
+  useEffect(() => {
+    if (!celebrateNode) return;
+    const t = setTimeout(() => onCelebrateDone && onCelebrateDone(), 2800);
+    return () => clearTimeout(t);
+  }, [celebrateNode]);
 
   useEffect(() => {
     if (!swordImg) return;
@@ -1294,6 +1336,12 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       <div className="adv-scroll" ref={scrollRef}>
         <canvas ref={mapRef} className="adv-map" onClick={tapMap} role="img" aria-label="Harmonia world map" />
       </div>
+      {celebrateNode && H.nodes[celebrateNode - 1] && (
+        <div className="map-cleared" aria-hidden="true">
+          <span className="map-cleared-star">★</span>
+          <span className="map-cleared-text">{H.nodes[celebrateNode - 1].name}<em>region cleared</em></span>
+        </div>
+      )}
       <div className="adv-hud adv-hud-bottom">
         <canvas ref={swordRef} className={"adv-sword-mini" + (burst ? " burst" : "")} onClick={onForge} role="button" tabIndex={0} aria-label="View Excalibar fragments" />
         <div className="adv-forge-txt">
@@ -1312,7 +1360,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
 /* ─────────────────────────────  APP  ───────────────────────────── */
 
 export default function NumberEarTrainer() {
-  const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
+  const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
 
   const [boringMode, setBoringMode] = useState(() => loadPref("boring", "0") === "1"); // classic UI vs Adventure
   const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home")); // boot | menu | training | home | adventure | levels | session | results | learn | guide | settings
@@ -1326,6 +1374,7 @@ export default function NumberEarTrainer() {
   const [encounterNode, setEncounterNode] = useState(null);  // region id whose encounter modal is open on the map
   const [auxReturn, setAuxReturn] = useState(null);          // where guide/free-play/settings back should go (e.g. "adventure")
   const [forgeOpen, setForgeOpen] = useState(false);         // Excalibar fragment inventory modal (on the map)
+  const [mapCelebrateNode, setMapCelebrateNode] = useState(null); // node to play a "region cleared!" flourish on next map view
   const [swordBurst, setSwordBurst] = useState(false);       // one-shot forge flash after earning a fragment
   const sessWasClearedRef = useRef(false);                   // was the region already cleared before this session?
   const [melTab, setMelTab] = useState("stages");  // stages | custom
@@ -1677,11 +1726,17 @@ export default function NumberEarTrainer() {
         return next;
       });
     }
-    // ceremonial fanfare the moment a region is newly cleared (its final level just passed)
+    // the moment a region is newly cleared: fanfare (or the GRAND finale on the 8th),
+    // and flag the map so it plays a "region cleared" flourish when you return.
     if (fromAdventure && advStageId != null && !sessWasClearedRef.current) {
       const lv = advGroupOf(ADV_STAGES[advStageId - 1]).levels;
       const lastIdx = lv[lv.length - 1].idx;
-      if (s.levelIdx === lastIdx && firstTries >= passCountFor(s.lvl)) fanfare();
+      const clears = TEST_MODE ? (firstTries >= passCountFor(s.lvl)) : (s.levelIdx === lastIdx && firstTries >= passCountFor(s.lvl));
+      if (clears) {
+        setMapCelebrateNode(advStageId);
+        const others = advNodes.filter((n) => n.id !== advStageId && stageClearedAdv(n.id)).length;
+        if (others >= 7) grandFanfare(); else fanfare();
+      }
     }
     setPhase("idle");
     setScreen("results");
@@ -2008,6 +2063,7 @@ export default function NumberEarTrainer() {
         <AdventureMap
           nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={onTapNode}
           burst={swordBurst} boringMode={boringMode} onForge={() => { sfx("select"); setForgeOpen(true); }}
+          celebrateNode={mapCelebrateNode} onCelebrateDone={() => setMapCelebrateNode(null)}
           onMenu={() => setScreen(boringMode ? "home" : "menu")}
           onSettings={() => { setAuxReturn("adventure"); setScreen("settings"); }}
           onGuide={() => { setAuxReturn("adventure"); setGuidePage(0); setScreen("guide"); }}
@@ -2584,6 +2640,7 @@ export default function NumberEarTrainer() {
     // region just fully cleared? → Keeper's mark + fragment flourish (game mode only)
     const advNode = fromAdventure && !boringMode && advStageId && window.HARMONIA ? window.HARMONIA.nodes[advStageId - 1] : null;
     const justCleared = advNode && !sessWasClearedRef.current && stageClearedAdv(advStageId);
+    const finale = justCleared && advCollected.size >= 8; // the WHOLE sword just came together
     const fragName = advNode ? window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[advStageId]] : "";
     const hasNext = !isCustom && levelIdx + 1 < lvls.length;
 
@@ -2612,12 +2669,27 @@ export default function NumberEarTrainer() {
             ))}
           </div>
         )}
+        {finale && (
+          <div className="finale" onClick={() => { setSwordBurst(true); setScreen("adventure"); }}>
+            <div className="finale-rays" aria-hidden="true" />
+            <div className="finale-inner">
+              <span className="finale-kicker">✦ The blade is whole ✦</span>
+              <div className="finale-forge">
+                <ForgeSword collected={advCollected} className="finale-sword" />
+                <span className="finale-shine" aria-hidden="true" />
+              </div>
+              <h2 className="finale-title">EXCALIBAR<br />REFORGED</h2>
+              <span className="finale-quote">“{advNode.win}”</span>
+              <button className="primary finale-btn" onClick={(e) => { e.stopPropagation(); setSwordBurst(true); setScreen("adventure"); }}>Return to Harmonia →</button>
+            </div>
+          </div>
+        )}
         <header className="top-slim">
           <button className="back" onClick={() => { if (fromAdventure) { setSwordBurst(!!justCleared); setScreen("adventure"); } else { setScreen("levels"); } }}>{fromAdventure ? "← To the map" : "← Levels"}</button>
           <h2 className="screen-title">{resultName}</h2>
         </header>
         <div className="results">
-          {justCleared && (
+          {justCleared && !finale && (
             <div className="victory">
               <div className="victory-rays" aria-hidden="true" />
               <div className="victory-glow" aria-hidden="true" />
@@ -2631,6 +2703,9 @@ export default function NumberEarTrainer() {
               <span className="victory-quote">“{advNode.win}”</span>
               <span className="forge-count">{advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments"}</span>
             </div>
+          )}
+          {justCleared && !finale && (
+            <button className="primary map-return" onClick={() => { setSwordBurst(true); setScreen("adventure"); }}>← Return to the map</button>
           )}
           <div className={"score-big" + (passed ? " pass" : "")}>{pct}%</div>
           <p className="hint center">
