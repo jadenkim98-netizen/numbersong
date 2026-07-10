@@ -1887,7 +1887,9 @@ export default function NumberEarTrainer() {
       s.target = pc;
       const t = (await playCadence(s.key, lvl.mode)) + 0.25;
       playSemi(s.key, pc, t, oct);
-      sessTimer(() => { setPhase("answer"); setBusy(false); }, (t + 1.15) * 1000);
+      // open answering the moment the pitch sounds (note keeps ringing) — don't
+      // make them wait for it to finish. Tiny lead so the attack is clearly heard.
+      sessTimer(() => { setPhase("answer"); setBusy(false); }, (t + 0.2) * 1000);
     } else {
       const lvl = s.lvl;
       if (lvl.keyMode === "random" && !isFirst) {
