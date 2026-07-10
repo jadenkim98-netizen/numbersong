@@ -355,6 +355,14 @@ const qCountOf = (lvl) => TEST_MODE ? 3 : ((lvl && lvl.qCount) || SESSION_LEN);
 const passRateOf = (lvl) => TEST_MODE ? 0.6 : ((lvl && lvl.pass) || PASS_RATE);
 const passCountFor = (lvl) => Math.ceil(passRateOf(lvl) * qCountOf(lvl));
 
+// Shop: spend earned stars on Coda skins. "default" is free/always-equipped.
+const SHOP = [
+  { id: "gold",    type: "skin", name: "Gilded Coda",  cost: 12, tint: "#D9B45B", desc: "A hero forged in gold." },
+  { id: "shadow",  type: "skin", name: "Shadow Coda",  cost: 8,  tint: "#2f3b45", desc: "Cloaked in dusk." },
+  { id: "crimson", type: "skin", name: "Crimson Coda", cost: 8,  tint: "#E07856", desc: "Ember-touched." },
+  { id: "violet",  type: "skin", name: "Violet Coda",  cost: 8,  tint: "#9b8ec4", desc: "Crystal-kissed." },
+];
+
 // Progress is a per-level best-score map: { melody: {levelIdx: bestFirstTries}, chords: {…} }.
 function loadProgress() {
   try {
@@ -1191,7 +1199,7 @@ function drawDojo(ctx, cx, cy) {
   ctx.fillStyle = "#EDF2EE"; ctx.fillText("DOJO", cx, cy + 13);            // label
 }
 
-function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, burst, boringMode, celebrateNode, onCelebrateDone }) {
+function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, burst, boringMode, celebrateNode, onCelebrateDone, skinTint }) {
   const H = window.HARMONIA;
   const mapRef = useRef(null);
   const swordRef = useRef(null);
@@ -1199,6 +1207,16 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
   const [tileset, setTileset] = useState(null);
   const [swordImg, setSwordImg] = useState(null);
   const [codaImg, setCodaImg] = useState(null);
+  const [tintedCoda, setTintedCoda] = useState(null);
+  useEffect(() => {
+    if (!codaImg || !skinTint) { setTintedCoda(null); return; }
+    const tc = document.createElement("canvas"); tc.width = codaImg.width; tc.height = codaImg.height;
+    const x = tc.getContext("2d"); x.imageSmoothingEnabled = false;
+    x.drawImage(codaImg, 0, 0);
+    x.globalCompositeOperation = "source-atop"; x.globalAlpha = 0.5; x.fillStyle = skinTint;
+    x.fillRect(0, 0, tc.width, tc.height);
+    setTintedCoda(tc);
+  }, [codaImg, skinTint]);
   const codaRef = useRef(null);   // Coda's live tile position {c,r} (floats while walking)
   const walkRef = useRef(false);  // true while a walk animation is in flight
   const rafRef = useRef(0);
@@ -1259,8 +1277,8 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       ctx.drawImage(swordImg, mx - sw / 2, my + 5 - sh, sw, sh);
       ctx.restore();
     }
-    drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, codaImg, bob);
-  }, [tileset, nodes, currentId, collected, codaImg, swordImg]);
+    drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, tintedCoda || codaImg, bob);
+  }, [tileset, nodes, currentId, collected, codaImg, tintedCoda, swordImg]);
 
   // static render: Coda rests on the current node (unless mid-walk)
   useEffect(() => {
@@ -1447,6 +1465,34 @@ export default function NumberEarTrainer() {
     const lv = levelsFor(m)[idx];
     return lv ? bestOf(m, idx) >= passCountFor(lv) : false;
   };
+  // 3-star rating per level: passed = 1, one miss = 2, perfect = 3.
+  const starsFor = (m, idx) => {
+    const lv = levelsFor(m)[idx]; if (!lv) return 0;
+    const best = bestOf(m, idx), q = qCountOf(lv), pass = passCountFor(lv);
+    if (best < pass) return 0;
+    if (best >= q) return 3;
+    if (best >= q - 1) return 2;
+    return 1;
+  };
+  const totalStars = () => {
+    let t = 0;
+    ["melody", "chords", "progressions"].forEach((m) => { levelsFor(m).forEach((_, i) => { t += starsFor(m, i); }); });
+    return t;
+  };
+  const [shop, setShop] = useState(() => {
+    try { const v = JSON.parse(loadPref("shop", "")); return (v && v.owned) ? v : { owned: [], skin: "default" }; }
+    catch (e) { return { owned: [], skin: "default" }; }
+  });
+  const saveShop = (v) => { setShop(v); savePref("shop", JSON.stringify(v)); };
+  const spentStars = () => shop.owned.reduce((a, id) => a + ((SHOP.find((x) => x.id === id) || {}).cost || 0), 0);
+  const starBalance = () => totalStars() - spentStars();
+  const buyItem = (item) => {
+    if (shop.owned.includes(item.id) || starBalance() < item.cost) return;
+    saveShop({ ...shop, owned: [...shop.owned, item.id], skin: item.type === "skin" ? item.id : shop.skin });
+    sfx("select");
+  };
+  const equipSkin = (id) => { saveShop({ ...shop, skin: id }); sfx("move"); };
+  const skinTint = (SHOP.find((x) => x.id === shop.skin) || {}).tint || null;
   const [progress, setProgress] = useState(loadProgress);
 
   const [musicKey, setMusicKey] = useState("C");
@@ -2096,6 +2142,7 @@ export default function NumberEarTrainer() {
           {item("🎯", "Basic Training", () => setScreen("training"))}
           {item("🎸", "Free Play", () => { setFpTab("notes"); setScreen("learn"); })}
           {item("📖", "How music works", () => { setGuidePage(0); setScreen("guide"); })}
+          {item("★", "Shop (" + starBalance() + ")", () => setScreen("shop"))}
           {item("⚙", "Settings", () => setScreen("settings"))}
         </div>
         <footer className="foot">One map to rule them all.</footer>
@@ -2140,7 +2187,7 @@ export default function NumberEarTrainer() {
     return (
       <>
         <AdventureMap
-          nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={onTapNode}
+          nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={onTapNode} skinTint={skinTint}
           burst={swordBurst} boringMode={boringMode} onForge={() => { sfx("select"); setForgeOpen(true); }}
           celebrateNode={mapCelebrateNode} onCelebrateDone={() => setMapCelebrateNode(null)}
           onMenu={() => setScreen(boringMode ? "home" : "menu")}
@@ -2515,8 +2562,8 @@ export default function NumberEarTrainer() {
                   <ProgressSquares best={best} total={qCountOf(lvl)} />
                 </span>
                 <span className="level-state">
+                  <span className="level-stars">{[1, 2, 3].map((n) => <span key={n} className={"lvl-star" + (starsFor(mode, lvl.idx) >= n ? " on" : "")}>★</span>)}</span>
                   <span className={"level-pct" + (passed ? " pass" : "")}>{Math.round((best / qCountOf(lvl)) * 100)}%</span>
-                  {passed && <span className="level-check">✓</span>}
                 </span>
               </button>
             );
@@ -2818,6 +2865,39 @@ export default function NumberEarTrainer() {
               <button className="primary" onClick={() => startSession(mode, levelIdx + 1)}>Next level →</button>
             )}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "shop") {
+    const bal = starBalance();
+    const skinItem = (id, name, desc, tint) => {
+      const owned = id === "default" || shop.owned.includes(id);
+      const equipped = shop.skin === id;
+      const cost = (SHOP.find((x) => x.id === id) || {}).cost;
+      return (
+        <div key={id} className={"shop-item" + (equipped ? " equipped" : "")}>
+          <span className="shop-swatch" style={{ background: tint }} />
+          <div className="shop-info"><span className="shop-name">{name}</span><span className="shop-desc">{desc}</span></div>
+          {owned
+            ? <button className={"ghost" + (equipped ? " on" : "")} onClick={() => equipSkin(id)} disabled={equipped}>{equipped ? "Equipped" : "Equip"}</button>
+            : <button className="primary" onClick={() => buyItem(SHOP.find((x) => x.id === id))} disabled={bal < cost}>★ {cost}</button>}
+        </div>
+      );
+    };
+    return (
+      <div className="app">
+        <style>{CSS}</style>
+        <header className="top-slim">
+          <button className="back" onClick={() => setScreen(boringMode ? "home" : "menu")}>{boringMode ? "← Home" : "← Menu"}</button>
+          <h2 className="screen-title">Shop</h2>
+        </header>
+        <div className="shop-balance"><span className="star">★</span> {bal} <em>stars to spend</em></div>
+        <p className="hint center">Ace levels to earn stars: 1★ pass · 2★ one miss · 3★ perfect. Spend them on Coda skins.</p>
+        <div className="shop-grid">
+          {skinItem("default", "Coda (classic)", "The original teal & green.", "#57C6C4")}
+          {SHOP.map((it) => skinItem(it.id, it.name, it.desc, it.tint))}
         </div>
       </div>
     );
@@ -3168,6 +3248,20 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .level-pct { font-family: 'Archivo Black', sans-serif; font-size: 0.95rem; color: var(--text-soft); }
 .level-pct.pass { color: var(--green); }
 .level-check { color: var(--green); font-size: 0.95rem; line-height: 1; }
+.level-stars { display: flex; gap: 1px; }
+.lvl-star { font-size: 0.72rem; color: var(--line); line-height: 1; }
+.lvl-star.on { color: #D9B45B; }
+.star { color: #D9B45B; }
+.shop-balance { text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 1.4rem; color: #D9B45B; }
+.shop-balance em { font-style: normal; font-size: 0.8rem; color: var(--text-soft); font-family: 'Archivo', sans-serif; margin-left: 4px; }
+.shop-grid { display: flex; flex-direction: column; gap: 10px; }
+.shop-item { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.shop-item.equipped { border-color: var(--teal); }
+.shop-swatch { width: 34px; height: 34px; border-radius: 8px; flex: 0 0 auto; box-shadow: inset 0 0 0 2px rgba(255,255,255,.18); }
+.shop-info { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
+.shop-name { font-family: 'Archivo Black', sans-serif; font-size: 0.95rem; }
+.shop-desc { font-size: 0.8rem; color: var(--text-soft); }
+.shop-item .primary, .shop-item .ghost { flex: 0 0 auto; padding: 10px 14px; }
 
 /* session */
 .progressbar {
