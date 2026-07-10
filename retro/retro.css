@@ -349,3 +349,15 @@
   letter-spacing:1px; text-transform:uppercase; color:var(--text); opacity:.6;
 }
 .retro .adv-sword-mini.burst{ animation:rt-flash 1.4s ease-out; }
+
+/* ---- encounter as a MAP MODAL (tap a region → pops over the map) --------- */
+.retro .encounter-modal{
+  position:fixed; inset:0; z-index:50; display:flex; align-items:center;
+  justify-content:center; padding:20px; background:rgba(0,0,0,.6);
+  animation:rt-fadein .2s ease-out;
+}
+@keyframes rt-fadein{ from{ opacity:0; } }
+.retro .encounter-modal .encounter{ width:100%; max-width:440px; max-height:calc(100% - 24px); overflow-y:auto; margin:0; }
+.retro .enc-actions{ display:flex; gap:10px; padding:14px; }
+.retro .enc-actions .primary{ flex:1 1 auto; }
+.retro .enc-actions .ghost{ flex:0 0 auto; }

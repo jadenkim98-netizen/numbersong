@@ -380,6 +380,18 @@
 }
 .retro .adv-sword-mini.burst{ animation:rt-flash 1.4s ease-out; }
 
+/* ---- encounter as a MAP MODAL (tap a region → pops over the map) --------- */
+.retro .encounter-modal{
+  position:fixed; inset:0; z-index:50; display:flex; align-items:center;
+  justify-content:center; padding:20px; background:rgba(0,0,0,.6);
+  animation:rt-fadein .2s ease-out;
+}
+@keyframes rt-fadein{ from{ opacity:0; } }
+.retro .encounter-modal .encounter{ width:100%; max-width:440px; max-height:calc(100% - 24px); overflow-y:auto; margin:0; }
+.retro .enc-actions{ display:flex; gap:10px; padding:14px; }
+.retro .enc-actions .primary{ flex:1 1 auto; }
+.retro .enc-actions .ghost{ flex:0 0 auto; }
+
 </style>
 </head>
 <body>
@@ -1562,6 +1574,8 @@ window.HARMONIA_decodeMask = decodeMask;
     const [progChapter, setProgChapter] = useState(null);
     const [fromAdventure, setFromAdventure] = useState(false);
     const [advStageId, setAdvStageId] = useState(null);
+    const [encounterNode, setEncounterNode] = useState(null);
+    const [auxReturn, setAuxReturn] = useState(null);
     const [swordBurst, setSwordBurst] = useState(false);
     const sessWasClearedRef = useRef(false);
     const [melTab, setMelTab] = useState("stages");
@@ -2167,6 +2181,7 @@ window.HARMONIA_decodeMask = decodeMask;
     if (screen === "menu") {
       const item = (icon, label, go) => /* @__PURE__ */ React.createElement("button", { className: "menu-item", onClick: () => {
         sfx("select");
+        setAuxReturn(null);
         go();
       }, onMouseEnter: () => sfx("move") }, /* @__PURE__ */ React.createElement("span", { className: "mi-icon" }, icon), " ", label);
       return /* @__PURE__ */ React.createElement("div", { className: "app menu-screen" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("h1", { className: "menu-logo" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG")), /* @__PURE__ */ React.createElement("div", { className: "menu-list" }, item("⚔", "Adventure", () => setScreen("adventure")), item("🎯", "Basic Training", () => setScreen("training")), item("🎸", "Free Play", () => {
@@ -2200,29 +2215,58 @@ window.HARMONIA_decodeMask = decodeMask;
       })), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Sharpen your ear — every rep forges Excalibar."));
     }
     if (screen === "adventure") {
-      return /* @__PURE__ */ React.createElement(
+      const onTapNode = (n) => {
+        if (boringMode) {
+          enterStage(n);
+        } else {
+          sfx("select");
+          setEncounterNode(n.id);
+        }
+      };
+      const en = encounterNode && window.HARMONIA ? window.HARMONIA.nodes[encounterNode - 1] : null;
+      const enStage = encounterNode ? ADV_STAGES[encounterNode - 1] : null;
+      const enTitle = enStage ? advGroupOf(enStage).name : "";
+      const enMode = enStage ? enStage.mode : "melody";
+      const enLevels = enStage ? advGroupOf(enStage).levels.length : 0;
+      const enFrag = en ? window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[encounterNode]] : "";
+      const enModeLabel = enMode === "melody" ? "single notes" : enMode === "chords" ? "chord tones" : "chord progressions";
+      return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
         AdventureMap,
         {
           nodes: advNodes,
           currentId: advCurrentId,
           collected: advCollected,
-          onEnter: enterStage,
+          onEnter: onTapNode,
           burst: swordBurst,
           onMenu: () => setScreen(boringMode ? "home" : "menu"),
-          onSettings: () => setScreen("settings"),
+          onSettings: () => {
+            setAuxReturn("adventure");
+            setScreen("settings");
+          },
           onGuide: () => {
+            setAuxReturn("adventure");
             setGuidePage(0);
             setScreen("guide");
           },
           onFree: () => {
+            setAuxReturn("adventure");
             setFpTab("notes");
             setScreen("learn");
           }
         }
-      );
+      ), en && /* @__PURE__ */ React.createElement("div", { className: "encounter-modal", onClick: () => setEncounterNode(null) }, /* @__PURE__ */ React.createElement("div", { className: "encounter mood-" + en.mood, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "enc-head" }, /* @__PURE__ */ React.createElement("span", { className: "enc-emblem", "aria-hidden": "true" }, en.emblem), /* @__PURE__ */ React.createElement("div", { className: "enc-titles" }, /* @__PURE__ */ React.createElement("span", { className: "kicker" }, "Region ", encounterNode, " · Harmonia"), /* @__PURE__ */ React.createElement("h2", { className: "encounter-title" }, en.name), /* @__PURE__ */ React.createElement("span", { className: "encounter-sub" }, enTitle)), /* @__PURE__ */ React.createElement("span", { className: "enc-frag" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), enFrag)), /* @__PURE__ */ React.createElement("p", { className: "keeper-line" }, /* @__PURE__ */ React.createElement("b", { className: "keeper-name" }, en.keeper), /* @__PURE__ */ React.createElement("q", null, en.greet)), /* @__PURE__ */ React.createElement("p", { className: "stage-goal" }, stageGoal(enMode, enTitle)), /* @__PURE__ */ React.createElement("span", { className: "stage-meta" }, enLevels, " levels · ", enModeLabel, " · earn ", en.short, "'s mark → ◆"), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setEncounterNode(null) }, "Not yet"), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => {
+        const id = encounterNode;
+        sfx("select");
+        setEncounterNode(null);
+        enterStage({ id });
+      } }, "Continue →")))));
     }
     if (screen === "home") {
-      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top" }, /* @__PURE__ */ React.createElement("div", { className: "brand-row" }, brand, /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: () => setScreen("settings"), "aria-label": "Settings" }, "⚙"))), /* @__PURE__ */ React.createElement("div", { className: "cards" }, window.HARMONIA && /* @__PURE__ */ React.createElement("button", { className: "card adventure", onClick: () => setScreen("adventure") }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "⚔ Adventure — Harmonia"), /* @__PURE__ */ React.createElement("span", { className: "card-desc" }, "Travel the world, clear each region, and forge Excalibar — the tonal-map blade."), /* @__PURE__ */ React.createElement("span", { className: "card-progress" }, advCollected.size, " of 8 fragments forged")), /* @__PURE__ */ React.createElement("button", { className: "card start", onClick: () => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top" }, /* @__PURE__ */ React.createElement("div", { className: "brand-row" }, brand, /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: () => {
+        setAuxReturn(null);
+        setScreen("settings");
+      }, "aria-label": "Settings" }, "⚙"))), /* @__PURE__ */ React.createElement("div", { className: "cards" }, window.HARMONIA && /* @__PURE__ */ React.createElement("button", { className: "card adventure", onClick: () => setScreen("adventure") }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "⚔ Adventure — Harmonia"), /* @__PURE__ */ React.createElement("span", { className: "card-desc" }, "Travel the world, clear each region, and forge Excalibar — the tonal-map blade."), /* @__PURE__ */ React.createElement("span", { className: "card-progress" }, advCollected.size, " of 8 fragments forged")), /* @__PURE__ */ React.createElement("button", { className: "card start", onClick: () => {
+        setAuxReturn(null);
         setGuidePage(0);
         setScreen("guide");
       } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "Start here — how music works"), /* @__PURE__ */ React.createElement("span", { className: "card-desc" }, "Why music is simpler than you think. The tonal map, the matrix of music, and the secret behind playing what you hear.")), /* @__PURE__ */ React.createElement("button", { className: "card", onClick: () => {
@@ -2246,10 +2290,13 @@ window.HARMONIA_decodeMask = decodeMask;
       } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "Chord progressions"), /* @__PURE__ */ React.createElement("span", { className: "card-desc" }, "Hear a progression, name each chord in order. ", PROG_CHAPTERS.length, " chapters."), /* @__PURE__ */ React.createElement("span", { className: "card-progress" }, (() => {
         const done = PROG_LEVELS.filter((_, i) => isPassed("progressions", i)).length;
         return done > 0 ? `${done} of ${PROG_LEVELS.length} levels passed` : `${PROG_LEVELS.length} levels`;
-      })())), /* @__PURE__ */ React.createElement("button", { className: "card quiet", onClick: () => setScreen("learn") }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "Free play"), /* @__PURE__ */ React.createElement("span", { className: "card-desc" }, "Improvise and explore with the raw materials of music."))), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Every sound relates to home. One map to rule them all."));
+      })())), /* @__PURE__ */ React.createElement("button", { className: "card quiet", onClick: () => {
+        setAuxReturn(null);
+        setScreen("learn");
+      } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "Free play"), /* @__PURE__ */ React.createElement("span", { className: "card-desc" }, "Improvise and explore with the raw materials of music."))), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Every sound relates to home. One map to rule them all."));
     }
     if (screen === "settings") {
-      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => setScreen(boringMode ? "home" : "menu") }, boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Settings")), /* @__PURE__ */ React.createElement("div", { className: "settings" }, /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Theme"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: theme === "dark" ? "on" : "", onClick: () => setTheme("dark") }, "Dark"), /* @__PURE__ */ React.createElement("button", { className: theme === "light" ? "on" : "", onClick: () => setTheme("light") }, "Light"))), window.HARMONIA && /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Home screen"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "Adventure = the Harmonia world map. Boring mode = the plain menu."), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: !boringMode ? "on" : "", onClick: () => setBoring(false) }, "⚔ Adventure"), /* @__PURE__ */ React.createElement("button", { className: boringMode ? "on" : "", onClick: () => setBoring(true) }, "Boring mode"))), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Resolution speed"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "How fast the notes walk home after a correct answer."), /* @__PURE__ */ React.createElement("div", { className: "seg" }, RES_SPEEDS.map((s) => /* @__PURE__ */ React.createElement(
+      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => setScreen(auxReturn || (boringMode ? "home" : "menu")) }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Settings")), /* @__PURE__ */ React.createElement("div", { className: "settings" }, /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Theme"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: theme === "dark" ? "on" : "", onClick: () => setTheme("dark") }, "Dark"), /* @__PURE__ */ React.createElement("button", { className: theme === "light" ? "on" : "", onClick: () => setTheme("light") }, "Light"))), window.HARMONIA && /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Home screen"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "Adventure = the Harmonia world map. Boring mode = the plain menu."), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: !boringMode ? "on" : "", onClick: () => setBoring(false) }, "⚔ Adventure"), /* @__PURE__ */ React.createElement("button", { className: boringMode ? "on" : "", onClick: () => setBoring(true) }, "Boring mode"))), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Resolution speed"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "How fast the notes walk home after a correct answer."), /* @__PURE__ */ React.createElement("div", { className: "seg" }, RES_SPEEDS.map((s) => /* @__PURE__ */ React.createElement(
         "button",
         {
           key: s.label,
@@ -2364,9 +2411,7 @@ window.HARMONIA_decodeMask = decodeMask;
       } : mode === "melody" ? () => setMelGroup(null) : () => setChapter(null);
       const backLabel = fromAdventure ? "← Map" : mode === "melody" ? "← Worlds" : "← Chapters";
       const modeLabel = mode === "melody" ? "single notes" : mode === "chords" ? "chord tones" : "chord progressions";
-      const advNode = fromAdventure && !boringMode && advStageId && window.HARMONIA ? window.HARMONIA.nodes[advStageId - 1] : null;
-      const fragName = advNode ? window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[advStageId]] : "";
-      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: onBack }, backLabel), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, title)), advNode ? /* @__PURE__ */ React.createElement("div", { className: "encounter mood-" + advNode.mood }, /* @__PURE__ */ React.createElement("div", { className: "enc-head" }, /* @__PURE__ */ React.createElement("span", { className: "enc-emblem", "aria-hidden": "true" }, advNode.emblem), /* @__PURE__ */ React.createElement("div", { className: "enc-titles" }, /* @__PURE__ */ React.createElement("span", { className: "kicker" }, "Region ", advStageId, " · Harmonia"), /* @__PURE__ */ React.createElement("h2", { className: "encounter-title" }, advNode.name), /* @__PURE__ */ React.createElement("span", { className: "encounter-sub" }, title)), /* @__PURE__ */ React.createElement("span", { className: "enc-frag" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), fragName)), /* @__PURE__ */ React.createElement("p", { className: "keeper-line" }, /* @__PURE__ */ React.createElement("b", { className: "keeper-name" }, advNode.keeper), /* @__PURE__ */ React.createElement("q", null, advNode.greet)), /* @__PURE__ */ React.createElement("p", { className: "stage-goal" }, stageGoal(mode, title)), /* @__PURE__ */ React.createElement("span", { className: "stage-meta" }, list.length, " levels · ", modeLabel, " · earn ", advNode.short, "'s mark → ◆")) : /* @__PURE__ */ React.createElement("div", { className: "stage-intro" }, /* @__PURE__ */ React.createElement("p", { className: "stage-goal" }, stageGoal(mode, title)), /* @__PURE__ */ React.createElement("span", { className: "stage-meta" }, list.length, " levels · ", modeLabel)), mode === "chords" && /* @__PURE__ */ React.createElement("div", { className: "key-row" }, /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Key", /* @__PURE__ */ React.createElement("select", { value: musicKey, onChange: (e) => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: onBack }, backLabel), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, title)), /* @__PURE__ */ React.createElement("div", { className: "stage-intro" }, /* @__PURE__ */ React.createElement("p", { className: "stage-goal" }, stageGoal(mode, title)), /* @__PURE__ */ React.createElement("span", { className: "stage-meta" }, list.length, " levels · ", modeLabel)), mode === "chords" && /* @__PURE__ */ React.createElement("div", { className: "key-row" }, /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Key", /* @__PURE__ */ React.createElement("select", { value: musicKey, onChange: (e) => {
         setMusicKey(e.target.value);
         e.target.blur();
       } }, KEYS.map((k) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, k, " major")))), /* @__PURE__ */ React.createElement(
@@ -2605,8 +2650,8 @@ window.HARMONIA_decodeMask = decodeMask;
       return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
         killSession();
         setBusy(false);
-        setScreen(boringMode ? "home" : "menu");
-      } }, boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "How music works")), /* @__PURE__ */ React.createElement("section", { className: "panel" }, pages[guidePage]), /* @__PURE__ */ React.createElement("div", { className: "pager" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", disabled: guidePage === 0, onClick: () => setGuidePage((p) => p - 1) }, "← Back"), /* @__PURE__ */ React.createElement("div", { className: "dots" }, pages.map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "dot" + (i === guidePage ? " on" : "") }))), guidePage < pages.length - 1 ? /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => setGuidePage((p) => p + 1) }, "Next →") : /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => startSession("melody", 0) }, "Start training →")));
+        setScreen(auxReturn || (boringMode ? "home" : "menu"));
+      } }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "How music works")), /* @__PURE__ */ React.createElement("section", { className: "panel" }, pages[guidePage]), /* @__PURE__ */ React.createElement("div", { className: "pager" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", disabled: guidePage === 0, onClick: () => setGuidePage((p) => p - 1) }, "← Back"), /* @__PURE__ */ React.createElement("div", { className: "dots" }, pages.map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "dot" + (i === guidePage ? " on" : "") }))), guidePage < pages.length - 1 ? /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => setGuidePage((p) => p + 1) }, "Next →") : /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => startSession("melody", 0) }, "Start training →")));
     }
     const stageLabels = ["Numbers on", "Blank pads"];
     return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
@@ -2614,8 +2659,8 @@ window.HARMONIA_decodeMask = decodeMask;
       stopPath();
       killSession();
       setBusy(false);
-      setScreen(boringMode ? "home" : "menu");
-    } }, boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Free play")), keyRow, /* @__PURE__ */ React.createElement("div", { className: "tabs" }, /* @__PURE__ */ React.createElement("button", { className: "tab" + (fpTab === "notes" ? " on" : ""), onClick: () => setFpTab("notes") }, "7 worlds"), /* @__PURE__ */ React.createElement("button", { className: "tab" + (fpTab === "paths" ? " on" : ""), onClick: () => setFpTab("paths") }, "Paths")), fpTab === "paths" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "explore-controls" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => pathPlaying ? stopPath() : startPath(), disabled: !pathProg.length }, pathPlaying ? "■ Stop" : "▶ Play loop"), /* @__PURE__ */ React.createElement("button", { className: "ghost" + (pathBuild ? " voice on" : ""), onClick: () => setPathBuild((b) => !b) }, pathBuild ? "Done" : "Build"), /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Tempo", /* @__PURE__ */ React.createElement("select", { value: pathBeat, onChange: (e) => {
+      setScreen(auxReturn || (boringMode ? "home" : "menu"));
+    } }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Free play")), keyRow, /* @__PURE__ */ React.createElement("div", { className: "tabs" }, /* @__PURE__ */ React.createElement("button", { className: "tab" + (fpTab === "notes" ? " on" : ""), onClick: () => setFpTab("notes") }, "7 worlds"), /* @__PURE__ */ React.createElement("button", { className: "tab" + (fpTab === "paths" ? " on" : ""), onClick: () => setFpTab("paths") }, "Paths")), fpTab === "paths" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "explore-controls" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => pathPlaying ? stopPath() : startPath(), disabled: !pathProg.length }, pathPlaying ? "■ Stop" : "▶ Play loop"), /* @__PURE__ */ React.createElement("button", { className: "ghost" + (pathBuild ? " voice on" : ""), onClick: () => setPathBuild((b) => !b) }, pathBuild ? "Done" : "Build"), /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Tempo", /* @__PURE__ */ React.createElement("select", { value: pathBeat, onChange: (e) => {
       setTempo(Number(e.target.value));
       e.target.blur();
     } }, PATH_SPEEDS.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.label, value: s.beat }, s.label)))), /* @__PURE__ */ React.createElement(

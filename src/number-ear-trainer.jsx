@@ -1192,6 +1192,8 @@ export default function NumberEarTrainer() {
   const [progChapter, setProgChapter] = useState(null);   // which progression chapter is open
   const [fromAdventure, setFromAdventure] = useState(false); // entered a stage from the map? (back → map)
   const [advStageId, setAdvStageId] = useState(null);        // region node entered from the map (encounter/victory)
+  const [encounterNode, setEncounterNode] = useState(null);  // region id whose encounter modal is open on the map
+  const [auxReturn, setAuxReturn] = useState(null);          // where guide/free-play/settings back should go (e.g. "adventure")
   const [swordBurst, setSwordBurst] = useState(false);       // one-shot forge flash after earning a fragment
   const sessWasClearedRef = useRef(false);                   // was the region already cleared before this session?
   const [melTab, setMelTab] = useState("stages");  // stages | custom
@@ -1802,7 +1804,7 @@ export default function NumberEarTrainer() {
 
   if (screen === "menu") {
     const item = (icon, label, go) => (
-      <button className="menu-item" onClick={() => { sfx("select"); go(); }} onMouseEnter={() => sfx("move")}>
+      <button className="menu-item" onClick={() => { sfx("select"); setAuxReturn(null); go(); }} onMouseEnter={() => sfx("move")}>
         <span className="mi-icon">{icon}</span> {label}
       </button>
     );
@@ -1847,14 +1849,50 @@ export default function NumberEarTrainer() {
   }
 
   if (screen === "adventure") {
+    // in game mode a tap opens the Keeper encounter modal; boring mode goes straight in
+    const onTapNode = (n) => { if (boringMode) { enterStage(n); } else { sfx("select"); setEncounterNode(n.id); } };
+    const en = encounterNode && window.HARMONIA ? window.HARMONIA.nodes[encounterNode - 1] : null;
+    const enStage = encounterNode ? ADV_STAGES[encounterNode - 1] : null;
+    const enTitle = enStage ? advGroupOf(enStage).name : "";
+    const enMode = enStage ? enStage.mode : "melody";
+    const enLevels = enStage ? advGroupOf(enStage).levels.length : 0;
+    const enFrag = en ? window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[encounterNode]] : "";
+    const enModeLabel = enMode === "melody" ? "single notes" : enMode === "chords" ? "chord tones" : "chord progressions";
     return (
-      <AdventureMap
-        nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={enterStage}
-        burst={swordBurst}
-        onMenu={() => setScreen(boringMode ? "home" : "menu")}
-        onSettings={() => setScreen("settings")}
-        onGuide={() => { setGuidePage(0); setScreen("guide"); }}
-        onFree={() => { setFpTab("notes"); setScreen("learn"); }} />
+      <>
+        <AdventureMap
+          nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={onTapNode}
+          burst={swordBurst}
+          onMenu={() => setScreen(boringMode ? "home" : "menu")}
+          onSettings={() => { setAuxReturn("adventure"); setScreen("settings"); }}
+          onGuide={() => { setAuxReturn("adventure"); setGuidePage(0); setScreen("guide"); }}
+          onFree={() => { setAuxReturn("adventure"); setFpTab("notes"); setScreen("learn"); }} />
+        {en && (
+          <div className="encounter-modal" onClick={() => setEncounterNode(null)}>
+            <div className={"encounter mood-" + en.mood} onClick={(e) => e.stopPropagation()}>
+              <div className="enc-head">
+                <span className="enc-emblem" aria-hidden="true">{en.emblem}</span>
+                <div className="enc-titles">
+                  <span className="kicker">Region {encounterNode} · Harmonia</span>
+                  <h2 className="encounter-title">{en.name}</h2>
+                  <span className="encounter-sub">{enTitle}</span>
+                </div>
+                <span className="enc-frag"><span className="gem">◆</span>{enFrag}</span>
+              </div>
+              <p className="keeper-line">
+                <b className="keeper-name">{en.keeper}</b>
+                <q>{en.greet}</q>
+              </p>
+              <p className="stage-goal">{stageGoal(enMode, enTitle)}</p>
+              <span className="stage-meta">{enLevels} levels · {enModeLabel} · earn {en.short}'s mark → ◆</span>
+              <div className="enc-actions">
+                <button className="ghost" onClick={() => setEncounterNode(null)}>Not yet</button>
+                <button className="primary" onClick={() => { const id = encounterNode; sfx("select"); setEncounterNode(null); enterStage({ id }); }}>Continue →</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
@@ -1865,7 +1903,7 @@ export default function NumberEarTrainer() {
         <header className="top">
           <div className="brand-row">
             {brand}
-            <button className="gear" onClick={() => setScreen("settings")} aria-label="Settings">⚙</button>
+            <button className="gear" onClick={() => { setAuxReturn(null); setScreen("settings"); }} aria-label="Settings">⚙</button>
           </div>
         </header>
         <div className="cards">
@@ -1876,7 +1914,7 @@ export default function NumberEarTrainer() {
               <span className="card-progress">{advCollected.size} of 8 fragments forged</span>
             </button>
           )}
-          <button className="card start" onClick={() => { setGuidePage(0); setScreen("guide"); }}>
+          <button className="card start" onClick={() => { setAuxReturn(null); setGuidePage(0); setScreen("guide"); }}>
             <span className="card-title">Start here — how music works</span>
             <span className="card-desc">Why music is simpler than you think. The tonal map, the matrix of music, and the secret behind playing what you hear.</span>
           </button>
@@ -1904,7 +1942,7 @@ export default function NumberEarTrainer() {
               return done > 0 ? `${done} of ${PROG_LEVELS.length} levels passed` : `${PROG_LEVELS.length} levels`;
             })()}</span>
           </button>
-          <button className="card quiet" onClick={() => setScreen("learn")}>
+          <button className="card quiet" onClick={() => { setAuxReturn(null); setScreen("learn"); }}>
             <span className="card-title">Free play</span>
             <span className="card-desc">Improvise and explore with the raw materials of music.</span>
           </button>
@@ -1919,7 +1957,7 @@ export default function NumberEarTrainer() {
       <div className="app">
         <style>{CSS}</style>
         <header className="top-slim">
-          <button className="back" onClick={() => setScreen(boringMode ? "home" : "menu")}>{boringMode ? "← Home" : "← Menu"}</button>
+          <button className="back" onClick={() => setScreen(auxReturn || (boringMode ? "home" : "menu"))}>{auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"}</button>
           <h2 className="screen-title">Settings</h2>
         </header>
         <div className="settings">
@@ -2128,8 +2166,6 @@ export default function NumberEarTrainer() {
       : mode === "melody" ? () => setMelGroup(null) : () => setChapter(null);
     const backLabel = fromAdventure ? "← Map" : mode === "melody" ? "← Worlds" : "← Chapters";
     const modeLabel = mode === "melody" ? "single notes" : mode === "chords" ? "chord tones" : "chord progressions";
-    const advNode = fromAdventure && !boringMode && advStageId && window.HARMONIA ? window.HARMONIA.nodes[advStageId - 1] : null;
-    const fragName = advNode ? window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[advStageId]] : "";
     return (
       <div className="app">
         <style>{CSS}</style>
@@ -2137,30 +2173,10 @@ export default function NumberEarTrainer() {
           <button className="back" onClick={onBack}>{backLabel}</button>
           <h2 className="screen-title">{title}</h2>
         </header>
-        {advNode ? (
-          <div className={"encounter mood-" + advNode.mood}>
-            <div className="enc-head">
-              <span className="enc-emblem" aria-hidden="true">{advNode.emblem}</span>
-              <div className="enc-titles">
-                <span className="kicker">Region {advStageId} · Harmonia</span>
-                <h2 className="encounter-title">{advNode.name}</h2>
-                <span className="encounter-sub">{title}</span>
-              </div>
-              <span className="enc-frag"><span className="gem">◆</span>{fragName}</span>
-            </div>
-            <p className="keeper-line">
-              <b className="keeper-name">{advNode.keeper}</b>
-              <q>{advNode.greet}</q>
-            </p>
-            <p className="stage-goal">{stageGoal(mode, title)}</p>
-            <span className="stage-meta">{list.length} levels · {modeLabel} · earn {advNode.short}'s mark → ◆</span>
-          </div>
-        ) : (
-          <div className="stage-intro">
-            <p className="stage-goal">{stageGoal(mode, title)}</p>
-            <span className="stage-meta">{list.length} levels · {modeLabel}</span>
-          </div>
-        )}
+        <div className="stage-intro">
+          <p className="stage-goal">{stageGoal(mode, title)}</p>
+          <span className="stage-meta">{list.length} levels · {modeLabel}</span>
+        </div>
         {mode === "chords" && (
           <div className="key-row">
             <label className="key-label">
@@ -2523,7 +2539,7 @@ export default function NumberEarTrainer() {
       <div className="app">
         <style>{CSS}</style>
         <header className="top-slim">
-          <button className="back" onClick={() => { killSession(); setBusy(false); setScreen(boringMode ? "home" : "menu"); }}>{boringMode ? "← Home" : "← Menu"}</button>
+          <button className="back" onClick={() => { killSession(); setBusy(false); setScreen(auxReturn || (boringMode ? "home" : "menu")); }}>{auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"}</button>
           <h2 className="screen-title">How music works</h2>
         </header>
         <section className="panel">{pages[guidePage]}</section>
@@ -2546,7 +2562,7 @@ export default function NumberEarTrainer() {
     <div className="app">
       <style>{CSS}</style>
       <header className="top-slim">
-        <button className="back" onClick={() => { setDroneOn(false); stopPath(); killSession(); setBusy(false); setScreen(boringMode ? "home" : "menu"); }}>{boringMode ? "← Home" : "← Menu"}</button>
+        <button className="back" onClick={() => { setDroneOn(false); stopPath(); killSession(); setBusy(false); setScreen(auxReturn || (boringMode ? "home" : "menu")); }}>{auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"}</button>
         <h2 className="screen-title">Free play</h2>
       </header>
       {keyRow}
