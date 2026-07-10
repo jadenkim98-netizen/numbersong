@@ -1,5 +1,7 @@
-# Netlify build config — auto-detected on connect.
-# Netlify runs the build in a CI image with node + python3, then serves dist/.
+# Netlify config — NO build step. dist/ is pre-built locally (run ./build.sh)
+# and committed, so Netlify just uploads it. `command = "true"` is an instant
+# no-op that skips the CI build to conserve build minutes. To change the app:
+# edit src/, run ./build.sh, commit the updated dist/, push.
 [build]
-  command = "bash build.sh"
+  command = "true"
   publish = "dist"
