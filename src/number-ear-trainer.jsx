@@ -537,7 +537,9 @@ function useAudio() {
   const sfx = useCallback(async (name) => {
     await ensure();
     if (!sfxRef.current) sfxRef.current = new Tone.Synth({ envelope: { attack: 0.006, decay: 0.08, sustain: 0, release: 0.05 }, volume: -17 }).toDestination();
-    const s = sfxRef.current, now = Tone.now();
+    // +0.05s lead so the FIRST sound after audio-unlock (the boot chime) isn't
+    // dropped while the just-resumed AudioContext spins up.
+    const s = sfxRef.current, now = Tone.now() + 0.05;
     const beep = (freq, dur, t, type) => { s.oscillator.type = type; try { s.triggerAttackRelease(freq, dur, now + t); } catch (e) {} };
     if (name === "move") beep(494, 0.045, 0, "square");
     else if (name === "select") { beep(659, 0.055, 0, "square"); beep(988, 0.06, 0.06, "square"); }
@@ -1034,7 +1036,7 @@ function ProgressSquares({ best, total = SESSION_LEN }) {
    swap the drawHero() block for ctx.drawImage(codaImg, ...). */
 
 // cx,cy = the current node's CENTER. Coda stands on the node facing the viewer.
-function drawHero(ctx, cx, cy, coda) {
+function drawHero(ctx, cx, cy, coda, bob) {
   ctx.save();                                                            // soft ground shadow
   ctx.fillStyle = "rgba(0,0,0,0.28)";
   ctx.beginPath(); ctx.ellipse(cx, cy + 2, 7, 2.5, 0, 0, Math.PI * 2); ctx.fill();
@@ -1043,11 +1045,11 @@ function drawHero(ctx, cx, cy, coda) {
     const dh = 26, dw = coda.width * (dh / coda.height);
     ctx.save();
     ctx.shadowColor = "rgba(87,198,196,0.7)"; ctx.shadowBlur = 5;        // faint teal aura
-    ctx.drawImage(coda, cx - dw / 2, cy + 3 - dh, dw, dh);               // feet just below node center
+    ctx.drawImage(coda, cx - dw / 2, cy + 3 - dh - (bob || 0), dw, dh);  // feet just below node center; bob while walking
     ctx.restore();
     return;
   }
-  const y = cy - 12;                                                     // fallback marker until sprite loads
+  const y = cy - 12 - (bob || 0);                                        // fallback marker until sprite loads
   ctx.save();
   ctx.shadowColor = "#57C6C4"; ctx.shadowBlur = 6;
   ctx.fillStyle = "#6ABF5E"; ctx.fillRect(cx - 3, y + 2, 6, 7);
@@ -1056,7 +1058,30 @@ function drawHero(ctx, cx, cy, coda) {
   ctx.restore();
 }
 
-function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, burst }) {
+// Excalibar rendered from the sword sheet; collected parts are solid, the rest ghosted.
+function ForgeSword({ collected, className }) {
+  const H = window.HARMONIA;
+  const ref = useRef(null);
+  const [img, setImg] = useState(null);
+  useEffect(() => { const b = new Image(); b.onload = () => setImg(b); b.src = H.sword; }, []);
+  useEffect(() => {
+    if (!img) return; const cv = ref.current; if (!cv) return;
+    cv.width = H.swordW; cv.height = H.swordH;
+    const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, cv.width, cv.height); ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, cv.width, cv.height);
+    const mask = window.HARMONIA_decodeMask(H);
+    for (let i = 0; i < mask.length; i++) {
+      const part = mask[i] - 1;
+      if (part < 0) continue;
+      if (!collected.has(part)) { const p = i * 4; data.data[p] = 60; data.data[p + 1] = 66; data.data[p + 2] = 63; data.data[p + 3] = 95; }
+    }
+    ctx.putImageData(data, 0, 0);
+  }, [img, collected]);
+  return <canvas ref={ref} className={className} aria-label="Excalibar" />;
+}
+
+function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, burst, boringMode }) {
   const H = window.HARMONIA;
   const mapRef = useRef(null);
   const swordRef = useRef(null);
@@ -1064,6 +1089,9 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
   const [tileset, setTileset] = useState(null);
   const [swordImg, setSwordImg] = useState(null);
   const [codaImg, setCodaImg] = useState(null);
+  const codaRef = useRef(null);   // Coda's live tile position {c,r} (floats while walking)
+  const walkRef = useRef(false);  // true while a walk animation is in flight
+  const rafRef = useRef(0);
 
   useEffect(() => {
     const a = new Image(); a.onload = () => setTileset(a); a.src = H.tileset;
@@ -1083,11 +1111,12 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
     sc.scrollTop = Math.max(0, ((cn.r + 0.5) / H.gr) * mapH - sc.clientHeight * 0.5);
   }, [tileset, currentId]);
 
-  useEffect(() => {
+  // full map paint with Coda at tile (codaC,codaR); reused by the static render and the walk loop
+  const draw = useCallback((codaC, codaR, bob) => {
     if (!tileset) return;
     const cv = mapRef.current; if (!cv) return;
     const T = H.tile;
-    cv.width = H.gc * T; cv.height = H.gr * T;
+    if (cv.width !== H.gc * T) { cv.width = H.gc * T; cv.height = H.gr * T; }
     const ctx = cv.getContext("2d");
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, cv.width, cv.height);
@@ -1111,9 +1140,18 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       ctx.font = "bold 8px Archivo, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(cleared ? "★" : String(n.id), x, y + 0.5);
     });
-    const cn = nodes.find((n) => n.id === currentId);
-    if (cn) drawHero(ctx, (cn.c + 0.5) * T, (cn.r + 0.5) * T, codaImg);
+    drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, codaImg, bob);
   }, [tileset, nodes, currentId, collected, codaImg]);
+
+  // static render: Coda rests on the current node (unless mid-walk)
+  useEffect(() => {
+    const cn = nodes.find((n) => n.id === currentId);
+    if (!cn || walkRef.current) return;
+    codaRef.current = { c: cn.c, r: cn.r };
+    draw(cn.c, cn.r, 0);
+  }, [draw, currentId, nodes]);
+
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
   useEffect(() => {
     if (!swordImg) return;
@@ -1136,7 +1174,55 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
     ctx.putImageData(data, 0, 0);
   }, [swordImg, collected]);
 
+  // BFS a route from tile (sc,sr) to (tc,tr) over walkable path/clearing tiles
+  const WALKABLE = new Set([12, 13, 14, 15, 16, 17, 18, 19, 20, 21]);
+  const buildRoute = (start, tc, tr) => {
+    const sc = Math.round(start.c), sr = Math.round(start.r);
+    const key = (c, r) => r * H.gc + c;
+    const okTile = (c, r) => c >= 0 && c < H.gc && r >= 0 && r < H.gr && WALKABLE.has(H.grid[r][c]);
+    const q = [[sc, sr]]; const prev = new Map([[key(sc, sr), null]]);
+    let found = false;
+    while (q.length) {
+      const [c, r] = q.shift();
+      if (c === tc && r === tr) { found = true; break; }
+      for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nc = c + dc, nr = r + dr, k = key(nc, nr);
+        if (prev.has(k) || !okTile(nc, nr)) continue;
+        prev.set(k, [c, r]); q.push([nc, nr]);
+      }
+    }
+    if (!found) return [{ c: sc, r: sr }, { c: tc, r: tr }]; // fallback: straight hop
+    const route = []; let cur = [tc, tr];
+    while (cur) { route.push({ c: cur[0], r: cur[1] }); cur = prev.get(key(cur[0], cur[1])); }
+    return route.reverse();
+  };
+
+  // walk Coda along the road to a node, then fire done()
+  const walkTo = (target, done) => {
+    const start = codaRef.current || { c: target.c, r: target.r };
+    const route = buildRoute(start, target.c, target.r);
+    if (route.length < 2) { done && done(); return; }
+    walkRef.current = true;
+    const SPEED = 6.5; // tiles per second
+    let seg = 1, prevTs = 0;
+    const step = (ts) => {
+      if (!prevTs) prevTs = ts;
+      let remain = SPEED * (ts - prevTs) / 1000; prevTs = ts;
+      while (remain > 0 && seg < route.length) {
+        const b = route[seg], cur = codaRef.current;
+        const dc = b.c - cur.c, dr = b.r - cur.r, dist = Math.hypot(dc, dr);
+        if (dist <= remain || dist < 1e-4) { codaRef.current = { c: b.c, r: b.r }; remain -= dist; seg++; }
+        else { codaRef.current = { c: cur.c + dc / dist * remain, r: cur.r + dr / dist * remain }; remain = 0; }
+      }
+      draw(codaRef.current.c, codaRef.current.r, Math.abs(Math.sin(ts / 95)) * 2.5);
+      if (seg < route.length) { rafRef.current = requestAnimationFrame(step); }
+      else { walkRef.current = false; draw(target.c, target.r, 0); done && done(); }
+    };
+    rafRef.current = requestAnimationFrame(step);
+  };
+
   const tapMap = (e) => {
+    if (walkRef.current) return; // ignore taps mid-walk
     const cv = mapRef.current; const rect = cv.getBoundingClientRect();
     const nx = (e.clientX - rect.left) * (cv.width / rect.width);
     const ny = (e.clientY - rect.top) * (cv.height / rect.height);
@@ -1146,7 +1232,11 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       const d = ((n.c + 0.5) * T - nx) ** 2 + ((n.r + 0.5) * T - ny) ** 2;
       if (d < bd) { bd = d; best = n; }
     });
-    if (best && bd < 16 * 16) onEnter(best);
+    if (!best || bd >= 16 * 16) return;
+    const cur = codaRef.current;
+    const atNode = cur && Math.round(cur.c) === best.c && Math.round(cur.r) === best.r;
+    if (boringMode || atNode) onEnter(best);
+    else walkTo(best, () => onEnter(best));
   };
 
   const have = collected.size;
@@ -1164,7 +1254,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
         <canvas ref={mapRef} className="adv-map" onClick={tapMap} role="img" aria-label="Harmonia world map" />
       </div>
       <div className="adv-hud adv-hud-bottom">
-        <canvas ref={swordRef} className={"adv-sword-mini" + (burst ? " burst" : "")} aria-label="Excalibar forge progress" />
+        <canvas ref={swordRef} className={"adv-sword-mini" + (burst ? " burst" : "")} onClick={onForge} role="button" tabIndex={0} aria-label="View Excalibar fragments" />
         <div className="adv-forge-txt">
           <b>{have} / 8</b> fragments
           <span>{have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""}</span>
@@ -1194,6 +1284,7 @@ export default function NumberEarTrainer() {
   const [advStageId, setAdvStageId] = useState(null);        // region node entered from the map (encounter/victory)
   const [encounterNode, setEncounterNode] = useState(null);  // region id whose encounter modal is open on the map
   const [auxReturn, setAuxReturn] = useState(null);          // where guide/free-play/settings back should go (e.g. "adventure")
+  const [forgeOpen, setForgeOpen] = useState(false);         // Excalibar fragment inventory modal (on the map)
   const [swordBurst, setSwordBurst] = useState(false);       // one-shot forge flash after earning a fragment
   const sessWasClearedRef = useRef(false);                   // was the region already cleared before this session?
   const [melTab, setMelTab] = useState("stages");  // stages | custom
@@ -1545,6 +1636,12 @@ export default function NumberEarTrainer() {
         return next;
       });
     }
+    // ceremonial fanfare the moment a region is newly cleared (its final level just passed)
+    if (fromAdventure && advStageId != null && !sessWasClearedRef.current) {
+      const lv = advGroupOf(ADV_STAGES[advStageId - 1]).levels;
+      const lastIdx = lv[lv.length - 1].idx;
+      if (s.levelIdx === lastIdx && firstTries >= passCountFor(s.lvl)) sfx("victory");
+    }
     setPhase("idle");
     setScreen("results");
   };
@@ -1771,9 +1868,12 @@ export default function NumberEarTrainer() {
 
   /* ── adventure (Harmonia) — nodes derived from real progress ── */
   const advNodes = (window.HARMONIA && window.HARMONIA.nodes) || [];
+  // a region's fragment is earned by passing its FINAL level (the mastery capstone);
+  // you don't have to pass every level along the way.
   const stageClearedAdv = (id) => {
     const s = ADV_STAGES[id - 1]; if (!s) return false;
-    return advGroupOf(s).levels.every((l) => isPassed(s.mode, l.idx));
+    const lv = advGroupOf(s).levels;
+    return isPassed(s.mode, lv[lv.length - 1].idx);
   };
   const advCollected = new Set(advNodes.filter((n) => stageClearedAdv(n.id)).map((n) => window.HARMONIA.stageFrag[n.id]));
   const advCurrentId = (advNodes.find((n) => !stageClearedAdv(n.id)) || advNodes[advNodes.length - 1] || {}).id;
@@ -1862,7 +1962,7 @@ export default function NumberEarTrainer() {
       <>
         <AdventureMap
           nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={onTapNode}
-          burst={swordBurst}
+          burst={swordBurst} boringMode={boringMode} onForge={() => { sfx("select"); setForgeOpen(true); }}
           onMenu={() => setScreen(boringMode ? "home" : "menu")}
           onSettings={() => { setAuxReturn("adventure"); setScreen("settings"); }}
           onGuide={() => { setAuxReturn("adventure"); setGuidePage(0); setScreen("guide"); }}
@@ -1889,6 +1989,30 @@ export default function NumberEarTrainer() {
                 <button className="ghost" onClick={() => setEncounterNode(null)}>Not yet</button>
                 <button className="primary" onClick={() => { const id = encounterNode; sfx("select"); setEncounterNode(null); enterStage({ id }); }}>Continue →</button>
               </div>
+            </div>
+          </div>
+        )}
+        {forgeOpen && window.HARMONIA && (
+          <div className="forge-modal" onClick={() => setForgeOpen(false)}>
+            <div className="forge-panel" onClick={(e) => e.stopPropagation()}>
+              <span className="forge-kicker">The legendary blade</span>
+              <h2 className="forge-title">Excalibar</h2>
+              <ForgeSword collected={advCollected} className="forge-sword-big" />
+              <span className="forge-tally">{advCollected.size} / 8 fragments</span>
+              <ul className="frag-list">
+                {window.HARMONIA.nodes.map((nd) => {
+                  const fid = window.HARMONIA.stageFrag[nd.id];
+                  const have = advCollected.has(fid);
+                  return (
+                    <li key={nd.id} className={"frag-row" + (have ? " got" : " locked")}>
+                      <span className="frag-mark">{have ? "◆" : "◇"}</span>
+                      <span className="frag-name">{window.HARMONIA.fragLabel[fid]}</span>
+                      <em className="frag-src">{have ? nd.name : "— locked"}</em>
+                    </li>
+                  );
+                })}
+              </ul>
+              <button className="primary" onClick={() => setForgeOpen(false)}>Close</button>
             </div>
           </div>
         )}
@@ -2442,9 +2566,12 @@ export default function NumberEarTrainer() {
         <div className="results">
           {justCleared && (
             <div className="victory">
+              <div className="victory-glow" aria-hidden="true" />
+              <span className="victory-kicker">Fragment forged</span>
               <h3 className="victory-title">{advNode.winTitle}</h3>
-              <span className="victory-quote">“{advNode.win}”</span>
+              <ForgeSword collected={advCollected} className="victory-sword" />
               <span className="frag-chip"><span className="gem">◆</span>{fragName} — forged into Excalibar</span>
+              <span className="victory-quote">“{advNode.win}”</span>
               <span className="forge-count">{advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments"}</span>
             </div>
           )}
