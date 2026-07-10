@@ -26,6 +26,7 @@ assert "</script" not in js
 voices = json.dumps({str(base): {str(i): base64.b64encode(open(f"voice/{base}/{i}.mp3","rb").read()).decode() for i in range(1, 9)} for base in (0, 4, 8)})
 icon_data = "data:image/png;base64," + base64.b64encode(open("icon.png","rb").read()).decode()
 logo_data = "data:image/png;base64," + base64.b64encode(open("wejam.png","rb").read()).decode()
+coda_data = "data:image/png;base64," + base64.b64encode(open("coda.png","rb").read()).decode()
 adventure = open("adventure/assets.js").read().replace("export const", "const").replace("export function", "function")
 assert "</script" not in adventure
 retro_css = open("retro/retro.css").read().replace("__FONT_B64__", open("retro/pixelfont.b64").read().strip())
@@ -96,6 +97,7 @@ html = f'''<!DOCTYPE html>
 <script>
 window.SUNG_NUMBERS = {voices};
 window.WEJAM_LOGO = "{logo_data}";
+window.CODA_SPRITE = "{coda_data}";
 </script>
 <script>
 {adventure}

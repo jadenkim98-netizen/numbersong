@@ -1002,15 +1002,27 @@ function ProgressSquares({ best, total = SESSION_LEN }) {
    The hero is a clean placeholder marker until a real sprite PNG is dropped in:
    swap the drawHero() block for ctx.drawImage(codaImg, ...). */
 
-function drawHero(ctx, x, y) {
+// cx,cy = the current node's CENTER. Coda stands on the node facing the viewer.
+function drawHero(ctx, cx, cy, coda) {
+  ctx.save();                                                            // soft ground shadow
+  ctx.fillStyle = "rgba(0,0,0,0.28)";
+  ctx.beginPath(); ctx.ellipse(cx, cy + 2, 7, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  if (coda) {
+    const dh = 26, dw = coda.width * (dh / coda.height);
+    ctx.save();
+    ctx.shadowColor = "rgba(87,198,196,0.7)"; ctx.shadowBlur = 5;        // faint teal aura
+    ctx.drawImage(coda, cx - dw / 2, cy + 3 - dh, dw, dh);               // feet just below node center
+    ctx.restore();
+    return;
+  }
+  const y = cy - 12;                                                     // fallback marker until sprite loads
   ctx.save();
   ctx.shadowColor = "#57C6C4"; ctx.shadowBlur = 6;
-  ctx.fillStyle = "#6ABF5E"; ctx.fillRect(x - 3, y + 2, 6, 7);           // body
-  ctx.fillStyle = "#57C6C4"; ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill(); // head
-  ctx.fillStyle = "#EDF2EE"; ctx.fillRect(x - 1.5, y - 1.5, 2, 2);       // glint
+  ctx.fillStyle = "#6ABF5E"; ctx.fillRect(cx - 3, y + 2, 6, 7);
+  ctx.fillStyle = "#57C6C4"; ctx.beginPath(); ctx.arc(cx, y, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#EDF2EE"; ctx.fillRect(cx - 1.5, y - 1.5, 2, 2);
   ctx.restore();
-  ctx.fillStyle = "#EDF2EE"; ctx.beginPath();                            // "you are here" caret
-  ctx.moveTo(x - 3, y + 11); ctx.lineTo(x + 3, y + 11); ctx.lineTo(x, y + 14); ctx.closePath(); ctx.fill();
 }
 
 function AdventureMap({ nodes, currentId, collected, onEnter, onSettings, onGuide, onFree }) {
@@ -1020,10 +1032,14 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onSettings, onGuid
   const scrollRef = useRef(null);
   const [tileset, setTileset] = useState(null);
   const [swordImg, setSwordImg] = useState(null);
+  const [codaImg, setCodaImg] = useState(null);
 
   useEffect(() => {
     const a = new Image(); a.onload = () => setTileset(a); a.src = H.tileset;
     const b = new Image(); b.onload = () => setSwordImg(b); b.src = H.sword;
+    if (typeof window !== "undefined" && window.CODA_SPRITE) {
+      const c = new Image(); c.onload = () => setCodaImg(c); c.src = window.CODA_SPRITE;
+    }
   }, []);
 
   // center the view on the hero / current node once the map is drawn
@@ -1065,8 +1081,8 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onSettings, onGuid
       ctx.fillText(cleared ? "★" : String(n.id), x, y + 0.5);
     });
     const cn = nodes.find((n) => n.id === currentId);
-    if (cn) drawHero(ctx, (cn.c + 0.5) * T, (cn.r + 0.5) * T - 12);
-  }, [tileset, nodes, currentId, collected]);
+    if (cn) drawHero(ctx, (cn.c + 0.5) * T, (cn.r + 0.5) * T, codaImg);
+  }, [tileset, nodes, currentId, collected, codaImg]);
 
   useEffect(() => {
     if (!swordImg) return;
