@@ -1,7 +1,8 @@
 # build artifacts. dist/ IS committed (pre-built locally) so Netlify serves it
-# without spending CI build minutes — see netlify.toml. Root copies stay ignored.
-index.html
-manifest.json
+# without spending CI build minutes — see netlify.toml. Only the ROOT copies are
+# ignored (leading slash = repo root only), so dist/index.html stays tracked.
+/index.html
+/manifest.json
 .app.jsx
 .app.compiled.js
 
