@@ -894,7 +894,8 @@ window.SOUNDTRACK = SOUNDTRACK;
     vi: "Contains the tonic (1) and mediant (3) — home's shadow.",
     "vii°": "No rest anywhere: 7, 2 and 4 all demand resolution."
   };
-  const SESSION_LEN = 10;
+  const SESSION_LEN = 20;
+  const FINAL_LEN = 30;
   const PASS_RATE = 0.8;
   function buildGroup(group, mode, chromatic, intro) {
     const FULL = chromatic ? ALL12 : NAT_PCS;
@@ -908,7 +909,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const base = { group, mode, chromatic };
     return [
       ...intro.map(([name, desc, pool]) => ({ ...base, name, desc, pool, keyMode: "c", octaves: [4] })),
-      ...tail.map(([name, desc, keyMode, octaves]) => ({ ...base, name, desc, pool: FULL, keyMode, octaves }))
+      ...tail.map(([name, desc, keyMode, octaves], i) => ({ ...base, name, desc, pool: FULL, keyMode, octaves, ...i === tail.length - 1 ? { qCount: FINAL_LEN } : {} }))
     ];
   }
   const MELODY_LEVELS = [
@@ -980,8 +981,8 @@ window.SOUNDTRACK = SOUNDTRACK;
       ...intro.map(([name, desc, pool]) => ({ ...cap, name, desc, pool, keyMode: "fixed" })),
       { ...cap, name: "The big four", desc: mode === "minor" ? "6- · 2- · 3- · 4" : "1 · 4 · 5D · 6-", pool: four, keyMode: "fixed" },
       { ...cap, name: "New key", desc: "the big four · a new key", pool: four, keyMode: "not-c" },
-      { ...cap, name: "Every key", desc: "the big four · new key each Q · capstone", pool: four, keyMode: "random", qCount: 15, pass: 0.85 },
-      { ...cap, name: "Advanced · all seven", desc: "every diatonic triad", pool: ALL_CHORDS, keyMode: "fixed" }
+      { ...cap, name: "Every key", desc: "the big four · new key each Q", pool: four, keyMode: "random" },
+      { ...cap, name: "Advanced · all seven", desc: "every diatonic triad · mastery", pool: ALL_CHORDS, keyMode: "fixed", qCount: FINAL_LEN }
     ];
   }
   const CHORD_LEVELS = [
@@ -1045,8 +1046,8 @@ window.SOUNDTRACK = SOUNDTRACK;
       { ...cap, name: "Three-chord", desc: "threes", len: 3, gen: "curated", pool, keyMode: "fixed" },
       { ...cap, name: "Four-chord classics", desc: "the common ones", len: 4, gen: "curated", pool, keyMode: "fixed" },
       { ...cap, name: "Any order", desc: "random · 4", len: 4, gen: "random", pool, keyMode: "fixed" },
-      { ...cap, name: "Every key", desc: "random · new key each Q · capstone", len: 4, gen: "random", pool, keyMode: "random", qCount: 15, pass: 0.85 },
-      { ...cap, name: "Advanced · all seven", desc: "every triad · random 4", len: 4, gen: "random", pool: ALL_CHORDS, keyMode: "fixed" }
+      { ...cap, name: "Every key", desc: "random · new key each Q", len: 4, gen: "random", pool, keyMode: "random" },
+      { ...cap, name: "Advanced · all seven", desc: "every triad · random 4 · mastery", len: 4, gen: "random", pool: ALL_CHORDS, keyMode: "fixed", qCount: FINAL_LEN }
     ];
   }
   const PROG_LEVELS = [
@@ -1135,7 +1136,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     "=": { d: 5, oct: 5 }
   };
   const levelsFor = (m) => m === "melody" ? MELODY_LEVELS : m === "chords" ? CHORD_LEVELS : PROG_LEVELS;
-  const TEST_MODE = true;
+  const TEST_MODE = false;
   const qCountOf = (lvl) => TEST_MODE ? 3 : lvl && lvl.qCount || SESSION_LEN;
   const passRateOf = (lvl) => TEST_MODE ? 0.6 : lvl && lvl.pass || PASS_RATE;
   const passCountFor = (lvl) => Math.ceil(passRateOf(lvl) * qCountOf(lvl));
@@ -1680,7 +1681,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const nameRef = useRef(null);
     const onRef = useRef(loadPref("music", "1") === "1");
     const bus = () => {
-      if (!busRef.current) busRef.current = new Tone.Gain(onRef.current ? 0.12 : 0).toDestination();
+      if (!busRef.current) busRef.current = new Tone.Gain(onRef.current ? 0.06 : 0).toDestination();
       return busRef.current;
     };
     const disposeCur = () => {
@@ -1762,7 +1763,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           } catch (e) {
           }
           try {
-            g.gain.rampTo(onRef.current ? 0.12 : 0, 0.6);
+            g.gain.rampTo(onRef.current ? 0.06 : 0, 0.6);
           } catch (e) {
           }
         }
@@ -1772,7 +1773,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       nameRef.current = null;
       const g = busRef.current;
       if (g) try {
-        g.gain.rampTo(0, fast ? 0.12 : 0.7);
+        g.gain.rampTo(0, fast ? 0.06 : 0.7);
       } catch (e) {
       }
       setTimeout(() => {
@@ -1789,7 +1790,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       savePref("music", on ? "1" : "0");
       const g = busRef.current;
       if (g) try {
-        g.gain.rampTo(on ? 0.12 : 0, 0.4);
+        g.gain.rampTo(on ? 0.06 : 0, 0.4);
       } catch (e) {
       }
     }, []);

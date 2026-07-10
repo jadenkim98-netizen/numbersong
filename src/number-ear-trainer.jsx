@@ -102,7 +102,8 @@ const CHORD_INSIGHTS = {
 
 /* ─────────────────────────────  LEVELS & SESSIONS  ───────────────────────────── */
 
-const SESSION_LEN = 10;
+const SESSION_LEN = 20;
+const FINAL_LEN = 30; // the last (mastery) level of each region runs longer
 const PASS_RATE = 0.8;
 
 // Each of the four worlds (diatonic/chromatic × major/minor) follows the same
@@ -120,7 +121,7 @@ function buildGroup(group, mode, chromatic, intro) {
   const base = { group, mode, chromatic };
   return [
     ...intro.map(([name, desc, pool]) => ({ ...base, name, desc, pool, keyMode: "c", octaves: [4] })),
-    ...tail.map(([name, desc, keyMode, octaves]) => ({ ...base, name, desc, pool: FULL, keyMode, octaves })),
+    ...tail.map(([name, desc, keyMode, octaves], i) => ({ ...base, name, desc, pool: FULL, keyMode, octaves, ...(i === tail.length - 1 ? { qCount: FINAL_LEN } : {}) })),
   ];
 }
 
@@ -210,8 +211,8 @@ function chordRamp(chapter, mode, intro, four) {
     ...intro.map(([name, desc, pool]) => ({ ...cap, name, desc, pool, keyMode: "fixed" })),
     { ...cap, name: "The big four", desc: mode === "minor" ? "6- · 2- · 3- · 4" : "1 · 4 · 5D · 6-", pool: four, keyMode: "fixed" },
     { ...cap, name: "New key", desc: "the big four · a new key", pool: four, keyMode: "not-c" },
-    { ...cap, name: "Every key", desc: "the big four · new key each Q · capstone", pool: four, keyMode: "random", qCount: 15, pass: 0.85 },
-    { ...cap, name: "Advanced · all seven", desc: "every diatonic triad", pool: ALL_CHORDS, keyMode: "fixed" },
+    { ...cap, name: "Every key", desc: "the big four · new key each Q", pool: four, keyMode: "random" },
+    { ...cap, name: "Advanced · all seven", desc: "every diatonic triad · mastery", pool: ALL_CHORDS, keyMode: "fixed", qCount: FINAL_LEN },
   ];
 }
 const CHORD_LEVELS = [
@@ -273,8 +274,8 @@ function progRamp(chapter, mode, pool, home) {
     { ...cap, name: "Three-chord",          desc: "threes",          len: 3, gen: "curated", pool, keyMode: "fixed" },
     { ...cap, name: "Four-chord classics",  desc: "the common ones", len: 4, gen: "curated", pool, keyMode: "fixed" },
     { ...cap, name: "Any order",            desc: "random · 4",      len: 4, gen: "random",  pool, keyMode: "fixed" },
-    { ...cap, name: "Every key",            desc: "random · new key each Q · capstone", len: 4, gen: "random", pool, keyMode: "random", qCount: 15, pass: 0.85 },
-    { ...cap, name: "Advanced · all seven", desc: "every triad · random 4", len: 4, gen: "random", pool: ALL_CHORDS, keyMode: "fixed" },
+    { ...cap, name: "Every key",            desc: "random · new key each Q", len: 4, gen: "random", pool, keyMode: "random" },
+    { ...cap, name: "Advanced · all seven", desc: "every triad · random 4 · mastery", len: 4, gen: "random", pool: ALL_CHORDS, keyMode: "fixed", qCount: FINAL_LEN },
   ];
 }
 const PROG_LEVELS = [
@@ -350,7 +351,7 @@ const KEY_MAP = {
 
 // Per-level rigor: most levels are 10 questions at 80%; capstones override these.
 const levelsFor = (m) => (m === "melody" ? MELODY_LEVELS : m === "chords" ? CHORD_LEVELS : PROG_LEVELS);
-const TEST_MODE = true; // TODO remove: 3-question sessions for celebration testing
+const TEST_MODE = false; // real sessions: 20-Q (30 for final stages), full pass bars & gates
 const qCountOf = (lvl) => TEST_MODE ? 3 : ((lvl && lvl.qCount) || SESSION_LEN);
 const passRateOf = (lvl) => TEST_MODE ? 0.6 : ((lvl && lvl.pass) || PASS_RATE);
 const passCountFor = (lvl) => Math.ceil(passRateOf(lvl) * qCountOf(lvl));
@@ -847,7 +848,7 @@ function useMusic() {
   const nameRef = useRef(null);
   const onRef = useRef(loadPref("music", "1") === "1");
   const bus = () => {
-    if (!busRef.current) busRef.current = new Tone.Gain(onRef.current ? 0.12 : 0).toDestination();
+    if (!busRef.current) busRef.current = new Tone.Gain(onRef.current ? 0.06 : 0).toDestination();
     return busRef.current;
   };
   const disposeCur = () => {
@@ -890,18 +891,18 @@ function useMusic() {
       if (T) {
         build(T);
         try { Tone.Transport.start("+0.06"); } catch (e) {}
-        try { g.gain.rampTo(onRef.current ? 0.12 : 0, 0.6); } catch (e) {}
+        try { g.gain.rampTo(onRef.current ? 0.06 : 0, 0.6); } catch (e) {}
       }
     }, 520);
   }, []);
   const stopMusic = useCallback((fast) => {
     nameRef.current = null;
-    const g = busRef.current; if (g) try { g.gain.rampTo(0, fast ? 0.12 : 0.7); } catch (e) {}
+    const g = busRef.current; if (g) try { g.gain.rampTo(0, fast ? 0.06 : 0.7); } catch (e) {}
     setTimeout(() => { try { Tone.Transport.stop(); Tone.Transport.cancel(); } catch (e) {} disposeCur(); }, fast ? 320 : 720);
   }, []);
   const setMusicOn = useCallback((on) => {
     onRef.current = on; savePref("music", on ? "1" : "0");
-    const g = busRef.current; if (g) try { g.gain.rampTo(on ? 0.12 : 0, 0.4); } catch (e) {}
+    const g = busRef.current; if (g) try { g.gain.rampTo(on ? 0.06 : 0, 0.4); } catch (e) {}
   }, []);
   return { playTheme, stopMusic, setMusicOn };
 }
