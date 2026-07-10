@@ -444,6 +444,36 @@
 .retro .frag-name{ flex:1 1 auto; color:var(--text); }
 .retro .frag-src{ font-style:normal; font-size:8px; color:var(--text); opacity:.6; text-align:right; }
 
+/* ---- juicier forge: rays, spark burst, sword flash ----------------------- */
+.retro .victory-rays{
+  position:absolute; left:50%; top:38%; width:340px; height:340px; z-index:0;
+  transform:translate(-50%,-50%); pointer-events:none; opacity:.5;
+  background:repeating-conic-gradient(from 0deg, rgba(217,180,91,.16) 0 5deg, transparent 5deg 16deg);
+  -webkit-mask-image:radial-gradient(circle, #000 0 30%, transparent 62%);
+          mask-image:radial-gradient(circle, #000 0 30%, transparent 62%);
+  animation:rt-rays 14s linear infinite;
+}
+@keyframes rt-rays{ to{ transform:translate(-50%,-50%) rotate(360deg); } }
+.retro .victory-forge{ position:relative; }
+.retro .victory-sword{ animation:rt-swordrise .6s cubic-bezier(.2,1.3,.4,1), rt-forgeflash 1.1s ease-out; }
+@keyframes rt-forgeflash{ 0%{ filter:drop-shadow(0 0 2px rgba(217,180,91,.6)) brightness(3); } 30%{ filter:drop-shadow(0 0 14px rgba(255,240,200,.9)) brightness(1.8); } 100%{ filter:drop-shadow(0 0 6px rgba(217,180,91,.6)) brightness(1); } }
+.retro .forge-sparks{ position:absolute; inset:0; z-index:2; pointer-events:none; }
+.retro .forge-sparks i{
+  position:absolute; left:50%; top:46%; width:7px; height:7px; margin:-3.5px 0 0 -3.5px;
+  background:var(--gold); box-shadow:0 0 6px var(--gold); clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%);
+  opacity:0; animation:rt-spark .85s ease-out .18s forwards;
+}
+@keyframes rt-spark{ 0%{ transform:translate(0,0) scale(0); opacity:0; } 15%{ opacity:1; transform:translate(calc(var(--tx)*.3),calc(var(--ty)*.3)) scale(1.3); } 100%{ transform:translate(var(--tx),var(--ty)) scale(0); opacity:0; } }
+.retro .forge-sparks i:nth-child(1){ --tx:0px;    --ty:-64px; }
+.retro .forge-sparks i:nth-child(2){ --tx:45px;   --ty:-45px; }
+.retro .forge-sparks i:nth-child(3){ --tx:64px;   --ty:0px;   }
+.retro .forge-sparks i:nth-child(4){ --tx:45px;   --ty:45px;  }
+.retro .forge-sparks i:nth-child(5){ --tx:0px;    --ty:64px;  }
+.retro .forge-sparks i:nth-child(6){ --tx:-45px;  --ty:45px;  }
+.retro .forge-sparks i:nth-child(7){ --tx:-64px;  --ty:0px;   }
+.retro .forge-sparks i:nth-child(8){ --tx:-45px;  --ty:-45px; }
+.retro .victory-kicker{ animation:rt-blink 1.6s steps(1) 3; }
+
 </style>
 </head>
 <body>
@@ -1020,6 +1050,32 @@ window.HARMONIA_decodeMask = decodeMask;
         beep(1319, 0.1, 0.09, "triangle");
       } else if (name === "victory") [659, 784, 1047, 1319].forEach((f, i) => beep(f, 0.18, i * 0.095, "triangle"));
     }, [ensure]);
+    const fanfareRef = useRef(null);
+    const fanfare = useCallback(async () => {
+      await ensure();
+      if (!fanfareRef.current) {
+        fanfareRef.current = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: "triangle" },
+          envelope: { attack: 8e-3, decay: 0.18, sustain: 0.35, release: 0.7 },
+          volume: -9
+        }).toDestination();
+      }
+      const s = fanfareRef.current, t = Tone.now() + 0.06;
+      const N = (notes, dur, at) => {
+        try {
+          s.triggerAttackRelease(notes, dur, t + at);
+        } catch (e) {
+        }
+      };
+      N("G4", 0.12, 0);
+      N("C5", 0.12, 0.1);
+      N("E5", 0.12, 0.2);
+      N("G5", 0.14, 0.3);
+      N(["C5", "E5", "G5", "C6"], 1.1, 0.44);
+      N("E6", 0.5, 0.6);
+      N("G6", 0.7, 0.74);
+      N("C7", 0.9, 0.9);
+    }, [ensure]);
     const susRef = useRef(null);
     const susVoiceRef = useRef("piano");
     const susInst = () => susVoiceRef.current === "piano" ? synthRef.current : susRef.current;
@@ -1245,7 +1301,7 @@ window.HARMONIA_decodeMask = decodeMask;
         padRef.current = synthRef.current;
       }
     }, []);
-    return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
+    return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
   }
   function speak(text, enabled) {
     if (!enabled || !window.speechSynthesis) return;
@@ -1736,7 +1792,7 @@ window.HARMONIA_decodeMask = decodeMask;
     return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, "Harmonia"), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onSettings, "aria-label": "Settings" }, "⚙")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : "")), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onFree, "aria-label": "Free play" }, "🎸"))));
   }
   function NumberEarTrainer() {
-    const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
+    const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
     const [boringMode, setBoringMode] = useState(() => loadPref("boring", "0") === "1");
     const [screen, setScreen] = useState(() => window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home");
     const [mode, setMode] = useState("melody");
@@ -2135,7 +2191,7 @@ window.HARMONIA_decodeMask = decodeMask;
       if (fromAdventure && advStageId != null && !sessWasClearedRef.current) {
         const lv = advGroupOf(ADV_STAGES[advStageId - 1]).levels;
         const lastIdx = lv[lv.length - 1].idx;
-        if (s.levelIdx === lastIdx && firstTries >= passCountFor(s.lvl)) sfx("victory");
+        if (s.levelIdx === lastIdx && firstTries >= passCountFor(s.lvl)) fanfare();
       }
       setPhase("idle");
       setScreen("results");
@@ -2809,7 +2865,7 @@ window.HARMONIA_decodeMask = decodeMask;
         } else {
           setScreen("levels");
         }
-      } }, fromAdventure ? "← To the map" : "← Levels"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, resultName)), /* @__PURE__ */ React.createElement("div", { className: "results" }, justCleared && /* @__PURE__ */ React.createElement("div", { className: "victory" }, /* @__PURE__ */ React.createElement("div", { className: "victory-glow", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "Fragment forged"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, advNode.winTitle), /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" }), /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), fragName, " — forged into Excalibar"), /* @__PURE__ */ React.createElement("span", { className: "victory-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("span", { className: "forge-count" }, advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments")), /* @__PURE__ */ React.createElement("div", { className: "score-big" + (passed ? " pass" : "") }, pct, "%"), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, isCustom ? passed ? "Strong run. Custom sessions aren't scored toward stages." : "Custom sessions aren't scored toward stages — tweak the notes and go again." : passed ? hasNext ? "Passed! This level is checked off." : "Passed — that's the top level. Your ears are working." : `${Math.round(passRate * 100)}% on first tries earns the check. Every rep counts.`), /* @__PURE__ */ React.createElement("div", { className: "stat-row" }, /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, firstTries, "/", total), " first try"), /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, bestStreak >= 2 ? "🔥" : "", bestStreak), " best streak")), showBars && /* @__PURE__ */ React.createElement("div", { className: "bars" }, Object.entries(byTarget).map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, className: "bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "bar-label" }, k), /* @__PURE__ */ React.createElement("div", { className: "bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "bar-fill", style: { width: `${v.right / v.total * 100}%` } })), /* @__PURE__ */ React.createElement("span", { className: "bar-count" }, v.right, "/", v.total)))), /* @__PURE__ */ React.createElement("div", { className: "results-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => isCustom ? startSession(mode, null, sessLvl) : startSession(mode, levelIdx) }, "Try again"), hasNext && /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => startSession(mode, levelIdx + 1) }, "Next level →"))));
+      } }, fromAdventure ? "← To the map" : "← Levels"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, resultName)), /* @__PURE__ */ React.createElement("div", { className: "results" }, justCleared && /* @__PURE__ */ React.createElement("div", { className: "victory" }, /* @__PURE__ */ React.createElement("div", { className: "victory-rays", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", { className: "victory-glow", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Fragment forged ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, advNode.winTitle), /* @__PURE__ */ React.createElement("div", { className: "victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" }), /* @__PURE__ */ React.createElement("div", { className: "forge-sparks", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null))), /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), fragName, " — forged into Excalibar"), /* @__PURE__ */ React.createElement("span", { className: "victory-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("span", { className: "forge-count" }, advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments")), /* @__PURE__ */ React.createElement("div", { className: "score-big" + (passed ? " pass" : "") }, pct, "%"), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, isCustom ? passed ? "Strong run. Custom sessions aren't scored toward stages." : "Custom sessions aren't scored toward stages — tweak the notes and go again." : passed ? hasNext ? "Passed! This level is checked off." : "Passed — that's the top level. Your ears are working." : `${Math.round(passRate * 100)}% on first tries earns the check. Every rep counts.`), /* @__PURE__ */ React.createElement("div", { className: "stat-row" }, /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, firstTries, "/", total), " first try"), /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, bestStreak >= 2 ? "🔥" : "", bestStreak), " best streak")), showBars && /* @__PURE__ */ React.createElement("div", { className: "bars" }, Object.entries(byTarget).map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, className: "bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "bar-label" }, k), /* @__PURE__ */ React.createElement("div", { className: "bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "bar-fill", style: { width: `${v.right / v.total * 100}%` } })), /* @__PURE__ */ React.createElement("span", { className: "bar-count" }, v.right, "/", v.total)))), /* @__PURE__ */ React.createElement("div", { className: "results-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => isCustom ? startSession(mode, null, sessLvl) : startSession(mode, levelIdx) }, "Try again"), hasNext && /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => startSession(mode, levelIdx + 1) }, "Next level →"))));
     }
     if (screen === "guide") {
       const pages = [

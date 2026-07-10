@@ -549,6 +549,26 @@ function useAudio() {
     else if (name === "victory") [659, 784, 1047, 1319].forEach((f, i) => beep(f, 0.18, i * 0.095, "triangle"));
   }, [ensure]);
 
+  // big triumphant fanfare for forging a fragment (poly so the final chord rings)
+  const fanfareRef = useRef(null);
+  const fanfare = useCallback(async () => {
+    await ensure();
+    if (!fanfareRef.current) {
+      fanfareRef.current = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: "triangle" },
+        envelope: { attack: 0.008, decay: 0.18, sustain: 0.35, release: 0.7 },
+        volume: -9,
+      }).toDestination();
+    }
+    const s = fanfareRef.current, t = Tone.now() + 0.06;
+    const N = (notes, dur, at) => { try { s.triggerAttackRelease(notes, dur, t + at); } catch (e) {} };
+    // quick rising run …
+    N("G4", 0.12, 0.00); N("C5", 0.12, 0.10); N("E5", 0.12, 0.20); N("G5", 0.14, 0.30);
+    // … into a held C-major chord, with a sparkle up top
+    N(["C5", "E5", "G5", "C6"], 1.1, 0.44);
+    N("E6", 0.5, 0.60); N("G6", 0.7, 0.74); N("C7", 0.9, 0.9);
+  }, [ensure]);
+
   // Sustaining voice (Free Play): attack on hold, release on let-go. "piano" reuses
   // the loaded Salamander sampler (synthRef); the others are dedicated synths.
   const susRef = useRef(null);
@@ -743,7 +763,7 @@ function useAudio() {
     }
   }, []);
 
-  return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
+  return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
 }
 
 function speak(text, enabled) {
@@ -1271,7 +1291,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
 /* ─────────────────────────────  APP  ───────────────────────────── */
 
 export default function NumberEarTrainer() {
-  const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
+  const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
 
   const [boringMode, setBoringMode] = useState(() => loadPref("boring", "0") === "1"); // classic UI vs Adventure
   const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home")); // boot | menu | training | home | adventure | levels | session | results | learn | guide | settings
@@ -1640,7 +1660,7 @@ export default function NumberEarTrainer() {
     if (fromAdventure && advStageId != null && !sessWasClearedRef.current) {
       const lv = advGroupOf(ADV_STAGES[advStageId - 1]).levels;
       const lastIdx = lv[lv.length - 1].idx;
-      if (s.levelIdx === lastIdx && firstTries >= passCountFor(s.lvl)) sfx("victory");
+      if (s.levelIdx === lastIdx && firstTries >= passCountFor(s.lvl)) fanfare();
     }
     setPhase("idle");
     setScreen("results");
@@ -2569,10 +2589,14 @@ export default function NumberEarTrainer() {
         <div className="results">
           {justCleared && (
             <div className="victory">
+              <div className="victory-rays" aria-hidden="true" />
               <div className="victory-glow" aria-hidden="true" />
-              <span className="victory-kicker">Fragment forged</span>
+              <span className="victory-kicker">✦ Fragment forged ✦</span>
               <h3 className="victory-title">{advNode.winTitle}</h3>
-              <ForgeSword collected={advCollected} className="victory-sword" />
+              <div className="victory-forge">
+                <ForgeSword collected={advCollected} className="victory-sword" />
+                <div className="forge-sparks" aria-hidden="true"><i /><i /><i /><i /><i /><i /><i /><i /></div>
+              </div>
               <span className="frag-chip"><span className="gem">◆</span>{fragName} — forged into Excalibar</span>
               <span className="victory-quote">“{advNode.win}”</span>
               <span className="forge-count">{advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments"}</span>
