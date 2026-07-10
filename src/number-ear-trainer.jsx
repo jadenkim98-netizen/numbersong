@@ -839,6 +839,73 @@ function useAudio() {
   return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
 }
 
+// Background music engine (Fable's soundtrack). Owns Tone.Transport; routes
+// every theme through one gain bus for one-ramp crossfades / ducking / toggle.
+function useMusic() {
+  const busRef = useRef(null);
+  const curRef = useRef({ built: null, parts: [] });
+  const nameRef = useRef(null);
+  const onRef = useRef(loadPref("music", "1") === "1");
+  const bus = () => {
+    if (!busRef.current) busRef.current = new Tone.Gain(onRef.current ? 0.85 : 0).toDestination();
+    return busRef.current;
+  };
+  const disposeCur = () => {
+    (curRef.current.parts || []).forEach((p) => { try { p.stop(); p.dispose(); } catch (e) {} });
+    if (curRef.current.built) Object.values(curRef.current.built).forEach((sy) => { try { sy.dispose(); } catch (e) {} });
+    curRef.current = { built: null, parts: [] };
+  };
+  const build = (T) => {
+    const g = bus();
+    Tone.Transport.bpm.value = T.bpm;
+    const built = {};
+    for (const k of Object.keys(T.synths)) {
+      const spec = T.synths[k];
+      built[k] = spec.poly ? new Tone.PolySynth(Tone.Synth, spec.opts).connect(g) : new Tone.Synth(spec.opts).connect(g);
+      built[k].volume.value = spec.opts.volume;
+    }
+    const parts = [];
+    for (const k of Object.keys(T.parts || {})) {
+      const p = new Tone.Part((t, ev) => { try { built[k].triggerAttackRelease(ev.note, ev.dur, t); } catch (e) {} }, T.parts[k]);
+      p.loop = !!T.loopEnd; if (T.loopEnd) p.loopEnd = T.loopEnd;
+      p.start(0); parts.push(p);
+    }
+    if (T.sequences) for (const k of Object.keys(T.sequences)) {
+      const sq = T.sequences[k];
+      const q = new Tone.Sequence((t, note) => { try { built[k].triggerAttackRelease(note, sq.dur, t); } catch (e) {} }, sq.notes, sq.subdivision);
+      q.loop = !!T.loopEnd; q.start(0); parts.push(q);
+    }
+    curRef.current = { built, parts };
+  };
+  const playTheme = useCallback(async (name, T) => {
+    if (nameRef.current === name) return;
+    nameRef.current = name;
+    try { await Tone.start(); } catch (e) {}
+    const g = bus();
+    try { g.gain.rampTo(0, 0.5); } catch (e) {}
+    setTimeout(() => {
+      if (nameRef.current !== name) return; // superseded by a newer switch
+      try { Tone.Transport.stop(); Tone.Transport.cancel(); } catch (e) {}
+      disposeCur();
+      if (T) {
+        build(T);
+        try { Tone.Transport.start("+0.06"); } catch (e) {}
+        try { g.gain.rampTo(onRef.current ? 0.85 : 0, 0.6); } catch (e) {}
+      }
+    }, 520);
+  }, []);
+  const stopMusic = useCallback((fast) => {
+    nameRef.current = null;
+    const g = busRef.current; if (g) try { g.gain.rampTo(0, fast ? 0.3 : 0.7); } catch (e) {}
+    setTimeout(() => { try { Tone.Transport.stop(); Tone.Transport.cancel(); } catch (e) {} disposeCur(); }, fast ? 320 : 720);
+  }, []);
+  const setMusicOn = useCallback((on) => {
+    onRef.current = on; savePref("music", on ? "1" : "0");
+    const g = busRef.current; if (g) try { g.gain.rampTo(on ? 0.85 : 0, 0.4); } catch (e) {}
+  }, []);
+  return { playTheme, stopMusic, setMusicOn };
+}
+
 function speak(text, enabled) {
   if (!enabled || !window.speechSynthesis) return;
   const u = new SpeechSynthesisUtterance(text);
@@ -1435,6 +1502,8 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
 
 export default function NumberEarTrainer() {
   const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
+  const { playTheme, stopMusic, setMusicOn } = useMusic();
+  const [musicPref, setMusicPref] = useState(() => loadPref("music", "1") === "1");
 
   const [boringMode, setBoringMode] = useState(() => loadPref("boring", "0") === "1"); // classic UI vs Adventure
   const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home")); // boot | menu | training | home | adventure | levels | session | results | learn | guide | settings
@@ -1644,6 +1713,17 @@ export default function NumberEarTrainer() {
     else stopDrone();
     return () => stopDrone();
   }, [droneOn, musicKey, exWorld, screen, startDrone, stopDrone]);
+
+  // background music per screen (drills are silent by design; dojo hushes when you play)
+  useEffect(() => {
+    const S = (typeof window !== "undefined") && window.SOUNDTRACK;
+    if (!S) return;
+    if (screen === "boot" || screen === "results") return;
+    if (screen === "session") { stopMusic(); return; }
+    if (screen === "learn") { if (droneOn || fpTab === "paths") stopMusic(true); else playTheme("dojo", S.dojo); return; }
+    if (screen === "adventure" || screen === "levels") { playTheme("map", S.map); return; }
+    playTheme("title", S.title);
+  }, [screen, droneOn, fpTab]);
 
   // Stop the paths loop whenever we leave Free Play or the paths tab.
   useEffect(() => {
@@ -1861,6 +1941,7 @@ export default function NumberEarTrainer() {
         const others = advNodes.filter((n) => n.id !== advStageId && stageClearedAdv(n.id)).length;
         if (others >= 7) { grandFanfare(); haptic(true); }
         else { fanfare(); haptic(false); }
+        setTimeout(() => { const S = window.SOUNDTRACK; if (S) playTheme("victory", S.victory); }, 2500);
       }
     }
     setPhase("idle");
@@ -2317,6 +2398,14 @@ export default function NumberEarTrainer() {
             <div className="seg">
               <button className={theme === "dark" ? "on" : ""} onClick={() => setTheme("dark")}>Dark</button>
               <button className={theme === "light" ? "on" : ""} onClick={() => setTheme("light")}>Light</button>
+            </div>
+          </div>
+          <div className="set-block">
+            <span className="set-label">Music</span>
+            <p className="set-desc">Chiptune soundtrack on the menu, map and dojo (drills stay silent).</p>
+            <div className="seg">
+              <button className={musicPref ? "on" : ""} onClick={() => { setMusicPref(true); setMusicOn(true); }}>On</button>
+              <button className={!musicPref ? "on" : ""} onClick={() => { setMusicPref(false); setMusicOn(false); }}>Off</button>
             </div>
           </div>
           {window.HARMONIA && (

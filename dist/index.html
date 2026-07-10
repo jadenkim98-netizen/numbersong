@@ -641,6 +641,164 @@ function decodeMask(a=HARMONIA){const b=atob(a.partmask);const u=new Uint8Array(
 
 window.HARMONIA = HARMONIA;
 window.HARMONIA_decodeMask = decodeMask;
+// Numbersong chiptune soundtrack (Fable). Pure Tone.js-ready data — injected as
+// window.SOUNDTRACK by build.sh. Themes: title/menu, map, dojo, victory.
+const SOUNDTRACK = {
+  title: {
+    bpm: 104,
+    loopEnd: "8:0:0",
+    synths: {
+      lead: { opts: { oscillator: { type: "square" }, envelope: { attack: 0.01, decay: 0.12, sustain: 0.3, release: 0.15 }, volume: -16 } },
+      bass: { opts: { oscillator: { type: "triangle" }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.6, release: 0.12 }, volume: -14 } },
+      arp:  { opts: { oscillator: { type: "triangle" }, envelope: { attack: 0.005, decay: 0.09, sustain: 0.1, release: 0.1 }, volume: -21 } },
+    },
+    parts: {
+      lead: [
+        { time: "0:0:0", note: "C5", dur: "4n" }, { time: "0:1:0", note: "D5", dur: "4n" }, { time: "0:2:0", note: "E5", dur: "4n" }, { time: "0:3:0", note: "G5", dur: "4n" },
+        { time: "1:0:0", note: "A5", dur: "4n." }, { time: "1:1:2", note: "G5", dur: "8n" }, { time: "1:2:0", note: "E5", dur: "2n" },
+        { time: "2:0:0", note: "F5", dur: "4n" }, { time: "2:1:0", note: "G5", dur: "4n" }, { time: "2:2:0", note: "A5", dur: "4n" }, { time: "2:3:0", note: "C6", dur: "4n" },
+        { time: "3:0:0", note: "B5", dur: "2n" }, { time: "3:2:0", note: "G5", dur: "4n" }, { time: "3:3:0", note: "D5", dur: "4n" },
+        { time: "4:0:0", note: "C5", dur: "4n" }, { time: "4:1:0", note: "D5", dur: "4n" }, { time: "4:2:0", note: "E5", dur: "4n" }, { time: "4:3:0", note: "G5", dur: "4n" },
+        { time: "5:0:0", note: "A5", dur: "4n" }, { time: "5:1:0", note: "B5", dur: "4n" }, { time: "5:2:0", note: "C6", dur: "2n" },
+        { time: "6:0:0", note: "Ab5", dur: "4n" }, { time: "6:1:0", note: "C6", dur: "4n" }, { time: "6:2:0", note: "Bb5", dur: "4n" }, { time: "6:3:0", note: "D6", dur: "4n" },
+        { time: "7:0:0", note: "C6", dur: "2n." },
+      ],
+      bass: [
+        { time: "0:0:0", note: "C2", dur: "2n" }, { time: "0:2:0", note: "G2", dur: "2n" },
+        { time: "1:0:0", note: "A2", dur: "2n" }, { time: "1:2:0", note: "E2", dur: "2n" },
+        { time: "2:0:0", note: "F2", dur: "2n" }, { time: "2:2:0", note: "C3", dur: "2n" },
+        { time: "3:0:0", note: "G2", dur: "2n" }, { time: "3:2:0", note: "B2", dur: "2n" },
+        { time: "4:0:0", note: "C3", dur: "2n" }, { time: "4:2:0", note: "G2", dur: "2n" },
+        { time: "5:0:0", note: "A2", dur: "2n" }, { time: "5:2:0", note: "E2", dur: "2n" },
+        { time: "6:0:0", note: "Ab2", dur: "2n" }, { time: "6:2:0", note: "Bb2", dur: "2n" },
+        { time: "7:0:0", note: "C2", dur: "1n" },
+      ],
+    },
+    sequences: {
+      arp: { subdivision: "8n", dur: "16n", notes: [
+        "C4","E4","G4","E4","C4","E4","G4","E4", "A3","C4","E4","C4","A3","C4","E4","C4",
+        "F3","A3","C4","A3","F3","A3","C4","A3", "G3","B3","D4","B3","G3","B3","D4","B3",
+        "C4","E4","G4","E4","C4","E4","G4","E4", "A3","C4","E4","C4","A3","C4","E4","C4",
+        "Ab3","C4","Eb4","C4","Bb3","D4","F4","D4", "C4","E4","G4","C5","G4","E4","G4","C5",
+      ] },
+    },
+  },
+  map: {
+    bpm: 92,
+    loopEnd: "16:0:0",
+    synths: {
+      lead:  { opts: { oscillator: { type: "triangle" }, envelope: { attack: 0.02, decay: 0.2, sustain: 0.4, release: 0.3 }, volume: -15 } },
+      bass:  { opts: { oscillator: { type: "triangle" }, envelope: { attack: 0.02, decay: 0.15, sustain: 0.55, release: 0.2 }, volume: -17 } },
+      chime: { opts: { oscillator: { type: "square" }, envelope: { attack: 0.004, decay: 0.15, sustain: 0, release: 0.2 }, volume: -22 } },
+    },
+    parts: {
+      lead: [
+        { time: "0:0:0", note: "E5", dur: "4n." }, { time: "0:1:2", note: "G5", dur: "8n" }, { time: "0:2:0", note: "A5", dur: "4n" }, { time: "0:3:0", note: "G5", dur: "4n" },
+        { time: "1:0:0", note: "D5", dur: "2n." },
+        { time: "2:0:0", note: "C5", dur: "4n." }, { time: "2:1:2", note: "D5", dur: "8n" }, { time: "2:2:0", note: "E5", dur: "4n" }, { time: "2:3:0", note: "G5", dur: "4n" },
+        { time: "3:0:0", note: "A5", dur: "2n." },
+        { time: "4:0:0", note: "G5", dur: "4n." }, { time: "4:1:2", note: "E5", dur: "8n" }, { time: "4:2:0", note: "D5", dur: "4n" }, { time: "4:3:0", note: "C5", dur: "4n" },
+        { time: "5:0:0", note: "B4", dur: "2n." },
+        { time: "6:0:0", note: "A4", dur: "4n." }, { time: "6:1:2", note: "C5", dur: "8n" }, { time: "6:2:0", note: "D5", dur: "4n" }, { time: "6:3:0", note: "E5", dur: "4n" },
+        { time: "7:0:0", note: "D5", dur: "2n." },
+        { time: "8:0:0", note: "A5", dur: "4n." }, { time: "8:1:2", note: "G5", dur: "8n" }, { time: "8:2:0", note: "E5", dur: "4n" }, { time: "8:3:0", note: "G5", dur: "4n" },
+        { time: "9:0:0", note: "B5", dur: "2n." },
+        { time: "10:0:0", note: "A5", dur: "4n." }, { time: "10:1:2", note: "G5", dur: "8n" }, { time: "10:2:0", note: "F5", dur: "4n" }, { time: "10:3:0", note: "E5", dur: "4n" },
+        { time: "11:0:0", note: "G5", dur: "2n." },
+        { time: "12:0:0", note: "F5", dur: "4n." }, { time: "12:1:2", note: "E5", dur: "8n" }, { time: "12:2:0", note: "D5", dur: "4n" }, { time: "12:3:0", note: "F5", dur: "4n" },
+        { time: "13:0:0", note: "D5", dur: "4n." }, { time: "13:1:2", note: "C5", dur: "8n" }, { time: "13:2:0", note: "Bb4", dur: "4n" }, { time: "13:3:0", note: "D5", dur: "4n" },
+        { time: "14:0:0", note: "C5", dur: "2n" }, { time: "14:2:0", note: "B4", dur: "2n" },
+        { time: "15:0:0", note: "C5", dur: "2n." },
+      ],
+      bass: [
+        { time: "0:0:0", note: "C2", dur: "2n." }, { time: "0:3:0", note: "G2", dur: "4n" },
+        { time: "1:0:0", note: "G2", dur: "2n." }, { time: "1:3:0", note: "B2", dur: "4n" },
+        { time: "2:0:0", note: "A2", dur: "2n." }, { time: "2:3:0", note: "E2", dur: "4n" },
+        { time: "3:0:0", note: "F2", dur: "2n." }, { time: "3:3:0", note: "C3", dur: "4n" },
+        { time: "4:0:0", note: "C3", dur: "2n." }, { time: "4:3:0", note: "G2", dur: "4n" },
+        { time: "5:0:0", note: "E2", dur: "2n." }, { time: "5:3:0", note: "B2", dur: "4n" },
+        { time: "6:0:0", note: "F2", dur: "2n." }, { time: "6:3:0", note: "C3", dur: "4n" },
+        { time: "7:0:0", note: "G2", dur: "2n." }, { time: "7:3:0", note: "D3", dur: "4n" },
+        { time: "8:0:0", note: "A2", dur: "2n." }, { time: "8:3:0", note: "E3", dur: "4n" },
+        { time: "9:0:0", note: "E3", dur: "2n." }, { time: "9:3:0", note: "B2", dur: "4n" },
+        { time: "10:0:0", note: "F2", dur: "2n." }, { time: "10:3:0", note: "C3", dur: "4n" },
+        { time: "11:0:0", note: "C3", dur: "2n." }, { time: "11:3:0", note: "D3", dur: "4n" },
+        { time: "12:0:0", note: "D3", dur: "2n." }, { time: "12:3:0", note: "C3", dur: "4n" },
+        { time: "13:0:0", note: "Bb2", dur: "2n." }, { time: "13:3:0", note: "A2", dur: "4n" },
+        { time: "14:0:0", note: "G2", dur: "2n." }, { time: "14:3:0", note: "B2", dur: "4n" },
+        { time: "15:0:0", note: "C2", dur: "1n" },
+      ],
+      chime: [
+        { time: "1:2:0", note: "E6", dur: "8n" }, { time: "1:3:0", note: "D6", dur: "8n" },
+        { time: "5:2:0", note: "D6", dur: "8n" }, { time: "5:3:0", note: "B5", dur: "8n" },
+        { time: "7:2:0", note: "G6", dur: "8n" },
+        { time: "11:2:0", note: "E6", dur: "8n" }, { time: "11:3:0", note: "G6", dur: "8n" },
+        { time: "15:2:0", note: "C6", dur: "8n" },
+      ],
+    },
+  },
+  dojo: {
+    bpm: 60,
+    loopEnd: "8:0:0",
+    synths: {
+      pluck: { opts: { oscillator: { type: "sine" }, envelope: { attack: 0.002, decay: 0.35, sustain: 0, release: 0.4 }, volume: -16 } },
+      pad:   { poly: true, opts: { oscillator: { type: "triangle" }, envelope: { attack: 0.8, decay: 0.3, sustain: 0.7, release: 1.5 }, volume: -22 } },
+    },
+    parts: {
+      pluck: [
+        { time: "0:0:0", note: "E4", dur: "4n" }, { time: "0:1:0", note: "G4", dur: "4n" }, { time: "0:2:0", note: "A4", dur: "2n" },
+        { time: "1:2:0", note: "G4", dur: "4n" }, { time: "1:3:0", note: "E4", dur: "4n" },
+        { time: "2:0:0", note: "D4", dur: "2n" },
+        { time: "3:1:0", note: "C4", dur: "4n" }, { time: "3:2:0", note: "D4", dur: "4n" }, { time: "3:3:0", note: "E4", dur: "2n" },
+        { time: "4:0:0", note: "G4", dur: "2n" }, { time: "4:2:0", note: "A4", dur: "4n" }, { time: "4:3:0", note: "C5", dur: "4n" },
+        { time: "5:0:0", note: "A4", dur: "2n." },
+        { time: "6:0:0", note: "G4", dur: "4n" }, { time: "6:1:0", note: "E4", dur: "4n" }, { time: "6:2:0", note: "D4", dur: "2n" },
+        { time: "7:0:0", note: "C4", dur: "2n." },
+      ],
+      pad: [
+        { time: "0:0:0", note: ["C3", "G3"], dur: "1n" }, { time: "1:0:0", note: ["C3", "G3"], dur: "1n" },
+        { time: "2:0:0", note: ["A2", "E3"], dur: "1n" }, { time: "3:0:0", note: ["A2", "E3"], dur: "1n" },
+        { time: "4:0:0", note: ["F2", "C3"], dur: "1n" }, { time: "5:0:0", note: ["F2", "C3"], dur: "1n" },
+        { time: "6:0:0", note: ["C3", "G3"], dur: "1n" }, { time: "7:0:0", note: ["C3", "G3"], dur: "1n" },
+      ],
+    },
+  },
+  victory: {
+    bpm: 120,
+    loopEnd: null,
+    synths: {
+      lead: { opts: { oscillator: { type: "square" }, envelope: { attack: 0.01, decay: 0.15, sustain: 0.35, release: 0.3 }, volume: -14 } },
+      harm: { poly: true, opts: { oscillator: { type: "triangle" }, envelope: { attack: 0.03, decay: 0.2, sustain: 0.5, release: 0.6 }, volume: -18 } },
+      bass: { opts: { oscillator: { type: "triangle" }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.4 }, volume: -13 } },
+    },
+    parts: {
+      lead: [
+        { time: "0:0:0", note: "Ab4", dur: "4n" }, { time: "0:1:0", note: "C5", dur: "4n" }, { time: "0:2:0", note: "Eb5", dur: "2n" },
+        { time: "1:0:0", note: "Bb4", dur: "4n" }, { time: "1:1:0", note: "D5", dur: "4n" }, { time: "1:2:0", note: "F5", dur: "2n" },
+        { time: "2:0:0", note: "G5", dur: "1n" },
+        { time: "3:2:0", note: "G4", dur: "8n" }, { time: "3:2:2", note: "A4", dur: "8n" }, { time: "3:3:0", note: "B4", dur: "8n" }, { time: "3:3:2", note: "D5", dur: "8n" },
+        { time: "4:0:0", note: "C5", dur: "4n." }, { time: "4:1:2", note: "A4", dur: "8n" }, { time: "4:2:0", note: "F5", dur: "2n" },
+        { time: "5:0:0", note: "E5", dur: "4n." }, { time: "5:1:2", note: "D5", dur: "8n" }, { time: "5:2:0", note: "C5", dur: "2n" },
+        { time: "6:0:0", note: "F5", dur: "4n" }, { time: "6:1:0", note: "A5", dur: "4n" }, { time: "6:2:0", note: "B5", dur: "4n" }, { time: "6:3:0", note: "D6", dur: "4n" },
+        { time: "7:0:0", note: "C6", dur: "1n" },
+      ],
+      harm: [
+        { time: "0:0:0", note: ["Ab3", "C4", "Eb4"], dur: "1n" }, { time: "1:0:0", note: ["Bb3", "D4", "F4"], dur: "1n" },
+        { time: "2:0:0", note: ["C4", "E4", "G4"], dur: "1n" }, { time: "3:0:0", note: ["C4", "E4", "G4"], dur: "2n" },
+        { time: "4:0:0", note: ["F3", "A3", "C4"], dur: "1n" }, { time: "5:0:0", note: ["A3", "C4", "E4"], dur: "1n" },
+        { time: "6:0:0", note: ["F3", "A3", "C4"], dur: "2n" }, { time: "6:2:0", note: ["G3", "B3", "D4"], dur: "2n" },
+        { time: "7:0:0", note: ["C4", "E4", "G4", "C5"], dur: "1n" },
+      ],
+      bass: [
+        { time: "0:0:0", note: "Ab2", dur: "1n" }, { time: "1:0:0", note: "Bb2", dur: "1n" }, { time: "2:0:0", note: "C2", dur: "1n" }, { time: "3:0:0", note: "C2", dur: "2n" },
+        { time: "4:0:0", note: "F2", dur: "1n" }, { time: "5:0:0", note: "A2", dur: "1n" }, { time: "6:0:0", note: "F2", dur: "2n" }, { time: "6:2:0", note: "G2", dur: "2n" },
+        { time: "7:0:0", note: "C2", dur: "1n" },
+      ],
+    },
+  },
+};
+
+window.SOUNDTRACK = SOUNDTRACK;
 </script>
 <script>
 (() => {
@@ -1515,6 +1673,127 @@ window.HARMONIA_decodeMask = decodeMask;
     }, []);
     return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
   }
+  function useMusic() {
+    const busRef = useRef(null);
+    const curRef = useRef({ built: null, parts: [] });
+    const nameRef = useRef(null);
+    const onRef = useRef(loadPref("music", "1") === "1");
+    const bus = () => {
+      if (!busRef.current) busRef.current = new Tone.Gain(onRef.current ? 0.85 : 0).toDestination();
+      return busRef.current;
+    };
+    const disposeCur = () => {
+      (curRef.current.parts || []).forEach((p) => {
+        try {
+          p.stop();
+          p.dispose();
+        } catch (e) {
+        }
+      });
+      if (curRef.current.built) Object.values(curRef.current.built).forEach((sy) => {
+        try {
+          sy.dispose();
+        } catch (e) {
+        }
+      });
+      curRef.current = { built: null, parts: [] };
+    };
+    const build = (T) => {
+      const g = bus();
+      Tone.Transport.bpm.value = T.bpm;
+      const built = {};
+      for (const k of Object.keys(T.synths)) {
+        const spec = T.synths[k];
+        built[k] = spec.poly ? new Tone.PolySynth(Tone.Synth, spec.opts).connect(g) : new Tone.Synth(spec.opts).connect(g);
+        built[k].volume.value = spec.opts.volume;
+      }
+      const parts = [];
+      for (const k of Object.keys(T.parts || {})) {
+        const p = new Tone.Part((t, ev) => {
+          try {
+            built[k].triggerAttackRelease(ev.note, ev.dur, t);
+          } catch (e) {
+          }
+        }, T.parts[k]);
+        p.loop = !!T.loopEnd;
+        if (T.loopEnd) p.loopEnd = T.loopEnd;
+        p.start(0);
+        parts.push(p);
+      }
+      if (T.sequences) for (const k of Object.keys(T.sequences)) {
+        const sq = T.sequences[k];
+        const q = new Tone.Sequence((t, note) => {
+          try {
+            built[k].triggerAttackRelease(note, sq.dur, t);
+          } catch (e) {
+          }
+        }, sq.notes, sq.subdivision);
+        q.loop = !!T.loopEnd;
+        q.start(0);
+        parts.push(q);
+      }
+      curRef.current = { built, parts };
+    };
+    const playTheme = useCallback(async (name, T) => {
+      if (nameRef.current === name) return;
+      nameRef.current = name;
+      try {
+        await Tone.start();
+      } catch (e) {
+      }
+      const g = bus();
+      try {
+        g.gain.rampTo(0, 0.5);
+      } catch (e) {
+      }
+      setTimeout(() => {
+        if (nameRef.current !== name) return;
+        try {
+          Tone.Transport.stop();
+          Tone.Transport.cancel();
+        } catch (e) {
+        }
+        disposeCur();
+        if (T) {
+          build(T);
+          try {
+            Tone.Transport.start("+0.06");
+          } catch (e) {
+          }
+          try {
+            g.gain.rampTo(onRef.current ? 0.85 : 0, 0.6);
+          } catch (e) {
+          }
+        }
+      }, 520);
+    }, []);
+    const stopMusic = useCallback((fast) => {
+      nameRef.current = null;
+      const g = busRef.current;
+      if (g) try {
+        g.gain.rampTo(0, fast ? 0.3 : 0.7);
+      } catch (e) {
+      }
+      setTimeout(() => {
+        try {
+          Tone.Transport.stop();
+          Tone.Transport.cancel();
+        } catch (e) {
+        }
+        disposeCur();
+      }, fast ? 320 : 720);
+    }, []);
+    const setMusicOn = useCallback((on) => {
+      onRef.current = on;
+      savePref("music", on ? "1" : "0");
+      const g = busRef.current;
+      if (g) try {
+        g.gain.rampTo(on ? 0.85 : 0, 0.4);
+      } catch (e) {
+      }
+    }, []);
+    return { playTheme, stopMusic, setMusicOn };
+  }
   function speak(text, enabled) {
     if (!enabled || !window.speechSynthesis) return;
     const u = new SpeechSynthesisUtterance(text);
@@ -2084,6 +2363,8 @@ window.HARMONIA_decodeMask = decodeMask;
   }
   function NumberEarTrainer() {
     const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
+    const { playTheme, stopMusic, setMusicOn } = useMusic();
+    const [musicPref, setMusicPref] = useState(() => loadPref("music", "1") === "1");
     const [boringMode, setBoringMode] = useState(() => loadPref("boring", "0") === "1");
     const [screen, setScreen] = useState(() => window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home");
     const [mode, setMode] = useState("melody");
@@ -2311,6 +2592,25 @@ window.HARMONIA_decodeMask = decodeMask;
       else stopDrone();
       return () => stopDrone();
     }, [droneOn, musicKey, exWorld, screen, startDrone, stopDrone]);
+    useEffect(() => {
+      const S = typeof window !== "undefined" && window.SOUNDTRACK;
+      if (!S) return;
+      if (screen === "boot" || screen === "results") return;
+      if (screen === "session") {
+        stopMusic();
+        return;
+      }
+      if (screen === "learn") {
+        if (droneOn || fpTab === "paths") stopMusic(true);
+        else playTheme("dojo", S.dojo);
+        return;
+      }
+      if (screen === "adventure" || screen === "levels") {
+        playTheme("map", S.map);
+        return;
+      }
+      playTheme("title", S.title);
+    }, [screen, droneOn, fpTab]);
     useEffect(() => {
       if (screen !== "learn" || fpTab !== "paths") {
         stopPathLoop();
@@ -2575,6 +2875,10 @@ window.HARMONIA_decodeMask = decodeMask;
             fanfare();
             haptic(false);
           }
+          setTimeout(() => {
+            const S = window.SOUNDTRACK;
+            if (S) playTheme("victory", S.victory);
+          }, 2500);
         }
       }
       setPhase("idle");
@@ -2928,7 +3232,13 @@ window.HARMONIA_decodeMask = decodeMask;
       } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "Free play"), /* @__PURE__ */ React.createElement("span", { className: "card-desc" }, "Improvise and explore with the raw materials of music."))), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Every sound relates to home. One map to rule them all."));
     }
     if (screen === "settings") {
-      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => setScreen(auxReturn || (boringMode ? "home" : "menu")) }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Settings")), /* @__PURE__ */ React.createElement("div", { className: "settings" }, /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Theme"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: theme === "dark" ? "on" : "", onClick: () => setTheme("dark") }, "Dark"), /* @__PURE__ */ React.createElement("button", { className: theme === "light" ? "on" : "", onClick: () => setTheme("light") }, "Light"))), window.HARMONIA && /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Home screen"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "Adventure = the Harmonia world map. Boring mode = the plain menu."), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: !boringMode ? "on" : "", onClick: () => setBoring(false) }, "⚔ Adventure"), /* @__PURE__ */ React.createElement("button", { className: boringMode ? "on" : "", onClick: () => setBoring(true) }, "Boring mode"))), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Resolution speed"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "How fast the notes walk home after a correct answer."), /* @__PURE__ */ React.createElement("div", { className: "seg" }, RES_SPEEDS.map((s) => /* @__PURE__ */ React.createElement(
+      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => setScreen(auxReturn || (boringMode ? "home" : "menu")) }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Settings")), /* @__PURE__ */ React.createElement("div", { className: "settings" }, /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Theme"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: theme === "dark" ? "on" : "", onClick: () => setTheme("dark") }, "Dark"), /* @__PURE__ */ React.createElement("button", { className: theme === "light" ? "on" : "", onClick: () => setTheme("light") }, "Light"))), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Music"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "Chiptune soundtrack on the menu, map and dojo (drills stay silent)."), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: musicPref ? "on" : "", onClick: () => {
+        setMusicPref(true);
+        setMusicOn(true);
+      } }, "On"), /* @__PURE__ */ React.createElement("button", { className: !musicPref ? "on" : "", onClick: () => {
+        setMusicPref(false);
+        setMusicOn(false);
+      } }, "Off"))), window.HARMONIA && /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Home screen"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "Adventure = the Harmonia world map. Boring mode = the plain menu."), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: !boringMode ? "on" : "", onClick: () => setBoring(false) }, "⚔ Adventure"), /* @__PURE__ */ React.createElement("button", { className: boringMode ? "on" : "", onClick: () => setBoring(true) }, "Boring mode"))), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Resolution speed"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "How fast the notes walk home after a correct answer."), /* @__PURE__ */ React.createElement("div", { className: "seg" }, RES_SPEEDS.map((s) => /* @__PURE__ */ React.createElement(
         "button",
         {
           key: s.label,

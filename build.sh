@@ -30,6 +30,8 @@ coda_data = "data:image/png;base64," + base64.b64encode(open("coda.png","rb").re
 coda_med_data = "data:image/png;base64," + base64.b64encode(open("coda_meditate.png","rb").read()).decode()
 coda_vic_data = "data:image/png;base64," + base64.b64encode(open("coda_victory.png","rb").read()).decode()
 adventure = open("adventure/assets.js").read().replace("export const", "const").replace("export function", "function")
+soundtrack = open("retro/soundtrack.js").read().replace("export const", "const")
+assert "</script" not in soundtrack
 assert "</script" not in adventure
 retro_css = open("retro/retro.css").read().replace("__FONT_B64__", open("retro/pixelfont.b64").read().strip())
 assert "</style" not in retro_css
@@ -107,6 +109,8 @@ window.CODA_VICTORY = "{coda_vic_data}";
 {adventure}
 window.HARMONIA = HARMONIA;
 window.HARMONIA_decodeMask = decodeMask;
+{soundtrack}
+window.SOUNDTRACK = SOUNDTRACK;
 </script>
 <script>
 {js}
