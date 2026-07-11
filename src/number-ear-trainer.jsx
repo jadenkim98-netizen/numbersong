@@ -862,25 +862,29 @@ function useAudio() {
   const droneRef = useRef(null);
   const startDrone = useCallback(async (key, degree = 1, vol = -8) => {
     await ensure();
-    if (droneRef.current) { droneRef.current.dispose(); droneRef.current = null; }
-    const s = new Tone.Synth({
+    if (droneRef.current) { droneRef.current.synth.dispose(); droneRef.current.limiter.dispose(); droneRef.current = null; }
+    // A limiter after the synth lets the drone be pushed genuinely loud — to
+    // ride over the output ducking phones apply while the mic is open — without
+    // hard-clipping the sine into buzz. It soft-catches peaks near full scale.
+    const limiter = new Tone.Limiter(-1).toDestination();
+    const synth = new Tone.Synth({
       oscillator: { type: "sine" },
       envelope: { attack: 0.5, decay: 0, sustain: 1, release: 1.5 },
       volume: vol,
-    }).toDestination();
-    s.triggerAttack(degreeToNote(key, degree, degree >= 5 ? 2 : 3));
-    droneRef.current = s;
+    }).connect(limiter);
+    synth.triggerAttack(degreeToNote(key, degree, degree >= 5 ? 2 : 3));
+    droneRef.current = { synth, limiter };
   }, [ensure]);
   // Adjust a running drone's loudness (dB) without re-attacking it.
   const setDroneVolume = useCallback((vol) => {
-    if (droneRef.current) droneRef.current.volume.rampTo(vol, 0.1);
+    if (droneRef.current) droneRef.current.synth.volume.rampTo(vol, 0.1);
   }, []);
   const stopDrone = useCallback(() => {
     if (!droneRef.current) return;
-    const d = droneRef.current;
+    const { synth, limiter } = droneRef.current;
     droneRef.current = null;
-    d.triggerRelease();
-    setTimeout(() => d.dispose(), 2000);
+    synth.triggerRelease();
+    setTimeout(() => { synth.dispose(); limiter.dispose(); }, 2000);
   }, []);
 
   const stopAll = useCallback(() => {
@@ -3348,7 +3352,7 @@ export default function NumberEarTrainer() {
         {droneOn && (
           <label className="key-label drone-vol">
             🔊
-            <input type="range" min="-30" max="0" step="1" value={droneVol}
+            <input type="range" min="-30" max="12" step="1" value={droneVol}
               onChange={(e) => setDroneVol(Number(e.target.value))}
               aria-label="Drone volume" />
           </label>
