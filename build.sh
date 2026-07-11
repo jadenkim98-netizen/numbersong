@@ -18,6 +18,15 @@ EOF
 npx --yes esbuild .app.jsx --jsx=transform --format=iife --outfile=.app.compiled.js --charset=utf8
 node --check .app.compiled.js
 
+# 2b) Vendor the runtime libraries locally so the app needs no CDN — it then
+#     works fully offline and on networks that block cdnjs (e.g. schools).
+#     Downloaded once into vendor/ (committed), then reused on every build.
+mkdir -p vendor
+vend() { [ -s "vendor/$2" ] || curl -fsSL "$1" -o "vendor/$2"; }
+vend https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js react.js
+vend https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js react-dom.js
+vend https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js tone.js
+
 # 3) Assemble the standalone index.html with embedded voice recordings
 python3 - << 'EOF'
 import base64, json
@@ -35,6 +44,12 @@ assert "</script" not in soundtrack
 assert "</script" not in adventure
 retro_css = open("retro/retro.css").read().replace("__FONT_B64__", open("retro/pixelfont.b64").read().strip())
 assert "</style" not in retro_css
+def inline_js(path):
+    # Escape the end-tag so an inlined library can't close the <script> early.
+    return open(path).read().replace("</script", "<\\/script")
+react_js     = inline_js("vendor/react.js")
+react_dom_js = inline_js("vendor/react-dom.js")
+tone_js      = inline_js("vendor/tone.js")
 # PWA manifest for Android/Chrome install (folder deploys); iOS uses the meta tags below.
 json.dump({
   "name": "Numbersong", "short_name": "Numbersong", "start_url": "./", "scope": "./",
@@ -56,13 +71,13 @@ html = f'''<!DOCTYPE html>
 <link rel="apple-touch-icon" href="{icon_data}">
 <link rel="icon" type="image/png" href="{icon_data}">
 <link rel="manifest" href="manifest.json">
-<script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
-<script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
-<script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<script>{react_js}</script>
+<script>{react_dom_js}</script>
+<script>{tone_js}</script>
 <style>
   body {{ margin: 0; background: #383D3B; }}
   #root:empty::after {{
-    content: "Loading… (this needs an internet connection the first time)";
+    content: "Loading…";
     display: block; padding: 40px 20px; font-family: system-ui, sans-serif; color: #A9B3AC;
   }}
   #errbox {{
@@ -115,6 +130,14 @@ window.SOUNDTRACK = SOUNDTRACK;
 <script>
 {js}
 </script>
+<script>
+  // Register the service worker so the app is cached for full offline use.
+  if ("serviceWorker" in navigator) {{
+    window.addEventListener("load", function () {{
+      navigator.serviceWorker.register("./sw.js").catch(function () {{}});
+    }});
+  }}
+</script>
 </body>
 </html>
 '''
@@ -123,9 +146,14 @@ print("index.html built — open it in a browser or deploy it")
 EOF
 rm -f .app.jsx .app.compiled.js
 
-# 4) Assemble the publish folders.
-#    dist/ = Netlify (manual drag-drop);  docs/ = GitHub Pages (deploy from branch).
+# 4) Emit the service worker with a unique version so each deploy refreshes
+#    clients (the timestamped cache name invalidates the old shell on next launch).
+SW_VERSION="$(date +%Y%m%d%H%M%S)"
+sed "s/__SW_VERSION__/$SW_VERSION/" src/sw.js > sw.js
+
+# 5) Assemble the publish folders.
+#    dist/ = static-host drag-drop;  docs/ = GitHub Pages (deploy from branch).
 mkdir -p dist docs
-cp index.html manifest.json icon.png dist/
-cp index.html manifest.json icon.png docs/
+cp index.html manifest.json icon.png sw.js dist/
+cp index.html manifest.json icon.png sw.js docs/
 touch docs/.nojekyll   # tell GitHub Pages not to run Jekyll on our files

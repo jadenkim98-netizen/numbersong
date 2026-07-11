@@ -3398,6 +3398,7 @@ export default function NumberEarTrainer() {
             </div>
             <div className="sing-level"><div className="sing-level-fill" style={{ width: `${Math.round(singLevel * 100)}%` }} /></div>
             <p className="sing-coach">{coach}</p>
+            <p className="sing-privacy">🔒 The mic is only used on your device to hear your pitch — nothing is recorded, saved, or sent anywhere.</p>
           </div>
         );
       })()}
@@ -3696,6 +3697,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .sing-level { height: 5px; border-radius: 99px; background: var(--alt); overflow: hidden; }
 .sing-level-fill { height: 100%; background: var(--teal); border-radius: 99px; transition: width 0.08s linear; }
 .sing-coach { text-align: center; margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-soft); min-height: 1.2em; }
+.sing-privacy { text-align: center; margin: 0; font-size: 0.72rem; line-height: 1.4; color: var(--text-soft); opacity: 0.8; }
 .sing-err { color: var(--wrong); }
 .pk-label {
   font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; color: #23302A;

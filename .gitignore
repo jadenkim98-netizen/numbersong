@@ -3,6 +3,7 @@
 # ignored (leading slash = repo root only), so dist/index.html stays tracked.
 /index.html
 /manifest.json
+/sw.js
 .app.jsx
 .app.compiled.js
 
