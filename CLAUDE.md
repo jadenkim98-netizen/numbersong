@@ -74,9 +74,14 @@ no dev server, no package.json — deliberately.
 
 ## Deploying
 
-`index.html` is the whole app. Drag it onto Netlify Drop (rename not needed if
-deploying the folder), or serve it from any static host. Voice recordings are
-embedded; the piano needs internet on first load.
+Live on GitHub Pages at https://jadenkim98-netizen.github.io/numbersong/,
+served from the committed `docs/` folder on `main`. `build.sh` rebuilds the
+standalone `index.html` and copies it (with `manifest.json`, `icon.png`, and a
+`.nojekyll` marker) into `docs/`; commit and push to `main` and Pages redeploys
+itself — no manual upload. Root `index.html`/`manifest.json` are gitignored;
+the tracked build copies live in `docs/` (GitHub Pages) and `dist/` (kept as a
+pre-built drag-drop copy for any static host). Voice recordings are embedded in
+the build; the piano needs internet on first load.
 
 ## Known future directions (discussed, not built)
 

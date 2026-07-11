@@ -1,12 +1,15 @@
 # Numbersong — quick start
 
-## Give students access (5 minutes)
-1. Go to https://app.netlify.com/drop and make a free account
-2. Drag this WHOLE FOLDER onto the page (it deploys index.html)
-3. Share the URL it gives you. Students on phones: open it, then
-   "Add to Home Screen" — it behaves like an app. Progress saves
-   on their device automatically.
-4. After any change: run ./build.sh, then drag the folder up again.
+## Give students access
+The app is live on GitHub Pages at
+https://jadenkim98-netizen.github.io/numbersong/ — served from the committed
+`docs/` folder on the `main` branch. Share that URL. Students on phones: open
+it, then "Add to Home Screen" — it behaves like an app. Progress saves on
+their device automatically.
+
+To publish a change: run `./build.sh` (rebuilds `index.html` and copies it into
+`docs/`), then commit and push to `main`. GitHub Pages redeploys on its own —
+no manual upload step.
 
 ## Work on it with Claude Code
 1. Put this folder somewhere permanent (e.g. ~/Projects/numbersong)
@@ -16,8 +19,9 @@
    in your browser to hear them.
 
 ## Folder contents
-- index.html   the app itself (already built, ready to deploy)
+- index.html   the app itself (already built; local preview — gitignored)
+- docs/        the committed build GitHub Pages serves (the live site)
 - src/         the source code (the only thing you/Claude edit)
 - voice/       your tuned voice recordings
-- build.sh     rebuilds index.html from src + voice
+- build.sh     rebuilds index.html from src + voice, copies into docs/ and dist/
 - CLAUDE.md    project guide for Claude Code
