@@ -29,7 +29,12 @@ no dev server, no package.json — deliberately.
 
 ## Architecture notes
 
-- Libraries load from cdnjs (React 18 UMD, Tone.js 14). Piano = Tone.Sampler with
+- Runtime libraries (React 18 UMD, ReactDOM, Tone.js 14) are vendored into
+  `vendor/` (committed) and inlined into index.html by build.sh — NOT loaded from
+  a CDN — so the app works offline and on networks that block cdnjs. A service
+  worker (`src/sw.js`, emitted to the site root with a per-build timestamp
+  version) caches the shell for full offline use; it also runtime-caches the
+  cross-origin piano samples best-effort. Piano = Tone.Sampler with
   Salamander samples fetched from tonejs.github.io; falls back to a synth offline.
   Sample buffers are cached as NATIVE AudioBuffers in `buffersRef` so the
   instrument can be disposed & rebuilt by `stopAll()` (that rebuild is how
@@ -80,8 +85,10 @@ standalone `index.html` and copies it (with `manifest.json`, `icon.png`, and a
 `.nojekyll` marker) into `docs/`; commit and push to `main` and Pages redeploys
 itself — no manual upload. Root `index.html`/`manifest.json` are gitignored;
 the tracked build copies live in `docs/` (GitHub Pages) and `dist/` (kept as a
-pre-built drag-drop copy for any static host). Voice recordings are embedded in
-the build; the piano needs internet on first load.
+pre-built drag-drop copy for any static host). The build is fully self-contained
+(libraries and assets inlined) plus a service worker, so after one online load
+the app boots and runs with zero internet; the sampled piano caches after one
+online session, otherwise it falls back to the synth.
 
 ## Known future directions (discussed, not built)
 
