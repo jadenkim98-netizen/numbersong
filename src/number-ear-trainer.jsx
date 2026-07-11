@@ -1425,6 +1425,96 @@ function drawDojo(ctx, cx, cy, img) {
   ctx.fillStyle = "#EDF2EE"; ctx.fillText("DOJO", cx, cy + 13);            // label
 }
 
+// First-time map tour: Verda walks a new player around the world map (coach marks).
+const MAP_TOUR = [
+  { sel: ".adv-map", title: "Welcome to Harmonia", text: "This whole world is your training ground. Every glowing marker is a place to sharpen your ear." },
+  { sel: "dojo", title: "The Dojo", text: "That little pagoda is the Dojo — drop in any time to just play and explore. No scores, no pressure." },
+  { sel: ".adv-map", title: "Your journey", text: "Tap a marker to meet its Keeper and take on their challenge. Clear it and you earn a piece of the blade." },
+  { sel: ".adv-sword-mini", title: "The blade", text: "Eight Keepers, eight pieces. Reforge Excalibar and all of Harmonia sings again." },
+  { sel: ".adv-hud-actions", title: "Need a refresher?", text: "Tap 📖 down here any time to review how the numbers work. It's always there when you want it." },
+  { sel: ".gear-settings", title: "Settings", text: "And ⚙ up here for sound, themes, and anything else you need." },
+  { sel: null, title: "Off you go", text: "That's the whole game. Follow your ears — I'll be right beside you. 💛" },
+];
+
+const MAPTOUR_CSS = `
+.maptour { position: fixed; inset: 0; z-index: 60; }
+.maptour-scrim { position: absolute; inset: 0; background: rgba(20,24,22,.72); animation: maptour-fade .25s ease; }
+.maptour-ring { position: absolute; border: 3px solid #57C6C4; border-radius: 12px; pointer-events: none; transition: left .28s cubic-bezier(.4,.1,.2,1), top .28s cubic-bezier(.4,.1,.2,1), width .28s cubic-bezier(.4,.1,.2,1), height .28s cubic-bezier(.4,.1,.2,1); animation: maptour-pulse 1.7s ease-in-out infinite; }
+.maptour-box { position: absolute; left: 50%; bottom: max(env(safe-area-inset-bottom,0px), 18px); transform: translateX(-50%); width: min(440px, calc(100vw - 28px)); display: flex; gap: 12px; align-items: flex-start; background: #424845; border: 2px solid #57C6C4; border-radius: 16px; padding: 14px; box-shadow: 0 12px 32px rgba(0,0,0,.55); animation: maptour-rise .3s ease; }
+.maptour-box.top { bottom: auto; top: max(env(safe-area-inset-top,0px), 18px); }
+.maptour-face { width: 60px; height: 60px; image-rendering: pixelated; border-radius: 10px; border: 2px solid #565D59; background: #2b322d; flex: 0 0 auto; }
+.maptour-body { flex: 1 1 auto; min-width: 0; }
+.maptour-title { font-family: 'Archivo Black', Archivo, sans-serif; color: #57C6C4; font-size: 15px; margin-bottom: 4px; }
+.maptour-text { color: #EDF2EE; font-size: 14px; line-height: 1.5; margin: 0 0 10px; }
+.maptour-actions { display: flex; align-items: center; gap: 10px; }
+.maptour-skip { background: transparent; border: none; color: #9FB2A8; font-size: 12px; cursor: pointer; padding: 4px; }
+.maptour-dots { flex: 1; display: flex; gap: 5px; justify-content: center; }
+.maptour-dots i { width: 6px; height: 6px; border-radius: 50%; background: #565D59; }
+.maptour-dots i.on { background: #57C6C4; }
+.maptour-next { background: #57C6C4; color: #17201d; border: none; border-radius: 9px; padding: 8px 14px; font-weight: 800; font-size: 13px; cursor: pointer; }
+@keyframes maptour-fade { from { opacity: 0; } }
+@keyframes maptour-rise { from { opacity: 0; transform: translateX(-50%) translateY(8px); } }
+@keyframes maptour-pulse { 0%,100% { box-shadow: 0 0 0 3px rgba(87,198,196,.32), 0 0 18px 4px rgba(87,198,196,.4); } 50% { box-shadow: 0 0 0 3px rgba(87,198,196,.5), 0 0 26px 9px rgba(87,198,196,.62); } }
+@media (prefers-reduced-motion: reduce) { .maptour-ring, .maptour-scrim, .maptour-box { animation: none !important; } .maptour-ring { transition: none; } }
+`;
+
+function MapTour({ onClose }) {
+  const [step, setStep] = useState(0);
+  const [rect, setRect] = useState(null);
+  const cur = MAP_TOUR[step];
+  const last = step === MAP_TOUR.length - 1;
+
+  const measure = useCallback(() => {
+    const s = MAP_TOUR[step];
+    const map = document.querySelector(".adv-map");
+    if (!s || !s.sel) { setRect(null); return; }
+    if (s.sel === "dojo") {                        // Dojo is canvas-painted: derive from tile (2,20)
+      if (!map) { setRect(null); return; }
+      const r = map.getBoundingClientRect(), sx = r.width / 256, sy = r.height / 416;
+      setRect({ left: r.left + (2 + 0.5) * 16 * sx - 12, top: r.top + (20 + 0.5) * 16 * sy - 14, width: 24, height: 28 });
+      return;
+    }
+    const el = document.querySelector(s.sel);
+    if (!el) { setRect(null); return; }
+    const r = el.getBoundingClientRect();
+    const pad = s.sel === ".adv-map" ? 0 : 6;
+    setRect({ left: r.left - pad, top: r.top - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+  }, [step]);
+
+  useEffect(() => {
+    measure();
+    const on = () => measure();
+    window.addEventListener("resize", on);
+    const sc = document.querySelector(".adv-scroll");
+    sc && sc.addEventListener("scroll", on);
+    return () => { window.removeEventListener("resize", on); sc && sc.removeEventListener("scroll", on); };
+  }, [measure]);
+
+  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+  const boxTop = rect && (rect.top + rect.height / 2) > vh * 0.55;
+  const portrait = typeof window !== "undefined" ? window.VERDA_PORTRAIT : "";
+
+  return (
+    <div className="maptour">
+      <style>{MAPTOUR_CSS}</style>
+      <div className="maptour-scrim" />
+      {rect && <div className="maptour-ring" style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }} />}
+      <div className={"maptour-box" + (boxTop ? " top" : "")}>
+        {portrait && <img className="maptour-face" src={portrait} alt="Verda" />}
+        <div className="maptour-body">
+          <div className="maptour-title">{cur.title}</div>
+          <p className="maptour-text">{cur.text}</p>
+          <div className="maptour-actions">
+            {!last && <button className="maptour-skip" onClick={onClose}>Skip</button>}
+            <span className="maptour-dots">{MAP_TOUR.map((_, i) => <i key={i} className={i === step ? "on" : ""} />)}</span>
+            <button className="maptour-next" onClick={() => last ? onClose() : setStep(step + 1)}>{last ? "Let's go!" : "Next ▸"}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, burst, boringMode, celebrateNode, onCelebrateDone, skinTint }) {
   const H = window.HARMONIA;
   const mapRef = useRef(null);
@@ -1641,7 +1731,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
         <img className="adv-logo" src={typeof window !== "undefined" ? window.WEJAM_LOGO : ""} alt="WeJam" />
         <span className="adv-title">Harmonia{restored && <em className="adv-restored-tag"> · restored</em>}</span>
         <button className="gear" onClick={onMenu} aria-label="Main menu">☰</button>
-        <button className="gear" onClick={onSettings} aria-label="Settings">⚙</button>
+        <button className="gear gear-settings" onClick={onSettings} aria-label="Settings">⚙</button>
       </div>
       <div className="adv-scroll" ref={scrollRef}>
         <canvas ref={mapRef} className="adv-map" onClick={tapMap} role="img" aria-label="Harmonia world map" />
@@ -1661,7 +1751,6 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
         <div className="adv-hud-actions">
           <button className="ghost shop-btn" onClick={onShop} aria-label="Shop">★</button>
           <button className="ghost" onClick={onGuide} aria-label="How music works">📖</button>
-          <button className="ghost" onClick={onFree} aria-label="Free play">🎸</button>
         </div>
       </div>
     </div>
@@ -1677,6 +1766,13 @@ export default function NumberEarTrainer() {
 
   const [boringMode, setBoringMode] = useState(() => loadPref("boring", "0") === "1"); // classic UI vs Adventure
   const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home")); // boot | menu | training | home | adventure | levels | session | results | learn | guide | settings
+  // First-time map tour: Verda walks a new player around once, right after the tutorial.
+  const [mapTour, setMapTour] = useState(false);
+  useEffect(() => {
+    if (screen === "adventure" && loadPref("tut", "0") === "1" && loadPref("maptour", "0") !== "1") {
+      savePref("maptour", "1"); setMapTour(true);
+    }
+  }, [screen]);
   // Freemium/funnel entitlement. `unlocked` students see no gates or CTAs; `onboarded`
   // marks a player who has been through the first-run funnel (or unlocked past it).
   const [unlocked, setUnlocked] = useState(() => loadPref("unlocked", "0") === "1");
@@ -2847,6 +2943,7 @@ export default function NumberEarTrainer() {
           </div>
         )}
         {upsellModal}
+        {mapTour && <MapTour onClose={() => setMapTour(false)} />}
       </>
     );
   }
