@@ -1402,15 +1402,24 @@ function ForgeSword({ collected, className }) {
 
 // The Dojo = Free Play as an actual place on the map (sits on the home-hearth tile).
 const DOJO = { c: 2, r: 20, name: "The Dojo" };
-function drawDojo(ctx, cx, cy) {
-  ctx.save();
-  ctx.shadowColor = "#7CADD1"; ctx.shadowBlur = 9;
-  ctx.fillStyle = "#39474f"; ctx.fillRect(cx - 10, cy - 1, 20, 11);         // body
-  ctx.fillStyle = "#7CADD1";                                               // pagoda roof
-  ctx.beginPath(); ctx.moveTo(cx - 15, cy + 1); ctx.lineTo(cx, cy - 12); ctx.lineTo(cx + 15, cy + 1); ctx.closePath(); ctx.fill();
-  ctx.fillRect(cx - 15, cy + 1, 30, 2);                                    // eaves
-  ctx.restore();
-  ctx.fillStyle = "#1a2422"; ctx.fillRect(cx - 3, cy + 2, 6, 8);           // door
+function drawDojo(ctx, cx, cy, img) {
+  if (img) {                                                               // pixel-art pagoda sprite
+    ctx.save();
+    ctx.shadowColor = "#7CADD1"; ctx.shadowBlur = 8;
+    ctx.imageSmoothingEnabled = false;
+    const h = 32, w = h * (img.width / img.height);
+    ctx.drawImage(img, cx - w / 2, cy + 10 - h, w, h);                     // base sits ~on the tile
+    ctx.restore();
+  } else {                                                                 // vector fallback (sprite not loaded)
+    ctx.save();
+    ctx.shadowColor = "#7CADD1"; ctx.shadowBlur = 9;
+    ctx.fillStyle = "#39474f"; ctx.fillRect(cx - 10, cy - 1, 20, 11);      // body
+    ctx.fillStyle = "#7CADD1";                                            // pagoda roof
+    ctx.beginPath(); ctx.moveTo(cx - 15, cy + 1); ctx.lineTo(cx, cy - 12); ctx.lineTo(cx + 15, cy + 1); ctx.closePath(); ctx.fill();
+    ctx.fillRect(cx - 15, cy + 1, 30, 2);                                  // eaves
+    ctx.restore();
+    ctx.fillStyle = "#1a2422"; ctx.fillRect(cx - 3, cy + 2, 6, 8);         // door
+  }
   ctx.font = "bold 10px 'Archivo Black', Archivo, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "top";
   ctx.fillStyle = "#12201d"; ctx.fillText("DOJO", cx + 1, cy + 14);        // label shadow
   ctx.fillStyle = "#EDF2EE"; ctx.fillText("DOJO", cx, cy + 13);            // label
@@ -1424,6 +1433,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
   const [tileset, setTileset] = useState(null);
   const [swordImg, setSwordImg] = useState(null);
   const [codaImg, setCodaImg] = useState(null);
+  const [dojoImg, setDojoImg] = useState(null);
   const [tintedCoda, setTintedCoda] = useState(null);
   useEffect(() => {
     if (!codaImg || !skinTint) { setTintedCoda(null); return; }
@@ -1443,6 +1453,9 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
     const b = new Image(); b.onload = () => setSwordImg(b); b.src = H.sword;
     if (typeof window !== "undefined" && window.CODA_SPRITE) {
       const c = new Image(); c.onload = () => setCodaImg(c); c.src = window.CODA_SPRITE;
+    }
+    if (typeof window !== "undefined" && window.DOJO_SPRITE) {
+      const d = new Image(); d.onload = () => setDojoImg(d); d.src = window.DOJO_SPRITE;
     }
   }, []);
 
@@ -1485,7 +1498,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       ctx.font = "bold 8px Archivo, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(cleared ? "★" : String(n.id), x, y + 0.5);
     });
-    drawDojo(ctx, (DOJO.c + 0.5) * T, (DOJO.r + 0.5) * T);
+    drawDojo(ctx, (DOJO.c + 0.5) * T, (DOJO.r + 0.5) * T, dojoImg);
     if (collected.size >= 8 && swordImg) {            // post-game: Excalibar rests, glowing, at home
       const mx = (2 + 0.5) * T, my = (24 + 0.5) * T;
       ctx.save();
@@ -1495,7 +1508,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       ctx.restore();
     }
     drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, tintedCoda || codaImg, bob);
-  }, [tileset, nodes, currentId, collected, codaImg, tintedCoda, swordImg]);
+  }, [tileset, nodes, currentId, collected, codaImg, tintedCoda, swordImg, dojoImg]);
 
   // static render: Coda rests on the current node (unless mid-walk)
   useEffect(() => {
@@ -2778,7 +2791,11 @@ export default function NumberEarTrainer() {
           <div className="encounter-modal" onClick={() => setEncounterNode(null)}>
             <div className={"encounter mood-" + en.mood} onClick={(e) => e.stopPropagation()}>
               <div className="enc-head">
-                <span className="enc-emblem" aria-hidden="true">{en.emblem}</span>
+                <span className="enc-emblem" aria-hidden="true">
+                  {window.KEEPER_ART && window.KEEPER_ART[encounterNode]
+                    ? <img src={window.KEEPER_ART[encounterNode]} alt="" style={{ width: 32, height: 32, imageRendering: "pixelated" }} />
+                    : en.emblem}
+                </span>
                 <div className="enc-titles">
                   <span className="kicker">Region {encounterNode} · Harmonia</span>
                   <h2 className="encounter-title">{en.name}</h2>
