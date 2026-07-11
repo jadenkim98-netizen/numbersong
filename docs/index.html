@@ -1099,10 +1099,32 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 /* Persistent half-step highlight on the map (the 3·4 and 7·1 pairs) */
 .tutorial .explore-pad.hl{ box-shadow:inset 0 0 0 2px var(--gold),0 0 12px rgba(217,180,91,.75); z-index:2; }
 .tutorial .explore-pad.hl .rung-num{ color:var(--gold); }
-/* Clickable 2-5-1 chord stacks in the tutorial */
-.tutorial .stack-play{ border:0; font-family:inherit; color:inherit; cursor:pointer; transition:transform .09s ease; }
-.tutorial .stack-play:hover{ transform:translateY(-3px); }
-.tutorial .stack-play:active{ transform:translateY(0); }
+/* Clickable 2-5-1 chord stacks in the tutorial: each number plays its own note,
+   the chord-name label plays the whole chord. */
+.tutorial .stack-note.sn-play{ background:transparent; border:2px solid transparent; box-sizing:border-box; padding:0;
+  font-family:var(--black); cursor:pointer; transition:transform .08s ease, color .08s ease; }
+.tutorial .stack-note.sn-play.on{ border-color:var(--blue); } /* keep the chord-tone circles */
+.tutorial .stack-note.sn-play:hover{ transform:scale(1.18); color:var(--gold); }
+.tutorial .stack-note.sn-play:active{ transform:scale(.92); }
+.tutorial .stack-label.sl-play{ border:0; background:rgba(32,48,46,.5); box-shadow:inset 0 0 0 2px rgba(87,198,196,.32);
+  clip-path:var(--notch); padding:5px 10px; cursor:pointer; transition:transform .08s ease, color .08s ease, box-shadow .08s ease; }
+.tutorial .stack-label.sl-play:hover{ transform:translateY(-2px); color:var(--gold); box-shadow:inset 0 0 0 2px var(--gold); }
+.tutorial .stack-label.sl-play:active{ transform:translateY(0); }
+/* Mary number-notation: contour by height, rhythm by width, in measure boxes */
+.mary-notation{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; align-items:stretch; padding:4px 2px; }
+.mary-measure{ display:flex; flex:1 1 auto; min-width:120px; gap:2px; padding:6px 6px 4px; align-items:stretch;
+  box-shadow:inset 0 0 0 2px rgba(87,198,196,.28); clip-path:var(--notch); background:rgba(32,48,46,.35); }
+.mary-note{ position:relative; display:flex; flex-direction:column; align-items:center; flex-basis:0; min-width:0;
+  background:transparent; border:0; padding:0; cursor:pointer; }
+.mn-slot{ position:relative; width:100%; height:74px; }
+.mn-num{ position:absolute; left:50%; transform:translateX(-50%); font-family:var(--black); font-size:17px; line-height:1;
+  color:var(--gold); text-shadow:1px 1px 0 var(--ink); transition:transform .08s ease, color .08s ease, text-shadow .08s ease; }
+.mary-note.tonic .mn-num{ color:var(--teal); }
+.mary-note:hover .mn-num{ transform:translateX(-50%) scale(1.22); }
+.mary-note.on .mn-num{ color:var(--green); text-shadow:0 0 9px rgba(106,191,94,.95),1px 1px 0 var(--ink); transform:translateX(-50%) scale(1.28); }
+.mn-lyric{ margin-top:3px; font-family:var(--sans); font-size:.62rem; letter-spacing:.2px; color:rgba(237,242,238,.75);
+  white-space:nowrap; text-shadow:1px 1px 0 var(--ink); }
+.mary-note.on .mn-lyric{ color:var(--green); }
 .tutorial .verda{ position:absolute; left:2px; bottom:0; width:130px; height:auto; image-rendering:pixelated;
   filter:drop-shadow(0 0 10px rgba(87,198,196,.35)) drop-shadow(0 4px 0 var(--ink)); animation:bi-coda-bob 2.4s ease-in-out infinite; }
 .tutorial .vshadow{ position:absolute; left:22px; bottom:-2px; width:88px; height:18px; border-radius:50%;
@@ -2613,10 +2635,42 @@ window.SOUNDTRACK = SOUNDTRACK;
       keyLabel(k.s)
     )));
   }
-  function GuideStack({ label, world, onPlay }) {
+  function GuideStack({ label, world, onPlay, onNote }) {
     const tones = worldChordTones(world);
-    const inner = /* @__PURE__ */ React.createElement(React.Fragment, null, [7, 6, 5, 4, 3, 2, 1].map((d) => /* @__PURE__ */ React.createElement("span", { key: d, className: "stack-note" + (tones.includes(d) ? " on" : "") }, d)), /* @__PURE__ */ React.createElement("span", { className: "stack-label" }, label));
-    return onPlay ? /* @__PURE__ */ React.createElement("button", { type: "button", className: "stack stack-play", onClick: () => onPlay(world), "aria-label": "Play the " + label + " chord" }, inner) : /* @__PURE__ */ React.createElement("div", { className: "stack" }, inner);
+    return /* @__PURE__ */ React.createElement("div", { className: "stack" }, [7, 6, 5, 4, 3, 2, 1].map((d) => {
+      const cls = "stack-note" + (tones.includes(d) ? " on" : "");
+      return onNote ? /* @__PURE__ */ React.createElement("button", { key: d, type: "button", className: cls + " sn-play", onClick: () => onNote(d), "aria-label": "Play note " + d }, d) : /* @__PURE__ */ React.createElement("span", { key: d, className: cls }, d);
+    }), onPlay ? /* @__PURE__ */ React.createElement("button", { type: "button", className: "stack-label sl-play", onClick: () => onPlay(world), "aria-label": "Play the " + label + " chord" }, label) : /* @__PURE__ */ React.createElement("span", { className: "stack-label" }, label));
+  }
+  function MaryNotation({ notes, active, onNote }) {
+    const degs = notes.map((n) => n.deg);
+    const lo = Math.min(...degs), hi = Math.max(...degs);
+    const yOf = (d) => hi === lo ? 45 : 8 + (d - lo) / (hi - lo) * 74;
+    const measures = [];
+    let cur = [], acc = 0;
+    notes.forEach((n, i) => {
+      cur.push({ ...n, i });
+      acc += n.dur;
+      if (acc >= 4 - 1e-3) {
+        measures.push(cur);
+        cur = [];
+        acc = 0;
+      }
+    });
+    if (cur.length) measures.push(cur);
+    return /* @__PURE__ */ React.createElement("div", { className: "mary-notation" }, measures.map((m, mi) => /* @__PURE__ */ React.createElement("div", { className: "mary-measure", key: mi }, m.map((n) => /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: n.i,
+        type: "button",
+        className: "mary-note" + (n.deg === 1 ? " tonic" : "") + (active === n.i ? " on" : ""),
+        style: { flexGrow: n.dur },
+        onClick: onNote ? () => onNote(n.deg) : void 0,
+        "aria-label": "Play note " + n.deg + " (" + n.lyric + ")"
+      },
+      /* @__PURE__ */ React.createElement("span", { className: "mn-slot" }, /* @__PURE__ */ React.createElement("b", { className: "mn-num", style: { bottom: yOf(n.deg) + "%" } }, n.deg)),
+      /* @__PURE__ */ React.createElement("span", { className: "mn-lyric" }, n.lyric)
+    )))));
   }
   function SessionStack({ picked, correct, wrong, label }) {
     return /* @__PURE__ */ React.createElement("div", { className: "stack session-stack" }, [7, 6, 5, 4, 3, 2, 1].map((d) => {
@@ -3188,7 +3242,7 @@ window.SOUNDTRACK = SOUNDTRACK;
             setTutDrillN(0);
             setScreen("adventure");
           }
-        }, 1700);
+        }, tutDrillN + 1 < TUT_DRILLS ? 2900 : 2200);
       } else {
         setTutReveal(true);
         try {
@@ -3373,6 +3427,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       };
     }, [screen, sfx]);
     const [litActive, setLitActive] = useState([]);
+    const [playIdx, setPlayIdx] = useState(-1);
     const [litCorrect, setLitCorrect] = useState([]);
     const [litWrong, setLitWrong] = useState([]);
     const [hitPad, setHitPad] = useState(null);
@@ -3428,12 +3483,23 @@ window.SOUNDTRACK = SOUNDTRACK;
         const gap = (durs ? durs[i] : 1) * beat;
         playDegree(musicKey, d, onset[i]);
         sing(musicKey, d, voiceOn, onset[i], i < degs.length - 1 ? gap : null);
-        setTimeout(() => setLitActive([d]), onset[i] * 1e3);
+        setTimeout(() => {
+          setLitActive([d]);
+          setPlayIdx(i);
+        }, onset[i] * 1e3);
       });
       setTimeout(() => {
         setLitActive([]);
+        setPlayIdx(-1);
         setBusy(false);
       }, (t + 0.8) * 1e3);
+    };
+    const playStackNote = (d) => {
+      try {
+        playDegree(musicKey, d, 0);
+        sing(musicKey, d, voiceOn);
+      } catch (e) {
+      }
     };
     const playTwoFiveOne = () => {
       if (busy) return;
@@ -4707,6 +4773,21 @@ window.SOUNDTRACK = SOUNDTRACK;
       const verdaSrc = typeof window !== "undefined" ? window.VERDA_SPRITE : "";
       const tutMap = /* @__PURE__ */ React.createElement(ExploreMap, { start: 1, count: 8, stage: 0, octaves: 1, world: null, active: litActive, onPlay: playExplore });
       const tutMapHalf = /* @__PURE__ */ React.createElement(ExploreMap, { start: 1, count: 8, stage: 0, octaves: 1, world: null, hi: [3, 4, 7, 8], active: litActive, onPlay: playExplore });
+      const MARY = [
+        { deg: 3, dur: 1, lyric: "Ma-" },
+        { deg: 2, dur: 1, lyric: "ry" },
+        { deg: 1, dur: 1, lyric: "had" },
+        { deg: 2, dur: 1, lyric: "a" },
+        { deg: 3, dur: 1, lyric: "lit-" },
+        { deg: 3, dur: 1, lyric: "tle" },
+        { deg: 3, dur: 2, lyric: "lamb" },
+        { deg: 2, dur: 1, lyric: "lit-" },
+        { deg: 2, dur: 1, lyric: "tle" },
+        { deg: 2, dur: 2, lyric: "lamb" },
+        { deg: 3, dur: 1, lyric: "lit-" },
+        { deg: 5, dur: 1, lyric: "tle" },
+        { deg: 5, dur: 2, lyric: "lamb" }
+      ];
       const CHROM = [["1", 0, 0, 1], ["♭2", 1, 1], ["2", 2], ["♭3", 3, 1], ["3", 4], ["4", 5], ["♭5", 6, 1], ["5", 7], ["♭6", 8, 1], ["6", 9], ["♭7", 10, 1], ["7", 11], ["1", 12, 0, 1]];
       const tutChromMap = /* @__PURE__ */ React.createElement("div", { className: "tut-chrom" }, CHROM.map(([lab, semi, alt, tonic], i) => /* @__PURE__ */ React.createElement(
         "button",
@@ -4756,17 +4837,16 @@ window.SOUNDTRACK = SOUNDTRACK;
         },
         {
           title: "Mary had a little lamb",
-          cue: "3 2 1 2 3 3 3 2 2 2 3 5 5",
-          hear: { label: "▶ Hear it in numbers", act: () => playTutPhrase([3, 2, 1, 2, 3, 3, 3, 2, 2, 2, 3, 5, 5], [1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 2]) },
-          lines: /* @__PURE__ */ React.createElement(React.Fragment, null, "You already know this one. Watch a song you love become ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "numbers"), " — the same map, every time."),
-          stage: tutMap
+          hear: { label: "▶ Hear it in numbers", act: () => playTutPhrase(MARY.map((n) => n.deg), MARY.map((n) => n.dur)) },
+          lines: /* @__PURE__ */ React.createElement(React.Fragment, null, "You already know this one. Watch a song you love become ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "numbers"), " — higher notes sit higher, longer notes stretch wider. Tap any note to hear it."),
+          stage: /* @__PURE__ */ React.createElement(MaryNotation, { notes: MARY, active: playIdx, onNote: playStackNote })
         },
         {
           title: "Chords are numbers, stacked",
           cue: null,
           hear: { label: "▶ Hear a 2–5–1", act: playTwoFiveOne },
-          lines: /* @__PURE__ */ React.createElement(React.Fragment, null, "Even chords are just numbers, ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "stacked"), " — tap any stack to hear it. That's the road ahead; first, we'll train your ear on single notes."),
-          stage: /* @__PURE__ */ React.createElement("div", { className: "stacks" }, /* @__PURE__ */ React.createElement(GuideStack, { label: "2-", world: 2, onPlay: playChordStack }), /* @__PURE__ */ React.createElement(GuideStack, { label: "5D", world: 5, onPlay: playChordStack }), /* @__PURE__ */ React.createElement(GuideStack, { label: "1", world: 1, onPlay: playChordStack }))
+          lines: /* @__PURE__ */ React.createElement(React.Fragment, null, "Even chords are just numbers, ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "stacked"), " — tap a stacked number to hear that note, or a chord name to hear the whole chord. That's the road ahead; first, we'll train your ear on single notes."),
+          stage: /* @__PURE__ */ React.createElement("div", { className: "stacks" }, /* @__PURE__ */ React.createElement(GuideStack, { label: "2-", world: 2, onPlay: playChordStack, onNote: playStackNote }), /* @__PURE__ */ React.createElement(GuideStack, { label: "5D", world: 5, onPlay: playChordStack, onNote: playStackNote }), /* @__PURE__ */ React.createElement(GuideStack, { label: "1", world: 1, onPlay: playChordStack, onNote: playStackNote }))
         },
         {
           title: "A little secret",

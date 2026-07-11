@@ -751,10 +751,32 @@
 /* Persistent half-step highlight on the map (the 3·4 and 7·1 pairs) */
 .tutorial .explore-pad.hl{ box-shadow:inset 0 0 0 2px var(--gold),0 0 12px rgba(217,180,91,.75); z-index:2; }
 .tutorial .explore-pad.hl .rung-num{ color:var(--gold); }
-/* Clickable 2-5-1 chord stacks in the tutorial */
-.tutorial .stack-play{ border:0; font-family:inherit; color:inherit; cursor:pointer; transition:transform .09s ease; }
-.tutorial .stack-play:hover{ transform:translateY(-3px); }
-.tutorial .stack-play:active{ transform:translateY(0); }
+/* Clickable 2-5-1 chord stacks in the tutorial: each number plays its own note,
+   the chord-name label plays the whole chord. */
+.tutorial .stack-note.sn-play{ background:transparent; border:2px solid transparent; box-sizing:border-box; padding:0;
+  font-family:var(--black); cursor:pointer; transition:transform .08s ease, color .08s ease; }
+.tutorial .stack-note.sn-play.on{ border-color:var(--blue); } /* keep the chord-tone circles */
+.tutorial .stack-note.sn-play:hover{ transform:scale(1.18); color:var(--gold); }
+.tutorial .stack-note.sn-play:active{ transform:scale(.92); }
+.tutorial .stack-label.sl-play{ border:0; background:rgba(32,48,46,.5); box-shadow:inset 0 0 0 2px rgba(87,198,196,.32);
+  clip-path:var(--notch); padding:5px 10px; cursor:pointer; transition:transform .08s ease, color .08s ease, box-shadow .08s ease; }
+.tutorial .stack-label.sl-play:hover{ transform:translateY(-2px); color:var(--gold); box-shadow:inset 0 0 0 2px var(--gold); }
+.tutorial .stack-label.sl-play:active{ transform:translateY(0); }
+/* Mary number-notation: contour by height, rhythm by width, in measure boxes */
+.mary-notation{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; align-items:stretch; padding:4px 2px; }
+.mary-measure{ display:flex; flex:1 1 auto; min-width:120px; gap:2px; padding:6px 6px 4px; align-items:stretch;
+  box-shadow:inset 0 0 0 2px rgba(87,198,196,.28); clip-path:var(--notch); background:rgba(32,48,46,.35); }
+.mary-note{ position:relative; display:flex; flex-direction:column; align-items:center; flex-basis:0; min-width:0;
+  background:transparent; border:0; padding:0; cursor:pointer; }
+.mn-slot{ position:relative; width:100%; height:74px; }
+.mn-num{ position:absolute; left:50%; transform:translateX(-50%); font-family:var(--black); font-size:17px; line-height:1;
+  color:var(--gold); text-shadow:1px 1px 0 var(--ink); transition:transform .08s ease, color .08s ease, text-shadow .08s ease; }
+.mary-note.tonic .mn-num{ color:var(--teal); }
+.mary-note:hover .mn-num{ transform:translateX(-50%) scale(1.22); }
+.mary-note.on .mn-num{ color:var(--green); text-shadow:0 0 9px rgba(106,191,94,.95),1px 1px 0 var(--ink); transform:translateX(-50%) scale(1.28); }
+.mn-lyric{ margin-top:3px; font-family:var(--sans); font-size:.62rem; letter-spacing:.2px; color:rgba(237,242,238,.75);
+  white-space:nowrap; text-shadow:1px 1px 0 var(--ink); }
+.mary-note.on .mn-lyric{ color:var(--green); }
 .tutorial .verda{ position:absolute; left:2px; bottom:0; width:130px; height:auto; image-rendering:pixelated;
   filter:drop-shadow(0 0 10px rgba(87,198,196,.35)) drop-shadow(0 4px 0 var(--ink)); animation:bi-coda-bob 2.4s ease-in-out infinite; }
 .tutorial .vshadow{ position:absolute; left:22px; bottom:-2px; width:88px; height:18px; border-radius:50%;
