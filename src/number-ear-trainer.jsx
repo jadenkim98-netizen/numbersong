@@ -3303,6 +3303,36 @@ export default function NumberEarTrainer() {
               <span className="forge-count">{advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments"}</span>
             </div>
           )}
+          {!onboarded && (
+            <div className="lead-card">
+              {leadStatus === "done" ? (
+                <>
+                  <span className="lead-kicker">✓ You're in</span>
+                  <p className="lead-copy">Awesome — check your inbox for the free ear-training resource. Your progress is saved.</p>
+                  <div className="lead-actions">
+                    <button className="primary" onClick={openOffer}>See the roadmap →</button>
+                    <button className="ghost" onClick={finishOnboarding}>Keep playing</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="lead-kicker">★ Save your progress</span>
+                  <p className="lead-copy">Don't let your hard work go to waste! Drop your email so you can save your progress and also get access to a free resource to train your ear on guitar.</p>
+                  <input className="set-input lead-input" placeholder="first name" value={leadName} onChange={(e) => setLeadName(e.target.value)} />
+                  <input className="set-input lead-input" type="email" placeholder="you@email.com" value={leadEmail}
+                    onChange={(e) => { setLeadEmail(e.target.value); if (leadStatus === "error") setLeadStatus("idle"); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") submitLead(); }} />
+                  {leadStatus === "error" && <span className="lead-err">Enter a valid email, or skip.</span>}
+                  <div className="lead-actions">
+                    <button className="primary" onClick={submitLead} disabled={leadStatus === "sending"}>
+                      {leadStatus === "sending" ? "Saving…" : "Save my progress"}
+                    </button>
+                    <button className="ghost" onClick={finishOnboarding}>Maybe later</button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           {justCleared && !finale && (
             <button className="primary map-return" onClick={() => { setSwordBurst(true); setScreen("adventure"); }}>← Return to the map</button>
           )}
@@ -3327,36 +3357,6 @@ export default function NumberEarTrainer() {
                   <span className="bar-count">{v.right}/{v.total}</span>
                 </div>
               ))}
-            </div>
-          )}
-          {!onboarded && (
-            <div className="lead-card">
-              {leadStatus === "done" ? (
-                <>
-                  <span className="lead-kicker">✓ You're in</span>
-                  <p className="lead-copy">Nice run. When you're ready to turn these reps into real playing, the 16-week roadmap shows the whole path.</p>
-                  <div className="lead-actions">
-                    <button className="primary" onClick={openOffer}>See the roadmap →</button>
-                    <button className="ghost" onClick={finishOnboarding}>Keep playing</button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <span className="lead-kicker">★ Save your progress</span>
-                  <p className="lead-copy">Drop your email to save your spot and get the free 16-week ear-training roadmap.</p>
-                  <input className="set-input lead-input" placeholder="first name" value={leadName} onChange={(e) => setLeadName(e.target.value)} />
-                  <input className="set-input lead-input" type="email" placeholder="you@email.com" value={leadEmail}
-                    onChange={(e) => { setLeadEmail(e.target.value); if (leadStatus === "error") setLeadStatus("idle"); }}
-                    onKeyDown={(e) => { if (e.key === "Enter") submitLead(); }} />
-                  {leadStatus === "error" && <span className="lead-err">Enter a valid email, or skip.</span>}
-                  <div className="lead-actions">
-                    <button className="primary" onClick={submitLead} disabled={leadStatus === "sending"}>
-                      {leadStatus === "sending" ? "Saving…" : "Get the roadmap"}
-                    </button>
-                    <button className="ghost" onClick={finishOnboarding}>Maybe later</button>
-                  </div>
-                </>
-              )}
             </div>
           )}
           <div className="results-actions">
