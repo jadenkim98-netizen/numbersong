@@ -3710,7 +3710,7 @@ export default function NumberEarTrainer() {
         lines: <>Welcome to <b className="hl-g">Staircase Meadows</b>, traveler. I'm <b className="hl-t">Verda</b> — I'll be right beside you. Let me show you how every song you've ever heard is built.</>,
         stage: tutMap },
       { title: "Twelve pitches", cue: null,
-        lines: <>All of music rests on just <b className="hl-g">12 unique pitches</b>, repeating forever up and down. But here's the secret: at any moment, most songs use only <b className="hl-t">7 of them</b> — the ones with numbers.</>,
+        lines: <>All of music rests on just <b className="hl-g">12 unique pitches</b>, repeating forever up and down. But here's the secret: at any moment, most songs use only <b className="hl-t">7 of them</b>. We'll visualize these notes on a line that goes in both directions, repeating forever.</>,
         stage: tutChromMap },
       { title: "The tonal map", cue: "1 2 3 4 5 6 7 1", hear: { label: "▶ Hear the scale", act: () => playTutPhrase([1, 2, 3, 4, 5, 6, 7, 8]) },
         lines: <>The shortest distance between two pitches is a <b className="hl-t">half step</b>; two half steps make a <b className="hl-t">whole step</b>. Arrange them in the right pattern and you get this — the <b className="hl-g">tonal map</b> (you may know it as the major scale).</>,
