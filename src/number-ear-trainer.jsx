@@ -3482,25 +3482,47 @@ export default function NumberEarTrainer() {
     // Verda's cinematic first-run tutorial (Fable "JRPG Cutscene" look). Reuses the
     // guide's teaching widgets (DegreeLadder / GuideStack / playPhrase / playTwoFiveOne).
     const verdaSrc = typeof window !== "undefined" ? window.VERDA_SPRITE : "";
+    // The teaching maps are interactive — tap any pad to hear that degree (reuse the
+    // guide's ExploreMap + playExplore). One shared element for every map beat.
+    const tutMap = <ExploreMap start={1} count={8} stage={0} octaves={1} world={null} active={litActive} onPlay={playExplore} />;
+    // The "12 pitches" beat gets a CHROMATIC map — all 12, flats included — also tappable.
+    const CHROM = [["1", 0, 0, 1], ["♭2", 1, 1], ["2", 2], ["♭3", 3, 1], ["3", 4], ["4", 5], ["♭5", 6, 1], ["5", 7], ["♭6", 8, 1], ["6", 9], ["♭7", 10, 1], ["7", 11], ["1", 12, 0, 1]];
+    const tutChromMap = (
+      <div className="tut-chrom">
+        {CHROM.map(([lab, semi, alt, tonic], i) => (
+          <button key={i} className={"tut-chrom-pad" + (alt ? " alt" : "") + (tonic ? " tonic" : "")}
+            onClick={() => { try { playSemi("C", semi, 0.03, 4); } catch (e) {} }}>{lab}</button>
+        ))}
+      </div>
+    );
     const beats = [
-      { title: "The tonal map", cue: null,
-        lines: <>Welcome to <b className="hl-g">Staircase Meadows</b>, traveler. I'm <b className="hl-t">Verda</b> — I'll be right beside you. Every song you love hides in the same seven simple steps.</>,
-        stage: <DegreeLadder active={[]} correct={[]} wrong={[]} /> },
-      { title: "The tonal map", cue: "1 · 2 · 3", hear: { label: "▶ Hear 1 · 2 · 3", act: () => playPhrase([1, 2, 3]) },
-        lines: <>Forget note names. Here, every sound is just a <b className="hl-g">number</b> — its place in the key. And <b className="hl-t">1 is home</b>. It never moves.</>,
-        stage: <DegreeLadder active={litActive} correct={[]} wrong={[]} /> },
+      { title: "Staircase Meadows", cue: null,
+        lines: <>Welcome to <b className="hl-g">Staircase Meadows</b>, traveler. I'm <b className="hl-t">Verda</b> — I'll be right beside you. Let me show you how every song you've ever heard is built.</>,
+        stage: tutMap },
+      { title: "Twelve pitches", cue: null,
+        lines: <>All of music rests on just <b className="hl-g">12 unique pitches</b>, repeating forever up and down. But here's the secret: at any moment, most songs use only <b className="hl-t">7 of them</b> — the ones with numbers.</>,
+        stage: tutChromMap },
+      { title: "The tonal map", cue: "1 → 1", hear: { label: "▶ Hear the scale", act: () => playPhrase([1, 2, 3, 4, 5, 6, 7, 8]) },
+        lines: <>The shortest distance between two pitches is a <b className="hl-t">half step</b>; two half steps make a <b className="hl-t">whole step</b>. Arrange them in the right pattern and you get this — the <b className="hl-g">tonal map</b> (you may know it as the major scale).</>,
+        stage: tutMap },
+      { title: "Where the half steps hide", cue: null,
+        lines: <>Those little dots are the pitches <em>in between</em> — one in every whole step. Where two numbers sit side by side with <b>no dot</b>, that's a half step. The <b className="hl-t">only</b> half steps on the whole map are <b className="hl-g">3→4</b> and <b className="hl-g">7→1</b>.</>,
+        stage: tutMap },
+      { title: "Home never moves", cue: null,
+        lines: <>This map is the key that unlocks all <b className="hl-g">melody and harmony</b>. Absolute note names don't matter here — music is <b className="hl-t">relative to home</b>. And home is always <b className="hl-t">1</b>.</>,
+        stage: tutMap },
       { title: "Mary had a little lamb", cue: "3 2 1 2 3 3 3", hear: { label: "▶ Hear it in numbers", act: () => playPhrase([3, 2, 1, 2, 3, 3, 3, 2, 2, 2, 3, 5, 5]) },
         lines: <>You already know this one. Watch a song you love become <b className="hl-g">numbers</b> — the same map, every time.</>,
-        stage: <DegreeLadder active={litActive} correct={[]} wrong={[]} /> },
+        stage: tutMap },
       { title: "Chords are numbers, stacked", cue: null, hear: { label: "▶ Hear a 2–5–1", act: playTwoFiveOne },
         lines: <>Even chords are just numbers, <b className="hl-t">stacked</b>. That's the road ahead — first, we'll train your ear on single notes.</>,
         stage: <div className="stacks"><GuideStack label="2-" world={2} /><GuideStack label="5D" world={5} /><GuideStack label="1" world={1} /></div> },
       { title: "A little secret", cue: null,
         lines: <>One secret before we begin: as each note plays, try <b className="hl-t">singing its number</b> out loud. It's completely optional — but nothing will grow your ear faster.</>,
-        stage: <DegreeLadder active={[]} correct={[]} wrong={[]} /> },
+        stage: tutMap },
       { title: "Feel the sound", cue: null,
         lines: <>Now let's listen together. I'll play a note — <b className="hl-t">listen deeply</b>, feel where it lies, then name its number. Three tries here with me.</>,
-        stage: <DegreeLadder active={[]} correct={[]} wrong={[]} /> },
+        stage: tutMap },
     ];
     const step = Math.min(tutStep, beats.length - 1); // clamp: never index past the array
     const beat = beats[step];
@@ -3548,8 +3570,12 @@ export default function NumberEarTrainer() {
                 })}
               </div>
             ) : beat.stage}
+            {!drill && (beat.stage === tutMap || beat.stage === tutChromMap) && <div className="tut-explore">↯ Tap the map — hear any note, explore freely</div>}
           </div>
           <div className="tut-mid">
+            {drill
+              ? <button className="btn go tut-midhear" onClick={replayTutNote} disabled={tutDrillPhase === "play" || busy}>▶ Hear it again</button>
+              : (beat.hear && <button className="btn go tut-midhear" onClick={beat.hear.act} disabled={busy}>{beat.hear.label}</button>)}
             <img className="verda" src={verdaSrc} alt="Verda" />
             <div className="vshadow" />
             {!drill && beat.cue && <div className="cue">Now playing<b>{beat.cue}</b></div>}
@@ -3564,19 +3590,14 @@ export default function NumberEarTrainer() {
             <span className="ntab">Verda, the Meadow Keeper</span>
             <div className="dbox">{drill ? drillLine : beat.lines}</div>
           </div>
-          <div className="btnrow">
-            {drill ? (
-              <button className="btn go" onClick={replayTutNote} disabled={tutDrillPhase === "play" || busy}>▶ Hear it again</button>
-            ) : (
-              <>
-                <button className="btn ghost" disabled={step === 0} onClick={() => { sfx("back"); setTutStep((s) => Math.max(0, s - 1)); }}>◂ Back</button>
-                {beat.hear && <button className="btn go" onClick={beat.hear.act} disabled={busy}>{beat.hear.label}</button>}
-                {last
-                  ? <button className="btn next" onClick={enterTutDrills}>Begin →</button>
-                  : <button className="btn next" onClick={() => { sfx("move"); setTutStep((s) => Math.min(s + 1, beats.length - 1)); }}>Next →</button>}
-              </>
-            )}
-          </div>
+          {!drill && (
+            <div className="btnrow">
+              <button className="btn ghost" disabled={step === 0} onClick={() => { sfx("back"); setTutStep((s) => Math.max(0, s - 1)); }}>◂ Back</button>
+              {last
+                ? <button className="btn next" onClick={enterTutDrills}>Begin →</button>
+                : <button className="btn next" onClick={() => { sfx("move"); setTutStep((s) => Math.min(s + 1, beats.length - 1)); }}>Next →</button>}
+            </div>
+          )}
         </div>
         <div className="vig" /><div className="scan" /><div className="flicker" />
       </div>
