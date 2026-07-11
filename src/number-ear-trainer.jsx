@@ -1757,10 +1757,12 @@ export default function NumberEarTrainer() {
 
   // Sing tuner (7-worlds tab): live mic pitch → the number you're singing.
   const [micOn, setMicOn] = useState(false);
-  const [micErr, setMicErr] = useState(false);   // permission denied / no device
+  const [micReq, setMicReq] = useState(false);    // asking for permission (await in flight)
+  const [micErr, setMicErr] = useState(false);    // permission denied / no device
   const [singDeg, setSingDeg] = useState(null);   // 1..7 you're currently singing, or null
-  const [singCents, setSingCents] = useState(0);  // ± cents off that degree
+  const [singCents, setSingCents] = useState(0);  // ± cents off that degree (− flat, + sharp)
   const [singInTune, setSingInTune] = useState(false);
+  const [singLevel, setSingLevel] = useState(0);  // input loudness 0..1, so "mic is alive" is visible
   const micRef = useRef(null); // { stream, source, analyser, buf, raf, last }
 
   // Free Play: Melody Paths jam
@@ -1798,7 +1800,7 @@ export default function NumberEarTrainer() {
       try { m.stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
       micRef.current = null;
     }
-    setMicOn(false); setSingDeg(null); setSingInTune(false); setSingCents(0);
+    setMicOn(false); setSingDeg(null); setSingInTune(false); setSingCents(0); setSingLevel(0);
   }, []);
 
   // Toggle listening. Must run on the user's tap so iOS grants mic access; the
@@ -1806,6 +1808,7 @@ export default function NumberEarTrainer() {
   // speakers, so there's no feedback loop.
   const toggleMic = useCallback(async () => {
     if (micRef.current) { stopMic(); return; }
+    setMicErr(false); setMicReq(true);
     try {
       await Tone.start();
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -1817,9 +1820,11 @@ export default function NumberEarTrainer() {
       analyser.fftSize = 2048;
       source.connect(analyser); // to the analyser only — NOT to the destination
       micRef.current = { stream, source, analyser, buf: new Float32Array(analyser.fftSize), raf: 0, last: 0 };
-      setMicErr(false); setMicOn(true);
+      setMicOn(true);
     } catch (e) {
       setMicErr(true); setMicOn(false);
+    } finally {
+      setMicReq(false);
     }
   }, [stopMic]);
 
@@ -1838,6 +1843,10 @@ export default function NumberEarTrainer() {
       if (t - mm.last < 55) return; // throttle: ACF is O(n²), don't run every frame
       mm.last = t;
       mm.analyser.getFloatTimeDomainData(mm.buf);
+      // input loudness (so the meter reacts to any sound — proves the mic is live)
+      let sum = 0;
+      for (let i = 0; i < mm.buf.length; i++) sum += mm.buf[i] * mm.buf[i];
+      setSingLevel(Math.min(1, Math.sqrt(sum / mm.buf.length) * 6));
       const hz = detectPitch(mm.buf, sr);
       if (hz < 0) { setSingDeg(null); setSingInTune(false); return; }
       const { deg, cents } = pitchToDegree(hz, musicKey);
@@ -3329,21 +3338,36 @@ export default function NumberEarTrainer() {
           {micOn ? "🎤 Sing on" : "🎤 Sing"}
         </button>
       </div>
-      {micErr && (
-        <p className="hint center sing-err">Mic's off — allow microphone access in your browser to sing along.</p>
-      )}
-      {micOn && (
-        <div className={"sing-readout" + (singDeg == null ? " idle" : singInTune ? " in" : " off")}>
-          {singDeg == null ? (
-            <span className="sing-listen">Listening… sing a number</span>
-          ) : (
-            <>
-              <span className="sing-num">{singDeg === 1 ? "✳ 1" : singDeg}</span>
-              <span className="sing-cents">{singCents > 0 ? "+" : ""}{singCents}¢ {singInTune ? "· in tune" : singCents > 0 ? "· a touch sharp" : "· a touch flat"}</span>
-            </>
-          )}
-        </div>
-      )}
+      {(micOn || micReq || micErr) && (() => {
+        // Coaching copy + where the number sits on the track (flat drifts left,
+        // sharp drifts right; clamp to ±50¢ so wild misses don't fly off-screen).
+        const heard = singLevel > 0.06;
+        let coach, state;
+        if (micErr) { coach = "Mic's off — tap 🎤 Sing and choose Allow."; state = "off"; }
+        else if (micReq) { coach = "Asking for mic access — tap Allow…"; state = "idle"; }
+        else if (singDeg == null) { coach = heard ? "Almost — hold one steady note" : "Listening… sing a number"; state = "idle"; }
+        else if (singInTune) { coach = `Nice — right on ${singDeg}`; state = "in"; }
+        else if (singCents < 0) { coach = "A bit under — lift it up a hair"; state = "off"; }
+        else { coach = "A bit high — try relaxing into it"; state = "off"; }
+        const offset = Math.max(-50, Math.min(50, singCents)) / 50 * 42; // −42%..+42% from center
+        return (
+          <div className="sing-panel">
+            <div className={"sing-track " + state}>
+              <span className="sing-end flat">flat ◄</span>
+              <span className="sing-end sharp">► sharp</span>
+              <div className="sing-zone" />
+              <div className="sing-center" />
+              {singDeg != null && !micReq && (
+                <div className="sing-marker" style={{ left: `${50 + offset}%` }}>
+                  {singDeg === 1 ? "✳1" : singDeg}
+                </div>
+              )}
+            </div>
+            <div className="sing-level"><div className="sing-level-fill" style={{ width: `${Math.round(singLevel * 100)}%` }} /></div>
+            <p className="sing-coach">{coach}</p>
+          </div>
+        );
+      })()}
       {exView === "map"
         ? <ExploreMap start={exStart} count={exCount} stage={exStage}
             octaves={exOctaves} world={exWorld} singDeg={micOn ? singDeg : null} singInTune={singInTune}
@@ -3591,19 +3615,42 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 }
 @keyframes singPulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.18); } }
 
-.sing-readout {
-  display: flex; align-items: baseline; justify-content: center; gap: 10px;
-  min-height: 40px; padding: 6px 12px; border-radius: 12px;
+/* Sing tuner panel: the number rides a horizontal track — drifts left when
+   you're flat, right when you're sharp, sits over the center line in tune. */
+.sing-panel { display: flex; flex-direction: column; gap: 8px; }
+.sing-track {
+  position: relative; height: 78px; border-radius: 12px;
   background: var(--card); border: 1.5px solid var(--line);
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease; overflow: hidden;
 }
-.sing-readout.in { border-color: var(--green); }
-.sing-readout.off { border-color: var(--wrong); }
-.sing-num { font-family: 'Archivo Black', sans-serif; font-size: 1.8rem; line-height: 1; }
-.sing-readout.in .sing-num { color: var(--green); }
-.sing-readout.off .sing-num { color: var(--wrong); }
-.sing-cents { color: var(--text-soft); font-size: 0.9rem; font-weight: 600; }
-.sing-listen { color: var(--text-soft); font-size: 0.95rem; }
+.sing-track.in { border-color: var(--green); }
+.sing-track.off { border-color: var(--wrong); }
+/* the forgiving in-tune band around center (±25¢ maps to ±21% of the track) */
+.sing-zone {
+  position: absolute; top: 0; bottom: 0; left: 29%; right: 29%;
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+}
+.sing-center { position: absolute; top: 10px; bottom: 10px; left: 50%; width: 2px; margin-left: -1px; background: var(--green); opacity: 0.5; }
+.sing-end {
+  position: absolute; top: 6px; font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.05em; color: var(--text-soft); text-transform: uppercase;
+}
+.sing-end.flat { left: 10px; }
+.sing-end.sharp { right: 10px; }
+.sing-marker {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  min-width: 46px; height: 46px; padding: 0 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Archivo Black', sans-serif; font-size: 1.7rem; line-height: 1;
+  border-radius: 12px; background: var(--alt); color: var(--text);
+  box-shadow: 0 0 0 2px var(--line);
+  transition: left 0.09s linear, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.sing-track.in .sing-marker { background: var(--green); color: #23302A; box-shadow: 0 0 0 2px var(--green), 0 0 16px 1px var(--green); }
+.sing-track.off .sing-marker { box-shadow: 0 0 0 2px var(--wrong); color: var(--wrong); }
+.sing-level { height: 5px; border-radius: 99px; background: var(--alt); overflow: hidden; }
+.sing-level-fill { height: 100%; background: var(--teal); border-radius: 99px; transition: width 0.08s linear; }
+.sing-coach { text-align: center; margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-soft); min-height: 1.2em; }
 .sing-err { color: var(--wrong); }
 .pk-label {
   font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; color: #23302A;
