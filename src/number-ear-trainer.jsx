@@ -409,6 +409,65 @@ function degreeToNote(key, degree, octave = 4) {
   return Tone.Frequency(base + DEGREE_SEMITONES[degree], "midi").toNote();
 }
 
+// Autocorrelation pitch detector for the Sing tuner. Takes a window of raw
+// time-domain samples and returns the fundamental frequency in Hz, or -1 when
+// the signal is too quiet or too noisy to trust (silence, breath, consonants).
+// No library — the whole app stays a single standalone file. Adapted from the
+// classic ACF approach; parabolic interpolation gives sub-semitone accuracy.
+function detectPitch(buf, sampleRate) {
+  const SIZE = buf.length;
+  let rms = 0;
+  for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
+  rms = Math.sqrt(rms / SIZE);
+  if (rms < 0.012) return -1; // below the noise floor — treat as silence
+
+  // Trim leading/trailing near-silence so onsets/tails don't skew the ACF.
+  let r1 = 0, r2 = SIZE - 1;
+  const thres = 0.2;
+  for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) { r1 = i; break; }
+  for (let i = 1; i < SIZE / 2; i++) if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; }
+  const b = buf.slice(r1, r2);
+  const n = b.length;
+  if (n < 128) return -1;
+
+  const c = new Array(n).fill(0);
+  for (let lag = 0; lag < n; lag++)
+    for (let i = 0; i < n - lag; i++) c[lag] += b[i] * b[i + lag];
+
+  let d = 0;
+  while (d < n - 1 && c[d] > c[d + 1]) d++; // walk down off the zero-lag peak
+  let maxval = -1, maxpos = -1;
+  for (let i = d; i < n; i++) if (c[i] > maxval) { maxval = c[i]; maxpos = i; }
+  if (maxpos <= 0) return -1;
+  let T0 = maxpos;
+
+  // Parabolic interpolation around the peak for sub-sample accuracy.
+  const x1 = c[T0 - 1] || 0, x2 = c[T0], x3 = c[T0 + 1] || 0;
+  const a = (x1 + x3 - 2 * x2) / 2, bb = (x3 - x1) / 2;
+  if (a) T0 = T0 - bb / (2 * a);
+
+  const freq = sampleRate / T0;
+  if (freq < 70 || freq > 1100) return -1; // outside the human singing range
+  return freq;
+}
+
+// Detected frequency (Hz) → nearest scale degree of `key` + cents off it.
+// Octave-agnostic: we only care WHICH number you're singing, not which octave,
+// so a low 3 and a high 3 both light the 3 pad. Returns { deg: 1..7, cents }.
+function pitchToDegree(freq, key) {
+  const midi = 69 + 12 * Math.log2(freq / 440);
+  const tonicMidi = Tone.Frequency(key + "4").toMidi();
+  const rel = (((midi - tonicMidi) % 12) + 12) % 12; // semitones above tonic, 0..12
+  let best = 1, bestDiff = 99;
+  for (const deg of [1, 2, 3, 4, 5, 6, 7]) {
+    let diff = rel - DEGREE_SEMITONES[deg];
+    if (diff > 6) diff -= 12;        // wrap so the octave-tonic counts as degree 1
+    if (diff < -6) diff += 12;
+    if (Math.abs(diff) < Math.abs(bestDiff)) { bestDiff = diff; best = deg; }
+  }
+  return { deg: best, cents: Math.round(bestDiff * 100) };
+}
+
 function buildInstrument(buffers) {
   if (buffers) {
     return new Tone.Sampler({ urls: buffers, release: 1.2 }).toDestination();
@@ -991,7 +1050,7 @@ function worldChordTones(w) {
   return [0, 2, 4, 6].map((k) => ((w - 1 + k) % 7) + 1);
 }
 
-function ExploreMap({ start, count, stage, octaves, world, active, onPlay, onDown, onUp }) {
+function ExploreMap({ start, count, stage, octaves, world, active, singDeg, singInTune, onPlay, onDown, onUp }) {
   const evts = (n, row) => onDown // guide taps (onPlay); Free Play holds (onDown/onUp)
     ? { onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(n, row); }, onPointerUp: () => onUp(n, row) }
     : { onClick: () => onPlay(n, row) };
@@ -1011,6 +1070,7 @@ function ExploreMap({ start, count, stage, octaves, world, active, onPlay, onDow
         isRoot && "world-root",
         stage === 1 && "blank",
         active?.includes(n.raw + row * 100) && "active",
+        n.label === singDeg && (singInTune ? "singing in" : "singing off"),
       ].filter(Boolean).join(" ");
       cells.push(
         <button key={"n" + n.raw + "r" + row} className={cls}
@@ -1041,7 +1101,7 @@ function ExploreMap({ start, count, stage, octaves, world, active, onPlay, onDow
    plays; the explore window's numbers sit on their corresponding keys, in
    both octaves. World chord tones show in blue, the tonic wears the star. */
 
-function PianoMap({ start, count, stage, world, musicKey, active, onDown, onUp }) {
+function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singInTune, onDown, onUp }) {
   const evts = (k) => ({ onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(k); }, onPointerUp: () => onUp(k) });
   const baseMidi = Tone.Frequency(musicKey + "4").toMidi();
   const BLACK_PCS = [1, 3, 6, 8, 10];
@@ -1069,6 +1129,9 @@ function PianoMap({ start, count, stage, world, musicKey, active, onDown, onUp }
   const wW = 100 / nWhites;
   const bW = wW * 0.62;
 
+  const singCls = (s) => labels[s] != null && labels[s] === singDeg
+    ? (singInTune ? " singing in" : " singing off") : "";
+
   const keyLabel = (s) => {
     const lab = labels[s];
     if (lab == null || stage === 1) return null;
@@ -1084,7 +1147,7 @@ function PianoMap({ start, count, stage, world, musicKey, active, onDown, onUp }
     <div className="piano" role="group" aria-label="Two-octave piano from the tonic">
       {keys.filter((k) => !k.black).map((k) => (
         <button key={k.s}
-          className={"pk white" + (active?.includes("p" + k.s) ? " active" : "")}
+          className={"pk white" + (active?.includes("p" + k.s) ? " active" : "") + singCls(k.s)}
           style={{ left: `${k.whiteBefore * wW}%`, width: `${wW}%` }}
           {...evts(k)}
           aria-label={"piano key " + (labels[k.s] ? "degree " + labels[k.s] : "")}>
@@ -1093,7 +1156,7 @@ function PianoMap({ start, count, stage, world, musicKey, active, onDown, onUp }
       ))}
       {keys.filter((k) => k.black).map((k) => (
         <button key={k.s}
-          className={"pk black" + (active?.includes("p" + k.s) ? " active" : "")}
+          className={"pk black" + (active?.includes("p" + k.s) ? " active" : "") + singCls(k.s)}
           style={{ left: `${(k.whiteBefore + 1) * wW - bW / 2}%`, width: `${bW}%` }}
           {...evts(k)}
           aria-label={"piano key " + (labels[k.s] ? "degree " + labels[k.s] : "")}>
@@ -1692,6 +1755,14 @@ export default function NumberEarTrainer() {
   const [exView, setExView] = useState("map"); // map | piano
   const [droneOn, setDroneOn] = useState(false);
 
+  // Sing tuner (7-worlds tab): live mic pitch → the number you're singing.
+  const [micOn, setMicOn] = useState(false);
+  const [micErr, setMicErr] = useState(false);   // permission denied / no device
+  const [singDeg, setSingDeg] = useState(null);   // 1..7 you're currently singing, or null
+  const [singCents, setSingCents] = useState(0);  // ± cents off that degree
+  const [singInTune, setSingInTune] = useState(false);
+  const micRef = useRef(null); // { stream, source, analyser, buf, raf, last }
+
   // Free Play: Melody Paths jam
   const [fpTab, setFpTab] = useState("notes");         // notes | paths
   const [pathProg, setPathProg] = useState(["I", "V", "vi", "IV"]);
@@ -1715,6 +1786,73 @@ export default function NumberEarTrainer() {
     else stopDrone();
     return () => stopDrone();
   }, [droneOn, musicKey, exWorld, screen, startDrone, stopDrone]);
+
+  // Sing tuner: tear down the mic (stop tracks + cancel the detect loop). Safe to
+  // call anytime; mirrors the app's killSession discipline so nothing keeps the
+  // mic warm after you leave.
+  const stopMic = useCallback(() => {
+    const m = micRef.current;
+    if (m) {
+      if (m.raf) cancelAnimationFrame(m.raf);
+      try { m.source.disconnect(); } catch (_) {}
+      try { m.stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
+      micRef.current = null;
+    }
+    setMicOn(false); setSingDeg(null); setSingInTune(false); setSingCents(0);
+  }, []);
+
+  // Toggle listening. Must run on the user's tap so iOS grants mic access; the
+  // analyser hangs off Tone's own AudioContext and is never routed to the
+  // speakers, so there's no feedback loop.
+  const toggleMic = useCallback(async () => {
+    if (micRef.current) { stopMic(); return; }
+    try {
+      await Tone.start();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      });
+      const ctx = Tone.getContext().rawContext;
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048;
+      source.connect(analyser); // to the analyser only — NOT to the destination
+      micRef.current = { stream, source, analyser, buf: new Float32Array(analyser.fftSize), raf: 0, last: 0 };
+      setMicErr(false); setMicOn(true);
+    } catch (e) {
+      setMicErr(true); setMicOn(false);
+    }
+  }, [stopMic]);
+
+  // The detection loop: while listening, sample the mic ~18×/s, find the pitch,
+  // and map it to the number you're singing in the current key.
+  useEffect(() => {
+    if (!micOn) return;
+    const m = micRef.current;
+    if (!m) return;
+    const sr = Tone.getContext().rawContext.sampleRate;
+    let alive = true;
+    const tick = (t) => {
+      const mm = micRef.current;
+      if (!alive || !mm) return;
+      mm.raf = requestAnimationFrame(tick);
+      if (t - mm.last < 55) return; // throttle: ACF is O(n²), don't run every frame
+      mm.last = t;
+      mm.analyser.getFloatTimeDomainData(mm.buf);
+      const hz = detectPitch(mm.buf, sr);
+      if (hz < 0) { setSingDeg(null); setSingInTune(false); return; }
+      const { deg, cents } = pitchToDegree(hz, musicKey);
+      setSingDeg(deg); setSingCents(cents); setSingInTune(Math.abs(cents) <= 25);
+    };
+    m.last = 0;
+    m.raf = requestAnimationFrame(tick);
+    return () => { alive = false; if (m.raf) cancelAnimationFrame(m.raf); };
+  }, [micOn, musicKey]);
+
+  // Drop the mic whenever we leave Free Play or the 7-worlds tab, and on unmount.
+  useEffect(() => {
+    if (screen !== "learn" || fpTab !== "notes") stopMic();
+  }, [screen, fpTab, stopMic]);
+  useEffect(() => () => stopMic(), [stopMic]);
 
   // background music per screen (drills are silent by design; dojo hushes when you play)
   useEffect(() => {
@@ -3186,13 +3324,32 @@ export default function NumberEarTrainer() {
         <button className="ghost" onClick={() => setExView(exView === "map" ? "piano" : "map")}>
           {exView === "map" ? "Piano view" : "Map view"}
         </button>
+        <button className={"ghost voice" + (micOn ? " on" : "")}
+          onClick={toggleMic} aria-pressed={micOn}>
+          {micOn ? "🎤 Sing on" : "🎤 Sing"}
+        </button>
       </div>
+      {micErr && (
+        <p className="hint center sing-err">Mic's off — allow microphone access in your browser to sing along.</p>
+      )}
+      {micOn && (
+        <div className={"sing-readout" + (singDeg == null ? " idle" : singInTune ? " in" : " off")}>
+          {singDeg == null ? (
+            <span className="sing-listen">Listening… sing a number</span>
+          ) : (
+            <>
+              <span className="sing-num">{singDeg === 1 ? "✳ 1" : singDeg}</span>
+              <span className="sing-cents">{singCents > 0 ? "+" : ""}{singCents}¢ {singInTune ? "· in tune" : singCents > 0 ? "· a touch sharp" : "· a touch flat"}</span>
+            </>
+          )}
+        </div>
+      )}
       {exView === "map"
         ? <ExploreMap start={exStart} count={exCount} stage={exStage}
-            octaves={exOctaves} world={exWorld}
+            octaves={exOctaves} world={exWorld} singDeg={micOn ? singDeg : null} singInTune={singInTune}
             active={litActive} onDown={exploreDown} onUp={exploreUp} />
         : <PianoMap start={exStart} count={exCount} stage={exStage}
-            world={exWorld} musicKey={musicKey}
+            world={exWorld} musicKey={musicKey} singDeg={micOn ? singDeg : null} singInTune={singInTune}
             active={litActive} onDown={pianoDown} onUp={pianoUp} />}
       <p className="hint center">
         {exStage === 0
@@ -3420,6 +3577,34 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 }
 .pk.white.active { background: var(--green); }
 .pk.black.active { background: var(--green); }
+
+/* Sing tuner: a live ring on the pad matching the number you're singing —
+   green when you're in tune, orange when you're sharp/flat. Rides on top of
+   tap highlights (a pad can be both tapped and sung at once). */
+.explore-pad.singing, .pk.singing { position: relative; }
+.explore-pad.singing.in { box-shadow: 0 0 0 3px var(--green), 0 0 14px 1px var(--green); }
+.explore-pad.singing.off { box-shadow: 0 0 0 3px var(--wrong), 0 0 12px 1px var(--wrong); }
+.pk.singing.in { box-shadow: inset 0 0 0 3px var(--green); }
+.pk.singing.off { box-shadow: inset 0 0 0 3px var(--wrong); }
+@media (prefers-reduced-motion: no-preference) {
+  .explore-pad.singing.in, .pk.singing.in { animation: singPulse 0.9s ease-in-out infinite; }
+}
+@keyframes singPulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.18); } }
+
+.sing-readout {
+  display: flex; align-items: baseline; justify-content: center; gap: 10px;
+  min-height: 40px; padding: 6px 12px; border-radius: 12px;
+  background: var(--card); border: 1.5px solid var(--line);
+  transition: border-color 0.15s ease;
+}
+.sing-readout.in { border-color: var(--green); }
+.sing-readout.off { border-color: var(--wrong); }
+.sing-num { font-family: 'Archivo Black', sans-serif; font-size: 1.8rem; line-height: 1; }
+.sing-readout.in .sing-num { color: var(--green); }
+.sing-readout.off .sing-num { color: var(--wrong); }
+.sing-cents { color: var(--text-soft); font-size: 0.9rem; font-weight: 600; }
+.sing-listen { color: var(--text-soft); font-size: 0.95rem; }
+.sing-err { color: var(--wrong); }
 .pk-label {
   font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; color: #23302A;
   margin-bottom: 10px; position: relative;

@@ -46,6 +46,20 @@ no dev server, no package.json — deliberately.
 - Chord sessions display "stack notation" (degrees 7→1 vertically, chord tones
   circled), NOT the tonal map. Melody sessions use the proportional tonal map
   (degrees at true semitone positions, dots = chromatic gaps).
+- Sing tuner (Free Play → "7 worlds" tab, "🎤 Sing" toggle): live mic feedback
+  layered onto the same pads. `toggleMic` requests getUserMedia ON THE TAP (iOS
+  requires the user gesture) and hangs an AnalyserNode off Tone's own
+  `getContext().rawContext` — never routed to the destination, so no feedback
+  loop. A rAF loop (throttled to ~18/s; the ACF is O(n²), don't run it every
+  frame) calls `detectPitch` (autocorrelation + parabolic interpolation, no new
+  library — keeps the single-file rule) then `pitchToDegree`, which maps Hz →
+  nearest scale degree of the current key + cents, OCTAVE-AGNOSTIC (a low 3 and a
+  high 3 both light the 3 pad). The sung degree lights its pad(s) via `singDeg`/
+  `singInTune` props threaded through both `ExploreMap` and `PianoMap` (`.singing
+  .in` green ring ≤±25¢, `.singing.off` orange), plus a cents readout. `stopMic`
+  stops the tracks + cancels the rAF; it's called on toggle-off, on leaving
+  Free Play or the 7-worlds tab, and on unmount — same teardown discipline as
+  sessions. Denied permission sets `micErr` and shows an inline note, no crash.
 
 ## Design conventions (WeJam brand)
 
