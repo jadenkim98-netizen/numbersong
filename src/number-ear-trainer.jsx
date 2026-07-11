@@ -120,7 +120,7 @@ const OFFER_URL = "https://wejamimprovisation.com/strategy?utm_source=numbersong
 const UNLOCK_CODE = "wejam-full";   // students: ?unlock=wejam-full  OR type it in Settings
 const CONVERTKIT_FORM = "";         // ConvertKit form id — set to actually deliver leads
 const CONVERTKIT_KEY = "";          // ConvertKit PUBLIC api_key (safe to ship client-side)
-const FREE = { melodyGroups: 1, adventureRegions: 4, freePlayPaths: 1 };
+const FREE = { melodyGroups: 1, adventureRegions: 4, freePlayPaths: 1, freePlayWorlds: 2 };
 
 // Each of the four worlds (diatonic/chromatic × major/minor) follows the same
 // FET-style ramp: three intro levels in C, then octaves, then away from C, then
@@ -367,7 +367,10 @@ const KEY_MAP = {
 
 // Per-level rigor: most levels are 10 questions at 80%; capstones override these.
 const levelsFor = (m) => (m === "melody" ? MELODY_LEVELS : m === "chords" ? CHORD_LEVELS : PROG_LEVELS);
-const TEST_MODE = false; // real sessions: 20-Q (30 for final stages), full pass bars & gates
+// Auto-on ONLY when served locally (localhost) so testing = 3-Q sessions + eased
+// gates; the deployed site (github.io) always runs real 20-Q (30 for finals) sessions.
+const TEST_MODE = typeof window !== "undefined" &&
+  ["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
 const qCountOf = (lvl) => TEST_MODE ? 3 : ((lvl && lvl.qCount) || SESSION_LEN);
 const passRateOf = (lvl) => TEST_MODE ? 0.6 : ((lvl && lvl.pass) || PASS_RATE);
 const passCountFor = (lvl) => Math.ceil(passRateOf(lvl) * qCountOf(lvl));
@@ -2991,7 +2994,9 @@ export default function NumberEarTrainer() {
           {list.map((lvl, i) => {
             const best = bestOf(mode, lvl.idx);
             const passed = isPassed(mode, lvl.idx);
-            const locked = gated && !(mode === "melody" && isMelodyFree(lvl.idx));
+            // Reached via a free Adventure region? the region gate already vetted access,
+            // so never lock the rows there (region 3/4 are chord/minor stages).
+            const locked = gated && !fromAdventure && !(mode === "melody" && isMelodyFree(lvl.idx));
             return (
               <button key={lvl.idx} className={"level" + (locked ? " locked" : "")}
                 onClick={() => locked ? openUpsell() : startSession(mode, lvl.idx)}>
@@ -3546,8 +3551,12 @@ export default function NumberEarTrainer() {
           </select>
         </label>
         <label className="key-label">
-          <select value={exWorld} onChange={(e) => { const w = Number(e.target.value); setExWorld(w); setExStart(w); e.target.blur(); }}>
-            {[1, 2, 3, 4, 5, 6, 7].map((w) => <option key={w} value={w}>World {w}</option>)}
+          <select value={exWorld} onChange={(e) => {
+              const w = Number(e.target.value);
+              if (gated && w > FREE.freePlayWorlds) { openUpsell(); e.target.value = String(exWorld); e.target.blur(); return; }
+              setExWorld(w); setExStart(w); e.target.blur();
+            }}>
+            {[1, 2, 3, 4, 5, 6, 7].map((w) => <option key={w} value={w}>World {w}{gated && w > FREE.freePlayWorlds ? " 🔒" : ""}</option>)}
           </select>
         </label>
       </div>

@@ -1348,7 +1348,7 @@ window.SOUNDTRACK = SOUNDTRACK;
   const UNLOCK_CODE = "wejam-full";
   const CONVERTKIT_FORM = "";
   const CONVERTKIT_KEY = "";
-  const FREE = { melodyGroups: 1, adventureRegions: 4, freePlayPaths: 1 };
+  const FREE = { melodyGroups: 1, adventureRegions: 4, freePlayPaths: 1, freePlayWorlds: 2 };
   function buildGroup(group, mode, chromatic, intro) {
     const FULL = chromatic ? ALL12 : NAT_PCS;
     const tail = [
@@ -1588,7 +1588,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     "=": { d: 5, oct: 5 }
   };
   const levelsFor = (m) => m === "melody" ? MELODY_LEVELS : m === "chords" ? CHORD_LEVELS : PROG_LEVELS;
-  const TEST_MODE = false;
+  const TEST_MODE = typeof window !== "undefined" && ["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
   const qCountOf = (lvl) => TEST_MODE ? 3 : lvl && lvl.qCount || SESSION_LEN;
   const passRateOf = (lvl) => TEST_MODE ? 0.6 : lvl && lvl.pass || PASS_RATE;
   const passCountFor = (lvl) => Math.ceil(passRateOf(lvl) * qCountOf(lvl));
@@ -4174,7 +4174,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       )), /* @__PURE__ */ React.createElement("div", { className: "levels" }, list.map((lvl, i) => {
         const best = bestOf(mode, lvl.idx);
         const passed = isPassed(mode, lvl.idx);
-        const locked = gated && !(mode === "melody" && isMelodyFree(lvl.idx));
+        const locked = gated && !fromAdventure && !(mode === "melody" && isMelodyFree(lvl.idx));
         return /* @__PURE__ */ React.createElement(
           "button",
           {
@@ -4496,10 +4496,16 @@ window.SOUNDTRACK = SOUNDTRACK;
       e.target.blur();
     } }, [3, 4, 5, 6, 7].map((n) => /* @__PURE__ */ React.createElement("option", { key: n, value: n }, n)))), /* @__PURE__ */ React.createElement("label", { className: "key-label" }, /* @__PURE__ */ React.createElement("select", { value: exWorld, onChange: (e) => {
       const w = Number(e.target.value);
+      if (gated && w > FREE.freePlayWorlds) {
+        openUpsell();
+        e.target.value = String(exWorld);
+        e.target.blur();
+        return;
+      }
       setExWorld(w);
       setExStart(w);
       e.target.blur();
-    } }, [1, 2, 3, 4, 5, 6, 7].map((w) => /* @__PURE__ */ React.createElement("option", { key: w, value: w }, "World ", w))))), /* @__PURE__ */ React.createElement("div", { className: "explore-controls" }, /* @__PURE__ */ React.createElement(
+    } }, [1, 2, 3, 4, 5, 6, 7].map((w) => /* @__PURE__ */ React.createElement("option", { key: w, value: w }, "World ", w, gated && w > FREE.freePlayWorlds ? " 🔒" : ""))))), /* @__PURE__ */ React.createElement("div", { className: "explore-controls" }, /* @__PURE__ */ React.createElement(
       "button",
       {
         className: "ghost" + (exStage > 0 ? " voice on" : ""),
