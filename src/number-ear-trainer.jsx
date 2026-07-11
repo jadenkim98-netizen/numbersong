@@ -1653,7 +1653,7 @@ export default function NumberEarTrainer() {
     bootAdvancedRef.current = true;
     try { bootChime(); } catch (e) {}
     try { haptic(false); } catch (e) {}
-    setScreen(loadPref("onboarded", "0") === "1" ? "menu" : "adventure");
+    setScreen("adventure"); // "Start your Ear Quest" always drops into the Adventure map
   };
   const [mode, setMode] = useState("melody");     // melody | chords
   const [levelIdx, setLevelIdx] = useState(0);
@@ -1988,7 +1988,7 @@ export default function NumberEarTrainer() {
     const S = (typeof window !== "undefined") && window.SOUNDTRACK;
     if (!S) return;
     if (screen === "adventure" || screen === "levels") { playTheme("map", S.map); return; }
-    if (screen === "menu" || screen === "training" || screen === "home" || screen === "shop") { playTheme("title", S.title); return; }
+    if (screen === "boot" || screen === "menu" || screen === "training" || screen === "home" || screen === "shop") { playTheme("title", S.title); return; }
     // dojo/Free Play (explore sounds freely), How-music-works + Settings (audio demos),
     // sessions, results, boot → silent.
     stopMusic(screen === "session");
@@ -2501,12 +2501,11 @@ export default function NumberEarTrainer() {
               )}
             </div>
           </div>
-          <div className="bi-now">♪ NOW PLAYING — <b>JOY TO THE WORLD</b></div>
           <div className="bi-wave">{Array.from({ length: 24 }).map((_, i) => <i key={i} />)}</div>
         </div>
         <img className="bi-coda" src={typeof window !== "undefined" ? window.CODA_VICTORY : ""} alt="" aria-hidden="true" />
         <button className="bi-cta" onClick={bootAdvance}>START YOUR EAR QUEST</button>
-        <div className="bi-foot">EVERY NOTE HAS A NUMBER · KEY OF C</div>
+        <div className="bi-foot">EVERY NOTE IS ON THE MAP</div>
       </div>
     );
   }
