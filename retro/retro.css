@@ -740,12 +740,15 @@
   background:none; border:0; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
 .tutorial .stagepanel{ position:relative; background:rgba(56,61,59,.92); box-shadow:inset 0 0 0 2px var(--line);
   padding:12px 10px 10px; filter:drop-shadow(4px 4px 0 var(--ink)); clip-path:var(--notch);
-  flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
+  flex:0 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
 .tutorial .stage-fit{ flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; }
 .tutorial .stage-fit > *{ max-width:100%; }
+/* Compact the tutorial's tonal-map pads so map-heavy beats (esp. the half-step beat with piano/guitar diagrams) fit one screen. */
+.tutorial .ladder.explore .explore-pad{ min-height:56px; }
+.tutorial .ladder.explore.staircase .explore-pad{ min-height:40px; }
 .tutorial .stagetitle{ font-family:var(--pf); font-size:8px; letter-spacing:2px; text-transform:uppercase; color:var(--gold); text-align:center; margin-bottom:9px; }
 .tutorial .stagetitle::before{ content:"✦ " } .tutorial .stagetitle::after{ content:" ✦" }
-.tut-mid{ position:relative; flex:0 0 auto; min-height:118px; display:flex; align-items:center; justify-content:center; }
+.tut-mid{ position:relative; flex:1 1 auto; min-height:110px; display:flex; align-items:center; justify-content:center; }
 .tut-midhear{ z-index:3; } /* the "Hear it" button floats centered in the meadow */
 .tutorial .tut-explore{ margin-top:8px; text-align:center; font-family:var(--sans); font-size:.72rem; letter-spacing:.3px;
   color:var(--teal); opacity:.85; }

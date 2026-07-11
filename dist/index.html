@@ -1088,12 +1088,15 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   background:none; border:0; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
 .tutorial .stagepanel{ position:relative; background:rgba(56,61,59,.92); box-shadow:inset 0 0 0 2px var(--line);
   padding:12px 10px 10px; filter:drop-shadow(4px 4px 0 var(--ink)); clip-path:var(--notch);
-  flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
+  flex:0 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
 .tutorial .stage-fit{ flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; }
 .tutorial .stage-fit > *{ max-width:100%; }
+/* Compact the tutorial's tonal-map pads so map-heavy beats (esp. the half-step beat with piano/guitar diagrams) fit one screen. */
+.tutorial .ladder.explore .explore-pad{ min-height:56px; }
+.tutorial .ladder.explore.staircase .explore-pad{ min-height:40px; }
 .tutorial .stagetitle{ font-family:var(--pf); font-size:8px; letter-spacing:2px; text-transform:uppercase; color:var(--gold); text-align:center; margin-bottom:9px; }
 .tutorial .stagetitle::before{ content:"✦ " } .tutorial .stagetitle::after{ content:" ✦" }
-.tut-mid{ position:relative; flex:0 0 auto; min-height:118px; display:flex; align-items:center; justify-content:center; }
+.tut-mid{ position:relative; flex:1 1 auto; min-height:110px; display:flex; align-items:center; justify-content:center; }
 .tut-midhear{ z-index:3; } /* the "Hear it" button floats centered in the meadow */
 .tutorial .tut-explore{ margin-top:8px; text-align:center; font-family:var(--sans); font-size:.72rem; letter-spacing:.3px;
   color:var(--teal); opacity:.85; }
@@ -2630,10 +2633,10 @@ window.SOUNDTRACK = SOUNDTRACK;
     )), /* @__PURE__ */ React.createElement("div", { className: "solar-sun" }, "1"));
   }
   const HALFSTEP_CSS = `
-.hs-diagrams { display:flex; flex-wrap:nowrap; gap:10px; justify-content:center; align-items:flex-end; margin-top:10px; }
-.hs-fig { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1 1 0; min-width:0; max-width:186px; }
+.hs-diagrams { display:flex; flex-wrap:nowrap; gap:10px; justify-content:center; align-items:flex-end; margin-top:8px; }
+.hs-fig { display:flex; flex-direction:column; align-items:center; gap:3px; flex:1 1 0; min-width:0; max-width:150px; }
 .hs-fig svg { display:block; width:100%; height:auto; }
-.hs-cap { font-family:'Archivo Black',sans-serif; font-size:.6rem; letter-spacing:.4px; text-transform:uppercase; color:#57C6C4; text-align:center; }
+.hs-cap { font-family:'Archivo Black',sans-serif; font-size:.56rem; letter-spacing:.3px; text-transform:uppercase; color:#57C6C4; text-align:center; }
 `;
   function HalfStepDiagrams() {
     const wk = [0, 1, 2, 3, 4, 5, 6];
@@ -5085,7 +5088,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         {
           title: "Where the half steps hide",
           cue: null,
-          lines: /* @__PURE__ */ React.createElement(React.Fragment, null, "Those little dots are the pitches ", /* @__PURE__ */ React.createElement("em", null, "in between"), " — one in every whole step. Where two numbers sit side by side with ", /* @__PURE__ */ React.createElement("b", null, "no dot"), ", that's a half step. The ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "only"), " half steps here are ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "3→4"), " and ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "7→1"), ". Tap ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "3"), " then ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "4"), " and listen — hear how close they sit, almost touching. On any instrument a half step is just the ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "next-door"), " note:"),
+          lines: /* @__PURE__ */ React.createElement(React.Fragment, null, "The dots are the pitches ", /* @__PURE__ */ React.createElement("em", null, "in between"), ". Where two numbers touch with ", /* @__PURE__ */ React.createElement("b", null, "no dot"), " — ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "3→4"), " and ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "7→1"), " — that's a ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "half step"), ". Tap ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "3"), " then ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "4"), ": on any instrument, a half step is just the ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "next-door"), " note."),
           stage: tutHalfStage
         },
         {
@@ -5720,7 +5723,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 }
 
 /* per-level progress squares */
-.squares { display: flex; gap: 3px; margin-top: 7px; }
+.squares { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 7px; }
 .sq { width: 9px; height: 9px; border-radius: 2px; background: var(--line); }
 .sq.on { background: var(--green); }
 
@@ -5787,7 +5790,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
   padding: 10px 14px calc(env(safe-area-inset-bottom, 0px) + 10px);
   background: transparent; border-top: 0;
-  flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none;
+  justify-content: flex-end; align-items: flex-end; gap: 8px; pointer-events: none;
 }
 .adv-hud-bottom > * { pointer-events: auto; }
 .adv-forge-chip { display: flex; align-items: center; gap: 6px; background: rgba(20,24,22,.82); padding: 5px 12px 5px 6px; border-radius: 12px; }

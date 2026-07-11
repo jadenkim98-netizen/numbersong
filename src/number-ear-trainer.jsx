@@ -1184,10 +1184,10 @@ function SolarSystem() {
 
 /* Half-step visual aids: on a piano two adjacent keys, on a guitar two adjacent frets. */
 const HALFSTEP_CSS = `
-.hs-diagrams { display:flex; flex-wrap:nowrap; gap:10px; justify-content:center; align-items:flex-end; margin-top:10px; }
-.hs-fig { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1 1 0; min-width:0; max-width:186px; }
+.hs-diagrams { display:flex; flex-wrap:nowrap; gap:10px; justify-content:center; align-items:flex-end; margin-top:8px; }
+.hs-fig { display:flex; flex-direction:column; align-items:center; gap:3px; flex:1 1 0; min-width:0; max-width:150px; }
 .hs-fig svg { display:block; width:100%; height:auto; }
-.hs-cap { font-family:'Archivo Black',sans-serif; font-size:.6rem; letter-spacing:.4px; text-transform:uppercase; color:#57C6C4; text-align:center; }
+.hs-cap { font-family:'Archivo Black',sans-serif; font-size:.56rem; letter-spacing:.3px; text-transform:uppercase; color:#57C6C4; text-align:center; }
 `;
 function HalfStepDiagrams() {
   const wk = [0, 1, 2, 3, 4, 5, 6];              // C D E F G A B
@@ -3853,7 +3853,7 @@ export default function NumberEarTrainer() {
         lines: <>The shortest distance between two pitches is a <b className="hl-t">half step</b>; two half steps make a <b className="hl-t">whole step</b>. Arrange them in the right pattern and you get this — the <b className="hl-g">tonal map</b> (you may know it as the major scale).</>,
         stage: tutMapStair },
       { title: "Where the half steps hide", cue: null,
-        lines: <>Those little dots are the pitches <em>in between</em> — one in every whole step. Where two numbers sit side by side with <b>no dot</b>, that's a half step. The <b className="hl-t">only</b> half steps here are <b className="hl-g">3→4</b> and <b className="hl-g">7→1</b>. Tap <b className="hl-g">3</b> then <b className="hl-g">4</b> and listen — hear how close they sit, almost touching. On any instrument a half step is just the <b className="hl-t">next-door</b> note:</>,
+        lines: <>The dots are the pitches <em>in between</em>. Where two numbers touch with <b>no dot</b> — <b className="hl-g">3→4</b> and <b className="hl-g">7→1</b> — that's a <b className="hl-t">half step</b>. Tap <b className="hl-g">3</b> then <b className="hl-g">4</b>: on any instrument, a half step is just the <b className="hl-t">next-door</b> note.</>,
         stage: tutHalfStage },
       { title: "Home never moves", cue: null,
         lines: <>Here's the secret that makes it all work: every other note feels a pull toward <b className="hl-t">home</b>. Like planets around a sun, the whole system orbits <b className="hl-t">1</b> — that's <b className="hl-g">tonal gravity</b>. Names don't matter; music is <b className="hl-t">relative to home</b>, and in a <b className="hl-g">major key</b> home is always <b className="hl-t">1</b>.</>,
@@ -4615,7 +4615,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 }
 
 /* per-level progress squares */
-.squares { display: flex; gap: 3px; margin-top: 7px; }
+.squares { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 7px; }
 .sq { width: 9px; height: 9px; border-radius: 2px; background: var(--line); }
 .sq.on { background: var(--green); }
 
@@ -4682,7 +4682,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
   padding: 10px 14px calc(env(safe-area-inset-bottom, 0px) + 10px);
   background: transparent; border-top: 0;
-  flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none;
+  justify-content: flex-end; align-items: flex-end; gap: 8px; pointer-events: none;
 }
 .adv-hud-bottom > * { pointer-events: auto; }
 .adv-forge-chip { display: flex; align-items: center; gap: 6px; background: rgba(20,24,22,.82); padding: 5px 12px 5px 6px; border-radius: 12px; }
