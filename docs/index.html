@@ -1095,7 +1095,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   box-shadow:inset 0 0 0 2px var(--line); clip-path:var(--notch); filter:drop-shadow(0 3px 0 var(--ink)); }
 .tut-chrom-pad.alt{ height:28px; font-size:9px; background:#2f3432; color:var(--gold); box-shadow:inset 0 0 0 2px rgba(217,180,91,.3); }
 .tut-chrom-pad.tonic{ color:var(--teal); box-shadow:inset 0 0 0 2px var(--teal); }
-.tut-chrom-pad:active{ background:var(--green); color:var(--ink); transform:translateY(-2px); filter:drop-shadow(0 1px 0 var(--ink)); }
+.tut-chrom-pad:active,.tutorial .tut-chrom-pad.lit{ background:var(--green); color:var(--ink); transform:translateY(-2px); filter:drop-shadow(0 1px 0 var(--ink)); }
+.tutorial .tut-grad{ margin:0 auto; padding-left:24px; padding-right:24px; }
 /* Persistent half-step highlight on the map (the 3·4 and 7·1 pairs) */
 .tutorial .explore-pad.hl{ box-shadow:inset 0 0 0 2px var(--gold),0 0 12px rgba(217,180,91,.75); z-index:2; }
 .tutorial .explore-pad.hl .rung-num{ color:var(--gold); }
@@ -3182,6 +3183,15 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
       setScreen("adventure");
     };
+    const graduateTutorial = () => {
+      savePref("tut", "1");
+      setTutMode("teach");
+      try {
+        sfx("select");
+      } catch (e) {
+      }
+      setScreen("adventure");
+    };
     const startTutDrill = async (n) => {
       const pool = [0, 2, 4];
       let pc;
@@ -3238,9 +3248,8 @@ window.SOUNDTRACK = SOUNDTRACK;
             startTutDrill(tutDrillN + 1);
           } else {
             savePref("tut", "1");
-            setTutMode("teach");
             setTutDrillN(0);
-            setScreen("adventure");
+            setTutMode("done");
           }
         }, tutDrillN + 1 < TUT_DRILLS ? 2900 : 2200);
       } else {
@@ -3428,6 +3437,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     }, [screen, sfx]);
     const [litActive, setLitActive] = useState([]);
     const [playIdx, setPlayIdx] = useState(-1);
+    const [chromLit, setChromLit] = useState(-1);
     const [litCorrect, setLitCorrect] = useState([]);
     const [litWrong, setLitWrong] = useState([]);
     const [hitPad, setHitPad] = useState(null);
@@ -4793,12 +4803,14 @@ window.SOUNDTRACK = SOUNDTRACK;
         "button",
         {
           key: i,
-          className: "tut-chrom-pad" + (alt ? " alt" : "") + (tonic ? " tonic" : ""),
+          className: "tut-chrom-pad" + (alt ? " alt" : "") + (tonic ? " tonic" : "") + (chromLit === semi ? " lit" : ""),
           onClick: () => {
+            setChromLit(semi);
             try {
               playSemi("C", semi, 0.03, 4);
             } catch (e) {
             }
+            setTimeout(() => setChromLit((l) => l === semi ? -1 : l), 450);
           }
         },
         lab
@@ -4865,9 +4877,10 @@ window.SOUNDTRACK = SOUNDTRACK;
       const beat = beats[step];
       const last = step === beats.length - 1;
       const drill = tutMode === "drill";
+      const done = tutMode === "done";
       const drillTitle = tutDrillPhase === "play" ? "Listen…" : tutDrillPhase === "win" ? "You felt it!" : "Which number?";
       const drillLine = tutDrillPhase === "win" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "Yes — that's the one. You're ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "naming what you hear"), ".") : tutReveal ? /* @__PURE__ */ React.createElement(React.Fragment, null, "Not quite. Listen again and feel where it ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "lies"), " — it's the glowing number.") : tutDrillPhase === "play" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "Understanding begins with ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "listening"), ". Listen deeply — feel where the note lies.") : /* @__PURE__ */ React.createElement(React.Fragment, null, "Now ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "name it"), " — which number does it feel like?");
-      return /* @__PURE__ */ React.createElement("div", { className: "app tutorial" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "tut-scene", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("div", { className: "sun" }), /* @__PURE__ */ React.createElement("div", { className: "cloud c1" }), /* @__PURE__ */ React.createElement("div", { className: "cloud c2" }), /* @__PURE__ */ React.createElement("div", { className: "hills far" }), /* @__PURE__ */ React.createElement("div", { className: "hills" }), /* @__PURE__ */ React.createElement("div", { className: "steps1" }), /* @__PURE__ */ React.createElement("div", { className: "steps2" }), /* @__PURE__ */ React.createElement("div", { className: "ground" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t1" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t2" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t3" })), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "confetti", "aria-hidden": "true" }, CONFETTI.map((cf, i) => /* @__PURE__ */ React.createElement("i", { key: i, style: { left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" } }))), /* @__PURE__ */ React.createElement("div", { className: "tut-inner" }, /* @__PURE__ */ React.createElement("div", { className: "hud" }, /* @__PURE__ */ React.createElement("span", { className: "loc" }, /* @__PURE__ */ React.createElement("b", null, "✦"), " Staircase Meadows"), /* @__PURE__ */ React.createElement("button", { className: "skip", onClick: skipTutorial }, "Skip ▸")), /* @__PURE__ */ React.createElement("div", { className: "stagepanel" }, /* @__PURE__ */ React.createElement("div", { className: "stagetitle" }, drill ? drillTitle : beat.title), drill ? /* @__PURE__ */ React.createElement("div", { className: "numpad coach tut-drillpad" }, [1, 2, 3, 4, 5, 6, 7].map((d) => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app tutorial" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "tut-scene", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("div", { className: "sun" }), /* @__PURE__ */ React.createElement("div", { className: "cloud c1" }), /* @__PURE__ */ React.createElement("div", { className: "cloud c2" }), /* @__PURE__ */ React.createElement("div", { className: "hills far" }), /* @__PURE__ */ React.createElement("div", { className: "hills" }), /* @__PURE__ */ React.createElement("div", { className: "steps1" }), /* @__PURE__ */ React.createElement("div", { className: "steps2" }), /* @__PURE__ */ React.createElement("div", { className: "ground" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t1" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t2" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t3" })), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "confetti", "aria-hidden": "true" }, CONFETTI.map((cf, i) => /* @__PURE__ */ React.createElement("i", { key: i, style: { left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" } }))), /* @__PURE__ */ React.createElement("div", { className: "tut-inner" }, /* @__PURE__ */ React.createElement("div", { className: "hud" }, /* @__PURE__ */ React.createElement("span", { className: "loc" }, /* @__PURE__ */ React.createElement("b", null, "✦"), " Staircase Meadows"), !done && /* @__PURE__ */ React.createElement("button", { className: "skip", onClick: skipTutorial }, "Skip ▸")), /* @__PURE__ */ React.createElement("div", { className: "stagepanel" }, /* @__PURE__ */ React.createElement("div", { className: "stagetitle" }, done ? "The map is yours" : drill ? drillTitle : beat.title), done ? tutMap : drill ? /* @__PURE__ */ React.createElement("div", { className: "numpad coach tut-drillpad" }, [1, 2, 3, 4, 5, 6, 7].map((d) => {
         const pc = DEGREE_TO_PC[d];
         const out = ![0, 2, 4].includes(pc);
         return /* @__PURE__ */ React.createElement(
@@ -4881,7 +4894,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           d,
           /* @__PURE__ */ React.createElement("span", { className: "num-sol" }, SOLFEGE[d])
         );
-      })) : beat.stage, !drill && (beat.stage === tutMap || beat.stage === tutChromMap || beat.stage === tutMapHalf) && /* @__PURE__ */ React.createElement("div", { className: "tut-explore" }, "↯ Tap the map — hear any note, explore freely")), /* @__PURE__ */ React.createElement("div", { className: "tut-mid" }, /* @__PURE__ */ React.createElement("div", { className: "tut-midstack" }, drill ? /* @__PURE__ */ React.createElement("button", { className: "btn go tut-midhear", onClick: replayTutNote, disabled: tutDrillPhase === "play" || busy }, "▶ Hear it again") : beat.hear && /* @__PURE__ */ React.createElement("button", { className: "btn go tut-midhear", onClick: beat.hear.act, disabled: busy }, beat.hear.label), !drill && beat.cue && /* @__PURE__ */ React.createElement("div", { className: "tut-seq" }, /* @__PURE__ */ React.createElement("span", { className: "tut-seq-label" }, "In numbers"), /* @__PURE__ */ React.createElement("div", { className: "tut-seq-nums" }, beat.cue.split(" ").map((c, i) => /* @__PURE__ */ React.createElement("b", { key: i }, c))))), /* @__PURE__ */ React.createElement("img", { className: "verda", src: verdaSrc, alt: "Verda" }), /* @__PURE__ */ React.createElement("div", { className: "vshadow" })), /* @__PURE__ */ React.createElement("div", { className: "prog" }, drill ? [0, 1, 2].map((i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "pdot" + (i < tutDrillN ? " done" : i === tutDrillN ? " on" : "") })) : beats.map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "pdot" + (i < step ? " done" : i === step ? " on" : "") })), /* @__PURE__ */ React.createElement("span", { className: "plabel" }, drill ? `Drill ${tutDrillN + 1} of ${TUT_DRILLS}` : `Beat ${step + 1} of ${beats.length}`)), /* @__PURE__ */ React.createElement("div", { className: "dwrap" }, /* @__PURE__ */ React.createElement("span", { className: "ntab" }, "Verda, the Meadow Keeper"), /* @__PURE__ */ React.createElement("div", { className: "dbox" }, drill ? drillLine : beat.lines)), !drill && /* @__PURE__ */ React.createElement("div", { className: "btnrow" }, /* @__PURE__ */ React.createElement("button", { className: "btn ghost", disabled: step === 0, onClick: () => {
+      })) : beat.stage, (done || !drill && (beat.stage === tutMap || beat.stage === tutChromMap || beat.stage === tutMapHalf)) && /* @__PURE__ */ React.createElement("div", { className: "tut-explore" }, "↯ Tap the map — hear any note, explore freely")), /* @__PURE__ */ React.createElement("div", { className: "tut-mid" }, /* @__PURE__ */ React.createElement("div", { className: "tut-midstack" }, !done && (drill ? /* @__PURE__ */ React.createElement("button", { className: "btn go tut-midhear", onClick: replayTutNote, disabled: tutDrillPhase === "play" || busy }, "▶ Hear it again") : beat.hear && /* @__PURE__ */ React.createElement("button", { className: "btn go tut-midhear", onClick: beat.hear.act, disabled: busy }, beat.hear.label)), !drill && !done && beat.cue && /* @__PURE__ */ React.createElement("div", { className: "tut-seq" }, /* @__PURE__ */ React.createElement("span", { className: "tut-seq-label" }, "In numbers"), /* @__PURE__ */ React.createElement("div", { className: "tut-seq-nums" }, beat.cue.split(" ").map((c, i) => /* @__PURE__ */ React.createElement("b", { key: i }, c))))), /* @__PURE__ */ React.createElement("img", { className: "verda", src: verdaSrc, alt: "Verda" }), /* @__PURE__ */ React.createElement("div", { className: "vshadow" })), !done && /* @__PURE__ */ React.createElement("div", { className: "prog" }, drill ? [0, 1, 2].map((i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "pdot" + (i < tutDrillN ? " done" : i === tutDrillN ? " on" : "") })) : beats.map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "pdot" + (i < step ? " done" : i === step ? " on" : "") })), /* @__PURE__ */ React.createElement("span", { className: "plabel" }, drill ? `Drill ${tutDrillN + 1} of ${TUT_DRILLS}` : `Beat ${step + 1} of ${beats.length}`)), /* @__PURE__ */ React.createElement("div", { className: "dwrap" }, /* @__PURE__ */ React.createElement("span", { className: "ntab" }, "Verda, the Meadow Keeper"), /* @__PURE__ */ React.createElement("div", { className: "dbox" }, done ? /* @__PURE__ */ React.createElement(React.Fragment, null, "You did it — you just named notes by ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "ear"), ", the very skill most players are missing. The meadow is yours now: wander it, tap anything, and remember — everything is relative to ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "1"), ".") : drill ? drillLine : beat.lines)), done ? /* @__PURE__ */ React.createElement("div", { className: "btnrow" }, /* @__PURE__ */ React.createElement("button", { className: "btn next tut-grad", onClick: graduateTutorial }, "Begin the journey ▸")) : !drill && /* @__PURE__ */ React.createElement("div", { className: "btnrow" }, /* @__PURE__ */ React.createElement("button", { className: "btn ghost", disabled: step === 0, onClick: () => {
         sfx("back");
         setTutStep((s) => Math.max(0, s - 1));
       } }, "◂ Back"), last ? /* @__PURE__ */ React.createElement("button", { className: "btn next", onClick: enterTutDrills }, "Begin →") : /* @__PURE__ */ React.createElement("button", { className: "btn next", onClick: () => {

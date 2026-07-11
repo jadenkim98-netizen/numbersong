@@ -1730,6 +1730,7 @@ export default function NumberEarTrainer() {
   // Region-1 First Steps session (the "actual" ear training; no more coaching).
   const TUT_DRILLS = 3;
   const skipTutorial = () => { savePref("tut", "1"); if (tutTimerRef.current) clearTimeout(tutTimerRef.current); try { sfx("select"); } catch (e) {} setScreen("adventure"); };
+  const graduateTutorial = () => { savePref("tut", "1"); setTutMode("teach"); try { sfx("select"); } catch (e) {} setScreen("adventure"); };
   const startTutDrill = async (n) => {
     const pool = [0, 2, 4]; // degrees 1·2·3 (First Steps range)
     let pc; do { pc = pool[Math.floor(Math.random() * pool.length)]; } while (pc === tutDrillTarget && pool.length > 1);
@@ -1755,9 +1756,8 @@ export default function NumberEarTrainer() {
         setTutCelebrate(false);
         if (tutDrillN + 1 < TUT_DRILLS) { setTutDrillN((k) => k + 1); startTutDrill(tutDrillN + 1); }
         else {
-          // done — Verda sends them out onto the Harmonia map to choose their path
-          savePref("tut", "1"); setTutMode("teach"); setTutDrillN(0);
-          setScreen("adventure");
+          // done — a short graduation beat (meadow music returns) before the map
+          savePref("tut", "1"); setTutDrillN(0); setTutMode("done");
         }
       }, tutDrillN + 1 < TUT_DRILLS ? 2900 : 2200);
     } else {
@@ -1914,6 +1914,7 @@ export default function NumberEarTrainer() {
   // ladder highlights
   const [litActive, setLitActive] = useState([]);
   const [playIdx, setPlayIdx] = useState(-1); // which note index of a tutorial phrase is sounding (for MaryNotation)
+  const [chromLit, setChromLit] = useState(-1); // which chromatic-map pad is flashing (tutorial 12-pitches beat)
   const [litCorrect, setLitCorrect] = useState([]);
   const [litWrong, setLitWrong] = useState([]);
   const [hitPad, setHitPad] = useState(null); // pc of a just-answered-correct pad, for the reward pop
@@ -3579,8 +3580,8 @@ export default function NumberEarTrainer() {
     const tutChromMap = (
       <div className="tut-chrom">
         {CHROM.map(([lab, semi, alt, tonic], i) => (
-          <button key={i} className={"tut-chrom-pad" + (alt ? " alt" : "") + (tonic ? " tonic" : "")}
-            onClick={() => { try { playSemi("C", semi, 0.03, 4); } catch (e) {} }}>{lab}</button>
+          <button key={i} className={"tut-chrom-pad" + (alt ? " alt" : "") + (tonic ? " tonic" : "") + (chromLit === semi ? " lit" : "")}
+            onClick={() => { setChromLit(semi); try { playSemi("C", semi, 0.03, 4); } catch (e) {} setTimeout(() => setChromLit((l) => (l === semi ? -1 : l)), 450); }}>{lab}</button>
         ))}
       </div>
     );
@@ -3617,6 +3618,7 @@ export default function NumberEarTrainer() {
     const beat = beats[step];
     const last = step === beats.length - 1;
     const drill = tutMode === "drill";
+    const done = tutMode === "done"; // graduation send-off after the 3 drills
     const drillTitle = tutDrillPhase === "play" ? "Listen…" : tutDrillPhase === "win" ? "You felt it!" : "Which number?";
     const drillLine = tutDrillPhase === "win"
       ? <>Yes — that's the one. You're <b className="hl-g">naming what you hear</b>.</>
@@ -3639,11 +3641,11 @@ export default function NumberEarTrainer() {
         <div className="tut-inner">
           <div className="hud">
             <span className="loc"><b>✦</b> Staircase Meadows</span>
-            <button className="skip" onClick={skipTutorial}>Skip ▸</button>
+            {!done && <button className="skip" onClick={skipTutorial}>Skip ▸</button>}
           </div>
           <div className="stagepanel">
-            <div className="stagetitle">{drill ? drillTitle : beat.title}</div>
-            {drill ? (
+            <div className="stagetitle">{done ? "The map is yours" : drill ? drillTitle : beat.title}</div>
+            {done ? tutMap : drill ? (
               <div className="numpad coach tut-drillpad">
                 {[1, 2, 3, 4, 5, 6, 7].map((d) => {
                   const pc = DEGREE_TO_PC[d];
@@ -3659,14 +3661,14 @@ export default function NumberEarTrainer() {
                 })}
               </div>
             ) : beat.stage}
-            {!drill && (beat.stage === tutMap || beat.stage === tutChromMap || beat.stage === tutMapHalf) && <div className="tut-explore">↯ Tap the map — hear any note, explore freely</div>}
+            {(done || (!drill && (beat.stage === tutMap || beat.stage === tutChromMap || beat.stage === tutMapHalf))) && <div className="tut-explore">↯ Tap the map — hear any note, explore freely</div>}
           </div>
           <div className="tut-mid">
             <div className="tut-midstack">
-              {drill
+              {!done && (drill
                 ? <button className="btn go tut-midhear" onClick={replayTutNote} disabled={tutDrillPhase === "play" || busy}>▶ Hear it again</button>
-                : (beat.hear && <button className="btn go tut-midhear" onClick={beat.hear.act} disabled={busy}>{beat.hear.label}</button>)}
-              {!drill && beat.cue && (
+                : (beat.hear && <button className="btn go tut-midhear" onClick={beat.hear.act} disabled={busy}>{beat.hear.label}</button>))}
+              {!drill && !done && beat.cue && (
                 <div className="tut-seq">
                   <span className="tut-seq-label">In numbers</span>
                   <div className="tut-seq-nums">{beat.cue.split(" ").map((c, i) => <b key={i}>{c}</b>)}</div>
@@ -3676,17 +3678,25 @@ export default function NumberEarTrainer() {
             <img className="verda" src={verdaSrc} alt="Verda" />
             <div className="vshadow" />
           </div>
-          <div className="prog">
-            {drill
-              ? [0, 1, 2].map((i) => <span key={i} className={"pdot" + (i < tutDrillN ? " done" : i === tutDrillN ? " on" : "")} />)
-              : beats.map((_, i) => <span key={i} className={"pdot" + (i < step ? " done" : i === step ? " on" : "")} />)}
-            <span className="plabel">{drill ? `Drill ${tutDrillN + 1} of ${TUT_DRILLS}` : `Beat ${step + 1} of ${beats.length}`}</span>
-          </div>
+          {!done && (
+            <div className="prog">
+              {drill
+                ? [0, 1, 2].map((i) => <span key={i} className={"pdot" + (i < tutDrillN ? " done" : i === tutDrillN ? " on" : "")} />)
+                : beats.map((_, i) => <span key={i} className={"pdot" + (i < step ? " done" : i === step ? " on" : "")} />)}
+              <span className="plabel">{drill ? `Drill ${tutDrillN + 1} of ${TUT_DRILLS}` : `Beat ${step + 1} of ${beats.length}`}</span>
+            </div>
+          )}
           <div className="dwrap">
             <span className="ntab">Verda, the Meadow Keeper</span>
-            <div className="dbox">{drill ? drillLine : beat.lines}</div>
+            <div className="dbox">{done
+              ? <>You did it — you just named notes by <b className="hl-g">ear</b>, the very skill most players are missing. The meadow is yours now: wander it, tap anything, and remember — everything is relative to <b className="hl-t">1</b>.</>
+              : drill ? drillLine : beat.lines}</div>
           </div>
-          {!drill && (
+          {done ? (
+            <div className="btnrow">
+              <button className="btn next tut-grad" onClick={graduateTutorial}>Begin the journey ▸</button>
+            </div>
+          ) : !drill && (
             <div className="btnrow">
               <button className="btn ghost" disabled={step === 0} onClick={() => { sfx("back"); setTutStep((s) => Math.max(0, s - 1)); }}>◂ Back</button>
               {last

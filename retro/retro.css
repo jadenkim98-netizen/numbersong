@@ -747,7 +747,8 @@
   box-shadow:inset 0 0 0 2px var(--line); clip-path:var(--notch); filter:drop-shadow(0 3px 0 var(--ink)); }
 .tut-chrom-pad.alt{ height:28px; font-size:9px; background:#2f3432; color:var(--gold); box-shadow:inset 0 0 0 2px rgba(217,180,91,.3); }
 .tut-chrom-pad.tonic{ color:var(--teal); box-shadow:inset 0 0 0 2px var(--teal); }
-.tut-chrom-pad:active{ background:var(--green); color:var(--ink); transform:translateY(-2px); filter:drop-shadow(0 1px 0 var(--ink)); }
+.tut-chrom-pad:active,.tutorial .tut-chrom-pad.lit{ background:var(--green); color:var(--ink); transform:translateY(-2px); filter:drop-shadow(0 1px 0 var(--ink)); }
+.tutorial .tut-grad{ margin:0 auto; padding-left:24px; padding-right:24px; }
 /* Persistent half-step highlight on the map (the 3·4 and 7·1 pairs) */
 .tutorial .explore-pad.hl{ box-shadow:inset 0 0 0 2px var(--gold),0 0 12px rgba(217,180,91,.75); z-index:2; }
 .tutorial .explore-pad.hl .rung-num{ color:var(--gold); }
