@@ -411,8 +411,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 }
 .retro .kicker{ color:var(--text); opacity:.5; font-size:9px; }
 .retro .back{
-  display:inline-flex; align-items:center; gap:6px; cursor:pointer;
-  background:var(--card); color:var(--text); font-size:10px; padding:8px 11px;
+  display:inline-flex; align-items:center; gap:6px; cursor:pointer; min-height:44px;
+  background:var(--card); color:var(--text); font-size:10px; padding:8px 13px;
   border:0; clip-path:var(--notch);
   box-shadow:inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh);
 }
@@ -458,7 +458,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 .retro .primary{ background:var(--green); color:#20301d; text-shadow:1px 1px 0 rgba(255,255,255,.25); }
 .retro .ghost{ background:transparent; color:var(--teal);
   box-shadow:inset 0 0 0 2px var(--teal),inset 2px 2px 0 rgba(87,198,196,.25); }
-.retro .tab{ background:var(--card); color:var(--text); font-size:10px; padding:10px 12px; }
+.retro .tab{ background:var(--card); color:var(--text); font-size:10px; padding:10px 12px; min-height:44px; }
 .retro .tab.on{ background:var(--teal); color:var(--ink); }
 .retro .seg{ background:var(--card); color:var(--text); font-size:10px; padding:9px 10px; }
 .retro .seg.on{ background:var(--blue); color:var(--ink); }
@@ -721,8 +721,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 /* ---- encounter as a MAP MODAL (tap a region → pops over the map) --------- */
 .retro .encounter-modal{
   position:fixed; inset:0; z-index:50; display:flex; align-items:center;
-  justify-content:center; padding:20px; background:rgba(0,0,0,.6);
-  animation:rt-fadein .2s ease-out;
+  justify-content:center; padding:max(20px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom));
+  background:rgba(0,0,0,.6); animation:rt-fadein .2s ease-out;
 }
 @keyframes rt-fadein{ from{ opacity:0; } }
 .retro .encounter-modal .encounter{ width:100%; max-width:440px; max-height:calc(100% - 24px); overflow-y:auto; margin:0; }
@@ -754,8 +754,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 .retro .adv-sword-mini{ cursor:pointer; }
 .retro .forge-modal{
   position:fixed; inset:0; z-index:50; display:flex; align-items:center;
-  justify-content:center; padding:20px; background:rgba(0,0,0,.72);
-  animation:rt-fadein .2s ease-out;
+  justify-content:center; padding:max(20px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom));
+  background:rgba(0,0,0,.72); animation:rt-fadein .2s ease-out;
 }
 .retro .forge-panel{
   width:100%; max-width:400px; max-height:calc(100% - 24px); overflow-y:auto;
@@ -939,9 +939,9 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 /* Base fallbacks (apply in BOTH skins — retro.css is always in <head>) so a gated
    boring-mode player still gets a usable modal even without the .retro forge styles. */
 .upsell-modal{ position:fixed; inset:0; z-index:50; display:flex; align-items:center;
-  justify-content:center; padding:20px; background:rgba(0,0,0,.62); }
+  justify-content:center; padding:max(20px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom)); background:rgba(0,0,0,.62); }
 .upsell-panel{ width:100%; max-width:400px; background:var(--card,#424845); border-radius:14px;
-  padding:22px 20px; text-align:center; }
+  padding:22px 20px; text-align:center; max-height:calc(100% - 24px); overflow-y:auto; }
 .upsell-copy{ font-size:.95rem; line-height:1.5; margin:10px 0 18px; }
 .upsell-panel .enc-actions{ display:flex; gap:10px; justify-content:center; }
 /* locked rows are tappable (they open the upsell), so pointer — not not-allowed */
@@ -2347,7 +2347,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         padRef.current = synthRef.current;
       }
     }, []);
-    return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
+    return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm: ensure };
   }
   function useMusic() {
     const busRef = useRef(null);
@@ -3270,7 +3270,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" + (restored ? " restored" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, "Numbersong", restored && /* @__PURE__ */ React.createElement("em", { className: "adv-restored-tag" }, " · restored")), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear gear-settings", onClick: onSettings, "aria-label": "Settings" }, "⚙")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), celebrateNode && H.nodes[celebrateNode - 1] && /* @__PURE__ */ React.createElement("div", { className: "map-cleared", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "map-cleared-star" }, "★"), /* @__PURE__ */ React.createElement("span", { className: "map-cleared-text" }, H.nodes[celebrateNode - 1].name, /* @__PURE__ */ React.createElement("em", null, "region cleared"))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("div", { className: "adv-forge-chip" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost shop-btn", onClick: onShop, "aria-label": "Shop" }, "★"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"))));
   }
   function NumberEarTrainer() {
-    const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
+    const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm } = useAudio();
     const { playTheme, stopMusic, setMusicOn } = useMusic();
     const [musicPref, setMusicPref] = useState(() => loadPref("music", "1") === "1");
     const [boringMode, setBoringMode] = useState(() => loadPref("boring", "0") === "1");
@@ -3320,27 +3320,30 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
       setLeadStatus("sending");
       const first_name = leadName.trim();
+      const saveLocal = () => {
+        try {
+          window.localStorage.setItem("numbersong-lead", JSON.stringify({ email, first_name }));
+        } catch (e) {
+        }
+      };
+      let delivered = false;
       try {
         if (CONVERTKIT_FORM && CONVERTKIT_KEY) {
-          await fetch("https://api.convertkit.com/v3/forms/" + CONVERTKIT_FORM + "/subscribe", {
+          const res = await fetch("https://api.convertkit.com/v3/forms/" + CONVERTKIT_FORM + "/subscribe", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ api_key: CONVERTKIT_KEY, email, first_name })
           });
+          delivered = res.ok;
+          if (!delivered) saveLocal();
         } else {
-          try {
-            window.localStorage.setItem("numbersong-lead", JSON.stringify({ email, first_name }));
-          } catch (e) {
-          }
+          saveLocal();
         }
       } catch (e) {
-        try {
-          window.localStorage.setItem("numbersong-lead", JSON.stringify({ email, first_name }));
-        } catch (e2) {
-        }
+        saveLocal();
       }
       enableSaves();
-      setLeadStatus("done");
+      setLeadStatus(delivered ? "done" : "saved");
     };
     const openUpsell = () => {
       try {
@@ -3648,6 +3651,18 @@ window.SOUNDTRACK = SOUNDTRACK;
         window.removeEventListener("pointerdown", bootAdvance);
       };
     }, [screen, sfx]);
+    const warmedRef = useRef(false);
+    useEffect(() => {
+      if (warmedRef.current || screen === "boot") return;
+      warmedRef.current = true;
+      const t = setTimeout(() => {
+        try {
+          warm && warm();
+        } catch (e) {
+        }
+      }, 400);
+      return () => clearTimeout(t);
+    }, [screen, warm]);
     const [litActive, setLitActive] = useState([]);
     const [playIdx, setPlayIdx] = useState(-1);
     const [chromLit, setChromLit] = useState(-1);
@@ -4822,7 +4837,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           "aria-pressed": showRef
         },
         "Chord chart"
-      ), /* @__PURE__ */ React.createElement("p", { className: "hint grow" + (tutCoach ? " tut-coach-line" : "") }, phase === "playing" ? tutCoach ? "Verda plays a number… listen." : "Listen…" : feedback && feedback.roman ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.sym), " ", /* @__PURE__ */ React.createElement("em", { className: "numlabel" }, feedback.num), " · ", feedback.quality, ". ", CHORD_INSIGHTS[feedback.roman]) : feedback && feedback.prog ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.prog.join("–")), " — nailed the changes.") : feedback ? feedback : mode === "melody" ? tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?" : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.` : "Tap the chords you heard, in order.")), mode === "melody" ? lvl.chromatic ? /* @__PURE__ */ React.createElement("div", { className: "numpad chromatic" }, chromOrder.map((pc) => {
+      ), /* @__PURE__ */ React.createElement("p", { className: "hint grow" + (tutCoach ? " tut-coach-line" : ""), role: "status", "aria-live": "polite" }, phase === "playing" ? tutCoach ? "Verda plays a number… listen." : "Listen…" : feedback && feedback.roman ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.sym), " ", /* @__PURE__ */ React.createElement("em", { className: "numlabel" }, feedback.num), " · ", feedback.quality, ". ", CHORD_INSIGHTS[feedback.roman]) : feedback && feedback.prog ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.prog.join("–")), " — nailed the changes.") : feedback ? feedback : mode === "melody" ? tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?" : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.` : "Tap the chords you heard, in order.")), mode === "melody" ? lvl.chromatic ? /* @__PURE__ */ React.createElement("div", { className: "numpad chromatic" }, chromOrder.map((pc) => {
         const out = !pool.includes(pc);
         return /* @__PURE__ */ React.createElement(
           "button",
@@ -4962,13 +4977,19 @@ window.SOUNDTRACK = SOUNDTRACK;
         } else {
           setScreen("levels");
         }
-      } }, fromAdventure ? "← To the map" : "← Levels"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, resultName)), /* @__PURE__ */ React.createElement("div", { className: "results" }, justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "victory" }, /* @__PURE__ */ React.createElement("div", { className: "victory-rays", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", { className: "victory-glow", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Fragment forged ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, advNode.winTitle), /* @__PURE__ */ React.createElement("div", { className: "victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" }), /* @__PURE__ */ React.createElement("div", { className: "forge-sparks", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null))), /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), fragName, " — forged into Excalibar"), /* @__PURE__ */ React.createElement("span", { className: "victory-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("span", { className: "forge-count" }, advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments")), !onboarded && /* @__PURE__ */ React.createElement("div", { className: "lead-card" }, leadStatus === "done" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✓ You're in"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Awesome — check your inbox for the free ear-training resource. Your progress is saved."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: openOffer }, "See the roadmap →"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Keep playing"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker alert" }, "⚠ Save your progress ⚠"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Don't let your hard work go to waste! Drop your email so you can save your progress and also get access to a free resource to train your ear on guitar."), /* @__PURE__ */ React.createElement("input", { className: "set-input lead-input", placeholder: "first name", value: leadName, onChange: (e) => setLeadName(e.target.value) }), /* @__PURE__ */ React.createElement(
+      } }, fromAdventure ? "← To the map" : "← Levels"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, resultName)), /* @__PURE__ */ React.createElement("div", { className: "results" }, justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "victory" }, /* @__PURE__ */ React.createElement("div", { className: "victory-rays", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", { className: "victory-glow", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Fragment forged ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, advNode.winTitle), /* @__PURE__ */ React.createElement("div", { className: "victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" }), /* @__PURE__ */ React.createElement("div", { className: "forge-sparks", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null))), /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), fragName, " — forged into Excalibar"), /* @__PURE__ */ React.createElement("span", { className: "victory-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("span", { className: "forge-count" }, advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments")), !onboarded && /* @__PURE__ */ React.createElement("div", { className: "lead-card" }, leadStatus === "done" || leadStatus === "saved" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✓ You're in"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, leadStatus === "done" ? "Awesome — check your inbox for the free ear-training resource. Your progress is saved." : "Your progress is saved on this device. (We couldn't reach the email service just now — no worries, keep playing.)"), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: openOffer }, "See the roadmap →"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Keep playing"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker alert" }, "⚠ Save your progress ⚠"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Don't let your hard work go to waste! Drop your email so you can save your progress and get a free resource to train your ear even faster."), /* @__PURE__ */ React.createElement("input", { className: "set-input lead-input", placeholder: "first name", value: leadName, autoComplete: "given-name", onChange: (e) => setLeadName(e.target.value) }), /* @__PURE__ */ React.createElement(
         "input",
         {
           className: "set-input lead-input",
           type: "email",
+          name: "email",
           placeholder: "you@email.com",
           value: leadEmail,
+          inputMode: "email",
+          autoComplete: "email",
+          autoCapitalize: "off",
+          autoCorrect: "off",
+          spellCheck: false,
           onChange: (e) => {
             setLeadEmail(e.target.value);
             if (leadStatus === "error") setLeadStatus("idle");
@@ -5339,7 +5360,7 @@ window.SOUNDTRACK = SOUNDTRACK;
 html, body { background: var(--bg); }
 * { box-sizing: border-box; }
 .app {
-  min-height: 100vh; background: var(--bg); color: var(--text);
+  min-height: 100vh; min-height: 100dvh; background: var(--bg); color: var(--text);
   font-family: 'Archivo', system-ui, sans-serif;
   max-width: 560px; margin: 0 auto;
   /* pad for the iOS status bar / notch when launched from the home screen */
@@ -5369,7 +5390,7 @@ button { touch-action: manipulation; }
 .session-score { color: var(--green); font-weight: 700; font-size: 0.95rem; }
 .back {
   background: transparent; border: 1.5px solid var(--line); color: var(--text-soft);
-  border-radius: 10px; padding: 7px 12px; font-size: 0.85rem;
+  border-radius: 10px; padding: 7px 14px; font-size: 0.85rem; min-height: 44px;
 }
 .brand h1 {
   font-family: 'Archivo Black', 'Archivo', sans-serif; font-weight: 400;
@@ -5518,7 +5539,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   border: 1.5px solid var(--line); background: var(--bg);
   min-height: 74px; justify-content: center; cursor: pointer;
 }
-.explore-pad .rung-num { font-size: 1.5rem; }
+.explore-pad .rung-num { font-size: clamp(1.15rem, 5.5vw, 1.5rem); }
 .explore-pad.tonic { border-color: var(--teal); }
 .explore-pad.blank .rung-num { visibility: hidden; }
 .explore-pad.chordal { border-color: var(--blue); }
@@ -5703,7 +5724,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .tabs { display: flex; gap: 6px; background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 4px; }
 .tab {
   flex: 1; background: transparent; border: none; color: var(--text-soft);
-  border-radius: 9px; padding: 9px; font-size: 0.9rem; font-weight: 600;
+  border-radius: 9px; padding: 9px; font-size: 0.9rem; font-weight: 600; min-height: 44px;
 }
 .tab.on { background: var(--bg); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--line); }
 
@@ -5772,7 +5793,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .adv-forge-txt { display: flex; flex-direction: column; gap: 1px; font-size: 0.74rem; color: var(--text-soft); line-height: 1.2; }
 .adv-forge-txt b { font-family: 'Archivo Black', sans-serif; font-size: 0.9rem; color: var(--teal); }
 .adv-hud-actions { display: flex; gap: 8px; }
-.adv-hud-actions .ghost { padding: 8px 11px; font-size: 1.1rem; background: rgba(20,24,22,.82); }
+.adv-hud-actions .ghost { padding: 8px 11px; font-size: 1.1rem; background: rgba(20,24,22,.82); min-width: 44px; min-height: 44px; }
 .settings { display: flex; flex-direction: column; gap: 20px; }
 .set-block {
   display: flex; flex-direction: column; gap: 10px;

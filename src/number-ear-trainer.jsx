@@ -940,7 +940,7 @@ function useAudio() {
     }
   }, []);
 
-  return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
+  return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm: ensure };
 }
 
 // Background music engine (Fable's soundtrack). Owns Tone.Transport; routes
@@ -1862,7 +1862,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
 /* ─────────────────────────────  APP  ───────────────────────────── */
 
 export default function NumberEarTrainer() {
-  const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
+  const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm } = useAudio();
   const { playTheme, stopMusic, setMusicOn } = useMusic();
   const [musicPref, setMusicPref] = useState(() => loadPref("music", "1") === "1");
 
@@ -1904,23 +1904,25 @@ export default function NumberEarTrainer() {
     if (!/.+@.+\..+/.test(email)) { setLeadStatus("error"); return; }
     setLeadStatus("sending");
     const first_name = leadName.trim();
+    const saveLocal = () => { try { window.localStorage.setItem("numbersong-lead", JSON.stringify({ email, first_name })); } catch (e) {} };
+    let delivered = false; // only true when the subscribe actually succeeds — otherwise don't promise an email
     try {
       if (CONVERTKIT_FORM && CONVERTKIT_KEY) {
-        await fetch("https://api.convertkit.com/v3/forms/" + CONVERTKIT_FORM + "/subscribe", {
+        const res = await fetch("https://api.convertkit.com/v3/forms/" + CONVERTKIT_FORM + "/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ api_key: CONVERTKIT_KEY, email, first_name }),
         });
+        delivered = res.ok;
+        if (!delivered) saveLocal(); // 4xx (already subscribed / bad address) — keep it, don't claim inbox
       } else {
-        // No provider wired yet — stash locally so the submit still "works" in-session.
-        try { window.localStorage.setItem("numbersong-lead", JSON.stringify({ email, first_name })); } catch (e) {}
+        saveLocal(); // no provider wired — stash locally, no email will arrive
       }
     } catch (e) {
-      // Offline / network error: keep the lead locally rather than losing it or crashing.
-      try { window.localStorage.setItem("numbersong-lead", JSON.stringify({ email, first_name })); } catch (e2) {}
+      saveLocal(); // offline / network error: keep the lead rather than losing it
     }
     enableSaves(); // giving your email is what actually saves your progress
-    setLeadStatus("done");
+    setLeadStatus(delivered ? "done" : "saved"); // "saved" = progress kept, but no email promise
   };
   const openUpsell = () => { try { sfx("wrong"); } catch (e) {} setUpsellOpen(true); };
   const openOffer = () => { try { window.open(OFFER_URL, "_blank", "noopener"); } catch (e) {} };
@@ -2127,6 +2129,15 @@ export default function NumberEarTrainer() {
     window.addEventListener("pointerdown", bootAdvance, { once: true });
     return () => { window.removeEventListener("keydown", bootAdvance); window.removeEventListener("pointerdown", bootAdvance); };
   }, [screen, sfx]);
+  // Warm the piano sampler in the background once the player is past boot (audio is unlocked),
+  // so the FIRST drill doesn't stall while 13 samples download. Runs at most once.
+  const warmedRef = useRef(false);
+  useEffect(() => {
+    if (warmedRef.current || screen === "boot") return;
+    warmedRef.current = true;
+    const t = setTimeout(() => { try { warm && warm(); } catch (e) {} }, 400);
+    return () => clearTimeout(t);
+  }, [screen, warm]);
 
   // ladder highlights
   const [litActive, setLitActive] = useState([]);
@@ -3483,7 +3494,7 @@ export default function NumberEarTrainer() {
                 Chord chart
               </button>
             )}
-            <p className={"hint grow" + (tutCoach ? " tut-coach-line" : "")}>
+            <p className={"hint grow" + (tutCoach ? " tut-coach-line" : "")} role="status" aria-live="polite">
               {phase === "playing" ? (tutCoach ? "Verda plays a number… listen." : "Listen…")
                 : feedback && feedback.roman
                   ? <span><strong>{feedback.sym}</strong> <em className="numlabel">{feedback.num}</em> · {feedback.quality}. {CHORD_INSIGHTS[feedback.roman]}</span>
@@ -3682,10 +3693,12 @@ export default function NumberEarTrainer() {
           )}
           {!onboarded && (
             <div className="lead-card">
-              {leadStatus === "done" ? (
+              {(leadStatus === "done" || leadStatus === "saved") ? (
                 <>
                   <span className="lead-kicker">✓ You're in</span>
-                  <p className="lead-copy">Awesome — check your inbox for the free ear-training resource. Your progress is saved.</p>
+                  <p className="lead-copy">{leadStatus === "done"
+                    ? "Awesome — check your inbox for the free ear-training resource. Your progress is saved."
+                    : "Your progress is saved on this device. (We couldn't reach the email service just now — no worries, keep playing.)"}</p>
                   <div className="lead-actions">
                     <button className="primary" onClick={openOffer}>See the roadmap →</button>
                     <button className="ghost" onClick={finishOnboarding}>Keep playing</button>
@@ -3694,9 +3707,10 @@ export default function NumberEarTrainer() {
               ) : (
                 <>
                   <span className="lead-kicker alert">⚠ Save your progress ⚠</span>
-                  <p className="lead-copy">Don't let your hard work go to waste! Drop your email so you can save your progress and also get access to a free resource to train your ear on guitar.</p>
-                  <input className="set-input lead-input" placeholder="first name" value={leadName} onChange={(e) => setLeadName(e.target.value)} />
-                  <input className="set-input lead-input" type="email" placeholder="you@email.com" value={leadEmail}
+                  <p className="lead-copy">Don't let your hard work go to waste! Drop your email so you can save your progress and get a free resource to train your ear even faster.</p>
+                  <input className="set-input lead-input" placeholder="first name" value={leadName} autoComplete="given-name" onChange={(e) => setLeadName(e.target.value)} />
+                  <input className="set-input lead-input" type="email" name="email" placeholder="you@email.com" value={leadEmail}
+                    inputMode="email" autoComplete="email" autoCapitalize="off" autoCorrect="off" spellCheck={false}
                     onChange={(e) => { setLeadEmail(e.target.value); if (leadStatus === "error") setLeadStatus("idle"); }}
                     onKeyDown={(e) => { if (e.key === "Enter") submitLead(); }} />
                   {leadStatus === "error" && <span className="lead-err">Enter a valid email, or skip.</span>}
@@ -4245,7 +4259,7 @@ const CSS = `
 html, body { background: var(--bg); }
 * { box-sizing: border-box; }
 .app {
-  min-height: 100vh; background: var(--bg); color: var(--text);
+  min-height: 100vh; min-height: 100dvh; background: var(--bg); color: var(--text);
   font-family: 'Archivo', system-ui, sans-serif;
   max-width: 560px; margin: 0 auto;
   /* pad for the iOS status bar / notch when launched from the home screen */
@@ -4275,7 +4289,7 @@ button { touch-action: manipulation; }
 .session-score { color: var(--green); font-weight: 700; font-size: 0.95rem; }
 .back {
   background: transparent; border: 1.5px solid var(--line); color: var(--text-soft);
-  border-radius: 10px; padding: 7px 12px; font-size: 0.85rem;
+  border-radius: 10px; padding: 7px 14px; font-size: 0.85rem; min-height: 44px;
 }
 .brand h1 {
   font-family: 'Archivo Black', 'Archivo', sans-serif; font-weight: 400;
@@ -4424,7 +4438,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   border: 1.5px solid var(--line); background: var(--bg);
   min-height: 74px; justify-content: center; cursor: pointer;
 }
-.explore-pad .rung-num { font-size: 1.5rem; }
+.explore-pad .rung-num { font-size: clamp(1.15rem, 5.5vw, 1.5rem); }
 .explore-pad.tonic { border-color: var(--teal); }
 .explore-pad.blank .rung-num { visibility: hidden; }
 .explore-pad.chordal { border-color: var(--blue); }
@@ -4609,7 +4623,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .tabs { display: flex; gap: 6px; background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 4px; }
 .tab {
   flex: 1; background: transparent; border: none; color: var(--text-soft);
-  border-radius: 9px; padding: 9px; font-size: 0.9rem; font-weight: 600;
+  border-radius: 9px; padding: 9px; font-size: 0.9rem; font-weight: 600; min-height: 44px;
 }
 .tab.on { background: var(--bg); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--line); }
 
@@ -4678,7 +4692,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .adv-forge-txt { display: flex; flex-direction: column; gap: 1px; font-size: 0.74rem; color: var(--text-soft); line-height: 1.2; }
 .adv-forge-txt b { font-family: 'Archivo Black', sans-serif; font-size: 0.9rem; color: var(--teal); }
 .adv-hud-actions { display: flex; gap: 8px; }
-.adv-hud-actions .ghost { padding: 8px 11px; font-size: 1.1rem; background: rgba(20,24,22,.82); }
+.adv-hud-actions .ghost { padding: 8px 11px; font-size: 1.1rem; background: rgba(20,24,22,.82); min-width: 44px; min-height: 44px; }
 .settings { display: flex; flex-direction: column; gap: 20px; }
 .set-block {
   display: flex; flex-direction: column; gap: 10px;
