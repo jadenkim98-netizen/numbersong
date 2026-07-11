@@ -367,10 +367,22 @@ const KEY_MAP = {
 
 // Per-level rigor: most levels are 10 questions at 80%; capstones override these.
 const levelsFor = (m) => (m === "melody" ? MELODY_LEVELS : m === "chords" ? CHORD_LEVELS : PROG_LEVELS);
-// Auto-on ONLY when served locally (localhost) so testing = 3-Q sessions + eased
-// gates; the deployed site (github.io) always runs real 20-Q (30 for finals) sessions.
-const TEST_MODE = typeof window !== "undefined" &&
-  ["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
+// Testing mode = 3-Q sessions + eased gates. On for: localhost, OR the URL flag
+// `?test` (which sticks for the session so it survives reloads — use `?notest` to
+// clear it). Real visitors of the deployed site (no flag) always get full 20-Q
+// (30 for finals) sessions. Lets you test the LIVE locked funnel fast in incognito.
+const TEST_MODE = (() => {
+  if (typeof window === "undefined") return false;
+  try {
+    const s = window.location.search + " " + (window.location.hash || "");
+    if (/[?&#]notest\b/.test(s)) { window.localStorage.removeItem("numbersong-test"); return false; }
+    if (/[?&#]test\b/.test(s)) { window.localStorage.setItem("numbersong-test", "1"); return true; }
+    if (["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname)) return true;
+    return window.localStorage.getItem("numbersong-test") === "1";
+  } catch (e) {
+    return typeof window !== "undefined" && window.location.hostname === "localhost";
+  }
+})();
 const qCountOf = (lvl) => TEST_MODE ? 3 : ((lvl && lvl.qCount) || SESSION_LEN);
 const passRateOf = (lvl) => TEST_MODE ? 0.6 : ((lvl && lvl.pass) || PASS_RATE);
 const passCountFor = (lvl) => Math.ceil(passRateOf(lvl) * qCountOf(lvl));
@@ -1750,6 +1762,12 @@ export default function NumberEarTrainer() {
       const code = q.get("unlock") || h.get("unlock");
       if (code && code === UNLOCK_CODE) {
         grantUnlock();
+        window.history.replaceState(null, "", window.location.pathname);
+      } else if (q.has("lock") || h.has("lock")) {
+        // ?lock — reset this device to a FRESH PUBLIC visitor (gated + not onboarded),
+        // for testing the locked funnel. Inverse of the unlock magic link.
+        try { window.localStorage.removeItem("numbersong-unlocked"); window.localStorage.removeItem("numbersong-onboarded"); } catch (e) {}
+        setUnlocked(false); setOnboarded(false);
         window.history.replaceState(null, "", window.location.pathname);
       }
     } catch (e) {}

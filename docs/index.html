@@ -1588,7 +1588,24 @@ window.SOUNDTRACK = SOUNDTRACK;
     "=": { d: 5, oct: 5 }
   };
   const levelsFor = (m) => m === "melody" ? MELODY_LEVELS : m === "chords" ? CHORD_LEVELS : PROG_LEVELS;
-  const TEST_MODE = typeof window !== "undefined" && ["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
+  const TEST_MODE = (() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const s = window.location.search + " " + (window.location.hash || "");
+      if (/[?&#]notest\b/.test(s)) {
+        window.localStorage.removeItem("numbersong-test");
+        return false;
+      }
+      if (/[?&#]test\b/.test(s)) {
+        window.localStorage.setItem("numbersong-test", "1");
+        return true;
+      }
+      if (["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname)) return true;
+      return window.localStorage.getItem("numbersong-test") === "1";
+    } catch (e) {
+      return typeof window !== "undefined" && window.location.hostname === "localhost";
+    }
+  })();
   const qCountOf = (lvl) => TEST_MODE ? 3 : lvl && lvl.qCount || SESSION_LEN;
   const passRateOf = (lvl) => TEST_MODE ? 0.6 : lvl && lvl.pass || PASS_RATE;
   const passCountFor = (lvl) => Math.ceil(passRateOf(lvl) * qCountOf(lvl));
@@ -3075,6 +3092,15 @@ window.SOUNDTRACK = SOUNDTRACK;
         const code = q.get("unlock") || h.get("unlock");
         if (code && code === UNLOCK_CODE) {
           grantUnlock();
+          window.history.replaceState(null, "", window.location.pathname);
+        } else if (q.has("lock") || h.has("lock")) {
+          try {
+            window.localStorage.removeItem("numbersong-unlocked");
+            window.localStorage.removeItem("numbersong-onboarded");
+          } catch (e) {
+          }
+          setUnlocked(false);
+          setOnboarded(false);
           window.history.replaceState(null, "", window.location.pathname);
         }
       } catch (e) {
