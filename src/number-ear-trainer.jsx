@@ -1094,7 +1094,7 @@ function worldChordTones(w) {
   return [0, 2, 4, 6].map((k) => ((w - 1 + k) % 7) + 1);
 }
 
-function ExploreMap({ start, count, stage, octaves, world, active, hi, singDeg, singInTune, onPlay, onDown, onUp }) {
+function ExploreMap({ start, count, stage, octaves, world, active, hi, singDeg, singInTune, onPlay, onDown, onUp, staircase }) {
   const evts = (n, row) => onDown // guide taps (onPlay); Free Play holds (onDown/onUp)
     ? { onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(n, row); }, onPointerUp: () => onUp(n, row) }
     : { onClick: () => onPlay(n, row) };
@@ -1103,7 +1103,7 @@ function ExploreMap({ start, count, stage, octaves, world, active, hi, singDeg, 
   const chordal = world ? worldChordTones(world) : [];
   const cells = [];
   for (let row = 0; row < octaves; row++) {
-    notes.forEach((n) => {
+    notes.forEach((n, i) => {
       const isTonic = n.label === 1;
       const isChordal = chordal.includes(n.label);
       const isRoot = n.label === world;
@@ -1115,28 +1115,111 @@ function ExploreMap({ start, count, stage, octaves, world, active, hi, singDeg, 
         stage === 1 && "blank",
         active?.includes(n.raw + row * 100) && "active",
         hi?.includes(n.raw + row * 100) && "hl",
+        staircase && "stair",
         n.label === singDeg && (singInTune ? "singing in" : "singing off"),
       ].filter(Boolean).join(" ");
+      const st = { gridColumn: n.semi - s0 + 1, gridRow: row + 1 };
+      if (staircase) { st["--rise"] = n.semi - s0; st["--delay"] = (i * 0.09).toFixed(2) + "s"; }  // lift by pitch, cascade
       cells.push(
-        <button key={"n" + n.raw + "r" + row} className={cls}
-          style={{ gridColumn: n.semi - s0 + 1, gridRow: row + 1 }}
+        <button key={"n" + n.raw + "r" + row} className={cls} style={st}
           {...evts(n, row)}
           aria-label={"degree " + n.label + (row > 0 ? " upper octave" : "")}>
           <span className="rung-num">{stage === 0 ? n.label : "\u00A0"}</span>
-          {stage === 0 && <span className="rung-sol">{SOLFEGE[n.label]}</span>}
+          {stage === 0 && !staircase && <span className="rung-sol">{SOLFEGE[n.label]}</span>}
         </button>
       );
     });
-    for (let s = s0; s <= s1; s++) {
+    if (!staircase) for (let s = s0; s <= s1; s++) {
       if (!notes.some((n) => n.semi === s)) {
         cells.push(<div key={"g" + s + "r" + row} className="gap-dot" style={{ gridColumn: s - s0 + 1, gridRow: row + 1 }} />);
       }
     }
   }
   return (
-    <div className="ladder explore" style={{ gridTemplateColumns: `repeat(${s1 - s0 + 1}, 1fr)`, rowGap: "10px" }}
+    <div className={"ladder explore" + (staircase ? " staircase" : "")} style={{ gridTemplateColumns: `repeat(${s1 - s0 + 1}, 1fr)`, rowGap: "10px" }}
       role="group" aria-label="Playable tonal map">
       {cells}
+    </div>
+  );
+}
+
+/* Tonal gravity as a solar system: every degree orbits home (1). Uses CSS motion
+   paths so the number labels stay upright while circling. */
+const SOLAR_CSS = `
+.solar { position: relative; width: 260px; height: 260px; margin: 6px auto 2px; }
+.solar-ring { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  border:1px dashed rgba(159,178,168,.30); border-radius:50%; }
+.solar-sun { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:58px; height:58px; border-radius:50%;
+  background: radial-gradient(circle at 38% 32%, #c6f2ef, #57C6C4 58%, #3a9c9a);
+  color:#0f1c1a; display:grid; place-items:center; font-family:'Archivo Black',sans-serif; font-size:1.6rem;
+  box-shadow:0 0 26px 8px rgba(87,198,196,.5); z-index:3; }
+.solar-planet { position:absolute; left:0; top:0; width:28px; height:28px; border-radius:50%;
+  background:#3b413e; border:1.5px solid #7CADD1; color:#EDF2EE; display:grid; place-items:center;
+  font-family:'Archivo Black',sans-serif; font-size:.82rem; offset-rotate:0deg; z-index:2;
+  animation: solar-orbit var(--dur) linear infinite; animation-delay: var(--delay);
+  box-shadow:0 2px 6px rgba(0,0,0,.35); }
+@keyframes solar-orbit { to { offset-distance: 100%; } }
+@media (prefers-reduced-motion: reduce) { .solar-planet { animation-play-state: paused; } }
+`;
+function SolarSystem() {
+  const C = 130; // container center
+  const planets = [
+    { d: 5, r: 52, dur: 9, delay: 0 }, { d: 7, r: 52, dur: 9, delay: -4.5 },
+    { d: 3, r: 86, dur: 15, delay: -2 }, { d: 6, r: 86, dur: 15, delay: -9.5 },
+    { d: 2, r: 118, dur: 22, delay: -3 }, { d: 4, r: 118, dur: 22, delay: -14 },
+  ];
+  return (
+    <div className="solar" role="img" aria-label="The seven degrees orbiting home, 1">
+      <style>{SOLAR_CSS}</style>
+      {[104, 172, 236].map((d) => <div key={d} className="solar-ring" style={{ width: d, height: d }} />)}
+      {planets.map((p, i) => (
+        <div key={i} className="solar-planet"
+          style={{ offsetPath: `circle(${p.r}px at ${C}px ${C}px)`, "--dur": p.dur + "s", "--delay": p.delay + "s" }}>{p.d}</div>
+      ))}
+      <div className="solar-sun">1</div>
+    </div>
+  );
+}
+
+/* Half-step visual aids: on a piano two adjacent keys, on a guitar two adjacent frets. */
+const HALFSTEP_CSS = `
+.hs-diagrams { display:flex; flex-wrap:wrap; gap:18px; justify-content:center; align-items:flex-end; margin-top:14px; }
+.hs-fig { display:flex; flex-direction:column; align-items:center; gap:6px; }
+.hs-fig svg { display:block; }
+.hs-cap { font-family:'Archivo Black',sans-serif; font-size:.7rem; letter-spacing:.5px; text-transform:uppercase; color:#57C6C4; }
+`;
+function HalfStepDiagrams() {
+  const wk = [0, 1, 2, 3, 4, 5, 6];              // C D E F G A B
+  const on = [2, 3];                             // E, F — adjacent whites, no black between = half step
+  const bk = [22, 54, 118, 150, 182];            // black-key x offsets
+  return (
+    <div className="hs-diagrams">
+      <style>{HALFSTEP_CSS}</style>
+      <div className="hs-fig">
+        <svg width="196" height="120" viewBox="0 0 224 132" aria-label="Piano: two adjacent keys are a half step">
+          {wk.map((i) => (
+            <rect key={i} x={i * 32} y="0" width="32" height="96" rx="3"
+              fill={on.includes(i) ? "#57C6C4" : "#EDF2EE"} stroke="#565D59" strokeWidth="1.5" />
+          ))}
+          {bk.map((x, i) => <rect key={i} x={x} y="0" width="20" height="60" rx="2.5" fill="#232825" />)}
+          <path d="M64 104 L64 108 L128 108 L128 104" fill="none" stroke="#57C6C4" strokeWidth="2" />
+          <text x="96" y="126" textAnchor="middle" fontSize="11" fontWeight="700" fill="#57C6C4">half step</text>
+        </svg>
+        <span className="hs-cap">Piano · next-door keys</span>
+      </div>
+      <div className="hs-fig">
+        <svg width="196" height="120" viewBox="0 0 224 132" aria-label="Guitar: two adjacent frets are a half step">
+          <rect x="6" y="6" width="212" height="82" rx="4" fill="#4a3a29" stroke="#2b2114" strokeWidth="2" />
+          {[8, 52, 96, 140, 184].map((x, i) => <line key={i} x1={x} y1="6" x2={x} y2="88" stroke={i === 0 ? "#cbb892" : "#8a7a5e"} strokeWidth={i === 0 ? 5 : 2} />)}
+          {[16, 28, 40, 52, 64, 76].map((y, i) => <line key={i} x1="8" y1={y} x2="216" y2={y} stroke="#d8cba8" strokeWidth="1" opacity="0.7" />)}
+          <circle cx="30" cy="52" r="8" fill="#57C6C4" stroke="#0f1c1a" strokeWidth="1.5" />
+          <circle cx="74" cy="52" r="8" fill="#57C6C4" stroke="#0f1c1a" strokeWidth="1.5" />
+          <path d="M30 100 L30 104 L74 104 L74 100" fill="none" stroke="#57C6C4" strokeWidth="2" />
+          <text x="52" y="126" textAnchor="middle" fontSize="11" fontWeight="700" fill="#57C6C4">half step</text>
+        </svg>
+        <span className="hs-cap">Guitar · next-door frets</span>
+      </div>
     </div>
   );
 }
@@ -1428,7 +1511,7 @@ function drawDojo(ctx, cx, cy, img) {
 // First-time map tour: Verda walks a new player around the world map (coach marks).
 const MAP_TOUR = [
   { sel: ".adv-map", title: "Welcome to Harmonia", text: "This whole world is your training ground. Every glowing marker is a place to sharpen your ear." },
-  { sel: "dojo", title: "The Dojo", text: "That little pagoda is the Dojo — drop in any time to just play and explore. No scores, no pressure." },
+  { sel: "dojo", title: "The Dojo", text: "That little pagoda is the Dojo. Apps and tests alone can't truly train your ears — you have to improvise and create with these sounds too. Drop in any time to play freely, and feel free to follow along on your own instrument." },
   { sel: ".adv-map", title: "Your journey", text: "Tap a marker to meet its Keeper and take on their challenge. Clear it and you earn a piece of the blade." },
   { sel: ".adv-sword-mini", title: "The blade", text: "Eight Keepers, eight pieces. Reforge Excalibar and all of Harmonia sings again." },
   { sel: ".adv-hud-actions", title: "Need a refresher?", text: "Tap 📖 down here any time to review how the numbers work. It's always there when you want it." },
@@ -1438,28 +1521,32 @@ const MAP_TOUR = [
 
 const MAPTOUR_CSS = `
 .maptour { position: fixed; inset: 0; z-index: 60; }
-.maptour-scrim { position: absolute; inset: 0; background: rgba(20,24,22,.72); animation: maptour-fade .25s ease; }
-.maptour-ring { position: absolute; border: 3px solid #57C6C4; border-radius: 12px; pointer-events: none; transition: left .28s cubic-bezier(.4,.1,.2,1), top .28s cubic-bezier(.4,.1,.2,1), width .28s cubic-bezier(.4,.1,.2,1), height .28s cubic-bezier(.4,.1,.2,1); animation: maptour-pulse 1.7s ease-in-out infinite; }
-.maptour-box { position: absolute; left: 50%; bottom: max(env(safe-area-inset-bottom,0px), 18px); transform: translateX(-50%); width: min(440px, calc(100vw - 28px)); display: flex; gap: 12px; align-items: flex-start; background: #424845; border: 2px solid #57C6C4; border-radius: 16px; padding: 14px; box-shadow: 0 12px 32px rgba(0,0,0,.55); animation: maptour-rise .3s ease; }
-.maptour-box.top { bottom: auto; top: max(env(safe-area-inset-top,0px), 18px); }
-.maptour-face { width: 60px; height: 60px; image-rendering: pixelated; border-radius: 10px; border: 2px solid #565D59; background: #2b322d; flex: 0 0 auto; }
+.maptour-scrim { position: absolute; inset: 0; background: rgba(15,20,18,.7); animation: maptour-fade .2s steps(3) both; }
+.maptour-ring { position: absolute; border: 3px solid var(--teal,#57C6C4); box-shadow: 0 0 0 2px var(--ink,#12201d); clip-path: var(--notch); pointer-events: none;
+  transition: left .18s steps(4), top .18s steps(4), width .18s steps(4), height .18s steps(4); animation: maptour-blink .9s steps(2) infinite; }
+.maptour-box { position: absolute; left: 50%; bottom: max(env(safe-area-inset-bottom,0px), 16px); transform: translateX(-50%); width: min(432px, calc(100vw - 24px));
+  display: flex; gap: 12px; align-items: flex-start; background: var(--card,#424845); clip-path: var(--notch);
+  box-shadow: inset 2px 2px 0 var(--hl,rgba(255,255,255,.08)), inset -2px -2px 0 var(--sh,rgba(0,0,0,.4)), 0 6px 0 rgba(0,0,0,.45); padding: 14px 15px; }
+.maptour-box.top { bottom: auto; top: max(env(safe-area-inset-top,0px), 16px); }
+.maptour-face { width: 56px; height: 56px; image-rendering: pixelated; clip-path: var(--notch); border: 2px solid var(--line,#565D59); background: var(--bg,#383D3B); flex: 0 0 auto; }
 .maptour-body { flex: 1 1 auto; min-width: 0; }
-.maptour-title { font-family: 'Archivo Black', Archivo, sans-serif; color: #57C6C4; font-size: 15px; margin-bottom: 4px; }
-.maptour-text { color: #EDF2EE; font-size: 14px; line-height: 1.5; margin: 0 0 10px; }
+.maptour-title { font-family: var(--pf,'Courier New',monospace); text-transform: uppercase; letter-spacing: 1px; color: var(--teal,#57C6C4); font-size: 12px; text-shadow: 2px 2px 0 var(--ink,#12201d); margin-bottom: 7px; }
+.maptour-text { font-family: var(--sans,Archivo,sans-serif); color: var(--text,#EDF2EE); font-size: 13.5px; line-height: 1.5; margin: 0 0 11px; }
 .maptour-actions { display: flex; align-items: center; gap: 10px; }
-.maptour-skip { background: transparent; border: none; color: #9FB2A8; font-size: 12px; cursor: pointer; padding: 4px; }
+.maptour-skip { background: transparent; border: 0; font-family: var(--pf,monospace); text-transform: uppercase; letter-spacing: 1px; color: var(--text,#EDF2EE); opacity: .5; font-size: 9px; cursor: pointer; padding: 4px; }
 .maptour-dots { flex: 1; display: flex; gap: 5px; justify-content: center; }
-.maptour-dots i { width: 6px; height: 6px; border-radius: 50%; background: #565D59; }
-.maptour-dots i.on { background: #57C6C4; }
-.maptour-next { background: #57C6C4; color: #17201d; border: none; border-radius: 9px; padding: 8px 14px; font-weight: 800; font-size: 13px; cursor: pointer; }
+.maptour-dots i { width: 6px; height: 6px; background: var(--line,#565D59); }
+.maptour-dots i.on { background: var(--teal,#57C6C4); }
+.maptour-next { font-family: var(--pf,monospace); text-transform: uppercase; letter-spacing: 1px; font-size: 10px; background: var(--teal,#57C6C4); color: #12201d; border: 0; clip-path: var(--notch);
+  box-shadow: inset 2px 2px 0 rgba(255,255,255,.3), inset -2px -2px 0 rgba(0,0,0,.25); padding: 10px 14px; cursor: pointer; }
 @keyframes maptour-fade { from { opacity: 0; } }
-@keyframes maptour-rise { from { opacity: 0; transform: translateX(-50%) translateY(8px); } }
-@keyframes maptour-pulse { 0%,100% { box-shadow: 0 0 0 3px rgba(87,198,196,.32), 0 0 18px 4px rgba(87,198,196,.4); } 50% { box-shadow: 0 0 0 3px rgba(87,198,196,.5), 0 0 26px 9px rgba(87,198,196,.62); } }
-@media (prefers-reduced-motion: reduce) { .maptour-ring, .maptour-scrim, .maptour-box { animation: none !important; } .maptour-ring { transition: none; } }
+@keyframes maptour-blink { 0%,100% { border-color: var(--teal,#57C6C4); } 50% { border-color: var(--gold,#D9B45B); } }
+@media (prefers-reduced-motion: reduce) { .maptour-scrim { animation: none; } .maptour-ring { animation: none; transition: none; } }
 `;
 
-function MapTour({ onClose }) {
+function MapTour({ onClose, onSfx }) {
   const [step, setStep] = useState(0);
+  const beep = (n) => { try { onSfx && onSfx(n); } catch (e) {} };
   const [rect, setRect] = useState(null);
   const cur = MAP_TOUR[step];
   const last = step === MAP_TOUR.length - 1;
@@ -1505,9 +1592,9 @@ function MapTour({ onClose }) {
           <div className="maptour-title">{cur.title}</div>
           <p className="maptour-text">{cur.text}</p>
           <div className="maptour-actions">
-            {!last && <button className="maptour-skip" onClick={onClose}>Skip</button>}
+            {!last && <button className="maptour-skip" onClick={() => { beep("move"); onClose(); }}>Skip</button>}
             <span className="maptour-dots">{MAP_TOUR.map((_, i) => <i key={i} className={i === step ? "on" : ""} />)}</span>
-            <button className="maptour-next" onClick={() => last ? onClose() : setStep(step + 1)}>{last ? "Let's go!" : "Next ▸"}</button>
+            <button className="maptour-next" onClick={() => { beep(last ? "select" : "move"); last ? onClose() : setStep(step + 1); }}>{last ? "Let's go!" : "Next ▸"}</button>
           </div>
         </div>
       </div>
@@ -2943,7 +3030,7 @@ export default function NumberEarTrainer() {
           </div>
         )}
         {upsellModal}
-        {mapTour && <MapTour onClose={() => setMapTour(false)} />}
+        {mapTour && <MapTour onClose={() => setMapTour(false)} onSfx={sfx} />}
       </>
     );
   }
@@ -3685,9 +3772,13 @@ export default function NumberEarTrainer() {
     // The teaching maps are interactive — tap any pad to hear that degree (reuse the
     // guide's ExploreMap + playExplore). One shared element for every map beat.
     const tutMap = <ExploreMap start={1} count={8} stage={0} octaves={1} world={null} active={litActive} onPlay={playExplore} />;
+    // Staircase reveal for the tonal-map beat: the numbers rise to their pitch height. key forces remount so the animation replays on entry.
+    const tutMapStair = <ExploreMap key="stair" start={1} count={8} stage={0} octaves={1} world={null} active={litActive} onPlay={playExplore} staircase />;
     // The half-step beat keeps 3·4 and 7·1 persistently lit so the two half-step pairs
     // are visible right on the map (taps still light via litActive).
     const tutMapHalf = <ExploreMap start={1} count={8} stage={0} octaves={1} world={null} hi={[3, 4, 7, 8]} active={litActive} onPlay={playExplore} />;
+    // Half-step beat stage: the lit map + piano/guitar diagrams that show a half step as two next-door keys/frets.
+    const tutHalfStage = <div className="tut-halfstage">{tutMapHalf}<HalfStepDiagrams /></div>;
     // "Mary had a little lamb" as number-notation: degree, note length (beats), lyric.
     const MARY = [
       { deg: 3, dur: 1, lyric: "Ma-" }, { deg: 2, dur: 1, lyric: "ry" }, { deg: 1, dur: 1, lyric: "had" }, { deg: 2, dur: 1, lyric: "a" },
@@ -3705,22 +3796,39 @@ export default function NumberEarTrainer() {
         ))}
       </div>
     );
+    // "All of music → 12 notes": a stack of scores/composer books distilling down into the chromatic pads.
+    const tutTwelve = (
+      <div className="tut-twelve">
+        <style>{`
+          .tut-twelve { display:flex; flex-direction:column; align-items:center; gap:5px; }
+          .tt-books-img { width:84px; height:84px; image-rendering:pixelated; filter: drop-shadow(0 3px 4px rgba(0,0,0,.4)); }
+          .tt-cap { font-family:var(--pf,'Courier New',monospace); font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--text,#EDF2EE); opacity:.65; }
+          .tt-cap.b { color:var(--teal,#57C6C4); opacity:1; }
+          .tt-arrow { color:var(--teal,#57C6C4); font-size:22px; line-height:.5; margin:-1px 0; }
+        `}</style>
+        <img className="tt-books-img" src={typeof window !== "undefined" ? window.MUSIC_BOOKS : ""} alt="Stacks of music books and scores" />
+        <span className="tt-cap">every song, every score…</span>
+        <span className="tt-arrow" aria-hidden="true">▼</span>
+        {tutChromMap}
+        <span className="tt-cap b">…is built from just these 12</span>
+      </div>
+    );
     const beats = [
       { title: "Staircase Meadows", cue: null,
         lines: <>Welcome to <b className="hl-g">Staircase Meadows</b>, traveler. I'm <b className="hl-t">Verda</b> — I'll be right beside you. Let me show you how every song you've ever heard is built.</>,
         stage: tutMap },
       { title: "Twelve pitches", cue: null,
         lines: <>All of music rests on just <b className="hl-g">12 unique pitches</b>, repeating forever up and down. But here's the secret: at any moment, most songs use only <b className="hl-t">7 of them</b>. We'll visualize these notes on a line that goes in both directions, repeating forever.</>,
-        stage: tutChromMap },
+        stage: tutTwelve },
       { title: "The tonal map", cue: "1 2 3 4 5 6 7 1", hear: { label: "▶ Hear the scale", act: () => playTutPhrase([1, 2, 3, 4, 5, 6, 7, 8]) },
         lines: <>The shortest distance between two pitches is a <b className="hl-t">half step</b>; two half steps make a <b className="hl-t">whole step</b>. Arrange them in the right pattern and you get this — the <b className="hl-g">tonal map</b> (you may know it as the major scale).</>,
-        stage: tutMap },
+        stage: tutMapStair },
       { title: "Where the half steps hide", cue: null,
-        lines: <>Those little dots are the pitches <em>in between</em> — one in every whole step. Where two numbers sit side by side with <b>no dot</b>, that's a half step. The <b className="hl-t">only</b> half steps on the whole map are <b className="hl-g">3→4</b> and <b className="hl-g">7→1</b> — lit up right on the map.</>,
-        stage: tutMapHalf },
+        lines: <>Those little dots are the pitches <em>in between</em> — one in every whole step. Where two numbers sit side by side with <b>no dot</b>, that's a half step. The <b className="hl-t">only</b> half steps here are <b className="hl-g">3→4</b> and <b className="hl-g">7→1</b>. Tap <b className="hl-g">3</b> then <b className="hl-g">4</b> and listen — hear how close they sit, almost touching. On any instrument a half step is just the <b className="hl-t">next-door</b> note:</>,
+        stage: tutHalfStage },
       { title: "Home never moves", cue: null,
-        lines: <>This map is the key that unlocks all <b className="hl-g">melody and harmony</b>. Absolute note names don't matter here — music is <b className="hl-t">relative to home</b>. In a <b className="hl-g">major key</b>, home is always <b className="hl-t">1</b>.</>,
-        stage: tutMap },
+        lines: <>Here's the secret that makes it all work: every other note feels a pull toward <b className="hl-t">home</b>. Like planets around a sun, the whole system orbits <b className="hl-t">1</b> — that's <b className="hl-g">tonal gravity</b>. Names don't matter; music is <b className="hl-t">relative to home</b>, and in a <b className="hl-g">major key</b> home is always <b className="hl-t">1</b>.</>,
+        stage: <SolarSystem /> },
       { title: "Mary had a little lamb", hear: { label: "▶ Hear it in numbers", act: () => playTutPhrase(MARY.map((n) => n.deg), MARY.map((n) => n.dur)) },
         lines: <>You already know this one. Watch a song you love become <b className="hl-g">numbers</b> — higher notes sit higher, longer notes stretch wider. Tap any note to hear it.</>,
         stage: <MaryNotation notes={MARY} active={playIdx} onNote={playStackNote} /> },
@@ -3781,7 +3889,7 @@ export default function NumberEarTrainer() {
                 })}
               </div>
             ) : beat.stage}
-            {(done || (!drill && (beat.stage === tutMap || beat.stage === tutChromMap || beat.stage === tutMapHalf))) && <div className="tut-explore">↯ Tap the map — hear any note, explore freely</div>}
+            {(done || (!drill && (beat.stage === tutMap || beat.stage === tutMapStair || beat.stage === tutTwelve || beat.stage === tutHalfStage))) && <div className="tut-explore">↯ Tap the map — hear any note, explore freely</div>}
           </div>
           <div className="tut-mid">
             <div className="tut-midstack">
@@ -4281,6 +4389,20 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 }
 .rung.dim { opacity: 0.22; }
 .ladder.explore { padding: 16px 10px; }
+/* Staircase mode: each number lifts to its pitch height and cascades up like stairs. */
+.ladder.explore.staircase { align-items: end; padding-top: 150px; }
+.ladder.explore.staircase .explore-pad { min-height: 44px; }
+.ladder.explore.staircase .rung.stair {
+  animation: tut-stair 0.55s cubic-bezier(0.34, 1.3, 0.5, 1) both;
+  animation-delay: var(--delay);
+}
+@keyframes tut-stair {
+  from { transform: translateY(22px); opacity: 0; }
+  to   { transform: translateY(calc(var(--rise) * -12px)); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ladder.explore.staircase .rung.stair { animation: none; opacity: 1; transform: translateY(calc(var(--rise) * -12px)); }
+}
 .explore-pad {
   border: 1.5px solid var(--line); background: var(--bg);
   min-height: 74px; justify-content: center; cursor: pointer;

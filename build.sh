@@ -42,14 +42,15 @@ verda_data = "data:image/png;base64," + base64.b64encode(open("verda_final_south
 verda_portrait_data = "data:image/png;base64," + base64.b64encode(open("verda_portrait_final.png","rb").read()).decode()
 dojo_data = "data:image/png;base64," + base64.b64encode(open("dojo_final.png","rb").read()).decode()
 map_baked_data = "data:image/png;base64," + base64.b64encode(open("map_baked.png","rb").read()).decode()
+music_books_data = "data:image/png;base64," + base64.b64encode(open("music_books.png","rb").read()).decode()
 def _png(p): return "data:image/png;base64," + base64.b64encode(open(p,"rb").read()).decode()
 # Keeper art shown in the encounter modal, keyed by region node id. Region 1 = Verda's
 # bust portrait; 2-4 = full-body keeper sprites. Regions 5-8 still fall back to the emoji.
 keeper_art = json.dumps({
   "1": verda_portrait_data,
-  "2": _png("keepers/keeper_rue_south.png"),
-  "3": _png("keepers/keeper_sylva_south.png"),
-  "4": _png("keepers/keeper_bassil_south.png"),
+  "2": _png("keepers/portrait_rue.png"),
+  "3": _png("keepers/portrait_sylva.png"),
+  "4": _png("keepers/portrait_bassil.png"),
 })
 adventure = open("adventure/assets.js").read().replace("export const", "const").replace("export function", "function")
 soundtrack = open("retro/soundtrack.js").read().replace("export const", "const")
@@ -154,6 +155,7 @@ window.VERDA_SPRITE = "{verda_data}";
 window.VERDA_PORTRAIT = "{verda_portrait_data}";
 window.DOJO_SPRITE = "{dojo_data}";
 window.MAP_BAKED = "{map_baked_data}";
+window.MUSIC_BOOKS = "{music_books_data}";
 window.KEEPER_ART = {keeper_art};
 </script>
 <script>
