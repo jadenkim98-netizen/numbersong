@@ -522,7 +522,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 @keyframes rt-pop{ from{ transform:scale(.86); opacity:0; } }
 @keyframes rt-shake{ 33%{ transform:translateX(-3px);} 66%{ transform:translateX(3px);} }
 @keyframes rt-flash{ 0%{ filter:brightness(2.2);} 100%{ filter:brightness(1);} }
-@media (prefers-reduced-motion:reduce){ .retro *{ animation:none!important; } }
+@media (prefers-reduced-motion:reduce){
+  .retro *{ animation:none!important; }
+  /* Elements that start at opacity:0 and rely on an animation to reveal must stay visible. */
+  .retro .finale-quote, .retro .finale-btn, .retro .finale-sword, .retro .finale-coda{ opacity:1!important; transform:none!important; }
+}
 
 /* ============================================================================
    APP PATCHES — map the kit onto Numbersong's real class names + boot/menu.
@@ -533,7 +537,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 .retro .num{ flex:initial; display:flex; flex-direction:column; gap:1px; aspect-ratio:auto; padding:12px 0; }
 .retro .num .num-sol{ font-family:var(--sans); font-size:.6rem; letter-spacing:normal; text-transform:lowercase; color:var(--text-soft); }
 .retro .num.picked{ background:var(--blue); color:var(--ink); }
-.retro .num.dim{ opacity:.28; }
+.retro .num.dim{ opacity:.42; }
 
 /* level rows (our names: level-num / level-name / level-desc / level-pct) */
 .retro .level-num{ font-family:var(--black); font-size:16px; color:var(--teal); }
@@ -5684,7 +5688,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .rung.active .rung-sol, .explore-pad.active .rung-sol { color: #23302A; }
 .num.tonic { border-color: var(--teal); color: var(--teal); }
 .num.picked { background: var(--blue); color: #232E36; border-color: var(--blue); }
-.num.dim { opacity: 0.22; }
+.num.dim { opacity: 0.38; }
 .num.picked.tonic { background: var(--teal); color: #1E3230; border-color: var(--teal); }
 /* per-question reward: the pad the player just answered correctly */
 .num.just { background: var(--green); color: #20301D; border-color: var(--green);

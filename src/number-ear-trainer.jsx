@@ -4583,7 +4583,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .rung.active .rung-sol, .explore-pad.active .rung-sol { color: #23302A; }
 .num.tonic { border-color: var(--teal); color: var(--teal); }
 .num.picked { background: var(--blue); color: #232E36; border-color: var(--blue); }
-.num.dim { opacity: 0.22; }
+.num.dim { opacity: 0.38; }
 .num.picked.tonic { background: var(--teal); color: #1E3230; border-color: var(--teal); }
 /* per-question reward: the pad the player just answered correctly */
 .num.just { background: var(--green); color: #20301D; border-color: var(--green);
