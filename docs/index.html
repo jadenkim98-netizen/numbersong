@@ -932,6 +932,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 .retro .shop-swatch{ clip-path:var(--notch); border-radius:0; }
 .retro .lvl-star.on{ color:var(--gold); }
 .retro .adv-hud-actions .shop-btn{ color:var(--gold); box-shadow:inset 0 0 0 2px var(--gold),inset 2px 2px 0 rgba(217,180,91,.25); }
+.retro .adv-forge-chip{ clip-path:var(--notch); box-shadow:inset 0 0 0 2px var(--line); }
+.retro .adv-hud-bottom .ghost{ clip-path:var(--notch); }
 
 /* =====================  FREEMIUM: upsell / CTA / locks / unlock  =========== */
 /* Base fallbacks (apply in BOTH skins — retro.css is always in <head>) so a gated
@@ -1072,8 +1074,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   box-shadow:0 6px #35682f,3px 3px #4c9145,3px 6px #35682f,6px 0 #4c9145,6px 3px #58a850,6px 6px #35682f,9px 3px #4c9145,9px 6px #35682f,12px 6px #4c9145; }
 .tutorial .tuft.t1{ bottom:10%; left:9%; } .tutorial .tuft.t2{ bottom:20%; left:56%; animation-delay:-1.2s; } .tutorial .tuft.t3{ bottom:14%; right:14%; animation-delay:-2.1s; }
 @keyframes tut-sway{ 50%{ transform:skewX(8deg) } }
-.tut-inner{ position:relative; z-index:2; display:flex; flex-direction:column; min-height:100vh;
-  padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(20px + env(safe-area-inset-bottom,0px)); gap:0; }
+.tut-inner{ position:relative; z-index:2; display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden;
+  padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(14px + env(safe-area-inset-bottom,0px)); gap:0; }
 .tutorial .hud{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px; }
 .tutorial .loc{ display:inline-flex; align-items:center; gap:6px; background:rgba(32,48,46,.62); color:var(--text);
   font-family:var(--pf); font-size:8px; letter-spacing:1px; text-transform:uppercase; padding:6px 9px; }
@@ -1081,10 +1083,13 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 .tutorial .skip{ font-family:var(--pf); font-size:8px; letter-spacing:1px; text-transform:uppercase; color:var(--text); opacity:.65;
   background:none; border:0; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
 .tutorial .stagepanel{ position:relative; background:rgba(56,61,59,.92); box-shadow:inset 0 0 0 2px var(--line);
-  padding:12px 10px 10px; filter:drop-shadow(4px 4px 0 var(--ink)); clip-path:var(--notch); }
+  padding:12px 10px 10px; filter:drop-shadow(4px 4px 0 var(--ink)); clip-path:var(--notch);
+  flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
+.tutorial .stage-fit{ flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.tutorial .stage-fit > *{ max-width:100%; }
 .tutorial .stagetitle{ font-family:var(--pf); font-size:8px; letter-spacing:2px; text-transform:uppercase; color:var(--gold); text-align:center; margin-bottom:9px; }
 .tutorial .stagetitle::before{ content:"✦ " } .tutorial .stagetitle::after{ content:" ✦" }
-.tut-mid{ position:relative; flex:1 1 auto; min-height:148px; display:flex; align-items:center; justify-content:center; }
+.tut-mid{ position:relative; flex:0 0 auto; min-height:118px; display:flex; align-items:center; justify-content:center; }
 .tut-midhear{ z-index:3; } /* the "Hear it" button floats centered in the meadow */
 .tutorial .tut-explore{ margin-top:8px; text-align:center; font-family:var(--sans); font-size:.72rem; letter-spacing:.3px;
   color:var(--teal); opacity:.85; }
@@ -2905,7 +2910,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     ctx.fillText("DOJO", cx, cy + 13);
   }
   const MAP_TOUR = [
-    { sel: ".adv-map", title: "Welcome to Harmonia", text: "This whole world is your training ground. Every glowing marker is a place to sharpen your ear." },
+    { sel: null, title: "Welcome to Harmonia", text: "This whole world is your training ground. Every glowing marker is a place to sharpen your ear." },
     { sel: "dojo", title: "The Dojo", text: "That little pagoda is the Dojo. Apps and tests alone can't truly train your ears — you have to improvise and create with these sounds too. Drop in any time to play freely, and feel free to follow along on your own instrument." },
     { sel: ".adv-map", markers: true, title: "Your journey", text: "Tap a marker to meet its Keeper and take on their challenge. Clear it and you earn a piece of the blade." },
     { sel: ".adv-sword-mini", title: "The blade", text: "Eight Keepers, eight pieces. Reforge Excalibar and all of Harmonia sings again." },
@@ -2931,6 +2936,7 @@ window.SOUNDTRACK = SOUNDTRACK;
 .maptour-dots { flex: 1; display: flex; gap: 5px; justify-content: center; }
 .maptour-dots i { width: 6px; height: 6px; background: var(--line,#565D59); }
 .maptour-dots i.on { background: var(--teal,#57C6C4); }
+.maptour-back { font-family: var(--pf,monospace); font-size: 12px; background: transparent; color: var(--teal,#57C6C4); border: 0; cursor: pointer; padding: 8px 6px; line-height: 1; }
 .maptour-next { font-family: var(--pf,monospace); text-transform: uppercase; letter-spacing: 1px; font-size: 10px; background: var(--teal,#57C6C4); color: #12201d; border: 0; clip-path: var(--notch);
   box-shadow: inset 2px 2px 0 rgba(255,255,255,.3), inset -2px -2px 0 rgba(0,0,0,.25); padding: 10px 14px; cursor: pointer; }
 @keyframes maptour-fade { from { opacity: 0; } }
@@ -2999,7 +3005,10 @@ window.SOUNDTRACK = SOUNDTRACK;
     return /* @__PURE__ */ React.createElement("div", { className: "maptour" }, /* @__PURE__ */ React.createElement("style", null, MAPTOUR_CSS), /* @__PURE__ */ React.createElement("div", { className: "maptour-scrim" }), markers.map((m, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: "maptour-marker", style: { left: m.x, top: m.y } })), rect && /* @__PURE__ */ React.createElement("div", { className: "maptour-ring", style: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } }), /* @__PURE__ */ React.createElement("div", { className: "maptour-box" + (boxTop ? " top" : "") }, portrait && /* @__PURE__ */ React.createElement("img", { className: "maptour-face", src: portrait, alt: "Verda" }), /* @__PURE__ */ React.createElement("div", { className: "maptour-body" }, /* @__PURE__ */ React.createElement("div", { className: "maptour-title" }, cur.title), /* @__PURE__ */ React.createElement("p", { className: "maptour-text" }, cur.text), /* @__PURE__ */ React.createElement("div", { className: "maptour-actions" }, !last && /* @__PURE__ */ React.createElement("button", { className: "maptour-skip", onClick: () => {
       beep("move");
       onClose();
-    } }, "Skip"), /* @__PURE__ */ React.createElement("span", { className: "maptour-dots" }, MAP_TOUR.map((_, i) => /* @__PURE__ */ React.createElement("i", { key: i, className: i === step ? "on" : "" }))), /* @__PURE__ */ React.createElement("button", { className: "maptour-next", onClick: () => {
+    } }, "Skip"), /* @__PURE__ */ React.createElement("span", { className: "maptour-dots" }, MAP_TOUR.map((_, i) => /* @__PURE__ */ React.createElement("i", { key: i, className: i === step ? "on" : "" }))), step > 0 && /* @__PURE__ */ React.createElement("button", { className: "maptour-back", onClick: () => {
+      beep("move");
+      setStep(step - 1);
+    }, "aria-label": "Back" }, "◂"), /* @__PURE__ */ React.createElement("button", { className: "maptour-next", onClick: () => {
       beep(last ? "select" : "move");
       last ? onClose() : setStep(step + 1);
     } }, last ? "Let's go!" : "Next ▸")))));
@@ -3258,7 +3267,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const have = collected.size;
     const restored = have >= 8;
     const next = nodes.find((n) => !collected.has(H.stageFrag[n.id]));
-    return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" + (restored ? " restored" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, "Harmonia", restored && /* @__PURE__ */ React.createElement("em", { className: "adv-restored-tag" }, " · restored")), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear gear-settings", onClick: onSettings, "aria-label": "Settings" }, "⚙")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), celebrateNode && H.nodes[celebrateNode - 1] && /* @__PURE__ */ React.createElement("div", { className: "map-cleared", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "map-cleared-star" }, "★"), /* @__PURE__ */ React.createElement("span", { className: "map-cleared-text" }, H.nodes[celebrateNode - 1].name, /* @__PURE__ */ React.createElement("em", null, "region cleared"))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : "")), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost shop-btn", onClick: onShop, "aria-label": "Shop" }, "★"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"))));
+    return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" + (restored ? " restored" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, "Numbersong", restored && /* @__PURE__ */ React.createElement("em", { className: "adv-restored-tag" }, " · restored")), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear gear-settings", onClick: onSettings, "aria-label": "Settings" }, "⚙")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), celebrateNode && H.nodes[celebrateNode - 1] && /* @__PURE__ */ React.createElement("div", { className: "map-cleared", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "map-cleared-star" }, "★"), /* @__PURE__ */ React.createElement("span", { className: "map-cleared-text" }, H.nodes[celebrateNode - 1].name, /* @__PURE__ */ React.createElement("em", null, "region cleared"))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("div", { className: "adv-forge-chip" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost shop-btn", onClick: onShop, "aria-label": "Shop" }, "★"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"))));
   }
   function NumberEarTrainer() {
     const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
@@ -5093,7 +5102,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       const done = tutMode === "done";
       const drillTitle = tutDrillPhase === "play" ? "Listen…" : tutDrillPhase === "win" ? "You felt it!" : "Which number?";
       const drillLine = tutDrillPhase === "win" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "Yes — that's the one. You're ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "naming what you hear"), ".") : tutReveal ? /* @__PURE__ */ React.createElement(React.Fragment, null, "Not quite. Listen again and feel where it ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "lies"), " — it's the glowing number.") : tutDrillPhase === "play" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "Understanding begins with ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "listening"), ". Listen deeply — feel where the note lies.") : /* @__PURE__ */ React.createElement(React.Fragment, null, "Now ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "name it"), " — which number does it feel like?");
-      return /* @__PURE__ */ React.createElement("div", { className: "app tutorial" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "tut-scene", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("div", { className: "sun" }), /* @__PURE__ */ React.createElement("div", { className: "cloud c1" }), /* @__PURE__ */ React.createElement("div", { className: "cloud c2" }), /* @__PURE__ */ React.createElement("div", { className: "hills far" }), /* @__PURE__ */ React.createElement("div", { className: "hills" }), /* @__PURE__ */ React.createElement("div", { className: "steps1" }), /* @__PURE__ */ React.createElement("div", { className: "steps2" }), /* @__PURE__ */ React.createElement("div", { className: "ground" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t1" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t2" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t3" })), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "confetti", "aria-hidden": "true" }, CONFETTI.map((cf, i) => /* @__PURE__ */ React.createElement("i", { key: i, style: { left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" } }))), /* @__PURE__ */ React.createElement("div", { className: "tut-inner" }, /* @__PURE__ */ React.createElement("div", { className: "hud" }, /* @__PURE__ */ React.createElement("span", { className: "loc" }, /* @__PURE__ */ React.createElement("b", null, "✦"), " Staircase Meadows"), !done && /* @__PURE__ */ React.createElement("button", { className: "skip", onClick: skipTutorial }, "Skip ▸")), /* @__PURE__ */ React.createElement("div", { className: "stagepanel" }, /* @__PURE__ */ React.createElement("div", { className: "stagetitle" }, done ? "The map is yours" : drill ? drillTitle : beat.title), done ? tutMap : drill ? /* @__PURE__ */ React.createElement("div", { className: "numpad coach tut-drillpad" }, [1, 2, 3, 4, 5, 6, 7].map((d) => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app tutorial" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "tut-scene", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("div", { className: "sun" }), /* @__PURE__ */ React.createElement("div", { className: "cloud c1" }), /* @__PURE__ */ React.createElement("div", { className: "cloud c2" }), /* @__PURE__ */ React.createElement("div", { className: "hills far" }), /* @__PURE__ */ React.createElement("div", { className: "hills" }), /* @__PURE__ */ React.createElement("div", { className: "steps1" }), /* @__PURE__ */ React.createElement("div", { className: "steps2" }), /* @__PURE__ */ React.createElement("div", { className: "ground" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t1" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t2" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t3" })), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "confetti", "aria-hidden": "true" }, CONFETTI.map((cf, i) => /* @__PURE__ */ React.createElement("i", { key: i, style: { left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" } }))), /* @__PURE__ */ React.createElement("div", { className: "tut-inner" }, /* @__PURE__ */ React.createElement("div", { className: "hud" }, /* @__PURE__ */ React.createElement("span", { className: "loc" }, /* @__PURE__ */ React.createElement("b", null, "✦"), " Staircase Meadows"), !done && /* @__PURE__ */ React.createElement("button", { className: "skip", onClick: skipTutorial }, "Skip ▸")), /* @__PURE__ */ React.createElement("div", { className: "stagepanel" }, /* @__PURE__ */ React.createElement("div", { className: "stagetitle" }, done ? "The map is yours" : drill ? drillTitle : beat.title), /* @__PURE__ */ React.createElement("div", { className: "stage-fit" }, done ? tutMap : drill ? /* @__PURE__ */ React.createElement("div", { className: "numpad coach tut-drillpad" }, [1, 2, 3, 4, 5, 6, 7].map((d) => {
         const pc = DEGREE_TO_PC[d];
         const out = ![0, 2, 4].includes(pc);
         return /* @__PURE__ */ React.createElement(
@@ -5107,7 +5116,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           d,
           /* @__PURE__ */ React.createElement("span", { className: "num-sol" }, SOLFEGE[d])
         );
-      })) : beat.stage, (done || !drill && (beat.stage === tutMap || beat.stage === tutMapStair || beat.stage === tutTwelve || beat.stage === tutHalfStage)) && /* @__PURE__ */ React.createElement("div", { className: "tut-explore" }, "↯ Tap the map — hear any note, explore freely")), /* @__PURE__ */ React.createElement("div", { className: "tut-mid" }, /* @__PURE__ */ React.createElement("div", { className: "tut-midstack" }, !done && (drill ? /* @__PURE__ */ React.createElement("button", { className: "btn go tut-midhear", onClick: replayTutNote, disabled: tutDrillPhase === "play" || busy }, "▶ Hear it again") : beat.hear && /* @__PURE__ */ React.createElement("button", { className: "btn go tut-midhear", onClick: beat.hear.act, disabled: busy }, beat.hear.label)), !drill && !done && beat.cue && /* @__PURE__ */ React.createElement("div", { className: "tut-seq" }, /* @__PURE__ */ React.createElement("span", { className: "tut-seq-label" }, "In numbers"), /* @__PURE__ */ React.createElement("div", { className: "tut-seq-nums" }, beat.cue.split(" ").map((c, i) => /* @__PURE__ */ React.createElement("b", { key: i }, c))))), /* @__PURE__ */ React.createElement("img", { className: "verda", src: verdaSrc, alt: "Verda" }), /* @__PURE__ */ React.createElement("div", { className: "vshadow" })), !done && /* @__PURE__ */ React.createElement("div", { className: "prog" }, drill ? [0, 1, 2].map((i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "pdot" + (i < tutDrillN ? " done" : i === tutDrillN ? " on" : "") })) : beats.map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "pdot" + (i < step ? " done" : i === step ? " on" : "") })), /* @__PURE__ */ React.createElement("span", { className: "plabel" }, drill ? `Drill ${tutDrillN + 1} of ${TUT_DRILLS}` : `Beat ${step + 1} of ${beats.length}`)), /* @__PURE__ */ React.createElement("div", { className: "dwrap" }, /* @__PURE__ */ React.createElement("span", { className: "ntab" }, "Verda, the Meadow Keeper"), /* @__PURE__ */ React.createElement("div", { className: "dbox" }, done ? /* @__PURE__ */ React.createElement(React.Fragment, null, "You did it — you just named notes by ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "ear"), ", the very skill most players are missing. The meadow is yours now: wander it, tap anything, and remember — everything is relative to ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "1"), ".") : drill ? drillLine : beat.lines)), done ? /* @__PURE__ */ React.createElement("div", { className: "btnrow" }, /* @__PURE__ */ React.createElement("button", { className: "btn next tut-grad", onClick: graduateTutorial }, "Begin the journey ▸")) : !drill && /* @__PURE__ */ React.createElement("div", { className: "btnrow" }, /* @__PURE__ */ React.createElement("button", { className: "btn ghost", disabled: step === 0, onClick: () => {
+      })) : beat.stage), (done || !drill && (beat.stage === tutMap || beat.stage === tutMapStair || beat.stage === tutTwelve || beat.stage === tutHalfStage)) && /* @__PURE__ */ React.createElement("div", { className: "tut-explore" }, "↯ Tap the map — hear any note, explore freely")), /* @__PURE__ */ React.createElement("div", { className: "tut-mid" }, /* @__PURE__ */ React.createElement("div", { className: "tut-midstack" }, !done && (drill ? /* @__PURE__ */ React.createElement("button", { className: "btn go tut-midhear", onClick: replayTutNote, disabled: tutDrillPhase === "play" || busy }, "▶ Hear it again") : beat.hear && /* @__PURE__ */ React.createElement("button", { className: "btn go tut-midhear", onClick: beat.hear.act, disabled: busy }, beat.hear.label)), !drill && !done && beat.cue && /* @__PURE__ */ React.createElement("div", { className: "tut-seq" }, /* @__PURE__ */ React.createElement("span", { className: "tut-seq-label" }, "In numbers"), /* @__PURE__ */ React.createElement("div", { className: "tut-seq-nums" }, beat.cue.split(" ").map((c, i) => /* @__PURE__ */ React.createElement("b", { key: i }, c))))), /* @__PURE__ */ React.createElement("img", { className: "verda", src: verdaSrc, alt: "Verda" }), /* @__PURE__ */ React.createElement("div", { className: "vshadow" })), !done && /* @__PURE__ */ React.createElement("div", { className: "prog" }, drill ? [0, 1, 2].map((i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "pdot" + (i < tutDrillN ? " done" : i === tutDrillN ? " on" : "") })) : beats.map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "pdot" + (i < step ? " done" : i === step ? " on" : "") })), /* @__PURE__ */ React.createElement("span", { className: "plabel" }, drill ? `Drill ${tutDrillN + 1} of ${TUT_DRILLS}` : `Beat ${step + 1} of ${beats.length}`)), /* @__PURE__ */ React.createElement("div", { className: "dwrap" }, /* @__PURE__ */ React.createElement("span", { className: "ntab" }, "Verda, the Meadow Keeper"), /* @__PURE__ */ React.createElement("div", { className: "dbox" }, done ? /* @__PURE__ */ React.createElement(React.Fragment, null, "You did it — you just named notes by ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "ear"), ", the very skill most players are missing. The meadow is yours now: wander it, tap anything, and remember — everything is relative to ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "1"), ".") : drill ? drillLine : beat.lines)), done ? /* @__PURE__ */ React.createElement("div", { className: "btnrow" }, /* @__PURE__ */ React.createElement("button", { className: "btn next tut-grad", onClick: graduateTutorial }, "Begin the journey ▸")) : !drill && /* @__PURE__ */ React.createElement("div", { className: "btnrow" }, /* @__PURE__ */ React.createElement("button", { className: "btn ghost", disabled: step === 0, onClick: () => {
         sfx("back");
         setTutStep((s) => Math.max(0, s - 1));
       } }, "◂ Back"), last ? /* @__PURE__ */ React.createElement("button", { className: "btn next", onClick: enterTutDrills }, "Begin →") : /* @__PURE__ */ React.createElement("button", { className: "btn next", onClick: () => {
@@ -5492,18 +5501,18 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .rung.dim { opacity: 0.22; }
 .ladder.explore { padding: 16px 10px; }
 /* Staircase mode: each number lifts to its pitch height and cascades up like stairs. */
-.ladder.explore.staircase { align-items: end; padding-top: 150px; }
-.ladder.explore.staircase .explore-pad { min-height: 44px; }
+.ladder.explore.staircase { align-items: end; padding-top: 104px; }
+.ladder.explore.staircase .explore-pad { min-height: 40px; }
 .ladder.explore.staircase .rung.stair {
   animation: tut-stair 0.55s cubic-bezier(0.34, 1.3, 0.5, 1) both;
   animation-delay: var(--delay);
 }
 @keyframes tut-stair {
-  from { transform: translateY(22px); opacity: 0; }
-  to   { transform: translateY(calc(var(--rise) * -12px)); opacity: 1; }
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(calc(var(--rise) * -8.5px)); opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ladder.explore.staircase .rung.stair { animation: none; opacity: 1; transform: translateY(calc(var(--rise) * -12px)); }
+  .ladder.explore.staircase .rung.stair { animation: none; opacity: 1; transform: translateY(calc(var(--rise) * -8.5px)); }
 }
 .explore-pad {
   border: 1.5px solid var(--line); background: var(--bg);
@@ -5742,23 +5751,28 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
    (never scrolls under a bar), so nothing obscures the terrain or Coda. */
 .adv-screen { position: fixed; inset: 0; z-index: 40; background: #1b1f1d; overflow: hidden; display: flex; flex-direction: column; }
 .adv-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; justify-content: center; }
-.adv-map { image-rendering: pixelated; width: 100%; max-width: 460px; height: auto; align-self: center; margin: auto 0; cursor: pointer; }
+.adv-map { image-rendering: pixelated; width: 100%; max-width: 460px; height: auto; align-self: center; margin: 0 auto; cursor: pointer; }
 .adv-hud { flex: 0 0 auto; z-index: 2; display: flex; align-items: center; gap: 12px; }
 .adv-hud-top {
-  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 12px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
   background: #161a18; border-bottom: 2px solid #2b322d;
 }
+/* Bottom HUD floats transparently over the map so the map fills the screen. */
 .adv-hud-bottom {
-  padding: 12px 16px calc(env(safe-area-inset-bottom, 0px) + 12px);
-  background: #161a18; border-top: 2px solid #2b322d;
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
+  padding: 10px 14px calc(env(safe-area-inset-bottom, 0px) + 10px);
+  background: transparent; border-top: 0;
+  justify-content: space-between; align-items: flex-end; pointer-events: none;
 }
-.adv-logo { height: 26px; width: auto; image-rendering: pixelated; }
-.adv-title { flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; letter-spacing: 0.08em; color: var(--teal); text-transform: uppercase; }
-.adv-sword-mini { image-rendering: pixelated; height: 64px; width: auto; flex-shrink: 0; }
-.adv-forge-txt { flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: 0.82rem; color: var(--text-soft); }
-.adv-forge-txt b { font-family: 'Archivo Black', sans-serif; font-size: 1rem; color: var(--teal); }
+.adv-hud-bottom > * { pointer-events: auto; }
+.adv-forge-chip { display: flex; align-items: center; gap: 6px; background: rgba(20,24,22,.82); padding: 5px 12px 5px 6px; border-radius: 12px; }
+.adv-logo { height: 24px; width: auto; image-rendering: pixelated; }
+.adv-title { flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 1rem; letter-spacing: 0.06em; color: var(--teal); text-transform: uppercase; }
+.adv-sword-mini { image-rendering: pixelated; height: 46px; width: auto; flex-shrink: 0; }
+.adv-forge-txt { display: flex; flex-direction: column; gap: 1px; font-size: 0.74rem; color: var(--text-soft); line-height: 1.2; }
+.adv-forge-txt b { font-family: 'Archivo Black', sans-serif; font-size: 0.9rem; color: var(--teal); }
 .adv-hud-actions { display: flex; gap: 8px; }
-.adv-hud-actions .ghost { padding: 8px 11px; font-size: 1.1rem; }
+.adv-hud-actions .ghost { padding: 8px 11px; font-size: 1.1rem; background: rgba(20,24,22,.82); }
 .settings { display: flex; flex-direction: column; gap: 20px; }
 .set-block {
   display: flex; flex-direction: column; gap: 10px;

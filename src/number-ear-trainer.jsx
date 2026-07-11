@@ -1510,7 +1510,7 @@ function drawDojo(ctx, cx, cy, img) {
 
 // First-time map tour: Verda walks a new player around the world map (coach marks).
 const MAP_TOUR = [
-  { sel: ".adv-map", title: "Welcome to Harmonia", text: "This whole world is your training ground. Every glowing marker is a place to sharpen your ear." },
+  { sel: null, title: "Welcome to Harmonia", text: "This whole world is your training ground. Every glowing marker is a place to sharpen your ear." },
   { sel: "dojo", title: "The Dojo", text: "That little pagoda is the Dojo. Apps and tests alone can't truly train your ears — you have to improvise and create with these sounds too. Drop in any time to play freely, and feel free to follow along on your own instrument." },
   { sel: ".adv-map", markers: true, title: "Your journey", text: "Tap a marker to meet its Keeper and take on their challenge. Clear it and you earn a piece of the blade." },
   { sel: ".adv-sword-mini", title: "The blade", text: "Eight Keepers, eight pieces. Reforge Excalibar and all of Harmonia sings again." },
@@ -1537,6 +1537,7 @@ const MAPTOUR_CSS = `
 .maptour-dots { flex: 1; display: flex; gap: 5px; justify-content: center; }
 .maptour-dots i { width: 6px; height: 6px; background: var(--line,#565D59); }
 .maptour-dots i.on { background: var(--teal,#57C6C4); }
+.maptour-back { font-family: var(--pf,monospace); font-size: 12px; background: transparent; color: var(--teal,#57C6C4); border: 0; cursor: pointer; padding: 8px 6px; line-height: 1; }
 .maptour-next { font-family: var(--pf,monospace); text-transform: uppercase; letter-spacing: 1px; font-size: 10px; background: var(--teal,#57C6C4); color: #12201d; border: 0; clip-path: var(--notch);
   box-shadow: inset 2px 2px 0 rgba(255,255,255,.3), inset -2px -2px 0 rgba(0,0,0,.25); padding: 10px 14px; cursor: pointer; }
 @keyframes maptour-fade { from { opacity: 0; } }
@@ -1605,6 +1606,7 @@ function MapTour({ onClose, onSfx }) {
           <div className="maptour-actions">
             {!last && <button className="maptour-skip" onClick={() => { beep("move"); onClose(); }}>Skip</button>}
             <span className="maptour-dots">{MAP_TOUR.map((_, i) => <i key={i} className={i === step ? "on" : ""} />)}</span>
+            {step > 0 && <button className="maptour-back" onClick={() => { beep("move"); setStep(step - 1); }} aria-label="Back">◂</button>}
             <button className="maptour-next" onClick={() => { beep(last ? "select" : "move"); last ? onClose() : setStep(step + 1); }}>{last ? "Let's go!" : "Next ▸"}</button>
           </div>
         </div>
@@ -1827,7 +1829,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       <style>{CSS}</style>
       <div className="adv-hud adv-hud-top">
         <img className="adv-logo" src={typeof window !== "undefined" ? window.WEJAM_LOGO : ""} alt="WeJam" />
-        <span className="adv-title">Harmonia{restored && <em className="adv-restored-tag"> · restored</em>}</span>
+        <span className="adv-title">Numbersong{restored && <em className="adv-restored-tag"> · restored</em>}</span>
         <button className="gear" onClick={onMenu} aria-label="Main menu">☰</button>
         <button className="gear gear-settings" onClick={onSettings} aria-label="Settings">⚙</button>
       </div>
@@ -1841,10 +1843,12 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
         </div>
       )}
       <div className="adv-hud adv-hud-bottom">
-        <canvas ref={swordRef} className={"adv-sword-mini" + (burst ? " burst" : "")} onClick={onForge} role="button" tabIndex={0} aria-label="View Excalibar fragments" />
-        <div className="adv-forge-txt">
-          <b>{have} / 8</b> fragments
-          <span>{have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""}</span>
+        <div className="adv-forge-chip">
+          <canvas ref={swordRef} className={"adv-sword-mini" + (burst ? " burst" : "")} onClick={onForge} role="button" tabIndex={0} aria-label="View Excalibar fragments" />
+          <div className="adv-forge-txt">
+            <b>{have} / 8</b> fragments
+            <span>{have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""}</span>
+          </div>
         </div>
         <div className="adv-hud-actions">
           <button className="ghost shop-btn" onClick={onShop} aria-label="Shop">★</button>
@@ -3884,22 +3888,24 @@ export default function NumberEarTrainer() {
           </div>
           <div className="stagepanel">
             <div className="stagetitle">{done ? "The map is yours" : drill ? drillTitle : beat.title}</div>
-            {done ? tutMap : drill ? (
-              <div className="numpad coach tut-drillpad">
-                {[1, 2, 3, 4, 5, 6, 7].map((d) => {
-                  const pc = DEGREE_TO_PC[d];
-                  const out = ![0, 2, 4].includes(pc);
-                  return (
-                    <button key={d}
-                      className={"num" + (pc === 0 ? " tonic" : "") + (out ? " dim" : "") + (tutReveal && pc === tutDrillTarget ? " coach-target" : "") + (tutDrillPhase === "win" && pc === tutDrillTarget ? " just" : "")}
-                      onClick={() => answerTutDrill(pc)}
-                      disabled={tutDrillPhase !== "answer" || out}>
-                      {d}<span className="num-sol">{SOLFEGE[d]}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : beat.stage}
+            <div className="stage-fit">
+              {done ? tutMap : drill ? (
+                <div className="numpad coach tut-drillpad">
+                  {[1, 2, 3, 4, 5, 6, 7].map((d) => {
+                    const pc = DEGREE_TO_PC[d];
+                    const out = ![0, 2, 4].includes(pc);
+                    return (
+                      <button key={d}
+                        className={"num" + (pc === 0 ? " tonic" : "") + (out ? " dim" : "") + (tutReveal && pc === tutDrillTarget ? " coach-target" : "") + (tutDrillPhase === "win" && pc === tutDrillTarget ? " just" : "")}
+                        onClick={() => answerTutDrill(pc)}
+                        disabled={tutDrillPhase !== "answer" || out}>
+                        {d}<span className="num-sol">{SOLFEGE[d]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : beat.stage}
+            </div>
             {(done || (!drill && (beat.stage === tutMap || beat.stage === tutMapStair || beat.stage === tutTwelve || beat.stage === tutHalfStage))) && <div className="tut-explore">↯ Tap the map — hear any note, explore freely</div>}
           </div>
           <div className="tut-mid">
@@ -4401,18 +4407,18 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .rung.dim { opacity: 0.22; }
 .ladder.explore { padding: 16px 10px; }
 /* Staircase mode: each number lifts to its pitch height and cascades up like stairs. */
-.ladder.explore.staircase { align-items: end; padding-top: 150px; }
-.ladder.explore.staircase .explore-pad { min-height: 44px; }
+.ladder.explore.staircase { align-items: end; padding-top: 104px; }
+.ladder.explore.staircase .explore-pad { min-height: 40px; }
 .ladder.explore.staircase .rung.stair {
   animation: tut-stair 0.55s cubic-bezier(0.34, 1.3, 0.5, 1) both;
   animation-delay: var(--delay);
 }
 @keyframes tut-stair {
-  from { transform: translateY(22px); opacity: 0; }
-  to   { transform: translateY(calc(var(--rise) * -12px)); opacity: 1; }
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(calc(var(--rise) * -8.5px)); opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ladder.explore.staircase .rung.stair { animation: none; opacity: 1; transform: translateY(calc(var(--rise) * -12px)); }
+  .ladder.explore.staircase .rung.stair { animation: none; opacity: 1; transform: translateY(calc(var(--rise) * -8.5px)); }
 }
 .explore-pad {
   border: 1.5px solid var(--line); background: var(--bg);
@@ -4651,23 +4657,28 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
    (never scrolls under a bar), so nothing obscures the terrain or Coda. */
 .adv-screen { position: fixed; inset: 0; z-index: 40; background: #1b1f1d; overflow: hidden; display: flex; flex-direction: column; }
 .adv-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; justify-content: center; }
-.adv-map { image-rendering: pixelated; width: 100%; max-width: 460px; height: auto; align-self: center; margin: auto 0; cursor: pointer; }
+.adv-map { image-rendering: pixelated; width: 100%; max-width: 460px; height: auto; align-self: center; margin: 0 auto; cursor: pointer; }
 .adv-hud { flex: 0 0 auto; z-index: 2; display: flex; align-items: center; gap: 12px; }
 .adv-hud-top {
-  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 12px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
   background: #161a18; border-bottom: 2px solid #2b322d;
 }
+/* Bottom HUD floats transparently over the map so the map fills the screen. */
 .adv-hud-bottom {
-  padding: 12px 16px calc(env(safe-area-inset-bottom, 0px) + 12px);
-  background: #161a18; border-top: 2px solid #2b322d;
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
+  padding: 10px 14px calc(env(safe-area-inset-bottom, 0px) + 10px);
+  background: transparent; border-top: 0;
+  justify-content: space-between; align-items: flex-end; pointer-events: none;
 }
-.adv-logo { height: 26px; width: auto; image-rendering: pixelated; }
-.adv-title { flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; letter-spacing: 0.08em; color: var(--teal); text-transform: uppercase; }
-.adv-sword-mini { image-rendering: pixelated; height: 64px; width: auto; flex-shrink: 0; }
-.adv-forge-txt { flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: 0.82rem; color: var(--text-soft); }
-.adv-forge-txt b { font-family: 'Archivo Black', sans-serif; font-size: 1rem; color: var(--teal); }
+.adv-hud-bottom > * { pointer-events: auto; }
+.adv-forge-chip { display: flex; align-items: center; gap: 6px; background: rgba(20,24,22,.82); padding: 5px 12px 5px 6px; border-radius: 12px; }
+.adv-logo { height: 24px; width: auto; image-rendering: pixelated; }
+.adv-title { flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 1rem; letter-spacing: 0.06em; color: var(--teal); text-transform: uppercase; }
+.adv-sword-mini { image-rendering: pixelated; height: 46px; width: auto; flex-shrink: 0; }
+.adv-forge-txt { display: flex; flex-direction: column; gap: 1px; font-size: 0.74rem; color: var(--text-soft); line-height: 1.2; }
+.adv-forge-txt b { font-family: 'Archivo Black', sans-serif; font-size: 0.9rem; color: var(--teal); }
 .adv-hud-actions { display: flex; gap: 8px; }
-.adv-hud-actions .ghost { padding: 8px 11px; font-size: 1.1rem; }
+.adv-hud-actions .ghost { padding: 8px 11px; font-size: 1.1rem; background: rgba(20,24,22,.82); }
 .settings { display: flex; flex-direction: column; gap: 20px; }
 .set-block {
   display: flex; flex-direction: column; gap: 10px;
