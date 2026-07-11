@@ -1094,7 +1094,7 @@ function worldChordTones(w) {
   return [0, 2, 4, 6].map((k) => ((w - 1 + k) % 7) + 1);
 }
 
-function ExploreMap({ start, count, stage, octaves, world, active, singDeg, singInTune, onPlay, onDown, onUp }) {
+function ExploreMap({ start, count, stage, octaves, world, active, hi, singDeg, singInTune, onPlay, onDown, onUp }) {
   const evts = (n, row) => onDown // guide taps (onPlay); Free Play holds (onDown/onUp)
     ? { onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(n, row); }, onPointerUp: () => onUp(n, row) }
     : { onClick: () => onPlay(n, row) };
@@ -1114,6 +1114,7 @@ function ExploreMap({ start, count, stage, octaves, world, active, singDeg, sing
         isRoot && "world-root",
         stage === 1 && "blank",
         active?.includes(n.raw + row * 100) && "active",
+        hi?.includes(n.raw + row * 100) && "hl",
         n.label === singDeg && (singInTune ? "singing in" : "singing off"),
       ].filter(Boolean).join(" ");
       cells.push(
@@ -1214,16 +1215,19 @@ function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singI
 /* ────────────────────  GUIDE CHORD STACK  ────────────────────
    His slide notation: the seven degrees stacked, the chord's tones circled. */
 
-function GuideStack({ label, world }) {
+function GuideStack({ label, world, onPlay }) {
   const tones = worldChordTones(world);
-  return (
-    <div className="stack">
+  const inner = (
+    <>
       {[7, 6, 5, 4, 3, 2, 1].map((d) => (
         <span key={d} className={"stack-note" + (tones.includes(d) ? " on" : "")}>{d}</span>
       ))}
       <span className="stack-label">{label}</span>
-    </div>
+    </>
   );
+  return onPlay
+    ? <button type="button" className="stack stack-play" onClick={() => onPlay(world)} aria-label={"Play the " + label + " chord"}>{inner}</button>
+    : <div className="stack">{inner}</div>;
 }
 
 /* ────────────────────  SESSION STACK  ────────────────────
@@ -1913,6 +1917,25 @@ export default function NumberEarTrainer() {
     setTimeout(() => { setLitActive([]); setBusy(false); }, (degs.length * step + 0.8) * 1000);
   };
 
+  // Tutorial phrase player: lights the ExploreMap (whose active id = degree in the
+  // 1..8 window, so raw === degree) AND honours per-note rhythm — durs are relative
+  // note lengths (default even). This is why the map now animates in step with the
+  // melody and why "Mary" swings on the real tune instead of a flat pulse.
+  const playTutPhrase = (degs, durs) => {
+    if (busy) return;
+    setBusy(true);
+    const beat = 0.52; // seconds per unit length
+    let t = 0;
+    const onset = degs.map((d, i) => { const at = t; t += (durs ? durs[i] : 1) * beat; return at; });
+    degs.forEach((d, i) => {
+      const gap = (durs ? durs[i] : 1) * beat;
+      playDegree(musicKey, d, onset[i]);
+      sing(musicKey, d, voiceOn, onset[i], i < degs.length - 1 ? gap : null);
+      setTimeout(() => setLitActive([d]), onset[i] * 1000);
+    });
+    setTimeout(() => { setLitActive([]); setBusy(false); }, (t + 0.8) * 1000);
+  };
+
   const playTwoFiveOne = () => {
     if (busy) return;
     setBusy(true);
@@ -1922,6 +1945,16 @@ export default function NumberEarTrainer() {
       playDegree(musicKey, root, i * 0.9, 3);
     });
     setTimeout(() => setBusy(false), 3400);
+  };
+
+  // Play one chord stack (a triad voiced above its root) — used by the clickable
+  // 2-5-1 stacks in the tutorial.
+  const playChordStack = (world) => {
+    if (busy) return;
+    setBusy(true);
+    [world, world + 2, world + 4].forEach((d) => playDegree(musicKey, d, 0));
+    playDegree(musicKey, world, 0, 3);
+    setTimeout(() => setBusy(false), 1300);
   };
 
   // free explore
@@ -2068,12 +2101,15 @@ export default function NumberEarTrainer() {
   useEffect(() => {
     const S = (typeof window !== "undefined") && window.SOUNDTRACK;
     if (!S) return;
+    // The tutorial's coached ear-training drills must be silent — kill the meadow
+    // theme the moment we enter drill mode so nothing competes with the note.
+    if (screen === "tutorial" && tutMode === "drill") { stopMusic(true); return; }
     if (screen === "adventure" || screen === "levels" || screen === "tutorial") { playTheme("map", S.map); return; }
     if (screen === "boot" || screen === "menu" || screen === "training" || screen === "home" || screen === "shop") { playTheme("title", S.title); return; }
     // dojo/Free Play (explore sounds freely), How-music-works + Settings (audio demos),
     // sessions, results, boot → silent.
     stopMusic(screen === "session");
-  }, [screen]);
+  }, [screen, tutMode]);
 
   // Stop the paths loop whenever we leave Free Play or the paths tab.
   useEffect(() => {
@@ -3485,6 +3521,9 @@ export default function NumberEarTrainer() {
     // The teaching maps are interactive — tap any pad to hear that degree (reuse the
     // guide's ExploreMap + playExplore). One shared element for every map beat.
     const tutMap = <ExploreMap start={1} count={8} stage={0} octaves={1} world={null} active={litActive} onPlay={playExplore} />;
+    // The half-step beat keeps 3·4 and 7·1 persistently lit so the two half-step pairs
+    // are visible right on the map (taps still light via litActive).
+    const tutMapHalf = <ExploreMap start={1} count={8} stage={0} octaves={1} world={null} hi={[3, 4, 7, 8]} active={litActive} onPlay={playExplore} />;
     // The "12 pitches" beat gets a CHROMATIC map — all 12, flats included — also tappable.
     const CHROM = [["1", 0, 0, 1], ["♭2", 1, 1], ["2", 2], ["♭3", 3, 1], ["3", 4], ["4", 5], ["♭5", 6, 1], ["5", 7], ["♭6", 8, 1], ["6", 9], ["♭7", 10, 1], ["7", 11], ["1", 12, 0, 1]];
     const tutChromMap = (
@@ -3502,21 +3541,21 @@ export default function NumberEarTrainer() {
       { title: "Twelve pitches", cue: null,
         lines: <>All of music rests on just <b className="hl-g">12 unique pitches</b>, repeating forever up and down. But here's the secret: at any moment, most songs use only <b className="hl-t">7 of them</b> — the ones with numbers.</>,
         stage: tutChromMap },
-      { title: "The tonal map", cue: "1 → 1", hear: { label: "▶ Hear the scale", act: () => playPhrase([1, 2, 3, 4, 5, 6, 7, 8]) },
+      { title: "The tonal map", cue: "1 2 3 4 5 6 7 1", hear: { label: "▶ Hear the scale", act: () => playTutPhrase([1, 2, 3, 4, 5, 6, 7, 8]) },
         lines: <>The shortest distance between two pitches is a <b className="hl-t">half step</b>; two half steps make a <b className="hl-t">whole step</b>. Arrange them in the right pattern and you get this — the <b className="hl-g">tonal map</b> (you may know it as the major scale).</>,
         stage: tutMap },
       { title: "Where the half steps hide", cue: null,
-        lines: <>Those little dots are the pitches <em>in between</em> — one in every whole step. Where two numbers sit side by side with <b>no dot</b>, that's a half step. The <b className="hl-t">only</b> half steps on the whole map are <b className="hl-g">3→4</b> and <b className="hl-g">7→1</b>.</>,
-        stage: tutMap },
+        lines: <>Those little dots are the pitches <em>in between</em> — one in every whole step. Where two numbers sit side by side with <b>no dot</b>, that's a half step. The <b className="hl-t">only</b> half steps on the whole map are <b className="hl-g">3→4</b> and <b className="hl-g">7→1</b> — lit up right on the map.</>,
+        stage: tutMapHalf },
       { title: "Home never moves", cue: null,
-        lines: <>This map is the key that unlocks all <b className="hl-g">melody and harmony</b>. Absolute note names don't matter here — music is <b className="hl-t">relative to home</b>. And home is always <b className="hl-t">1</b>.</>,
+        lines: <>This map is the key that unlocks all <b className="hl-g">melody and harmony</b>. Absolute note names don't matter here — music is <b className="hl-t">relative to home</b>. In a <b className="hl-g">major key</b>, home is always <b className="hl-t">1</b>.</>,
         stage: tutMap },
-      { title: "Mary had a little lamb", cue: "3 2 1 2 3 3 3", hear: { label: "▶ Hear it in numbers", act: () => playPhrase([3, 2, 1, 2, 3, 3, 3, 2, 2, 2, 3, 5, 5]) },
+      { title: "Mary had a little lamb", cue: "3 2 1 2 3 3 3 2 2 2 3 5 5", hear: { label: "▶ Hear it in numbers", act: () => playTutPhrase([3, 2, 1, 2, 3, 3, 3, 2, 2, 2, 3, 5, 5], [1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 2]) },
         lines: <>You already know this one. Watch a song you love become <b className="hl-g">numbers</b> — the same map, every time.</>,
         stage: tutMap },
       { title: "Chords are numbers, stacked", cue: null, hear: { label: "▶ Hear a 2–5–1", act: playTwoFiveOne },
-        lines: <>Even chords are just numbers, <b className="hl-t">stacked</b>. That's the road ahead — first, we'll train your ear on single notes.</>,
-        stage: <div className="stacks"><GuideStack label="2-" world={2} /><GuideStack label="5D" world={5} /><GuideStack label="1" world={1} /></div> },
+        lines: <>Even chords are just numbers, <b className="hl-t">stacked</b> — tap any stack to hear it. That's the road ahead; first, we'll train your ear on single notes.</>,
+        stage: <div className="stacks"><GuideStack label="2-" world={2} onPlay={playChordStack} /><GuideStack label="5D" world={5} onPlay={playChordStack} /><GuideStack label="1" world={1} onPlay={playChordStack} /></div> },
       { title: "A little secret", cue: null,
         lines: <>One secret before we begin: as each note plays, try <b className="hl-t">singing its number</b> out loud. It's completely optional — but nothing will grow your ear faster.</>,
         stage: tutMap },
@@ -3570,15 +3609,22 @@ export default function NumberEarTrainer() {
                 })}
               </div>
             ) : beat.stage}
-            {!drill && (beat.stage === tutMap || beat.stage === tutChromMap) && <div className="tut-explore">↯ Tap the map — hear any note, explore freely</div>}
+            {!drill && (beat.stage === tutMap || beat.stage === tutChromMap || beat.stage === tutMapHalf) && <div className="tut-explore">↯ Tap the map — hear any note, explore freely</div>}
           </div>
           <div className="tut-mid">
-            {drill
-              ? <button className="btn go tut-midhear" onClick={replayTutNote} disabled={tutDrillPhase === "play" || busy}>▶ Hear it again</button>
-              : (beat.hear && <button className="btn go tut-midhear" onClick={beat.hear.act} disabled={busy}>{beat.hear.label}</button>)}
+            <div className="tut-midstack">
+              {drill
+                ? <button className="btn go tut-midhear" onClick={replayTutNote} disabled={tutDrillPhase === "play" || busy}>▶ Hear it again</button>
+                : (beat.hear && <button className="btn go tut-midhear" onClick={beat.hear.act} disabled={busy}>{beat.hear.label}</button>)}
+              {!drill && beat.cue && (
+                <div className="tut-seq">
+                  <span className="tut-seq-label">In numbers</span>
+                  <div className="tut-seq-nums">{beat.cue.split(" ").map((c, i) => <b key={i}>{c}</b>)}</div>
+                </div>
+              )}
+            </div>
             <img className="verda" src={verdaSrc} alt="Verda" />
             <div className="vshadow" />
-            {!drill && beat.cue && <div className="cue">Now playing<b>{beat.cue}</b></div>}
           </div>
           <div className="prog">
             {drill

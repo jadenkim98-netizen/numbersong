@@ -1096,13 +1096,26 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 .tut-chrom-pad.alt{ height:28px; font-size:9px; background:#2f3432; color:var(--gold); box-shadow:inset 0 0 0 2px rgba(217,180,91,.3); }
 .tut-chrom-pad.tonic{ color:var(--teal); box-shadow:inset 0 0 0 2px var(--teal); }
 .tut-chrom-pad:active{ background:var(--green); color:var(--ink); transform:translateY(-2px); filter:drop-shadow(0 1px 0 var(--ink)); }
+/* Persistent half-step highlight on the map (the 3·4 and 7·1 pairs) */
+.tutorial .explore-pad.hl{ box-shadow:inset 0 0 0 2px var(--gold),0 0 12px rgba(217,180,91,.75); z-index:2; }
+.tutorial .explore-pad.hl .rung-num{ color:var(--gold); }
+/* Clickable 2-5-1 chord stacks in the tutorial */
+.tutorial .stack-play{ border:0; font-family:inherit; color:inherit; cursor:pointer; transition:transform .09s ease; }
+.tutorial .stack-play:hover{ transform:translateY(-3px); }
+.tutorial .stack-play:active{ transform:translateY(0); }
 .tutorial .verda{ position:absolute; left:2px; bottom:0; width:130px; height:auto; image-rendering:pixelated;
   filter:drop-shadow(0 0 10px rgba(87,198,196,.35)) drop-shadow(0 4px 0 var(--ink)); animation:bi-coda-bob 2.4s ease-in-out infinite; }
 .tutorial .vshadow{ position:absolute; left:22px; bottom:-2px; width:88px; height:18px; border-radius:50%;
   background:radial-gradient(closest-side,rgba(87,198,196,.5),rgba(87,198,196,0) 72%); filter:blur(1.5px); }
-.tutorial .cue{ position:absolute; right:6px; bottom:22px; text-align:right; font-family:var(--pf); font-size:8px; letter-spacing:1px;
-  text-transform:uppercase; color:rgba(237,242,238,.9); text-shadow:1px 1px 0 var(--ink); }
-.tutorial .cue b{ display:block; color:var(--gold); font-size:11px; margin-top:3px; letter-spacing:1px; font-family:var(--black); text-transform:none; }
+/* The Hear button + the full "in numbers" sequence, stacked and centered in the meadow */
+.tut-midstack{ position:relative; z-index:3; display:flex; flex-direction:column; align-items:center; gap:14px; max-width:100%; }
+.tutorial .tut-seq{ text-align:center; }
+.tutorial .tut-seq-label{ display:block; font-family:var(--pf); font-size:8px; letter-spacing:2px; text-transform:uppercase;
+  color:rgba(237,242,238,.7); text-shadow:1px 1px 0 var(--ink); margin-bottom:7px; }
+.tutorial .tut-seq-nums{ display:flex; flex-wrap:wrap; gap:5px 6px; justify-content:center; max-width:300px; }
+.tutorial .tut-seq-nums b{ font-family:var(--black); font-size:19px; line-height:1; color:var(--gold);
+  background:rgba(32,48,46,.6); box-shadow:inset 0 0 0 2px rgba(217,180,91,.45); padding:5px 9px; clip-path:var(--notch);
+  text-shadow:1px 1px 0 var(--ink); }
 .tutorial .prog{ display:flex; align-items:center; justify-content:center; gap:6px; margin:6px 0 10px; }
 .tutorial .pdot{ width:7px; height:7px; background:rgba(32,48,46,.45); box-shadow:0 0 0 1px rgba(32,48,46,.5); }
 .tutorial .pdot.done{ background:var(--green); }
@@ -2476,7 +2489,7 @@ window.SOUNDTRACK = SOUNDTRACK;
   function worldChordTones(w) {
     return [0, 2, 4, 6].map((k) => (w - 1 + k) % 7 + 1);
   }
-  function ExploreMap({ start, count, stage, octaves, world, active, singDeg, singInTune, onPlay, onDown, onUp }) {
+  function ExploreMap({ start, count, stage, octaves, world, active, hi, singDeg, singInTune, onPlay, onDown, onUp }) {
     const evts = (n, row) => onDown ? { onPointerDown: (e) => {
       try {
         e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -2501,6 +2514,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           isRoot && "world-root",
           stage === 1 && "blank",
           active?.includes(n.raw + row * 100) && "active",
+          hi?.includes(n.raw + row * 100) && "hl",
           n.label === singDeg && (singInTune ? "singing in" : "singing off")
         ].filter(Boolean).join(" ");
         cells.push(
@@ -2599,9 +2613,10 @@ window.SOUNDTRACK = SOUNDTRACK;
       keyLabel(k.s)
     )));
   }
-  function GuideStack({ label, world }) {
+  function GuideStack({ label, world, onPlay }) {
     const tones = worldChordTones(world);
-    return /* @__PURE__ */ React.createElement("div", { className: "stack" }, [7, 6, 5, 4, 3, 2, 1].map((d) => /* @__PURE__ */ React.createElement("span", { key: d, className: "stack-note" + (tones.includes(d) ? " on" : "") }, d)), /* @__PURE__ */ React.createElement("span", { className: "stack-label" }, label));
+    const inner = /* @__PURE__ */ React.createElement(React.Fragment, null, [7, 6, 5, 4, 3, 2, 1].map((d) => /* @__PURE__ */ React.createElement("span", { key: d, className: "stack-note" + (tones.includes(d) ? " on" : "") }, d)), /* @__PURE__ */ React.createElement("span", { className: "stack-label" }, label));
+    return onPlay ? /* @__PURE__ */ React.createElement("button", { type: "button", className: "stack stack-play", onClick: () => onPlay(world), "aria-label": "Play the " + label + " chord" }, inner) : /* @__PURE__ */ React.createElement("div", { className: "stack" }, inner);
   }
   function SessionStack({ picked, correct, wrong, label }) {
     return /* @__PURE__ */ React.createElement("div", { className: "stack session-stack" }, [7, 6, 5, 4, 3, 2, 1].map((d) => {
@@ -3399,6 +3414,27 @@ window.SOUNDTRACK = SOUNDTRACK;
         setBusy(false);
       }, (degs.length * step + 0.8) * 1e3);
     };
+    const playTutPhrase = (degs, durs) => {
+      if (busy) return;
+      setBusy(true);
+      const beat = 0.52;
+      let t = 0;
+      const onset = degs.map((d, i) => {
+        const at = t;
+        t += (durs ? durs[i] : 1) * beat;
+        return at;
+      });
+      degs.forEach((d, i) => {
+        const gap = (durs ? durs[i] : 1) * beat;
+        playDegree(musicKey, d, onset[i]);
+        sing(musicKey, d, voiceOn, onset[i], i < degs.length - 1 ? gap : null);
+        setTimeout(() => setLitActive([d]), onset[i] * 1e3);
+      });
+      setTimeout(() => {
+        setLitActive([]);
+        setBusy(false);
+      }, (t + 0.8) * 1e3);
+    };
     const playTwoFiveOne = () => {
       if (busy) return;
       setBusy(true);
@@ -3408,6 +3444,13 @@ window.SOUNDTRACK = SOUNDTRACK;
         playDegree(musicKey, root, i * 0.9, 3);
       });
       setTimeout(() => setBusy(false), 3400);
+    };
+    const playChordStack = (world) => {
+      if (busy) return;
+      setBusy(true);
+      [world, world + 2, world + 4].forEach((d) => playDegree(musicKey, d, 0));
+      playDegree(musicKey, world, 0, 3);
+      setTimeout(() => setBusy(false), 1300);
     };
     const [exStart, setExStart] = useState(1);
     const [exCount, setExCount] = useState(3);
@@ -3557,6 +3600,10 @@ window.SOUNDTRACK = SOUNDTRACK;
     useEffect(() => {
       const S = typeof window !== "undefined" && window.SOUNDTRACK;
       if (!S) return;
+      if (screen === "tutorial" && tutMode === "drill") {
+        stopMusic(true);
+        return;
+      }
       if (screen === "adventure" || screen === "levels" || screen === "tutorial") {
         playTheme("map", S.map);
         return;
@@ -3566,7 +3613,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         return;
       }
       stopMusic(screen === "session");
-    }, [screen]);
+    }, [screen, tutMode]);
     useEffect(() => {
       if (screen !== "learn" || fpTab !== "paths") {
         stopPathLoop();
@@ -4659,6 +4706,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     if (screen === "tutorial") {
       const verdaSrc = typeof window !== "undefined" ? window.VERDA_SPRITE : "";
       const tutMap = /* @__PURE__ */ React.createElement(ExploreMap, { start: 1, count: 8, stage: 0, octaves: 1, world: null, active: litActive, onPlay: playExplore });
+      const tutMapHalf = /* @__PURE__ */ React.createElement(ExploreMap, { start: 1, count: 8, stage: 0, octaves: 1, world: null, hi: [3, 4, 7, 8], active: litActive, onPlay: playExplore });
       const CHROM = [["1", 0, 0, 1], ["♭2", 1, 1], ["2", 2], ["♭3", 3, 1], ["3", 4], ["4", 5], ["♭5", 6, 1], ["5", 7], ["♭6", 8, 1], ["6", 9], ["♭7", 10, 1], ["7", 11], ["1", 12, 0, 1]];
       const tutChromMap = /* @__PURE__ */ React.createElement("div", { className: "tut-chrom" }, CHROM.map(([lab, semi, alt, tonic], i) => /* @__PURE__ */ React.createElement(
         "button",
@@ -4689,27 +4737,27 @@ window.SOUNDTRACK = SOUNDTRACK;
         },
         {
           title: "The tonal map",
-          cue: "1 → 1",
-          hear: { label: "▶ Hear the scale", act: () => playPhrase([1, 2, 3, 4, 5, 6, 7, 8]) },
+          cue: "1 2 3 4 5 6 7 1",
+          hear: { label: "▶ Hear the scale", act: () => playTutPhrase([1, 2, 3, 4, 5, 6, 7, 8]) },
           lines: /* @__PURE__ */ React.createElement(React.Fragment, null, "The shortest distance between two pitches is a ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "half step"), "; two half steps make a ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "whole step"), ". Arrange them in the right pattern and you get this — the ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "tonal map"), " (you may know it as the major scale)."),
           stage: tutMap
         },
         {
           title: "Where the half steps hide",
           cue: null,
-          lines: /* @__PURE__ */ React.createElement(React.Fragment, null, "Those little dots are the pitches ", /* @__PURE__ */ React.createElement("em", null, "in between"), " — one in every whole step. Where two numbers sit side by side with ", /* @__PURE__ */ React.createElement("b", null, "no dot"), ", that's a half step. The ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "only"), " half steps on the whole map are ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "3→4"), " and ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "7→1"), "."),
-          stage: tutMap
+          lines: /* @__PURE__ */ React.createElement(React.Fragment, null, "Those little dots are the pitches ", /* @__PURE__ */ React.createElement("em", null, "in between"), " — one in every whole step. Where two numbers sit side by side with ", /* @__PURE__ */ React.createElement("b", null, "no dot"), ", that's a half step. The ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "only"), " half steps on the whole map are ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "3→4"), " and ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "7→1"), " — lit up right on the map."),
+          stage: tutMapHalf
         },
         {
           title: "Home never moves",
           cue: null,
-          lines: /* @__PURE__ */ React.createElement(React.Fragment, null, "This map is the key that unlocks all ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "melody and harmony"), ". Absolute note names don't matter here — music is ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "relative to home"), ". And home is always ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "1"), "."),
+          lines: /* @__PURE__ */ React.createElement(React.Fragment, null, "This map is the key that unlocks all ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "melody and harmony"), ". Absolute note names don't matter here — music is ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "relative to home"), ". In a ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "major key"), ", home is always ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "1"), "."),
           stage: tutMap
         },
         {
           title: "Mary had a little lamb",
-          cue: "3 2 1 2 3 3 3",
-          hear: { label: "▶ Hear it in numbers", act: () => playPhrase([3, 2, 1, 2, 3, 3, 3, 2, 2, 2, 3, 5, 5]) },
+          cue: "3 2 1 2 3 3 3 2 2 2 3 5 5",
+          hear: { label: "▶ Hear it in numbers", act: () => playTutPhrase([3, 2, 1, 2, 3, 3, 3, 2, 2, 2, 3, 5, 5], [1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 2]) },
           lines: /* @__PURE__ */ React.createElement(React.Fragment, null, "You already know this one. Watch a song you love become ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "numbers"), " — the same map, every time."),
           stage: tutMap
         },
@@ -4717,8 +4765,8 @@ window.SOUNDTRACK = SOUNDTRACK;
           title: "Chords are numbers, stacked",
           cue: null,
           hear: { label: "▶ Hear a 2–5–1", act: playTwoFiveOne },
-          lines: /* @__PURE__ */ React.createElement(React.Fragment, null, "Even chords are just numbers, ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "stacked"), ". That's the road ahead — first, we'll train your ear on single notes."),
-          stage: /* @__PURE__ */ React.createElement("div", { className: "stacks" }, /* @__PURE__ */ React.createElement(GuideStack, { label: "2-", world: 2 }), /* @__PURE__ */ React.createElement(GuideStack, { label: "5D", world: 5 }), /* @__PURE__ */ React.createElement(GuideStack, { label: "1", world: 1 }))
+          lines: /* @__PURE__ */ React.createElement(React.Fragment, null, "Even chords are just numbers, ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "stacked"), " — tap any stack to hear it. That's the road ahead; first, we'll train your ear on single notes."),
+          stage: /* @__PURE__ */ React.createElement("div", { className: "stacks" }, /* @__PURE__ */ React.createElement(GuideStack, { label: "2-", world: 2, onPlay: playChordStack }), /* @__PURE__ */ React.createElement(GuideStack, { label: "5D", world: 5, onPlay: playChordStack }), /* @__PURE__ */ React.createElement(GuideStack, { label: "1", world: 1, onPlay: playChordStack }))
         },
         {
           title: "A little secret",
@@ -4753,7 +4801,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           d,
           /* @__PURE__ */ React.createElement("span", { className: "num-sol" }, SOLFEGE[d])
         );
-      })) : beat.stage, !drill && (beat.stage === tutMap || beat.stage === tutChromMap) && /* @__PURE__ */ React.createElement("div", { className: "tut-explore" }, "↯ Tap the map — hear any note, explore freely")), /* @__PURE__ */ React.createElement("div", { className: "tut-mid" }, drill ? /* @__PURE__ */ React.createElement("button", { className: "btn go tut-midhear", onClick: replayTutNote, disabled: tutDrillPhase === "play" || busy }, "▶ Hear it again") : beat.hear && /* @__PURE__ */ React.createElement("button", { className: "btn go tut-midhear", onClick: beat.hear.act, disabled: busy }, beat.hear.label), /* @__PURE__ */ React.createElement("img", { className: "verda", src: verdaSrc, alt: "Verda" }), /* @__PURE__ */ React.createElement("div", { className: "vshadow" }), !drill && beat.cue && /* @__PURE__ */ React.createElement("div", { className: "cue" }, "Now playing", /* @__PURE__ */ React.createElement("b", null, beat.cue))), /* @__PURE__ */ React.createElement("div", { className: "prog" }, drill ? [0, 1, 2].map((i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "pdot" + (i < tutDrillN ? " done" : i === tutDrillN ? " on" : "") })) : beats.map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "pdot" + (i < step ? " done" : i === step ? " on" : "") })), /* @__PURE__ */ React.createElement("span", { className: "plabel" }, drill ? `Drill ${tutDrillN + 1} of ${TUT_DRILLS}` : `Beat ${step + 1} of ${beats.length}`)), /* @__PURE__ */ React.createElement("div", { className: "dwrap" }, /* @__PURE__ */ React.createElement("span", { className: "ntab" }, "Verda, the Meadow Keeper"), /* @__PURE__ */ React.createElement("div", { className: "dbox" }, drill ? drillLine : beat.lines)), !drill && /* @__PURE__ */ React.createElement("div", { className: "btnrow" }, /* @__PURE__ */ React.createElement("button", { className: "btn ghost", disabled: step === 0, onClick: () => {
+      })) : beat.stage, !drill && (beat.stage === tutMap || beat.stage === tutChromMap || beat.stage === tutMapHalf) && /* @__PURE__ */ React.createElement("div", { className: "tut-explore" }, "↯ Tap the map — hear any note, explore freely")), /* @__PURE__ */ React.createElement("div", { className: "tut-mid" }, /* @__PURE__ */ React.createElement("div", { className: "tut-midstack" }, drill ? /* @__PURE__ */ React.createElement("button", { className: "btn go tut-midhear", onClick: replayTutNote, disabled: tutDrillPhase === "play" || busy }, "▶ Hear it again") : beat.hear && /* @__PURE__ */ React.createElement("button", { className: "btn go tut-midhear", onClick: beat.hear.act, disabled: busy }, beat.hear.label), !drill && beat.cue && /* @__PURE__ */ React.createElement("div", { className: "tut-seq" }, /* @__PURE__ */ React.createElement("span", { className: "tut-seq-label" }, "In numbers"), /* @__PURE__ */ React.createElement("div", { className: "tut-seq-nums" }, beat.cue.split(" ").map((c, i) => /* @__PURE__ */ React.createElement("b", { key: i }, c))))), /* @__PURE__ */ React.createElement("img", { className: "verda", src: verdaSrc, alt: "Verda" }), /* @__PURE__ */ React.createElement("div", { className: "vshadow" })), /* @__PURE__ */ React.createElement("div", { className: "prog" }, drill ? [0, 1, 2].map((i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "pdot" + (i < tutDrillN ? " done" : i === tutDrillN ? " on" : "") })) : beats.map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "pdot" + (i < step ? " done" : i === step ? " on" : "") })), /* @__PURE__ */ React.createElement("span", { className: "plabel" }, drill ? `Drill ${tutDrillN + 1} of ${TUT_DRILLS}` : `Beat ${step + 1} of ${beats.length}`)), /* @__PURE__ */ React.createElement("div", { className: "dwrap" }, /* @__PURE__ */ React.createElement("span", { className: "ntab" }, "Verda, the Meadow Keeper"), /* @__PURE__ */ React.createElement("div", { className: "dbox" }, drill ? drillLine : beat.lines)), !drill && /* @__PURE__ */ React.createElement("div", { className: "btnrow" }, /* @__PURE__ */ React.createElement("button", { className: "btn ghost", disabled: step === 0, onClick: () => {
         sfx("back");
         setTutStep((s) => Math.max(0, s - 1));
       } }, "◂ Back"), last ? /* @__PURE__ */ React.createElement("button", { className: "btn next", onClick: enterTutDrills }, "Begin →") : /* @__PURE__ */ React.createElement("button", { className: "btn next", onClick: () => {
