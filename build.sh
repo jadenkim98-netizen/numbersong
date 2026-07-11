@@ -71,15 +71,33 @@ html = f'''<!DOCTYPE html>
 <link rel="apple-touch-icon" href="{icon_data}">
 <link rel="icon" type="image/png" href="{icon_data}">
 <link rel="manifest" href="manifest.json">
+<script>
+  // Apply theme + retro skin class BEFORE first paint so the app never flashes an
+  // unstyled/non-retro frame that then reflows. The React effects reconcile these
+  // same attributes later (idempotent) when the player changes them at runtime.
+  (function () {{
+    try {{
+      var d = document.documentElement;
+      d.setAttribute("data-theme", localStorage.getItem("numbersong-theme") || "dark");
+      if (localStorage.getItem("numbersong-boring") !== "1") d.classList.add("retro");
+    }} catch (e) {{}}
+  }})();
+</script>
 <script>{react_js}</script>
 <script>{react_dom_js}</script>
 <script>{tone_js}</script>
 <style>
-  body {{ margin: 0; background: #383D3B; }}
+  html, body {{ margin: 0; background: #383D3B; }}
+  /* Critical pre-mount layout: clamp the app column to the SAME 560px the mounted
+     .app uses, so the first painted frame already matches — no width reflow. */
+  #root {{ max-width: 560px; margin: 0 auto; }}
+  #root:empty {{ min-height: 100vh; display: flex; align-items: center; justify-content: center; }}
   #root:empty::after {{
-    content: "Loading…";
-    display: block; padding: 40px 20px; font-family: system-ui, sans-serif; color: #A9B3AC;
+    content: ""; width: 26px; height: 26px; border-radius: 50%;
+    border: 3px solid rgba(237,242,238,.22); border-top-color: #57C6C4;
+    animation: ns-boot-spin .8s linear infinite;
   }}
+  @keyframes ns-boot-spin {{ to {{ transform: rotate(360deg); }} }}
   #errbox {{
     display: none; position: fixed; inset: auto 12px 12px 12px; z-index: 999;
     background: #E07856; color: #3A241B; padding: 12px 16px; border-radius: 10px;

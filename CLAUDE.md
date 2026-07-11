@@ -6,8 +6,16 @@ never as an interval from a chord root. "Home never moves."
 
 ## Project layout
 
-- `src/number-ear-trainer.jsx` — the entire app: one React component file
-  (data, audio engine, screens, CSS-in-JS). This is the only file you edit.
+- `src/number-ear-trainer.jsx` — the app: one React component file (data, audio
+  engine, screens, CSS-in-JS = the "Boring mode" base skin). Most edits land here.
+- `retro/retro.css` — the retro/GBA skin, layered on the app's real class names and
+  gated under a `.retro` root. `build.sh` inlines it into `<head>` as
+  `<style id="retro-skin">`; the pixel font is embedded from `retro/pixelfont.b64`.
+  **This is a real, separately-edited file** — the boot/intro art, per-answer reward,
+  celebrations, and freemium UI (upsell/CTA/locks) live here, NOT in the JSX. (The old
+  "only file you edit is the JSX" note was wrong.)
+- `retro/soundtrack.js` — the chiptune soundtrack data. `adventure/assets.js` — the
+  Harmonia world-map / keeper data (`window.HARMONIA`). Both inlined by build.sh.
 - `voice/0/`, `voice/4/`, `voice/8/` — Jojo's voice singing numbers 1–7 plus a
   high "one" (file `8.mp3`), pitch-corrected. Folder names are the semitone base
   of the recorded key: 0 = C major, 4 = E major, 8 = Ab major. At runtime the app
@@ -77,6 +85,36 @@ no dev server, no package.json — deliberately.
   (degree 8/9 exist only internally for audio math).
 - Voice & tone of UI copy: warm, playful, teacher-y ("Like we never left home.").
 
+## Freemium funnel (public app vs. students)
+
+The public app is the top of a lead-gen funnel for the "Effortless Improvisation
+Accelerator"; paying students run the SAME build fully unlocked. All tunables are one
+config block near the top of `src/number-ear-trainer.jsx`:
+
+- `OFFER_URL` — the VSL/booking link (the upsell + "Want more?" CTA open it).
+- `UNLOCK_CODE` — students unlock via `?unlock=<CODE>` (magic link, strips itself from
+  the URL) or by typing it in Settings → "Full access". Both set `numbersong-unlocked`
+  AND `numbersong-onboarded` in localStorage. Soft gate (client-side, bypassable) — by
+  design; hard entitlement would need accounts + a backend.
+- `CONVERTKIT_FORM` + `CONVERTKIT_KEY` — the public api_key (safe client-side) for the
+  ConvertKit v3 `/forms/{id}/subscribe` POST. **If blank, the email step stores the
+  lead in `numbersong-lead` locally and skips the network** — those leads never reach
+  you, so set these before driving real traffic.
+- `FREE` — what a gated player can reach: `melodyGroups` (Single-Notes groups from the
+  start; group 0 = Diatonic·major), `adventureRegions`, `freePlayPaths`.
+
+Entitlement helpers in the component: `unlocked`/`onboarded` state, `gated` (= !unlocked),
+`isMelodyFree(idx)`, `isRegionFree(nodeIdx)`. Gating lives at navigation ENTRY points
+(level rows, world/chapter pickers, adventure `onTapNode`, Free-Play Build) — never in
+the session engine, so a free Adventure region can still launch a drill that's locked in
+Basic Training. Locked taps call `openUpsell()`; the upsell modal + CTA + all locks
+render only when `gated`.
+
+First-run flow (new game-mode player): animated boot/intro ("The Map Sings" + Coda) →
+`bootAdvance()` routes to `adventure` when not onboarded (else `menu`) → they play → a
+one-time skippable email card on the FIRST `results` screen (win-first) → `onboarded`.
+A deferred "Tier 2" (guided dialogue tutorial + polished win screen/video) is not built.
+
 ## Deploying
 
 Live on GitHub Pages at https://jadenkim98-netizen.github.io/numbersong/,
@@ -92,8 +130,12 @@ online session, otherwise it falls back to the synth.
 
 ## Known future directions (discussed, not built)
 
-- Lock levels for students / unlock toggle for the teacher
-- Minor keys; melodies of multiple notes; chord progressions; sevenths/inversions
+- Onboarding Tier 2: a guided, Coda/keeper-narrated dialogue tutorial (coach marks,
+  scripted first encounter) + a polished win screen with an embedded video.
 - Solfège voice recordings as an alternative to numbers
 - Tappable stack as the chord-answer input
-- Accounts/backend so the teacher can see student progress (v2)
+- Accounts/backend for real (server-side) entitlement + teacher-visible student
+  progress — would replace the current soft client-side unlock.
+
+(Done since first draft: level locking + freemium funnel; the intro/boot glow-up;
+minor keys, chromatic, chord tones, chord progressions.)

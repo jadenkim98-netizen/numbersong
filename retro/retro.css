@@ -12,7 +12,9 @@
 @font-face{
   font-family:'NmbrsngPixel';
   src:url("data:font/woff2;base64,__FONT_B64__") format("woff2");
-  font-display:swap;
+  /* Inlined as a data URI (no network), so it decodes almost immediately.
+     `block` avoids the fallback-monospace-then-pixel swap reflow on first paint. */
+  font-display:block;
 }
 
 .retro{
@@ -139,6 +141,20 @@
 .retro .num:active{ box-shadow:inset -2px -2px 0 var(--hl),inset 2px 2px 0 var(--sh); }
 .retro .num.correct{ background:var(--green); color:var(--ink); }
 .retro .num.wrong{ background:var(--wrong); color:var(--ink); animation:rt-shake .28s steps(3); }
+/* the pad the player just NAILED — the per-question reward moment: green fill,
+   a springy scale punch, and a brightness flash. (clip-path clips outer
+   box-shadows, so the glow rides `filter:brightness`, not a drop shadow.) */
+.retro .num.just{
+  background:var(--green); color:var(--ink); position:relative; z-index:2;
+  box-shadow:inset 2px 2px 0 rgba(255,255,255,.4),inset -2px -2px 0 var(--sh);
+  animation:rt-hit .45s cubic-bezier(.2,1.6,.35,1);
+}
+.retro .num.just .num-sol{ color:var(--ink); opacity:.75; }
+@keyframes rt-hit{
+  0%{   transform:scale(1);    filter:brightness(2); }
+  35%{  transform:scale(1.16); filter:brightness(1.35); }
+  100%{ transform:scale(1);    filter:brightness(1); }
+}
 
 /* ---- stack notation frame (numbers inside remain Archivo) ----------------- */
 .retro .stack{ padding:12px; }
@@ -321,7 +337,8 @@
   flex:0 0 auto; animation:rt-pop .25s cubic-bezier(.2,1.4,.4,1);
 }
 .retro .session-score{ font-family:var(--pf); font-size:11px; letter-spacing:1px; }
-.retro .session-score .streak{ margin-right:8px; }
+.retro .session-score .streak{ display:inline-block; margin-right:8px; color:var(--gold);
+  animation:rt-pop .32s cubic-bezier(.2,1.5,.4,1); }
 
 /* ---- 3) victory + fragment flourish (results screen) --------------------- */
 .retro .victory{
@@ -567,3 +584,152 @@
 .retro .shop-swatch{ clip-path:var(--notch); border-radius:0; }
 .retro .lvl-star.on{ color:var(--gold); }
 .retro .adv-hud-actions .shop-btn{ color:var(--gold); box-shadow:inset 0 0 0 2px var(--gold),inset 2px 2px 0 rgba(217,180,91,.25); }
+
+/* =====================  FREEMIUM: upsell / CTA / locks / unlock  =========== */
+/* Base fallbacks (apply in BOTH skins — retro.css is always in <head>) so a gated
+   boring-mode player still gets a usable modal even without the .retro forge styles. */
+.upsell-modal{ position:fixed; inset:0; z-index:50; display:flex; align-items:center;
+  justify-content:center; padding:20px; background:rgba(0,0,0,.62); }
+.upsell-panel{ width:100%; max-width:400px; background:var(--card,#424845); border-radius:14px;
+  padding:22px 20px; text-align:center; }
+.upsell-copy{ font-size:.95rem; line-height:1.5; margin:10px 0 18px; }
+.upsell-panel .enc-actions{ display:flex; gap:10px; justify-content:center; }
+/* locked rows are tappable (they open the upsell), so pointer — not not-allowed */
+.retro .level.locked{ cursor:pointer; opacity:.6; }
+.retro .level.locked .level-state{ color:var(--gold); opacity:1; }
+.retro .upsell-panel{ box-shadow:inset 0 0 0 2px var(--gold),inset 0 0 0 4px rgba(0,0,0,.3); }
+.retro .upsell-copy{ font-family:var(--sans); font-size:.95rem; line-height:1.5; color:var(--text);
+  margin:10px 0 16px; text-transform:none; letter-spacing:normal; }
+.retro .upsell-panel .enc-actions{ padding:0; justify-content:center; }
+.cta-more{ display:flex; flex-direction:column; align-items:center; gap:3px; width:100%; cursor:pointer;
+  border:0; border-radius:12px; padding:13px 14px; background:var(--card); color:var(--gold); }
+.retro .cta-more{ font-family:var(--pf); text-transform:uppercase; letter-spacing:1px; font-size:12px;
+  clip-path:var(--notch); border-radius:0; box-shadow:inset 0 0 0 2px var(--gold),inset 2px 2px 0 rgba(217,180,91,.22); }
+.retro .cta-more:active{ transform:translateY(1px); box-shadow:inset 0 0 0 2px var(--gold),inset -2px -2px 0 rgba(217,180,91,.22); }
+.cta-more .cta-sub{ font-size:.72rem; opacity:.75; color:var(--text); }
+.retro .cta-more .cta-sub{ font-size:8px; }
+.set-row{ display:flex; gap:8px; align-items:center; }
+.set-input{ flex:1 1 auto; min-width:0; font-family:var(--sans); font-size:.9rem; background:var(--bg);
+  color:var(--text); border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+.retro .set-input{ border:0; clip-path:var(--notch); box-shadow:inset 1px 1px 0 var(--sh),inset 0 0 0 2px var(--line); }
+.set-input::placeholder{ color:var(--text); opacity:.4; }
+
+/* =====================  INTRO / BOOT SCREEN — "The Map Sings"  ============== */
+/* The title screen: the tonal map plays Joy to the World while Coda raises the
+   reforged blade. CSS-only; reduced-motion is handled by the global rule above. */
+.boot-screen{ justify-content:flex-start; gap:0; }
+.bi-presents{ font-family:var(--pf); font-size:9px; letter-spacing:6px; color:#8FA39B;
+  margin-top:6px; animation:bi-presents 5s ease-in-out infinite; }
+@keyframes bi-presents{ 0%,100%{opacity:.4} 50%{opacity:1} }
+.boot-screen .boot-title{ margin-top:12px; animation:bi-breathe 7s ease-in-out infinite; }
+@keyframes bi-breathe{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+.bi-tag{ font-family:var(--pf); font-size:9px; letter-spacing:3px; color:var(--gold);
+  margin-top:16px; text-shadow:1px 1px 0 var(--ink); }
+.bi-hero{ width:100%; display:flex; flex-direction:column; align-items:center; margin-top:22px; }
+.bi-mapwrap{ width:100%; padding:20px 12px 14px; background:var(--card); border:2px solid var(--line);
+  clip-path:var(--notch); filter:drop-shadow(0 5px 0 var(--ink)); animation:bi-float 7s ease-in-out infinite; }
+@keyframes bi-float{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+.bi-map{ display:grid; grid-template-columns:repeat(13,1fr); gap:3px; width:100%; align-items:end; }
+.bi-cl{ display:flex; flex-direction:column; align-items:center; gap:3px; position:relative; }
+.bi-st{ height:11px; line-height:11px; font-size:9px; font-weight:800; color:var(--teal); text-shadow:1px 1px 0 var(--ink); }
+.bi-pad{ position:relative; width:100%; height:34px; display:flex; align-items:center; justify-content:center;
+  font-family:var(--black); font-size:15px; background:#3B403E; border:2px solid var(--line); color:var(--text);
+  clip-path:var(--notch); filter:drop-shadow(0 3px 0 var(--ink)); }
+.bi-cl.tonic .bi-pad{ border-color:var(--teal); color:var(--teal); }
+.bi-mid{ height:34px; display:flex; align-items:center; filter:drop-shadow(0 2px 0 var(--ink)); }
+.bi-mid s{ display:block; width:5px; height:5px; background:var(--line); border-radius:1px; }
+.bi-sol{ height:9px; line-height:9px; font-family:var(--sans); font-size:7px; letter-spacing:.5px; color:#8FA39B; text-transform:uppercase; }
+.bi-now{ font-family:var(--pf); font-size:8px; letter-spacing:2px; color:#8FA39B; margin-top:12px; }
+.bi-now b{ color:var(--green); }
+.bi-wave{ display:flex; gap:3px; align-items:center; height:30px; margin-top:8px; }
+.bi-wave i{ width:3px; height:9px; background:var(--green); opacity:.5; border-radius:1px; animation:bi-wv 1.7s ease-in-out infinite alternate; }
+.bi-wave i:nth-child(3n){ height:16px; background:var(--teal); }
+.bi-wave i:nth-child(4n){ height:22px; }
+.bi-wave i:nth-child(5n){ height:12px; background:var(--blue); }
+.bi-wave i:nth-child(7n){ height:26px; }
+.bi-wave i:nth-child(2n){ animation-delay:.22s } .bi-wave i:nth-child(3n){ animation-delay:.38s }
+.bi-wave i:nth-child(5n){ animation-delay:.55s } .bi-wave i:nth-child(7n){ animation-delay:.7s }
+@keyframes bi-wv{ from{transform:scaleY(.3)} to{transform:scaleY(1.15)} }
+/* Coda, victorious, raising the reforged blade */
+.bi-coda{ height:76px; width:auto; image-rendering:pixelated; margin:14px 0 2px;
+  filter:drop-shadow(0 0 8px rgba(217,180,91,.55)) drop-shadow(0 3px 0 var(--ink));
+  animation:bi-coda-rise .9s cubic-bezier(.15,1.3,.3,1) both, bi-coda-bob 2.6s ease-in-out 1s infinite; }
+@keyframes bi-coda-rise{ from{ transform:translateY(18px) scale(.8); opacity:0 } to{ transform:translateY(0) scale(1); opacity:1 } }
+@keyframes bi-coda-bob{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-4px) } }
+.bi-cta{ font-family:var(--pf); font-weight:900; font-size:13px; letter-spacing:2px; text-transform:uppercase;
+  color:var(--ink); background:var(--green); border:0; cursor:pointer; padding:15px 26px; margin-top:12px;
+  clip-path:var(--notch); filter:drop-shadow(0 5px 0 var(--ink)); animation:bi-cta 3.2s ease-in-out infinite; }
+.bi-cta:active{ transform:translateY(2px); filter:drop-shadow(0 3px 0 var(--ink)); }
+@keyframes bi-cta{ 0%,100%{ filter:drop-shadow(0 5px 0 var(--ink)) }
+  50%{ filter:drop-shadow(0 5px 0 var(--ink)) drop-shadow(0 0 12px rgba(106,191,94,.55)) } }
+.bi-foot{ font-family:var(--pf); font-size:8px; letter-spacing:2px; color:#7E8D86; margin-top:12px; }
+/* melody sequencing — 8s loop; tonics breathe teal, scale degrees flash green */
+.bi-map .d1 .bi-pad{ animation:bi-d1 8s linear infinite, bi-tp 2.4s ease-in-out infinite; }
+.bi-map .d2 .bi-pad{ animation:bi-d2 8s linear infinite; }
+.bi-map .d3 .bi-pad{ animation:bi-d3 8s linear infinite; }
+.bi-map .d4 .bi-pad{ animation:bi-d4 8s linear infinite; }
+.bi-map .d5 .bi-pad{ animation:bi-d5 8s linear infinite; }
+.bi-map .d6 .bi-pad{ animation:bi-d6 8s linear infinite; }
+.bi-map .d7 .bi-pad{ animation:bi-d7 8s linear infinite; }
+.bi-map .d8 .bi-pad{ animation:bi-d8 8s linear infinite, bi-tp 2.4s ease-in-out infinite 1.2s; }
+@keyframes bi-tp{ 0%,100%{box-shadow:inset 0 0 0 rgba(87,198,196,0)} 50%{box-shadow:inset 0 0 11px rgba(87,198,196,.55)} }
+@keyframes bi-d8{
+  0%,6.25%{background:var(--teal);color:var(--ink);border-color:var(--teal);transform:translateY(-6px);filter:drop-shadow(0 9px 0 var(--ink)) drop-shadow(0 0 9px rgba(87,198,196,.8))}
+  9%,80.5%{background:#3B403E;color:var(--teal);border-color:var(--teal);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+  81.5%,93.75%{background:var(--teal);color:var(--ink);border-color:var(--teal);transform:translateY(-6px);filter:drop-shadow(0 9px 0 var(--ink)) drop-shadow(0 0 9px rgba(87,198,196,.8))}
+  96.5%,100%{background:#3B403E;color:var(--teal);border-color:var(--teal);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+}
+@keyframes bi-d1{
+  0%,43.9%{background:#3B403E;color:var(--teal);border-color:var(--teal);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+  44.7%,50%{background:var(--teal);color:var(--ink);border-color:var(--teal);transform:translateY(-6px);filter:drop-shadow(0 9px 0 var(--ink)) drop-shadow(0 0 9px rgba(87,198,196,.8))}
+  52.5%,62%{background:#3B403E;color:var(--teal);border-color:var(--teal);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+  63%,68.75%{background:var(--teal);color:var(--ink);border-color:var(--teal);transform:translateY(-6px);filter:drop-shadow(0 9px 0 var(--ink)) drop-shadow(0 0 9px rgba(87,198,196,.8))}
+  71.3%,100%{background:#3B403E;color:var(--teal);border-color:var(--teal);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+}
+@keyframes bi-d7{
+  0%,6.4%{background:#3B403E;color:var(--text);border-color:var(--line);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+  7.2%,12.5%{background:var(--green);color:var(--ink);border-color:var(--green);transform:translateY(-6px);filter:drop-shadow(0 9px 0 var(--ink)) drop-shadow(0 0 9px rgba(106,191,94,.8))}
+  15%,100%{background:#3B403E;color:var(--text);border-color:var(--line);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+}
+@keyframes bi-d6{
+  0%,12.7%{background:#3B403E;color:var(--text);border-color:var(--line);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+  13.5%,18.75%{background:var(--green);color:var(--ink);border-color:var(--green);transform:translateY(-6px);filter:drop-shadow(0 9px 0 var(--ink)) drop-shadow(0 0 9px rgba(106,191,94,.8))}
+  21.3%,100%{background:#3B403E;color:var(--text);border-color:var(--line);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+}
+@keyframes bi-d5{
+  0%,18.9%{background:#3B403E;color:var(--text);border-color:var(--line);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+  19.7%,25%{background:var(--green);color:var(--ink);border-color:var(--green);transform:translateY(-6px);filter:drop-shadow(0 9px 0 var(--ink)) drop-shadow(0 0 9px rgba(106,191,94,.8))}
+  27.5%,74.2%{background:#3B403E;color:var(--text);border-color:var(--line);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+  75.2%,81.25%{background:var(--green);color:var(--ink);border-color:var(--green);transform:translateY(-6px);filter:drop-shadow(0 9px 0 var(--ink)) drop-shadow(0 0 9px rgba(106,191,94,.8))}
+  83.8%,100%{background:#3B403E;color:var(--text);border-color:var(--line);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+}
+@keyframes bi-d4{
+  0%,25.2%{background:#3B403E;color:var(--text);border-color:var(--line);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+  26%,31.25%{background:var(--green);color:var(--ink);border-color:var(--green);transform:translateY(-6px);filter:drop-shadow(0 9px 0 var(--ink)) drop-shadow(0 0 9px rgba(106,191,94,.8))}
+  33.8%,100%{background:#3B403E;color:var(--text);border-color:var(--line);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+}
+@keyframes bi-d3{
+  0%,31.4%{background:#3B403E;color:var(--text);border-color:var(--line);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+  32.2%,37.5%{background:var(--green);color:var(--ink);border-color:var(--green);transform:translateY(-6px);filter:drop-shadow(0 9px 0 var(--ink)) drop-shadow(0 0 9px rgba(106,191,94,.8))}
+  40%,68%{background:#3B403E;color:var(--text);border-color:var(--line);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+  69%,75%{background:var(--green);color:var(--ink);border-color:var(--green);transform:translateY(-6px);filter:drop-shadow(0 9px 0 var(--ink)) drop-shadow(0 0 9px rgba(106,191,94,.8))}
+  77.5%,100%{background:#3B403E;color:var(--text);border-color:var(--line);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+}
+@keyframes bi-d2{
+  0%,37.7%{background:#3B403E;color:var(--text);border-color:var(--line);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+  38.5%,43.75%{background:var(--green);color:var(--ink);border-color:var(--green);transform:translateY(-6px);filter:drop-shadow(0 9px 0 var(--ink)) drop-shadow(0 0 9px rgba(106,191,94,.8))}
+  46.3%,100%{background:#3B403E;color:var(--text);border-color:var(--line);transform:translateY(0);filter:drop-shadow(0 3px 0 var(--ink))}
+}
+
+/* =====================  FIRST-RUN LEAD CAPTURE (results screen)  ============ */
+.lead-card{ width:100%; margin:8px 0 4px; padding:16px; text-align:center; background:var(--card,#424845);
+  border-radius:14px; display:flex; flex-direction:column; gap:9px; align-items:center; }
+.retro .lead-card{ clip-path:var(--notch); border-radius:0; box-shadow:inset 0 0 0 2px var(--gold),inset 0 0 0 4px rgba(0,0,0,.3); }
+.lead-kicker{ font-size:.82rem; font-weight:700; color:var(--gold,#D9B45B); }
+.retro .lead-kicker{ font-family:var(--pf); font-size:10px; letter-spacing:1px; text-transform:uppercase; }
+.lead-copy{ font-size:.9rem; line-height:1.45; color:var(--text,#EDF2EE); opacity:.92; margin:0; }
+.lead-input{ width:100%; text-align:center; }
+.lead-err{ font-size:.78rem; color:var(--wrong,#E07856); }
+.lead-actions{ display:flex; gap:8px; width:100%; margin-top:2px; }
+.lead-actions .primary{ flex:1 1 auto; }
+.lead-actions .ghost{ flex:0 0 auto; }

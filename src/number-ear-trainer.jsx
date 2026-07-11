@@ -106,6 +106,22 @@ const SESSION_LEN = 20;
 const FINAL_LEN = 30; // the last (mastery) level of each region runs longer
 const PASS_RATE = 0.8;
 
+/* ─────────────────────────  FUNNEL / FREEMIUM CONFIG  ─────────────────────────
+   The public app is a lead-gen funnel; paying students flip an "unlocked" flag
+   (magic link ?unlock=<CODE>, or the code typed in Settings) to get the full,
+   funnel-free app. Everything below is meant to be retuned freely.
+     FREE.melodyGroups     — how many Single-Notes groups are free (group 0 =
+                             Diatonic·major = the 8 C-major-based levels).
+     FREE.adventureRegions — how many Adventure regions (from the start) are free.
+     FREE.freePlayPaths    — how many preset Free-Play "Paths" are free.
+   ConvertKit lead capture is optional: leave the form id/key blank and the email
+   step just stores the lead locally and skips the network (see the results screen). */
+const OFFER_URL = "https://wejamimprovisation.com/strategy?utm_source=numbersong";
+const UNLOCK_CODE = "wejam-full";   // students: ?unlock=wejam-full  OR type it in Settings
+const CONVERTKIT_FORM = "";         // ConvertKit form id — set to actually deliver leads
+const CONVERTKIT_KEY = "";          // ConvertKit PUBLIC api_key (safe to ship client-side)
+const FREE = { melodyGroups: 1, adventureRegions: 4, freePlayPaths: 1 };
+
 // Each of the four worlds (diatonic/chromatic × major/minor) follows the same
 // FET-style ramp: three intro levels in C, then octaves, then away from C, then
 // a new key every question. Pools are pitch-classes (0–11 above the major tonic).
@@ -524,10 +540,15 @@ function useAudio() {
         )),
         new Promise((res) => setTimeout(() => res(null), 8000)),
       ]);
-      if (loaded && loaded.every(Boolean)) {
-        // store native AudioBuffers: disposing a sampler can't destroy these,
-        // so rebuilt instruments stay healthy
-        buffersRef.current = Object.fromEntries(loaded.map(([n, b]) => [n, b.get()]));
+      if (Array.isArray(loaded)) {
+        // Keep whatever loaded — one 404 shouldn't drop the whole piano to a synth;
+        // Tone.Sampler interpolates from a sparse map. Store native AudioBuffers so
+        // disposing a sampler can't destroy them (rebuilt instruments stay healthy).
+        const ok = loaded.filter(Boolean);
+        if (ok.length) buffersRef.current = Object.fromEntries(ok.map(([n, b]) => [n, b.get()]));
+        if (ok.length < loaded.length) console.warn("[numbersong] piano: only " + ok.length + "/" + loaded.length + " samples loaded — using a sparser sampler.");
+      } else {
+        console.warn("[numbersong] piano samples unavailable (offline or timed out) — using the synth fallback.");
       }
       synthRef.current = buildInstrument(buffersRef.current);
       padRef.current = synthRef.current;
@@ -1580,6 +1601,60 @@ export default function NumberEarTrainer() {
 
   const [boringMode, setBoringMode] = useState(() => loadPref("boring", "0") === "1"); // classic UI vs Adventure
   const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home")); // boot | menu | training | home | adventure | levels | session | results | learn | guide | settings
+  // Freemium/funnel entitlement. `unlocked` students see no gates or CTAs; `onboarded`
+  // marks a player who has been through the first-run funnel (or unlocked past it).
+  const [unlocked, setUnlocked] = useState(() => loadPref("unlocked", "0") === "1");
+  const [onboarded, setOnboarded] = useState(() => loadPref("onboarded", "0") === "1");
+  const gated = !unlocked;
+  const isMelodyFree = (idx) => unlocked || groupIndexOf(idx) < FREE.melodyGroups;
+  const isRegionFree = (nodeIdx) => unlocked || nodeIdx < FREE.adventureRegions;
+  const grantUnlock = () => { savePref("unlocked", "1"); savePref("onboarded", "1"); setUnlocked(true); setOnboarded(true); };
+  const finishOnboarding = () => { savePref("onboarded", "1"); setOnboarded(true); };
+  const [upsellOpen, setUpsellOpen] = useState(false);
+  const [codeInput, setCodeInput] = useState("");
+  // First-run lead capture (shown once on the first results screen for public players).
+  const [leadName, setLeadName] = useState("");
+  const [leadEmail, setLeadEmail] = useState("");
+  const [leadStatus, setLeadStatus] = useState("idle"); // idle | sending | done | error
+  const submitLead = async () => {
+    const email = leadEmail.trim();
+    if (!/.+@.+\..+/.test(email)) { setLeadStatus("error"); return; }
+    setLeadStatus("sending");
+    const first_name = leadName.trim();
+    try {
+      if (CONVERTKIT_FORM && CONVERTKIT_KEY) {
+        await fetch("https://api.convertkit.com/v3/forms/" + CONVERTKIT_FORM + "/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ api_key: CONVERTKIT_KEY, email, first_name }),
+        });
+      } else {
+        // No provider wired yet — stash locally so the submit still "works" in-session.
+        try { window.localStorage.setItem("numbersong-lead", JSON.stringify({ email, first_name })); } catch (e) {}
+      }
+    } catch (e) {
+      // Offline / network error: keep the lead locally rather than losing it or crashing.
+      try { window.localStorage.setItem("numbersong-lead", JSON.stringify({ email, first_name })); } catch (e2) {}
+    }
+    setLeadStatus("done");
+  };
+  const openUpsell = () => { try { sfx("wrong"); } catch (e) {} setUpsellOpen(true); };
+  const openOffer = () => { try { window.open(OFFER_URL, "_blank", "noopener"); } catch (e) {} };
+  const tryUnlock = () => {
+    if (codeInput.trim().toLowerCase() === UNLOCK_CODE.toLowerCase()) { grantUnlock(); try { sfx("select"); } catch (e) {} }
+    else { try { sfx("wrong"); } catch (e) {} }
+  };
+  // Leaving the boot/intro screen: unlock audio (iOS gesture), then first-run players
+  // drop straight into Adventure for immersion; returning players go to the menu.
+  // Guarded so the CTA's click + the global pointerdown listener don't double-fire.
+  const bootAdvancedRef = useRef(false);
+  const bootAdvance = () => {
+    if (bootAdvancedRef.current) return;
+    bootAdvancedRef.current = true;
+    try { bootChime(); } catch (e) {}
+    try { haptic(false); } catch (e) {}
+    setScreen(loadPref("onboarded", "0") === "1" ? "menu" : "adventure");
+  };
   const [mode, setMode] = useState("melody");     // melody | chords
   const [levelIdx, setLevelIdx] = useState(0);
   const [melGroup, setMelGroup] = useState(null);  // which of the 4 melody worlds is open (null = world picker)
@@ -1663,6 +1738,19 @@ export default function NumberEarTrainer() {
   useEffect(() => {
     document.documentElement.classList.toggle("retro", window.HARMONIA && !boringMode);
   }, [boringMode]);
+  // Student unlock via magic link (?unlock=<CODE> or #unlock=<CODE>). Flips to the
+  // full, funnel-free app and strips the code from the URL so it isn't left visible.
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      const h = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
+      const code = q.get("unlock") || h.get("unlock");
+      if (code && code === UNLOCK_CODE) {
+        grantUnlock();
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    } catch (e) {}
+  }, []);
   // twinkle when landing on the map right after clearing a region
   useEffect(() => {
     if (screen === "adventure" && mapCelebrateNode) sfx("twinkle");
@@ -1694,16 +1782,17 @@ export default function NumberEarTrainer() {
   // boot screen: any key / tap starts the game (and unlocks audio)
   useEffect(() => {
     if (screen !== "boot") return;
-    const go = () => { bootChime(); haptic(false); setScreen("menu"); };
-    window.addEventListener("keydown", go, { once: true });
-    window.addEventListener("pointerdown", go, { once: true });
-    return () => { window.removeEventListener("keydown", go); window.removeEventListener("pointerdown", go); };
+    bootAdvancedRef.current = false;
+    window.addEventListener("keydown", bootAdvance, { once: true });
+    window.addEventListener("pointerdown", bootAdvance, { once: true });
+    return () => { window.removeEventListener("keydown", bootAdvance); window.removeEventListener("pointerdown", bootAdvance); };
   }, [screen, sfx]);
 
   // ladder highlights
   const [litActive, setLitActive] = useState([]);
   const [litCorrect, setLitCorrect] = useState([]);
   const [litWrong, setLitWrong] = useState([]);
+  const [hitPad, setHitPad] = useState(null); // pc of a just-answered-correct pad, for the reward pop
 
   // session UI state
   const [qNum, setQNum] = useState(0);
@@ -1811,7 +1900,9 @@ export default function NumberEarTrainer() {
   // Sing tuner: tear down the mic (stop tracks + cancel the detect loop). Safe to
   // call anytime; mirrors the app's killSession discipline so nothing keeps the
   // mic warm after you leave.
+  const micWantRef = useRef(false); // false = mic no longer wanted (toggled off / unmounting)
   const stopMic = useCallback(() => {
+    micWantRef.current = false;
     const m = micRef.current;
     if (m) {
       if (m.raf) cancelAnimationFrame(m.raf);
@@ -1828,12 +1919,16 @@ export default function NumberEarTrainer() {
   // speakers, so there's no feedback loop.
   const toggleMic = useCallback(async () => {
     if (micRef.current) { stopMic(); return; }
+    micWantRef.current = true;
     setMicErr(false); setMicReq(true);
     try {
       await Tone.start();
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
       });
+      // If we were toggled off (or the component unmounted) during the await, don't
+      // wire up or store the stream — just release it, or it leaks as a live mic track.
+      if (!micWantRef.current) { try { stream.getTracks().forEach((t) => t.stop()); } catch (_) {} return; }
       const ctx = Tone.getContext().rawContext;
       const source = ctx.createMediaStreamSource(stream);
       // Boost the input so a normal voice at arm's length registers — no need to
@@ -1975,7 +2070,7 @@ export default function NumberEarTrainer() {
     releaseNote(noteOf(row.d, row.oct));
   };
 
-  const clearLadder = () => { setLitActive([]); setLitCorrect([]); setLitWrong([]); };
+  const clearLadder = () => { setLitActive([]); setLitCorrect([]); setLitWrong([]); setHitPad(null); };
 
   const levels = mode === "melody" ? MELODY_LEVELS : mode === "chords" ? CHORD_LEVELS : PROG_LEVELS;
 
@@ -2117,7 +2212,7 @@ export default function NumberEarTrainer() {
         const others = advNodes.filter((n) => n.id !== advStageId && stageClearedAdv(n.id)).length;
         if (others >= 7) { grandFanfare(); haptic(true); }
         else { fanfare(); haptic(false); }
-        setTimeout(() => { const S = window.SOUNDTRACK; if (S) playTheme("victory", S.victory); }, 2500);
+        sessTimer(() => { const S = window.SOUNDTRACK; if (S) playTheme("victory", S.victory); }, 2500);
       }
     }
     setPhase("idle");
@@ -2173,6 +2268,7 @@ export default function NumberEarTrainer() {
       setSessionResults([...s.results]);
       if (first) { setScore((sc) => sc + 1); setStreak((x) => x + 1); }
       setLitWrong([]);
+      setHitPad(pc);
       setPhase("resolving");
       const deg = PC_TO_DEGREE[pc];
       setFeedback(deg != null ? DEGREE_QUIPS[deg] : ALT_QUIPS[pc]);
@@ -2374,15 +2470,63 @@ export default function NumberEarTrainer() {
   /* ── screens ── */
 
   if (screen === "boot") {
+    const map = [
+      { d: "d1", n: "1", sol: "do", tonic: true },
+      { gap: true },
+      { d: "d2", n: "2", sol: "re" },
+      { gap: true },
+      { d: "d3", n: "3", sol: "mi" },
+      { d: "d4", n: "4", sol: "fa" },
+      { gap: true },
+      { d: "d5", n: "5", sol: "sol" },
+      { gap: true },
+      { d: "d6", n: "6", sol: "la" },
+      { gap: true },
+      { d: "d7", n: "7", sol: "ti" },
+      { d: "d8", n: "1", sol: "do", tonic: true },
+    ];
     return (
       <div className="app boot-screen">
         <style>{CSS}</style>
+        <div className="bi-presents">WE✱JAM PRESENTS</div>
         <h1 className="boot-title"><span className="w1">NUMBER</span><span className="w2">SONG</span></h1>
         <img className="boot-star" src={typeof window !== "undefined" ? window.WEJAM_LOGO : ""} alt="WeJam" />
-        <div className="boot-start blink">PRESS ANY KEY</div>
+        <p className="bi-tag">HEAR THE NUMBERS · SING THE MAP</p>
+        <div className="bi-hero">
+          <div className="bi-mapwrap">
+            <div className="bi-map">
+              {map.map((c, i) => c.gap
+                ? <div key={i} className="bi-cl bi-gap"><i className="bi-st"></i><span className="bi-mid"><s></s></span><u className="bi-sol"></u></div>
+                : <div key={i} className={"bi-cl " + c.d + (c.tonic ? " tonic" : "")}><i className="bi-st">{c.tonic ? "✱" : ""}</i><b className="bi-pad">{c.n}</b><u className="bi-sol">{c.sol}</u></div>
+              )}
+            </div>
+          </div>
+          <div className="bi-now">♪ NOW PLAYING — <b>JOY TO THE WORLD</b></div>
+          <div className="bi-wave">{Array.from({ length: 24 }).map((_, i) => <i key={i} />)}</div>
+        </div>
+        <img className="bi-coda" src={typeof window !== "undefined" ? window.CODA_VICTORY : ""} alt="" aria-hidden="true" />
+        <button className="bi-cta" onClick={bootAdvance}>START YOUR EAR QUEST</button>
+        <div className="bi-foot">EVERY NOTE HAS A NUMBER · KEY OF C</div>
       </div>
     );
   }
+
+  // Upsell modal — shown when a gated (public) player taps locked content. Reuses the
+  // forge/encounter modal styling. `position:fixed` so it overlays whatever screen
+  // includes it; drop {upsellModal} into each screen that can trigger it.
+  const upsellModal = upsellOpen ? (
+    <div className="forge-modal upsell-modal" onClick={() => setUpsellOpen(false)}>
+      <div className="forge-panel upsell-panel" onClick={(e) => e.stopPropagation()}>
+        <span className="forge-kicker">Effortless Improvisation Accelerator</span>
+        <h2 className="forge-title">Locked</h2>
+        <p className="upsell-copy">These advanced levels unlock when you join the Accelerator — where we wire these ear skills into real songs, solos, and jams.</p>
+        <div className="enc-actions">
+          <button className="ghost" onClick={() => setUpsellOpen(false)}>Maybe later</button>
+          <button className="primary" onClick={openOffer}>See the roadmap →</button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   if (screen === "menu") {
     const item = (icon, label, go) => (
@@ -2402,6 +2546,11 @@ export default function NumberEarTrainer() {
           {item("★", "Shop (" + starBalance() + ")", () => setScreen("shop"))}
           {item("⚙", "Settings", () => setScreen("settings"))}
         </div>
+        {gated && (
+          <button className="cta-more" onClick={() => { sfx("select"); openOffer(); }}>
+            Want more than the game?<span className="cta-sub">See the 16-week roadmap →</span>
+          </button>
+        )}
         <footer className="foot">One map to rule them all.</footer>
       </div>
     );
@@ -2433,7 +2582,10 @@ export default function NumberEarTrainer() {
 
   if (screen === "adventure") {
     // in game mode a tap opens the Keeper encounter modal; boring mode goes straight in
-    const onTapNode = (n) => { if (boringMode) { enterStage(n); } else { sfx("select"); setEncounterNode(n.id); } };
+    const onTapNode = (n) => {
+      if (gated && !isRegionFree(n.id - 1)) return openUpsell();
+      if (boringMode) { enterStage(n); } else { sfx("select"); setEncounterNode(n.id); }
+    };
     const en = encounterNode && window.HARMONIA ? window.HARMONIA.nodes[encounterNode - 1] : null;
     const enStage = encounterNode ? ADV_STAGES[encounterNode - 1] : null;
     const enTitle = enStage ? advGroupOf(enStage).name : "";
@@ -2501,6 +2653,7 @@ export default function NumberEarTrainer() {
             </div>
           </div>
         )}
+        {upsellModal}
       </>
     );
   }
@@ -2644,6 +2797,26 @@ export default function NumberEarTrainer() {
               Reset progress
             </button>
           </div>
+          <div className="set-block">
+            <span className="set-label">Full access</span>
+            {unlocked ? (
+              <>
+                <p className="set-desc">✓ Unlocked — you have the full app on this device. Share this link to unlock another device:</p>
+                <input className="set-input" readOnly onFocus={(e) => e.target.select()}
+                  value={(typeof window !== "undefined" ? window.location.origin + window.location.pathname : "") + "?unlock=" + UNLOCK_CODE} />
+              </>
+            ) : (
+              <>
+                <p className="set-desc">Have an access code from the Accelerator? Enter it to unlock every level and remove the prompts.</p>
+                <div className="set-row">
+                  <input className="set-input" value={codeInput} placeholder="access code"
+                    onChange={(e) => setCodeInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") tryUnlock(); }} />
+                  <button className="primary" onClick={tryUnlock}>Unlock</button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
         <footer className="foot">Preferences are saved on this device.</footer>
       </div>
@@ -2669,14 +2842,16 @@ export default function NumberEarTrainer() {
               <div className="levels">
                 {MELODY_GROUPS.map((g, gi) => {
                   const done = g.levels.filter((l) => isPassed("melody", l.idx)).length;
+                  const locked = gated && gi >= FREE.melodyGroups;
                   return (
-                    <button key={gi} className="level world" onClick={() => { setFromAdventure(false); setMelGroup(gi); }}>
+                    <button key={gi} className={"level world" + (locked ? " locked" : "")}
+                      onClick={() => { if (locked) return openUpsell(); setFromAdventure(false); setMelGroup(gi); }}>
                       <span className="level-num">{gi + 1}</span>
                       <span className="level-body">
                         <span className="level-name">{g.name}</span>
                         <span className="level-desc">{done} of {g.levels.length} passed</span>
                       </span>
-                      <span className="level-state">{done === g.levels.length ? "✓" : "›"}</span>
+                      <span className="level-state">{locked ? "🔒" : done === g.levels.length ? "✓" : "›"}</span>
                     </button>
                   );
                 })}
@@ -2738,6 +2913,7 @@ export default function NumberEarTrainer() {
               <p className="hint center">Pick your notes and key — custom runs aren't scored toward stages.</p>
             </div>
           )}
+          {upsellModal}
         </div>
       );
     }
@@ -2757,19 +2933,22 @@ export default function NumberEarTrainer() {
           <div className="levels">
             {chapters.map((c, ci) => {
               const done = c.levels.filter((l) => isPassed(mode, l.idx)).length;
+              const locked = gated; // all chords/progressions are behind the offer
               return (
-                <button key={ci} className="level world" onClick={() => { setFromAdventure(false); setChapter(ci); }}>
+                <button key={ci} className={"level world" + (locked ? " locked" : "")}
+                  onClick={() => { if (locked) return openUpsell(); setFromAdventure(false); setChapter(ci); }}>
                   <span className="level-num">{ci + 1}</span>
                   <span className="level-body">
                     <span className="level-name">{c.name}</span>
                     <span className="level-desc">{done} of {c.levels.length} passed</span>
                   </span>
-                  <span className="level-state">{done === c.levels.length ? "✓" : "›"}</span>
+                  <span className="level-state">{locked ? "🔒" : done === c.levels.length ? "✓" : "›"}</span>
                 </button>
               );
             })}
           </div>
           <p className="hint center">Master the four chords of a key. Minor is the same four, centered on 6.</p>
+          {upsellModal}
         </div>
       );
     }
@@ -2813,8 +2992,10 @@ export default function NumberEarTrainer() {
           {list.map((lvl, i) => {
             const best = bestOf(mode, lvl.idx);
             const passed = isPassed(mode, lvl.idx);
+            const locked = gated && !(mode === "melody" && isMelodyFree(lvl.idx));
             return (
-              <button key={lvl.idx} className="level" onClick={() => startSession(mode, lvl.idx)}>
+              <button key={lvl.idx} className={"level" + (locked ? " locked" : "")}
+                onClick={() => locked ? openUpsell() : startSession(mode, lvl.idx)}>
                 <span className="level-num">{i + 1}</span>
                 <span className="level-body">
                   <span className="level-name">{lvl.name}</span>
@@ -2836,6 +3017,7 @@ export default function NumberEarTrainer() {
           })}
         </div>
         <p className="hint center">{SESSION_LEN} questions per session · {Math.round(PASS_RATE * 100)}% on first tries earns the ✓</p>
+        {upsellModal}
       </div>
     );
   }
@@ -2856,7 +3038,7 @@ export default function NumberEarTrainer() {
         <header className="top-slim">
           <button className="back" onClick={() => { killSession(); setPhase("idle"); setBusy(false); setScreen("levels"); }}>← Quit</button>
           <h2 className="screen-title">{lvl.name}</h2>
-          <span className="session-score">{streak >= 2 && <span className="streak">🔥{streak}</span>}{score} ✓</span>
+          <span className="session-score">{streak >= 2 && <span key={streak} className="streak">🔥{streak}</span>}{score} ✓</span>
         </header>
         <div className="progressbar"><div className="fill" style={{ width: `${(qNum / qCountOf(lvl)) * 100}%` }} /></div>
         {!boringMode && (
@@ -2921,7 +3103,7 @@ export default function NumberEarTrainer() {
                   const out = !pool.includes(pc);
                   return (
                     <button key={pc}
-                      className={"num chrom" + (pc === tonicPc ? " tonic" : "") + (ALTERED_PCS.includes(pc) ? " alt" : "") + (out ? " dim" : "")}
+                      className={"num chrom" + (pc === tonicPc ? " tonic" : "") + (ALTERED_PCS.includes(pc) ? " alt" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "")}
                       onClick={() => answerMelodySession(pc)}
                       disabled={phase !== "answer" || out}>
                       {NOTE_LABELS[pc]}<span className="num-sol">{NOTE_SOLFEGE[pc]}</span>
@@ -2936,7 +3118,7 @@ export default function NumberEarTrainer() {
                   const out = !pool.includes(pc);
                   return (
                     <button key={deg}
-                      className={"num" + (pc === tonicPc ? " tonic" : "") + (out ? " dim" : "")}
+                      className={"num" + (pc === tonicPc ? " tonic" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "")}
                       onClick={() => answerMelodySession(pc)}
                       disabled={phase !== "answer" || out}>
                       {deg}<span className="num-sol">{SOLFEGE[deg]}</span>
@@ -3125,6 +3307,36 @@ export default function NumberEarTrainer() {
               ))}
             </div>
           )}
+          {!onboarded && (
+            <div className="lead-card">
+              {leadStatus === "done" ? (
+                <>
+                  <span className="lead-kicker">✓ You're in</span>
+                  <p className="lead-copy">Nice run. When you're ready to turn these reps into real playing, the 16-week roadmap shows the whole path.</p>
+                  <div className="lead-actions">
+                    <button className="primary" onClick={openOffer}>See the roadmap →</button>
+                    <button className="ghost" onClick={finishOnboarding}>Keep playing</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="lead-kicker">★ Save your progress</span>
+                  <p className="lead-copy">Drop your email to save your spot and get the free 16-week ear-training roadmap.</p>
+                  <input className="set-input lead-input" placeholder="first name" value={leadName} onChange={(e) => setLeadName(e.target.value)} />
+                  <input className="set-input lead-input" type="email" placeholder="you@email.com" value={leadEmail}
+                    onChange={(e) => { setLeadEmail(e.target.value); if (leadStatus === "error") setLeadStatus("idle"); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") submitLead(); }} />
+                  {leadStatus === "error" && <span className="lead-err">Enter a valid email, or skip.</span>}
+                  <div className="lead-actions">
+                    <button className="primary" onClick={submitLead} disabled={leadStatus === "sending"}>
+                      {leadStatus === "sending" ? "Saving…" : "Get the roadmap"}
+                    </button>
+                    <button className="ghost" onClick={finishOnboarding}>Maybe later</button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           <div className="results-actions">
             <button className="primary" onClick={() => isCustom ? startSession(mode, null, sessLvl) : startSession(mode, levelIdx)}>Try again</button>
             {hasNext && (
@@ -3263,8 +3475,8 @@ export default function NumberEarTrainer() {
             <button className="primary" onClick={() => (pathPlaying ? stopPath() : startPath())} disabled={!pathProg.length}>
               {pathPlaying ? "■ Stop" : "▶ Play loop"}
             </button>
-            <button className={"ghost" + (pathBuild ? " voice on" : "")} onClick={() => setPathBuild((b) => !b)}>
-              {pathBuild ? "Done" : "Build"}
+            <button className={"ghost" + (pathBuild ? " voice on" : "")} onClick={() => gated ? openUpsell() : setPathBuild((b) => !b)}>
+              {pathBuild ? "Done" : "Build"}{gated && " 🔒"}
             </button>
             <label className="key-label">
               Tempo
@@ -3418,6 +3630,7 @@ export default function NumberEarTrainer() {
       <footer className="foot">Your imagined instrument, made briefly visible. The goal is to need it less and less.</footer>
       </>
       )}
+      {upsellModal}
     </div>
   );
 }
@@ -3766,6 +3979,14 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .num.picked { background: var(--blue); color: #232E36; border-color: var(--blue); }
 .num.dim { opacity: 0.22; }
 .num.picked.tonic { background: var(--teal); color: #1E3230; border-color: var(--teal); }
+/* per-question reward: the pad the player just answered correctly */
+.num.just { background: var(--green); color: #20301D; border-color: var(--green);
+  box-shadow: 0 0 0 2px rgba(106,191,94,0.4), 0 0 18px 2px rgba(106,191,94,0.5); }
+.num.just .num-sol { color: #20301D; }
+@media (prefers-reduced-motion: no-preference) {
+  .num.just { animation: numhit 0.45s cubic-bezier(0.2,1.6,0.35,1); }
+  @keyframes numhit { 0% { transform: scale(1); } 35% { transform: scale(1.14); } 100% { transform: scale(1); } }
+}
 
 /* chromatic answer pad: 12 notes in two rows, altered ones tinted darker */
 .numpad.chromatic { grid-template-columns: repeat(6, 1fr); gap: 8px; }
