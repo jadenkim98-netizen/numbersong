@@ -860,17 +860,21 @@ function useAudio() {
   }, [ensure]);
 
   const droneRef = useRef(null);
-  const startDrone = useCallback(async (key, degree = 1) => {
+  const startDrone = useCallback(async (key, degree = 1, vol = -8) => {
     await ensure();
     if (droneRef.current) { droneRef.current.dispose(); droneRef.current = null; }
     const s = new Tone.Synth({
       oscillator: { type: "sine" },
       envelope: { attack: 0.5, decay: 0, sustain: 1, release: 1.5 },
-      volume: -17,
+      volume: vol,
     }).toDestination();
     s.triggerAttack(degreeToNote(key, degree, degree >= 5 ? 2 : 3));
     droneRef.current = s;
   }, [ensure]);
+  // Adjust a running drone's loudness (dB) without re-attacking it.
+  const setDroneVolume = useCallback((vol) => {
+    if (droneRef.current) droneRef.current.volume.rampTo(vol, 0.1);
+  }, []);
   const stopDrone = useCallback(() => {
     if (!droneRef.current) return;
     const d = droneRef.current;
@@ -896,7 +900,7 @@ function useAudio() {
     }
   }, []);
 
-  return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
+  return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll };
 }
 
 // Background music engine (Fable's soundtrack). Owns Tone.Transport; routes
@@ -1566,7 +1570,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
 /* ─────────────────────────────  APP  ───────────────────────────── */
 
 export default function NumberEarTrainer() {
-  const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
+  const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll } = useAudio();
   const { playTheme, stopMusic, setMusicOn } = useMusic();
   const [musicPref, setMusicPref] = useState(() => loadPref("music", "1") === "1");
 
@@ -1754,6 +1758,10 @@ export default function NumberEarTrainer() {
   const [exOctaves, setExOctaves] = useState(1);
   const [exView, setExView] = useState("map"); // map | piano
   const [droneOn, setDroneOn] = useState(false);
+  const [droneVol, setDroneVol] = useState(() => { // drone loudness in dB, remembered
+    const v = parseFloat(loadPref("dronevol", "-8"));
+    return Number.isFinite(v) ? v : -8;
+  });
 
   // Sing tuner (7-worlds tab): live mic pitch → the number you're singing.
   const [micOn, setMicOn] = useState(false);
@@ -1784,10 +1792,17 @@ export default function NumberEarTrainer() {
   const pathIdxRef = useRef(-1);                       // current column, for keyboard play
 
   useEffect(() => {
-    if (droneOn && screen === "learn") startDrone(musicKey, exWorld);
+    if (droneOn && screen === "learn") startDrone(musicKey, exWorld, droneVol);
     else stopDrone();
     return () => stopDrone();
+    // droneVol deliberately excluded — volume changes are applied live below,
+    // without re-attacking the drone.
   }, [droneOn, musicKey, exWorld, screen, startDrone, stopDrone]);
+  // Live drone-volume changes (no restart) + remember the setting.
+  useEffect(() => {
+    setDroneVolume(droneVol);
+    savePref("dronevol", String(droneVol));
+  }, [droneVol, setDroneVolume]);
 
   // Sing tuner: tear down the mic (stop tracks + cancel the detect loop). Safe to
   // call anytime; mirrors the app's killSession discipline so nothing keeps the
@@ -3330,6 +3345,14 @@ export default function NumberEarTrainer() {
           onClick={() => setDroneOn(!droneOn)} aria-pressed={droneOn}>
           {droneOn ? "Drone " + exWorld + " on" : "Drone"}
         </button>
+        {droneOn && (
+          <label className="key-label drone-vol">
+            🔊
+            <input type="range" min="-30" max="0" step="1" value={droneVol}
+              onChange={(e) => setDroneVol(Number(e.target.value))}
+              aria-label="Drone volume" />
+          </label>
+        )}
         {exView === "map" && (
           <button className={"ghost voice" + (exOctaves === 2 ? " on" : "")}
             onClick={() => setExOctaves(exOctaves === 2 ? 1 : 2)}>
@@ -3470,6 +3493,18 @@ button { touch-action: manipulation; }
 .key-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .fp-coda { height: 46px; width: auto; image-rendering: pixelated; align-self: center; opacity: 0.92; }
 .key-label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-soft); }
+.drone-vol { gap: 8px; }
+.drone-vol input[type="range"] {
+  -webkit-appearance: none; appearance: none; width: 96px; height: 5px;
+  border-radius: 99px; background: var(--line); outline: none; cursor: pointer;
+}
+.drone-vol input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--teal); border: none; cursor: pointer;
+}
+.drone-vol input[type="range"]::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%; background: var(--teal); border: none; cursor: pointer;
+}
 select {
   font-family: inherit; font-size: 0.95rem; color: var(--text);
   background: var(--card); border: 1.5px solid var(--line); border-radius: 10px;
