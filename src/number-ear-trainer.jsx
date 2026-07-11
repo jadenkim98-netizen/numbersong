@@ -118,8 +118,8 @@ const PASS_RATE = 0.8;
    step just stores the lead locally and skips the network (see the results screen). */
 const OFFER_URL = "https://wejamimprovisation.com/strategy?utm_source=numbersong";
 const UNLOCK_CODE = "wejam-full";   // students: ?unlock=wejam-full  OR type it in Settings
-const CONVERTKIT_FORM = "";         // ConvertKit form id — set to actually deliver leads
-const CONVERTKIT_KEY = "";          // ConvertKit PUBLIC api_key (safe to ship client-side)
+const CONVERTKIT_FORM = "9671626";                 // ConvertKit form id — delivers leads
+const CONVERTKIT_KEY = "6U4Fr68yjt_ESeBxKgXXpQ";   // ConvertKit PUBLIC api_key (safe client-side)
 const FREE = { melodyGroups: 1, adventureRegions: 4, freePlayPaths: 1, freePlayWorlds: 2 };
 
 // Each of the four worlds (diatonic/chromatic × major/minor) follows the same
