@@ -1623,7 +1623,7 @@ export default function NumberEarTrainer() {
   const gated = !unlocked;
   const isMelodyFree = (idx) => unlocked || groupIndexOf(idx) < FREE.melodyGroups;
   const isRegionFree = (nodeIdx) => unlocked || nodeIdx < FREE.adventureRegions;
-  const grantUnlock = () => { savePref("unlocked", "1"); savePref("onboarded", "1"); setUnlocked(true); setOnboarded(true); };
+  const grantUnlock = () => { savePref("unlocked", "1"); savePref("onboarded", "1"); setUnlocked(true); setOnboarded(true); enableSaves(); };
   const finishOnboarding = () => { savePref("onboarded", "1"); setOnboarded(true); };
   const [upsellOpen, setUpsellOpen] = useState(false);
   const [codeInput, setCodeInput] = useState("");
@@ -1651,6 +1651,7 @@ export default function NumberEarTrainer() {
       // Offline / network error: keep the lead locally rather than losing it or crashing.
       try { window.localStorage.setItem("numbersong-lead", JSON.stringify({ email, first_name })); } catch (e2) {}
     }
+    enableSaves(); // giving your email is what actually saves your progress
     setLeadStatus("done");
   };
   const openUpsell = () => { try { sfx("wrong"); } catch (e) {} setUpsellOpen(true); };
@@ -1726,6 +1727,13 @@ export default function NumberEarTrainer() {
   const equipSkin = (id) => { saveShop({ ...shop, skin: id }); sfx("move"); };
   const skinTint = (SHOP.find((x) => x.id === shop.skin) || {}).tint || null;
   const [progress, setProgress] = useState(loadProgress);
+  // Progress only PERSISTS (survives reload) once the player has "saved" — i.e. given
+  // their email on the results card, or unlocked the full app. It still updates
+  // in-memory during a session (stars show) but a gated skipper loses it on reload.
+  const progressRef = useRef(progress);
+  useEffect(() => { progressRef.current = progress; }, [progress]);
+  const canSave = () => unlocked || loadPref("saveok", "0") === "1";
+  const enableSaves = () => { savePref("saveok", "1"); try { saveProgress(progressRef.current); } catch (e) {} };
 
   const [musicKey, setMusicKey] = useState("C");
   const [voiceOn, setVoiceOn] = useState(true);
@@ -1766,8 +1774,8 @@ export default function NumberEarTrainer() {
       } else if (q.has("lock") || h.has("lock")) {
         // ?lock — reset this device to a FRESH PUBLIC visitor (gated + not onboarded),
         // for testing the locked funnel. Inverse of the unlock magic link.
-        try { window.localStorage.removeItem("numbersong-unlocked"); window.localStorage.removeItem("numbersong-onboarded"); } catch (e) {}
-        setUnlocked(false); setOnboarded(false);
+        try { ["unlocked", "onboarded", "saveok", "progress"].forEach((k) => window.localStorage.removeItem("numbersong-" + k)); } catch (e) {}
+        setUnlocked(false); setOnboarded(false); setProgress({ melody: {}, chords: {}, progressions: {} });
         window.history.replaceState(null, "", window.location.pathname);
       }
     } catch (e) {}
@@ -2218,7 +2226,7 @@ export default function NumberEarTrainer() {
         const cur = (prev[s.mode] && prev[s.mode][s.levelIdx]) || 0;
         if (firstTries <= cur) return prev;
         const next = { ...prev, [s.mode]: { ...prev[s.mode], [s.levelIdx]: firstTries } };
-        saveProgress(next);
+        if (canSave()) saveProgress(next); // only persist once saving is unlocked (email/paid)
         return next;
       });
     }
@@ -3316,7 +3324,7 @@ export default function NumberEarTrainer() {
                 </>
               ) : (
                 <>
-                  <span className="lead-kicker">★ Save your progress</span>
+                  <span className="lead-kicker alert">⚠ Save your progress ⚠</span>
                   <p className="lead-copy">Don't let your hard work go to waste! Drop your email so you can save your progress and also get access to a free resource to train your ear on guitar.</p>
                   <input className="set-input lead-input" placeholder="first name" value={leadName} onChange={(e) => setLeadName(e.target.value)} />
                   <input className="set-input lead-input" type="email" placeholder="you@email.com" value={leadEmail}

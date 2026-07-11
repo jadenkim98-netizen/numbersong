@@ -690,6 +690,7 @@
 .retro .lead-card{ clip-path:var(--notch); border-radius:0; box-shadow:inset 0 0 0 2px var(--gold),inset 0 0 0 4px rgba(0,0,0,.3); }
 .lead-kicker{ font-size:.82rem; font-weight:700; color:var(--gold,#D9B45B); }
 .retro .lead-kicker{ font-family:var(--pf); font-size:10px; letter-spacing:1px; text-transform:uppercase; }
+.lead-kicker.alert{ color:var(--wrong,#E07856); letter-spacing:2px; }
 .lead-copy{ font-size:.9rem; line-height:1.45; color:var(--text,#EDF2EE); opacity:.92; margin:0; }
 .lead-input{ width:100%; text-align:center; }
 .lead-err{ font-size:.78rem; color:var(--wrong,#E07856); }

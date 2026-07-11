@@ -1038,6 +1038,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 .retro .lead-card{ clip-path:var(--notch); border-radius:0; box-shadow:inset 0 0 0 2px var(--gold),inset 0 0 0 4px rgba(0,0,0,.3); }
 .lead-kicker{ font-size:.82rem; font-weight:700; color:var(--gold,#D9B45B); }
 .retro .lead-kicker{ font-family:var(--pf); font-size:10px; letter-spacing:1px; text-transform:uppercase; }
+.lead-kicker.alert{ color:var(--wrong,#E07856); letter-spacing:2px; }
 .lead-copy{ font-size:.9rem; line-height:1.45; color:var(--text,#EDF2EE); opacity:.92; margin:0; }
 .lead-input{ width:100%; text-align:center; }
 .lead-err{ font-size:.78rem; color:var(--wrong,#E07856); }
@@ -2916,6 +2917,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       savePref("onboarded", "1");
       setUnlocked(true);
       setOnboarded(true);
+      enableSaves();
     };
     const finishOnboarding = () => {
       savePref("onboarded", "1");
@@ -2953,6 +2955,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         } catch (e2) {
         }
       }
+      enableSaves();
       setLeadStatus("done");
     };
     const openUpsell = () => {
@@ -3063,6 +3066,18 @@ window.SOUNDTRACK = SOUNDTRACK;
     };
     const skinTint = (SHOP.find((x) => x.id === shop.skin) || {}).tint || null;
     const [progress, setProgress] = useState(loadProgress);
+    const progressRef = useRef(progress);
+    useEffect(() => {
+      progressRef.current = progress;
+    }, [progress]);
+    const canSave = () => unlocked || loadPref("saveok", "0") === "1";
+    const enableSaves = () => {
+      savePref("saveok", "1");
+      try {
+        saveProgress(progressRef.current);
+      } catch (e) {
+      }
+    };
     const [musicKey, setMusicKey] = useState("C");
     const [voiceOn, setVoiceOn] = useState(true);
     const [busy, setBusy] = useState(false);
@@ -3095,12 +3110,12 @@ window.SOUNDTRACK = SOUNDTRACK;
           window.history.replaceState(null, "", window.location.pathname);
         } else if (q.has("lock") || h.has("lock")) {
           try {
-            window.localStorage.removeItem("numbersong-unlocked");
-            window.localStorage.removeItem("numbersong-onboarded");
+            ["unlocked", "onboarded", "saveok", "progress"].forEach((k) => window.localStorage.removeItem("numbersong-" + k));
           } catch (e) {
           }
           setUnlocked(false);
           setOnboarded(false);
+          setProgress({ melody: {}, chords: {}, progressions: {} });
           window.history.replaceState(null, "", window.location.pathname);
         }
       } catch (e) {
@@ -3616,7 +3631,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           const cur = prev[s.mode] && prev[s.mode][s.levelIdx] || 0;
           if (firstTries <= cur) return prev;
           const next = { ...prev, [s.mode]: { ...prev[s.mode], [s.levelIdx]: firstTries } };
-          saveProgress(next);
+          if (canSave()) saveProgress(next);
           return next;
         });
       }
@@ -4411,7 +4426,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         } else {
           setScreen("levels");
         }
-      } }, fromAdventure ? "← To the map" : "← Levels"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, resultName)), /* @__PURE__ */ React.createElement("div", { className: "results" }, justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "victory" }, /* @__PURE__ */ React.createElement("div", { className: "victory-rays", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", { className: "victory-glow", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Fragment forged ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, advNode.winTitle), /* @__PURE__ */ React.createElement("div", { className: "victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" }), /* @__PURE__ */ React.createElement("div", { className: "forge-sparks", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null))), /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), fragName, " — forged into Excalibar"), /* @__PURE__ */ React.createElement("span", { className: "victory-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("span", { className: "forge-count" }, advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments")), !onboarded && /* @__PURE__ */ React.createElement("div", { className: "lead-card" }, leadStatus === "done" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✓ You're in"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Awesome — check your inbox for the free ear-training resource. Your progress is saved."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: openOffer }, "See the roadmap →"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Keep playing"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "★ Save your progress"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Don't let your hard work go to waste! Drop your email so you can save your progress and also get access to a free resource to train your ear on guitar."), /* @__PURE__ */ React.createElement("input", { className: "set-input lead-input", placeholder: "first name", value: leadName, onChange: (e) => setLeadName(e.target.value) }), /* @__PURE__ */ React.createElement(
+      } }, fromAdventure ? "← To the map" : "← Levels"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, resultName)), /* @__PURE__ */ React.createElement("div", { className: "results" }, justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "victory" }, /* @__PURE__ */ React.createElement("div", { className: "victory-rays", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", { className: "victory-glow", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Fragment forged ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, advNode.winTitle), /* @__PURE__ */ React.createElement("div", { className: "victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" }), /* @__PURE__ */ React.createElement("div", { className: "forge-sparks", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null))), /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), fragName, " — forged into Excalibar"), /* @__PURE__ */ React.createElement("span", { className: "victory-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("span", { className: "forge-count" }, advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments")), !onboarded && /* @__PURE__ */ React.createElement("div", { className: "lead-card" }, leadStatus === "done" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✓ You're in"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Awesome — check your inbox for the free ear-training resource. Your progress is saved."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: openOffer }, "See the roadmap →"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Keep playing"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker alert" }, "⚠ Save your progress ⚠"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Don't let your hard work go to waste! Drop your email so you can save your progress and also get access to a free resource to train your ear on guitar."), /* @__PURE__ */ React.createElement("input", { className: "set-input lead-input", placeholder: "first name", value: leadName, onChange: (e) => setLeadName(e.target.value) }), /* @__PURE__ */ React.createElement(
         "input",
         {
           className: "set-input lead-input",
