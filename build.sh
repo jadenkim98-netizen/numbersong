@@ -38,6 +38,7 @@ logo_data = "data:image/png;base64," + base64.b64encode(open("wejam.png","rb").r
 coda_data = "data:image/png;base64," + base64.b64encode(open("coda.png","rb").read()).decode()
 coda_med_data = "data:image/png;base64," + base64.b64encode(open("coda_meditate.png","rb").read()).decode()
 coda_vic_data = "data:image/png;base64," + base64.b64encode(open("coda_victory.png","rb").read()).decode()
+verda_data = "data:image/png;base64," + base64.b64encode(open("verda.png","rb").read()).decode()
 adventure = open("adventure/assets.js").read().replace("export const", "const").replace("export function", "function")
 soundtrack = open("retro/soundtrack.js").read().replace("export const", "const")
 assert "</script" not in soundtrack
@@ -137,6 +138,7 @@ window.WEJAM_LOGO = "{logo_data}";
 window.CODA_SPRITE = "{coda_data}";
 window.CODA_MEDITATE = "{coda_med_data}";
 window.CODA_VICTORY = "{coda_vic_data}";
+window.VERDA_SPRITE = "{verda_data}";
 </script>
 <script>
 {adventure}

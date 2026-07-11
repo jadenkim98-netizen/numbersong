@@ -697,3 +697,83 @@
 .lead-actions{ display:flex; gap:8px; width:100%; margin-top:2px; }
 .lead-actions .primary{ flex:1 1 auto; }
 .lead-actions .ghost{ flex:0 0 auto; }
+
+/* =====================  TUTORIAL (Verda) — Fable "JRPG Cutscene"  ============ */
+.retro .app.tutorial::after{ display:none; } /* tutorial draws its own scanlines/vignette */
+.app.tutorial{ position:relative; overflow:hidden; padding:0; gap:0; max-width:560px;
+  background:linear-gradient(#6fa5c4 0%,#8cc0ac 26%,#d9c98b 42%,#8ab86b 48%,#5aa04f 66%,#3f7e3b 100%); }
+.tut-scene{ position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+.tutorial .sun{ position:absolute; top:7%; right:12%; width:26px; height:26px; background:var(--gold);
+  box-shadow:0 0 26px 8px rgba(217,180,91,.55),0 -34px 0 -8px rgba(217,180,91,.8),0 34px 0 -8px rgba(217,180,91,.8),-34px 0 0 -8px rgba(217,180,91,.8),34px 0 0 -8px rgba(217,180,91,.8);
+  animation:tut-sun 4s ease-in-out infinite; }
+@keyframes tut-sun{ 50%{ box-shadow:0 0 40px 14px rgba(217,180,91,.75),0 -38px 0 -8px rgba(217,180,91,.9),0 38px 0 -8px rgba(217,180,91,.9),-38px 0 0 -8px rgba(217,180,91,.9),38px 0 0 -8px rgba(217,180,91,.9); } }
+.tutorial .cloud{ position:absolute; width:34px; height:10px; background:rgba(237,242,238,.85);
+  box-shadow:8px -8px 0 rgba(237,242,238,.85),-6px 6px 0 rgba(237,242,238,.7),20px 4px 0 rgba(237,242,238,.7); animation:tut-drift linear infinite; }
+.tutorial .cloud.c1{ top:9%; left:8%; animation-duration:40s; }
+.tutorial .cloud.c2{ top:15%; left:52%; animation-duration:56s; animation-delay:-20s; opacity:.7; }
+@keyframes tut-drift{ from{ transform:translateX(-90px) } to{ transform:translateX(560px) } }
+.tutorial .hills{ position:absolute; left:-10%; right:-10%; bottom:46%; height:16%; background:#63a95a; border-radius:50% 50% 0 0; opacity:.85; }
+.tutorial .hills.far{ bottom:50%; height:12%; left:20%; right:-25%; background:#79b573; opacity:.6; }
+.tutorial .steps1{ position:absolute; left:0; right:0; bottom:34%; height:15%; background:#4c9145;
+  clip-path:polygon(0 0,16% 0,16% 34%,38% 34%,38% 64%,64% 64%,64% 100%,100% 100%,0 100%); }
+.tutorial .steps2{ position:absolute; left:0; right:0; bottom:20%; height:16%; background:#448a3f;
+  clip-path:polygon(0 22%,24% 22%,24% 52%,52% 52%,52% 80%,78% 80%,78% 100%,100% 100%,0 100%); }
+.tutorial .ground{ position:absolute; left:0; right:0; bottom:0; height:22%;
+  background-image:repeating-linear-gradient(0deg,rgba(32,48,46,.14) 0 2px,transparent 2px 14px),repeating-linear-gradient(90deg,rgba(32,48,46,.09) 0 2px,transparent 2px 14px),linear-gradient(#3f7e3b,#35682f); }
+.tutorial .tuft{ position:absolute; width:3px; height:3px; transform-origin:bottom center; animation:tut-sway 3.4s ease-in-out infinite;
+  box-shadow:0 6px #35682f,3px 3px #4c9145,3px 6px #35682f,6px 0 #4c9145,6px 3px #58a850,6px 6px #35682f,9px 3px #4c9145,9px 6px #35682f,12px 6px #4c9145; }
+.tutorial .tuft.t1{ bottom:10%; left:9%; } .tutorial .tuft.t2{ bottom:20%; left:56%; animation-delay:-1.2s; } .tutorial .tuft.t3{ bottom:14%; right:14%; animation-delay:-2.1s; }
+@keyframes tut-sway{ 50%{ transform:skewX(8deg) } }
+.tut-inner{ position:relative; z-index:2; display:flex; flex-direction:column; min-height:100vh;
+  padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(20px + env(safe-area-inset-bottom,0px)); gap:0; }
+.tutorial .hud{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px; }
+.tutorial .loc{ display:inline-flex; align-items:center; gap:6px; background:rgba(32,48,46,.62); color:var(--text);
+  font-family:var(--pf); font-size:8px; letter-spacing:1px; text-transform:uppercase; padding:6px 9px; }
+.tutorial .loc b{ color:var(--teal); }
+.tutorial .skip{ font-family:var(--pf); font-size:8px; letter-spacing:1px; text-transform:uppercase; color:var(--text); opacity:.65;
+  background:none; border:0; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.tutorial .stagepanel{ position:relative; background:rgba(56,61,59,.92); box-shadow:inset 0 0 0 2px var(--line);
+  padding:12px 10px 10px; filter:drop-shadow(4px 4px 0 var(--ink)); clip-path:var(--notch); }
+.tutorial .stagetitle{ font-family:var(--pf); font-size:8px; letter-spacing:2px; text-transform:uppercase; color:var(--gold); text-align:center; margin-bottom:9px; }
+.tutorial .stagetitle::before{ content:"✦ " } .tutorial .stagetitle::after{ content:" ✦" }
+.tut-mid{ position:relative; flex:1 1 auto; min-height:148px; }
+.tutorial .verda{ position:absolute; left:2px; bottom:0; width:130px; height:auto; image-rendering:pixelated;
+  filter:drop-shadow(0 0 10px rgba(87,198,196,.35)) drop-shadow(0 4px 0 var(--ink)); animation:bi-coda-bob 2.4s ease-in-out infinite; }
+.tutorial .vshadow{ position:absolute; left:22px; bottom:-2px; width:88px; height:18px; border-radius:50%;
+  background:radial-gradient(closest-side,rgba(87,198,196,.5),rgba(87,198,196,0) 72%); filter:blur(1.5px); }
+.tutorial .cue{ position:absolute; right:6px; bottom:22px; text-align:right; font-family:var(--pf); font-size:8px; letter-spacing:1px;
+  text-transform:uppercase; color:rgba(237,242,238,.9); text-shadow:1px 1px 0 var(--ink); }
+.tutorial .cue b{ display:block; color:var(--gold); font-size:11px; margin-top:3px; letter-spacing:1px; font-family:var(--black); text-transform:none; }
+.tutorial .prog{ display:flex; align-items:center; justify-content:center; gap:6px; margin:6px 0 10px; }
+.tutorial .pdot{ width:7px; height:7px; background:rgba(32,48,46,.45); box-shadow:0 0 0 1px rgba(32,48,46,.5); }
+.tutorial .pdot.done{ background:var(--green); }
+.tutorial .pdot.on{ background:var(--gold); box-shadow:0 0 8px rgba(217,180,91,.9),0 0 0 1px var(--ink); animation:tut-pdot 1.6s ease-in-out infinite; }
+.tutorial .plabel{ font-family:var(--pf); font-size:8px; letter-spacing:1px; text-transform:uppercase; color:rgba(237,242,238,.85); text-shadow:1px 1px 0 var(--ink); margin-left:6px; }
+@keyframes tut-pdot{ 50%{ transform:scale(1.35) } }
+.tut-inner .dwrap{ position:relative; padding-top:10px; }
+.tutorial .ntab{ position:absolute; top:0; left:12px; z-index:3; background:var(--green); color:var(--ink);
+  font-family:var(--pf); font-size:8px; letter-spacing:1px; text-transform:uppercase; padding:5px 9px; filter:drop-shadow(2px 2px 0 var(--ink)); clip-path:var(--notch); }
+.tutorial .dbox{ position:relative; background:var(--card); box-shadow:inset 0 0 0 2px var(--line);
+  padding:18px 14px 14px; filter:drop-shadow(4px 4px 0 var(--ink)); clip-path:var(--notch);
+  font-family:var(--sans); font-size:.98rem; line-height:1.55; color:var(--text); min-height:76px; }
+.tutorial .dbox b.hl-g{ color:var(--green); } .tutorial .dbox b.hl-t{ color:var(--teal); }
+.tutorial .btnrow{ display:flex; align-items:center; justify-content:center; gap:10px; margin-top:12px; }
+.tutorial .btn{ display:inline-flex; align-items:center; gap:5px; cursor:pointer; border:0;
+  font-family:var(--pf); font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--ink);
+  padding:12px 14px; filter:drop-shadow(3px 3px 0 var(--ink)); clip-path:var(--notch); }
+.tutorial .btn.go{ background:var(--green); animation:tut-go 2.2s ease-in-out infinite; }
+.tutorial .btn.next{ background:var(--gold); }
+.tutorial .btn.ghost{ background:var(--card); color:var(--text); box-shadow:inset 0 0 0 2px var(--line); }
+.tutorial .btn:disabled{ opacity:.4; }
+.tutorial .btn:active{ transform:translateY(2px); filter:drop-shadow(1px 1px 0 var(--ink)); }
+@keyframes tut-go{ 50%{ transform:scale(1.05) } }
+.tutorial .vig{ position:absolute; inset:0; z-index:39; pointer-events:none; background:radial-gradient(115% 95% at 50% 42%,transparent 55%,rgba(16,24,22,.5) 100%); }
+.tutorial .scan{ position:absolute; inset:0; z-index:40; pointer-events:none; background:repeating-linear-gradient(0deg,rgba(10,16,14,.16) 0 1px,transparent 1px 3px); mix-blend-mode:multiply; }
+.tutorial .flicker{ position:absolute; inset:0; z-index:41; pointer-events:none; background:rgba(237,242,238,.02); animation:tut-flick 4.8s steps(1) infinite; }
+@keyframes tut-flick{ 0%,92%{opacity:0} 93%{opacity:1} 94%{opacity:0} 96%{opacity:.7} 97%,100%{opacity:0} }
+/* Coached first drill: soft glow on the pad row, gold reveal-pulse on the answer */
+.tut-coach-line{ color:var(--teal); }
+.numpad.coach{ animation:rt-coach-glow 1.6s ease-in-out infinite; }
+@keyframes rt-coach-glow{ 50%{ filter:drop-shadow(0 0 9px rgba(87,198,196,.45)); } }
+.num.coach-target{ animation:rt-coach-target 1s ease-in-out infinite; z-index:2; }
+@keyframes rt-coach-target{ 50%{ filter:brightness(1.55) drop-shadow(0 0 10px var(--gold)); transform:translateY(-3px); } }

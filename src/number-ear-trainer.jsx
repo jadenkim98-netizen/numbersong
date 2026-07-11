@@ -1620,6 +1620,15 @@ export default function NumberEarTrainer() {
   // marks a player who has been through the first-run funnel (or unlocked past it).
   const [unlocked, setUnlocked] = useState(() => loadPref("unlocked", "0") === "1");
   const [onboarded, setOnboarded] = useState(() => loadPref("onboarded", "0") === "1");
+  const [tutStep, setTutStep] = useState(0);          // current beat of Verda's tutorial
+  const [tutMode, setTutMode] = useState("teach");    // "teach" (dialogue beats) | "drill" (3 coached in-cutscene drills)
+  const [tutDrillN, setTutDrillN] = useState(0);      // which of the 3 cutscene drills (0..2)
+  const [tutDrillTarget, setTutDrillTarget] = useState(null); // pitch-class being tested
+  const [tutDrillPhase, setTutDrillPhase] = useState("play"); // play | answer | win
+  const tutTimerRef = useRef(null);
+  const [tutorialActive, setTutorialActive] = useState(false); // (legacy) session Q1 coaching — unused now
+  const [tutReveal, setTutReveal] = useState(false);  // reveal the target pad after a wrong tap
+  const [tutCelebrate, setTutCelebrate] = useState(false); // win flash/confetti overlay
   const gated = !unlocked;
   const isMelodyFree = (idx) => unlocked || groupIndexOf(idx) < FREE.melodyGroups;
   const isRegionFree = (nodeIdx) => unlocked || nodeIdx < FREE.adventureRegions;
@@ -1669,7 +1678,50 @@ export default function NumberEarTrainer() {
     bootAdvancedRef.current = true;
     try { bootChime(); } catch (e) {}
     try { haptic(false); } catch (e) {}
-    setScreen("adventure"); // "Start your Ear Quest" always drops into the Adventure map
+    // First-run public players get Verda's guided tutorial; unlocked students &
+    // returning players (tut seen) go straight to the Adventure map.
+    if (!unlocked && loadPref("tut", "0") !== "1") { setTutStep(0); setScreen("tutorial"); }
+    else setScreen("adventure");
+  };
+  // Verda's tutorial. Skip jumps to the map. After the teaching beats she runs 3 coached
+  // in-cutscene drills (play a note → feel it → tap the number), then hands into the REAL
+  // Region-1 First Steps session (the "actual" ear training; no more coaching).
+  const TUT_DRILLS = 3;
+  const skipTutorial = () => { savePref("tut", "1"); if (tutTimerRef.current) clearTimeout(tutTimerRef.current); try { sfx("select"); } catch (e) {} setScreen("adventure"); };
+  const startTutDrill = async (n) => {
+    const pool = [0, 2, 4]; // degrees 1·2·3 (First Steps range)
+    let pc; do { pc = pool[Math.floor(Math.random() * pool.length)]; } while (pc === tutDrillTarget && pool.length > 1);
+    setTutDrillTarget(pc); setTutReveal(false); setTutDrillPhase("play");
+    try {
+      const t = (await playCadence("C", "major")) + 0.25; // establish "home", then the note
+      playSemi("C", pc, t, 4);
+      if (tutTimerRef.current) clearTimeout(tutTimerRef.current);
+      tutTimerRef.current = setTimeout(() => setTutDrillPhase("answer"), (t + 0.25) * 1000);
+    } catch (e) { setTutDrillPhase("answer"); }
+  };
+  const enterTutDrills = () => { try { sfx("select"); } catch (e) {} setTutMode("drill"); setTutDrillN(0); startTutDrill(0); };
+  const replayTutNote = () => { try { playCadence("C", "major").then((t) => playSemi("C", tutDrillTarget, t + 0.2, 4)); } catch (e) {} };
+  const answerTutDrill = (pc) => {
+    if (tutDrillPhase !== "answer") return;
+    if (pc === tutDrillTarget) {
+      setTutDrillPhase("win"); setTutReveal(false);
+      try { haptic(false); } catch (e) {}
+      setTutCelebrate(true);
+      try { playResolution("C", 4, tutDrillTarget, "major", false, () => {}); } catch (e) {}
+      if (tutTimerRef.current) clearTimeout(tutTimerRef.current);
+      tutTimerRef.current = setTimeout(() => {
+        setTutCelebrate(false);
+        if (tutDrillN + 1 < TUT_DRILLS) { setTutDrillN((k) => k + 1); startTutDrill(tutDrillN + 1); }
+        else {
+          // done — Verda sends them out onto the Harmonia map to choose their path
+          savePref("tut", "1"); setTutMode("teach"); setTutDrillN(0);
+          setScreen("adventure");
+        }
+      }, 1700);
+    } else {
+      setTutReveal(true); // reveal the target — "feel it again, it's the glowing one"
+      try { playSemi("C", pc, 0, 4); } catch (e) {}
+    }
   };
   const [mode, setMode] = useState("melody");     // melody | chords
   const [levelIdx, setLevelIdx] = useState(0);
@@ -1774,7 +1826,7 @@ export default function NumberEarTrainer() {
       } else if (q.has("lock") || h.has("lock")) {
         // ?lock — reset this device to a FRESH PUBLIC visitor (gated + not onboarded),
         // for testing the locked funnel. Inverse of the unlock magic link.
-        try { ["unlocked", "onboarded", "saveok", "progress"].forEach((k) => window.localStorage.removeItem("numbersong-" + k)); } catch (e) {}
+        try { ["unlocked", "onboarded", "saveok", "progress", "tut"].forEach((k) => window.localStorage.removeItem("numbersong-" + k)); } catch (e) {}
         setUnlocked(false); setOnboarded(false); setProgress({ melody: {}, chords: {}, progressions: {} });
         window.history.replaceState(null, "", window.location.pathname);
       }
@@ -2016,7 +2068,7 @@ export default function NumberEarTrainer() {
   useEffect(() => {
     const S = (typeof window !== "undefined") && window.SOUNDTRACK;
     if (!S) return;
-    if (screen === "adventure" || screen === "levels") { playTheme("map", S.map); return; }
+    if (screen === "adventure" || screen === "levels" || screen === "tutorial") { playTheme("map", S.map); return; }
     if (screen === "boot" || screen === "menu" || screen === "training" || screen === "home" || screen === "shop") { playTheme("title", S.title); return; }
     // dojo/Free Play (explore sounds freely), How-music-works + Settings (audio demos),
     // sessions, results, boot → silent.
@@ -2300,14 +2352,24 @@ export default function NumberEarTrainer() {
       setHitPad(pc);
       setPhase("resolving");
       const deg = PC_TO_DEGREE[pc];
-      setFeedback(deg != null ? DEGREE_QUIPS[deg] : ALT_QUIPS[pc]);
+      if (tutorialActive) {
+        // Verda's first win — cheer + celebrate, then coaching fades (Q2+ is a normal
+        // First Steps session that flows to results/email/map).
+        setFeedback("That's it — you're hearing in numbers!");
+        setTutorialActive(false); setTutReveal(false);
+        setTutCelebrate(true); sessTimer(() => setTutCelebrate(false), 1400);
+        try { haptic(true); } catch (e) {}
+      } else {
+        setFeedback(deg != null ? DEGREE_QUIPS[deg] : ALT_QUIPS[pc]);
+      }
       playResolution(s.key, s.octave, s.target, lvl.mode, !lvl.chromatic, advance);
     } else {
       s.attempted = true;
       setStreak(0);
       setLitWrong([pc]);
       playSemi(s.key, pc, 0, s.octave);
-      setFeedback("Not that one — that's the note you pressed. Try again.");
+      if (tutorialActive) { setTutReveal(true); setFeedback("Almost — hear it again, then tap the glowing number."); }
+      else setFeedback("Not that one — that's the note you pressed. Try again.");
     }
   };
 
@@ -3062,9 +3124,14 @@ export default function NumberEarTrainer() {
     // pads climb from home: minor starts on 6, major on 1 (matches the tonal map)
     const diaOrder = isMinor ? [6, 7, 1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, 6, 7];
     const chromOrder = ALL12.map((i) => mod12(tonicPc + i));
+    // Verda coaching on the tutorial's first drill question
+    const tutCoach = tutorialActive && mode === "melody";
+    const tutTarget = tutCoach && tutReveal && sess.current ? sess.current.target : null;
     return (
       <div className="app">
         <style>{CSS}</style>
+        {tutCelebrate && <div className="fx-flash" aria-hidden="true" />}
+        {tutCelebrate && <div className="confetti" aria-hidden="true">{CONFETTI.map((cf, i) => <i key={i} style={{ left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" }} />)}</div>}
         <header className="top-slim">
           <button className="back" onClick={() => { killSession(); setPhase("idle"); setBusy(false); setScreen("levels"); }}>← Quit</button>
           <h2 className="screen-title">{lvl.name}</h2>
@@ -3114,14 +3181,14 @@ export default function NumberEarTrainer() {
                 Chord chart
               </button>
             )}
-            <p className="hint grow">
-              {phase === "playing" ? "Listen…"
+            <p className={"hint grow" + (tutCoach ? " tut-coach-line" : "")}>
+              {phase === "playing" ? (tutCoach ? "Verda plays a number… listen." : "Listen…")
                 : feedback && feedback.roman
                   ? <span><strong>{feedback.sym}</strong> <em className="numlabel">{feedback.num}</em> · {feedback.quality}. {CHORD_INSIGHTS[feedback.roman]}</span>
                 : feedback && feedback.prog
                   ? <span><strong>{feedback.prog.join("–")}</strong> — nailed the changes.</span>
                 : feedback ? feedback
-                : mode === "melody" ? "Which number did you hear?"
+                : mode === "melody" ? (tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?")
                 : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.`
                 : "Tap the chords you heard, in order."}
             </p>
@@ -3142,13 +3209,13 @@ export default function NumberEarTrainer() {
                 })}
               </div>
             ) : (
-              <div className="numpad">
+              <div className={"numpad" + (tutCoach && phase === "answer" ? " coach" : "")}>
                 {diaOrder.map((deg) => {
                   const pc = DEGREE_TO_PC[deg];
                   const out = !pool.includes(pc);
                   return (
                     <button key={deg}
-                      className={"num" + (pc === tonicPc ? " tonic" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "")}
+                      className={"num" + (pc === tonicPc ? " tonic" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "") + (tutTarget === pc ? " coach-target" : "")}
                       onClick={() => answerMelodySession(pc)}
                       disabled={phase !== "answer" || out}>
                       {deg}<span className="num-sol">{SOLFEGE[deg]}</span>
@@ -3407,6 +3474,111 @@ export default function NumberEarTrainer() {
           {skinItem("default", "Coda (classic)", "The original teal & green.", "#57C6C4")}
           {SHOP.map((it) => skinItem(it.id, it.name, it.desc, it.tint))}
         </div>
+      </div>
+    );
+  }
+
+  if (screen === "tutorial") {
+    // Verda's cinematic first-run tutorial (Fable "JRPG Cutscene" look). Reuses the
+    // guide's teaching widgets (DegreeLadder / GuideStack / playPhrase / playTwoFiveOne).
+    const verdaSrc = typeof window !== "undefined" ? window.VERDA_SPRITE : "";
+    const beats = [
+      { title: "The tonal map", cue: null,
+        lines: <>Welcome to <b className="hl-g">Staircase Meadows</b>, traveler. I'm <b className="hl-t">Verda</b> — I'll be right beside you. Every song you love hides in the same seven simple steps.</>,
+        stage: <DegreeLadder active={[]} correct={[]} wrong={[]} /> },
+      { title: "The tonal map", cue: "1 · 2 · 3", hear: { label: "▶ Hear 1 · 2 · 3", act: () => playPhrase([1, 2, 3]) },
+        lines: <>Forget note names. Here, every sound is just a <b className="hl-g">number</b> — its place in the key. And <b className="hl-t">1 is home</b>. It never moves.</>,
+        stage: <DegreeLadder active={litActive} correct={[]} wrong={[]} /> },
+      { title: "Mary had a little lamb", cue: "3 2 1 2 3 3 3", hear: { label: "▶ Hear it in numbers", act: () => playPhrase([3, 2, 1, 2, 3, 3, 3, 2, 2, 2, 3, 5, 5]) },
+        lines: <>You already know this one. Watch a song you love become <b className="hl-g">numbers</b> — the same map, every time.</>,
+        stage: <DegreeLadder active={litActive} correct={[]} wrong={[]} /> },
+      { title: "Chords are numbers, stacked", cue: null, hear: { label: "▶ Hear a 2–5–1", act: playTwoFiveOne },
+        lines: <>Even chords are just numbers, <b className="hl-t">stacked</b>. That's the road ahead — first, we'll train your ear on single notes.</>,
+        stage: <div className="stacks"><GuideStack label="2-" world={2} /><GuideStack label="5D" world={5} /><GuideStack label="1" world={1} /></div> },
+      { title: "A little secret", cue: null,
+        lines: <>One secret before we begin: as each note plays, try <b className="hl-t">singing its number</b> out loud. It's completely optional — but nothing will grow your ear faster.</>,
+        stage: <DegreeLadder active={[]} correct={[]} wrong={[]} /> },
+      { title: "Feel the sound", cue: null,
+        lines: <>Now let's listen together. I'll play a note — <b className="hl-t">listen deeply</b>, feel where it lies, then name its number. Three tries here with me.</>,
+        stage: <DegreeLadder active={[]} correct={[]} wrong={[]} /> },
+    ];
+    const step = Math.min(tutStep, beats.length - 1); // clamp: never index past the array
+    const beat = beats[step];
+    const last = step === beats.length - 1;
+    const drill = tutMode === "drill";
+    const drillTitle = tutDrillPhase === "play" ? "Listen…" : tutDrillPhase === "win" ? "You felt it!" : "Which number?";
+    const drillLine = tutDrillPhase === "win"
+      ? <>Yes — that's the one. You're <b className="hl-g">naming what you hear</b>.</>
+      : tutReveal
+        ? <>Not quite. Listen again and feel where it <b className="hl-t">lies</b> — it's the glowing number.</>
+        : tutDrillPhase === "play"
+          ? <>Understanding begins with <b className="hl-t">listening</b>. Listen deeply — feel where the note lies.</>
+          : <>Now <b className="hl-g">name it</b> — which number does it feel like?</>;
+    return (
+      <div className="app tutorial">
+        <style>{CSS}</style>
+        <div className="tut-scene" aria-hidden="true">
+          <div className="sun" /><div className="cloud c1" /><div className="cloud c2" />
+          <div className="hills far" /><div className="hills" />
+          <div className="steps1" /><div className="steps2" /><div className="ground" />
+          <div className="tuft t1" /><div className="tuft t2" /><div className="tuft t3" />
+        </div>
+        {tutCelebrate && <div className="fx-flash" aria-hidden="true" />}
+        {tutCelebrate && <div className="confetti" aria-hidden="true">{CONFETTI.map((cf, i) => <i key={i} style={{ left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" }} />)}</div>}
+        <div className="tut-inner">
+          <div className="hud">
+            <span className="loc"><b>✦</b> Staircase Meadows</span>
+            <button className="skip" onClick={skipTutorial}>Skip ▸</button>
+          </div>
+          <div className="stagepanel">
+            <div className="stagetitle">{drill ? drillTitle : beat.title}</div>
+            {drill ? (
+              <div className="numpad coach tut-drillpad">
+                {[1, 2, 3, 4, 5, 6, 7].map((d) => {
+                  const pc = DEGREE_TO_PC[d];
+                  const out = ![0, 2, 4].includes(pc);
+                  return (
+                    <button key={d}
+                      className={"num" + (pc === 0 ? " tonic" : "") + (out ? " dim" : "") + (tutReveal && pc === tutDrillTarget ? " coach-target" : "") + (tutDrillPhase === "win" && pc === tutDrillTarget ? " just" : "")}
+                      onClick={() => answerTutDrill(pc)}
+                      disabled={tutDrillPhase !== "answer" || out}>
+                      {d}<span className="num-sol">{SOLFEGE[d]}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : beat.stage}
+          </div>
+          <div className="tut-mid">
+            <img className="verda" src={verdaSrc} alt="Verda" />
+            <div className="vshadow" />
+            {!drill && beat.cue && <div className="cue">Now playing<b>{beat.cue}</b></div>}
+          </div>
+          <div className="prog">
+            {drill
+              ? [0, 1, 2].map((i) => <span key={i} className={"pdot" + (i < tutDrillN ? " done" : i === tutDrillN ? " on" : "")} />)
+              : beats.map((_, i) => <span key={i} className={"pdot" + (i < step ? " done" : i === step ? " on" : "")} />)}
+            <span className="plabel">{drill ? `Drill ${tutDrillN + 1} of ${TUT_DRILLS}` : `Beat ${step + 1} of ${beats.length}`}</span>
+          </div>
+          <div className="dwrap">
+            <span className="ntab">Verda, the Meadow Keeper</span>
+            <div className="dbox">{drill ? drillLine : beat.lines}</div>
+          </div>
+          <div className="btnrow">
+            {drill ? (
+              <button className="btn go" onClick={replayTutNote} disabled={tutDrillPhase === "play" || busy}>▶ Hear it again</button>
+            ) : (
+              <>
+                <button className="btn ghost" disabled={step === 0} onClick={() => { sfx("back"); setTutStep((s) => Math.max(0, s - 1)); }}>◂ Back</button>
+                {beat.hear && <button className="btn go" onClick={beat.hear.act} disabled={busy}>{beat.hear.label}</button>}
+                {last
+                  ? <button className="btn next" onClick={enterTutDrills}>Begin →</button>
+                  : <button className="btn next" onClick={() => { sfx("move"); setTutStep((s) => Math.min(s + 1, beats.length - 1)); }}>Next →</button>}
+              </>
+            )}
+          </div>
+        </div>
+        <div className="vig" /><div className="scan" /><div className="flicker" />
       </div>
     );
   }
