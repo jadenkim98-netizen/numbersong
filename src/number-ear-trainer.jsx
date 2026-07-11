@@ -419,7 +419,7 @@ function detectPitch(buf, sampleRate) {
   let rms = 0;
   for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
   rms = Math.sqrt(rms / SIZE);
-  if (rms < 0.012) return -1; // below the noise floor — treat as silence
+  if (rms < 0.006) return -1; // below the noise floor — treat as silence
 
   // Trim leading/trailing near-silence so onsets/tails don't skew the ACF.
   let r1 = 0, r2 = SIZE - 1;
@@ -1797,6 +1797,7 @@ export default function NumberEarTrainer() {
     if (m) {
       if (m.raf) cancelAnimationFrame(m.raf);
       try { m.source.disconnect(); } catch (_) {}
+      try { m.gain?.disconnect(); } catch (_) {}
       try { m.stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
       micRef.current = null;
     }
@@ -1816,10 +1817,15 @@ export default function NumberEarTrainer() {
       });
       const ctx = Tone.getContext().rawContext;
       const source = ctx.createMediaStreamSource(stream);
+      // Boost the input so a normal voice at arm's length registers — no need to
+      // sing right into the mic. Feeds the analyser only, never the speakers.
+      const gain = ctx.createGain();
+      gain.gain.value = 2.5;
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 2048;
-      source.connect(analyser); // to the analyser only — NOT to the destination
-      micRef.current = { stream, source, analyser, buf: new Float32Array(analyser.fftSize), raf: 0, last: 0 };
+      source.connect(gain);
+      gain.connect(analyser);
+      micRef.current = { stream, source, gain, analyser, buf: new Float32Array(analyser.fftSize), raf: 0, last: 0 };
       setMicOn(true);
     } catch (e) {
       setMicErr(true); setMicOn(false);
@@ -1846,7 +1852,7 @@ export default function NumberEarTrainer() {
       // input loudness (so the meter reacts to any sound — proves the mic is live)
       let sum = 0;
       for (let i = 0; i < mm.buf.length; i++) sum += mm.buf[i] * mm.buf[i];
-      setSingLevel(Math.min(1, Math.sqrt(sum / mm.buf.length) * 6));
+      setSingLevel(Math.min(1, Math.sqrt(sum / mm.buf.length) * 2.5));
       const hz = detectPitch(mm.buf, sr);
       if (hz < 0) { setSingDeg(null); setSingInTune(false); return; }
       const { deg, cents } = pitchToDegree(hz, musicKey);
@@ -3341,7 +3347,7 @@ export default function NumberEarTrainer() {
       {(micOn || micReq || micErr) && (() => {
         // Coaching copy + where the number sits on the track (flat drifts left,
         // sharp drifts right; clamp to ±50¢ so wild misses don't fly off-screen).
-        const heard = singLevel > 0.06;
+        const heard = singLevel > 0.03;
         let coach, state;
         if (micErr) { coach = "Mic's off — tap 🎤 Sing and choose Allow."; state = "off"; }
         else if (micReq) { coach = "Asking for mic access — tap Allow…"; state = "idle"; }

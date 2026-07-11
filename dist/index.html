@@ -1197,7 +1197,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     let rms = 0;
     for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
     rms = Math.sqrt(rms / SIZE);
-    if (rms < 0.012) return -1;
+    if (rms < 6e-3) return -1;
     let r1 = 0, r2 = SIZE - 1;
     const thres = 0.2;
     for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) {
@@ -2667,6 +2667,10 @@ window.SOUNDTRACK = SOUNDTRACK;
         } catch (_) {
         }
         try {
+          m.gain?.disconnect();
+        } catch (_) {
+        }
+        try {
           m.stream.getTracks().forEach((t) => t.stop());
         } catch (_) {
         }
@@ -2692,10 +2696,13 @@ window.SOUNDTRACK = SOUNDTRACK;
         });
         const ctx = Tone.getContext().rawContext;
         const source = ctx.createMediaStreamSource(stream);
+        const gain = ctx.createGain();
+        gain.gain.value = 2.5;
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 2048;
-        source.connect(analyser);
-        micRef.current = { stream, source, analyser, buf: new Float32Array(analyser.fftSize), raf: 0, last: 0 };
+        source.connect(gain);
+        gain.connect(analyser);
+        micRef.current = { stream, source, gain, analyser, buf: new Float32Array(analyser.fftSize), raf: 0, last: 0 };
         setMicOn(true);
       } catch (e) {
         setMicErr(true);
@@ -2719,7 +2726,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         mm.analyser.getFloatTimeDomainData(mm.buf);
         let sum = 0;
         for (let i = 0; i < mm.buf.length; i++) sum += mm.buf[i] * mm.buf[i];
-        setSingLevel(Math.min(1, Math.sqrt(sum / mm.buf.length) * 6));
+        setSingLevel(Math.min(1, Math.sqrt(sum / mm.buf.length) * 2.5));
         const hz = detectPitch(mm.buf, sr);
         if (hz < 0) {
           setSingDeg(null);
@@ -3849,7 +3856,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       },
       micOn ? "🎤 Sing on" : "🎤 Sing"
     )), (micOn || micReq || micErr) && (() => {
-      const heard = singLevel > 0.06;
+      const heard = singLevel > 0.03;
       let coach, state;
       if (micErr) {
         coach = "Mic's off — tap 🎤 Sing and choose Allow.";
