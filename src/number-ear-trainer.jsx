@@ -4682,7 +4682,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
   padding: 10px 14px calc(env(safe-area-inset-bottom, 0px) + 10px);
   background: transparent; border-top: 0;
-  justify-content: space-between; align-items: flex-end; pointer-events: none;
+  flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none;
 }
 .adv-hud-bottom > * { pointer-events: auto; }
 .adv-forge-chip { display: flex; align-items: center; gap: 6px; background: rgba(20,24,22,.82); padding: 5px 12px 5px 6px; border-radius: 12px; }

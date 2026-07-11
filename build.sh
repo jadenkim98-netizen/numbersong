@@ -101,7 +101,7 @@ html = f'''<!DOCTYPE html>
 <script>{react_dom_js}</script>
 <script>{tone_js}</script>
 <style>
-  html, body {{ margin: 0; background: #383D3B; }}
+  html, body {{ margin: 0; background: #383D3B; overscroll-behavior: none; }}
   /* Critical pre-mount layout: clamp the app column to the SAME 560px the mounted
      .app uses, so the first painted frame already matches — no width reflow. */
   #root {{ max-width: 560px; margin: 0 auto; }}
