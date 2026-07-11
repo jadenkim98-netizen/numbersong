@@ -1434,6 +1434,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
   const [swordImg, setSwordImg] = useState(null);
   const [codaImg, setCodaImg] = useState(null);
   const [dojoImg, setDojoImg] = useState(null);
+  const [bakedMap, setBakedMap] = useState(null);
   const [tintedCoda, setTintedCoda] = useState(null);
   useEffect(() => {
     if (!codaImg || !skinTint) { setTintedCoda(null); return; }
@@ -1457,6 +1458,9 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
     if (typeof window !== "undefined" && window.DOJO_SPRITE) {
       const d = new Image(); d.onload = () => setDojoImg(d); d.src = window.DOJO_SPRITE;
     }
+    if (typeof window !== "undefined" && window.MAP_BAKED) {
+      const m = new Image(); m.onload = () => setBakedMap(m); m.src = window.MAP_BAKED;
+    }
   }, []);
 
   // center the view on the hero / current node once the map is drawn
@@ -1471,14 +1475,16 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
 
   // full map paint with Coda at tile (codaC,codaR); reused by the static render and the walk loop
   const draw = useCallback((codaC, codaR, bob) => {
-    if (!tileset) return;
+    if (!tileset && !bakedMap) return;
     const cv = mapRef.current; if (!cv) return;
     const T = H.tile;
     if (cv.width !== H.gc * T) { cv.width = H.gc * T; cv.height = H.gr * T; }
     const ctx = cv.getContext("2d");
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, cv.width, cv.height);
-    for (let r = 0; r < H.gr; r++) for (let c = 0; c < H.gc; c++) {
+    if (bakedMap) {                                    // pre-rendered seamless map (static layout)
+      ctx.drawImage(bakedMap, 0, 0);
+    } else for (let r = 0; r < H.gr; r++) for (let c = 0; c < H.gc; c++) {  // fallback: index-paint tiles
       const idx = H.grid[r][c];
       if (!idx) continue;
       ctx.drawImage(tileset, (idx % H.scols) * T, ((idx / H.scols) | 0) * T, T, T, c * T, r * T, T, T);
@@ -1508,7 +1514,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       ctx.restore();
     }
     drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, tintedCoda || codaImg, bob);
-  }, [tileset, nodes, currentId, collected, codaImg, tintedCoda, swordImg, dojoImg]);
+  }, [tileset, nodes, currentId, collected, codaImg, tintedCoda, swordImg, dojoImg, bakedMap]);
 
   // static render: Coda rests on the current node (unless mid-walk)
   useEffect(() => {

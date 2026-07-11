@@ -41,6 +41,7 @@ coda_vic_data = "data:image/png;base64," + base64.b64encode(open("coda_victory.p
 verda_data = "data:image/png;base64," + base64.b64encode(open("verda_final_south.png","rb").read()).decode()
 verda_portrait_data = "data:image/png;base64," + base64.b64encode(open("verda_portrait_final.png","rb").read()).decode()
 dojo_data = "data:image/png;base64," + base64.b64encode(open("dojo_final.png","rb").read()).decode()
+map_baked_data = "data:image/png;base64," + base64.b64encode(open("map_baked.png","rb").read()).decode()
 def _png(p): return "data:image/png;base64," + base64.b64encode(open(p,"rb").read()).decode()
 # Keeper art shown in the encounter modal, keyed by region node id. Region 1 = Verda's
 # bust portrait; 2-4 = full-body keeper sprites. Regions 5-8 still fall back to the emoji.
@@ -152,6 +153,7 @@ window.CODA_VICTORY = "{coda_vic_data}";
 window.VERDA_SPRITE = "{verda_data}";
 window.VERDA_PORTRAIT = "{verda_portrait_data}";
 window.DOJO_SPRITE = "{dojo_data}";
+window.MAP_BAKED = "{map_baked_data}";
 window.KEEPER_ART = {keeper_art};
 </script>
 <script>
