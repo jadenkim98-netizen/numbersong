@@ -1184,10 +1184,10 @@ function SolarSystem() {
 
 /* Half-step visual aids: on a piano two adjacent keys, on a guitar two adjacent frets. */
 const HALFSTEP_CSS = `
-.hs-diagrams { display:flex; flex-wrap:wrap; gap:18px; justify-content:center; align-items:flex-end; margin-top:14px; }
-.hs-fig { display:flex; flex-direction:column; align-items:center; gap:6px; }
-.hs-fig svg { display:block; }
-.hs-cap { font-family:'Archivo Black',sans-serif; font-size:.7rem; letter-spacing:.5px; text-transform:uppercase; color:#57C6C4; }
+.hs-diagrams { display:flex; flex-wrap:nowrap; gap:10px; justify-content:center; align-items:flex-end; margin-top:10px; }
+.hs-fig { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1 1 0; min-width:0; max-width:186px; }
+.hs-fig svg { display:block; width:100%; height:auto; }
+.hs-cap { font-family:'Archivo Black',sans-serif; font-size:.6rem; letter-spacing:.4px; text-transform:uppercase; color:#57C6C4; text-align:center; }
 `;
 function HalfStepDiagrams() {
   const wk = [0, 1, 2, 3, 4, 5, 6];              // C D E F G A B
@@ -1512,7 +1512,7 @@ function drawDojo(ctx, cx, cy, img) {
 const MAP_TOUR = [
   { sel: ".adv-map", title: "Welcome to Harmonia", text: "This whole world is your training ground. Every glowing marker is a place to sharpen your ear." },
   { sel: "dojo", title: "The Dojo", text: "That little pagoda is the Dojo. Apps and tests alone can't truly train your ears — you have to improvise and create with these sounds too. Drop in any time to play freely, and feel free to follow along on your own instrument." },
-  { sel: ".adv-map", title: "Your journey", text: "Tap a marker to meet its Keeper and take on their challenge. Clear it and you earn a piece of the blade." },
+  { sel: ".adv-map", markers: true, title: "Your journey", text: "Tap a marker to meet its Keeper and take on their challenge. Clear it and you earn a piece of the blade." },
   { sel: ".adv-sword-mini", title: "The blade", text: "Eight Keepers, eight pieces. Reforge Excalibar and all of Harmonia sings again." },
   { sel: ".adv-hud-actions", title: "Need a refresher?", text: "Tap 📖 down here any time to review how the numbers work. It's always there when you want it." },
   { sel: ".gear-settings", title: "Settings", text: "And ⚙ up here for sound, themes, and anything else you need." },
@@ -1541,19 +1541,29 @@ const MAPTOUR_CSS = `
   box-shadow: inset 2px 2px 0 rgba(255,255,255,.3), inset -2px -2px 0 rgba(0,0,0,.25); padding: 10px 14px; cursor: pointer; }
 @keyframes maptour-fade { from { opacity: 0; } }
 @keyframes maptour-blink { 0%,100% { border-color: var(--teal,#57C6C4); } 50% { border-color: var(--gold,#D9B45B); } }
-@media (prefers-reduced-motion: reduce) { .maptour-scrim { animation: none; } .maptour-ring { animation: none; transition: none; } }
+.maptour-marker { position: absolute; width: 26px; height: 26px; transform: translate(-50%,-50%); border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(87,198,196,.75), rgba(87,198,196,0) 70%); box-shadow: 0 0 9px 3px var(--teal,#57C6C4);
+  animation: maptour-mglow 1.1s ease-in-out infinite; }
+@keyframes maptour-mglow { 0%,100% { transform: translate(-50%,-50%) scale(.8); opacity: .5; } 50% { transform: translate(-50%,-50%) scale(1.15); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .maptour-scrim, .maptour-marker { animation: none; } .maptour-ring { animation: none; transition: none; } }
 `;
 
 function MapTour({ onClose, onSfx }) {
   const [step, setStep] = useState(0);
   const beep = (n) => { try { onSfx && onSfx(n); } catch (e) {} };
   const [rect, setRect] = useState(null);
+  const [markers, setMarkers] = useState([]);
   const cur = MAP_TOUR[step];
   const last = step === MAP_TOUR.length - 1;
 
   const measure = useCallback(() => {
     const s = MAP_TOUR[step];
     const map = document.querySelector(".adv-map");
+    // region markers (canvas-painted) glow on the "tap a marker" step
+    if (s && s.markers && map && window.HARMONIA) {
+      const r = map.getBoundingClientRect(), sx = r.width / 256, sy = r.height / 416;
+      setMarkers(window.HARMONIA.nodes.map((n) => ({ x: r.left + (n.c + 0.5) * 16 * sx, y: r.top + (n.r + 0.5) * 16 * sy })));
+    } else setMarkers([]);
     if (!s || !s.sel) { setRect(null); return; }
     if (s.sel === "dojo") {                        // Dojo is canvas-painted: derive from tile (2,20)
       if (!map) { setRect(null); return; }
@@ -1585,6 +1595,7 @@ function MapTour({ onClose, onSfx }) {
     <div className="maptour">
       <style>{MAPTOUR_CSS}</style>
       <div className="maptour-scrim" />
+      {markers.map((m, i) => <div key={i} className="maptour-marker" style={{ left: m.x, top: m.y }} />)}
       {rect && <div className="maptour-ring" style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }} />}
       <div className={"maptour-box" + (boxTop ? " top" : "")}>
         {portrait && <img className="maptour-face" src={portrait} alt="Verda" />}
@@ -2982,7 +2993,7 @@ export default function NumberEarTrainer() {
               <div className="enc-head">
                 <span className="enc-emblem" aria-hidden="true">
                   {window.KEEPER_ART && window.KEEPER_ART[encounterNode]
-                    ? <img src={window.KEEPER_ART[encounterNode]} alt="" style={{ width: 32, height: 32, imageRendering: "pixelated" }} />
+                    ? <img src={window.KEEPER_ART[encounterNode]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", imageRendering: "pixelated" }} />
                     : en.emblem}
                 </span>
                 <div className="enc-titles">
@@ -3820,7 +3831,7 @@ export default function NumberEarTrainer() {
       { title: "Twelve pitches", cue: null,
         lines: <>All of music rests on just <b className="hl-g">12 unique pitches</b>, repeating forever up and down. But here's the secret: at any moment, most songs use only <b className="hl-t">7 of them</b>. We'll visualize these notes on a line that goes in both directions, repeating forever.</>,
         stage: tutTwelve },
-      { title: "The tonal map", cue: "1 2 3 4 5 6 7 1", hear: { label: "▶ Hear the scale", act: () => playTutPhrase([1, 2, 3, 4, 5, 6, 7, 8]) },
+      { title: "The tonal map", cue: null, hear: { label: "▶ Hear the scale", act: () => playTutPhrase([1, 2, 3, 4, 5, 6, 7, 8]) },
         lines: <>The shortest distance between two pitches is a <b className="hl-t">half step</b>; two half steps make a <b className="hl-t">whole step</b>. Arrange them in the right pattern and you get this — the <b className="hl-g">tonal map</b> (you may know it as the major scale).</>,
         stage: tutMapStair },
       { title: "Where the half steps hide", cue: null,

@@ -266,12 +266,12 @@
   background:rgba(0,0,0,.22); box-shadow:inset 0 -2px 0 0 var(--line);
 }
 .retro .enc-emblem{
-  flex:0 0 auto; width:44px; height:44px; display:flex; align-items:center;
-  justify-content:center; font-size:24px; clip-path:var(--notch);
+  flex:0 0 auto; width:56px; height:56px; display:flex; align-items:center;
+  justify-content:center; font-size:30px; clip-path:var(--notch);
   background:var(--bg); box-shadow:inset 0 0 0 2px var(--em,var(--teal));
-  image-rendering:pixelated;
+  image-rendering:pixelated; padding:2px; box-sizing:border-box; overflow:hidden;
 }
-.retro .enc-emblem img{ width:32px; height:32px; image-rendering:pixelated; }
+.retro .enc-emblem img{ width:100%; height:100%; object-fit:cover; display:block; image-rendering:pixelated; }
 .retro .enc-titles{ flex:1 1 auto; min-width:0; }
 .retro .enc-titles .kicker{ display:block; font-family:var(--pf); text-transform:uppercase; letter-spacing:1px; color:var(--text); opacity:.5; font-size:8px; margin-bottom:3px; }
 .retro .encounter-title{
