@@ -6334,17 +6334,35 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .drill-melody .quiz-bar .hint.grow {
     position: absolute; left: 0; bottom: 0; width: 44%; min-height: 0; margin: 0;
   }
-  .app-wide .chord-layout { gap: 20px; }                              /* chords are already two-column */
-  /* chords: the 7-high (+answer slot) vertical stack is the tallest element — shrink it
-     so stack|pads fits a short landscape phone without scrolling */
+  /* chords: a 3-column landscape layout — controls+reference | stack | pads+Check — so the
+     tall vertical content fits a short phone WITHOUT cramping. A CSS grid places the panel's
+     existing children into columns, so no markup changes; :has() scopes it to the chord panel. */
+  .app-wide .panel:has(.chord-layout) {
+    display: grid;
+    grid-template-columns: minmax(150px, 32%) 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "bar layout" "ref layout";
+    gap: 6px 14px; align-items: start; padding: 10px 12px;
+  }
+  .app-wide .panel:has(.chord-layout) .quiz-bar { grid-area: bar; flex-wrap: wrap; margin: 0; }
+  .app-wide .panel:has(.chord-layout) .chord-ref { grid-area: ref; margin: 0; }
+  .app-wide .panel:has(.chord-layout) .chord-layout { grid-area: layout; gap: 16px; }
   .app-wide .session-stack { gap: 2px; }
-  .app-wide .session-stack .stack-note { width: 26px; height: 26px; font-size: 0.82rem; }
-  .app-wide .chord-ref { margin: 0; }
+  .app-wide .session-stack .stack-note { width: 24px; height: 24px; font-size: 0.78rem; }
   .app-wide .chord-right .primary.wide { min-height: 42px; padding: 9px; }
-  /* progressions: mini-stacks LEFT, chord pad + Undo/Check RIGHT */
+  /* progressions: same idea — put the controls in a side column so the chord stacks +
+     pad + Undo/Check sit beside them instead of stacked below. */
+  .app-wide .panel:has(.prog-layout) {
+    display: grid;
+    grid-template-columns: minmax(140px, 26%) 1fr;
+    grid-template-areas: "bar layout";
+    gap: 6px 14px; align-items: start; padding: 10px 12px;
+  }
+  .app-wide .panel:has(.prog-layout) .quiz-bar { grid-area: bar; flex-wrap: wrap; margin: 0; }
+  .app-wide .panel:has(.prog-layout) .prog-layout { grid-area: layout; }
   .app-wide .prog-layout { flex-direction: row; align-items: flex-start; gap: 16px; }
   .app-wide .prog-stacks { flex: 0 0 auto; }
-  .app-wide .prog-right { display: flex; flex-direction: column; gap: 16px; flex: 1 1 0; min-width: 0; }
+  .app-wide .prog-right { display: flex; flex-direction: column; gap: 12px; flex: 1 1 0; min-width: 0; }
 
   /* Free Play: controls + sing tuner in a slim sidebar; map/piano take the wide side */
   .app-wide .fp-stage { display: flex; gap: 16px; align-items: flex-start; }
