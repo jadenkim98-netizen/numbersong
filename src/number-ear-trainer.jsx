@@ -90,6 +90,25 @@ const ALT_QUIPS = {
   10: "♭7 — bluesy, leans down.",
 };
 
+// Minor-key quips — home is now 6 (la-based minor), so the mood is darker and the
+// pull is toward 6, not 1.  (DRAFT copy — refine the teaching voice to taste.)
+const DEGREE_QUIPS_MINOR = {
+  6: "Home — la, where minor rests.",
+  7: "One step above home.",
+  1: "Bright — but not home down here.",
+  2: "2 — restless in the dark.",
+  3: "3 — it pulls you home.",
+  4: "4 — a soft ache.",
+  5: "5 — bluesy, drifts down.",
+};
+const ALT_QUIPS_MINOR = {
+  1: "♭2 — a dark half-step.",
+  3: "♭3 — deeper in shadow.",
+  6: "♯4 — the tritone's edge.",
+  8: "♭6 — a heavy sigh.",
+  10: "♭7 — the minor's blue note.",
+};
+
 const CHORD_INSIGHTS = {
   I:    "Home itself — 1, 3 and 5 all at rest.",
   ii:   "All three tones lean toward home: 2→1, 4→3, 6→5.",
@@ -2741,7 +2760,9 @@ export default function NumberEarTrainer() {
         setTutCelebrate(true); sessTimer(() => setTutCelebrate(false), 1400);
         try { haptic(true); } catch (e) {}
       } else {
-        setFeedback(deg != null ? DEGREE_QUIPS[deg] : ALT_QUIPS[pc]);
+        const dq = lvl.mode === "minor" ? DEGREE_QUIPS_MINOR : DEGREE_QUIPS;
+        const aq = lvl.mode === "minor" ? ALT_QUIPS_MINOR : ALT_QUIPS;
+        setFeedback(deg != null ? dq[deg] : aq[pc]);
       }
       playResolution(s.key, s.octave, s.target, lvl.mode, !lvl.chromatic, advance);
     } else {
@@ -3516,7 +3537,7 @@ export default function NumberEarTrainer() {
     const tutCoach = tutorialActive && mode === "melody";
     const tutTarget = tutCoach && tutReveal && sess.current ? sess.current.target : null;
     return (
-      <div className="app">
+      <div className={"app" + (lvl.mode === "minor" ? " sess-minor" : "")}>
         <style>{CSS}</style>
         {tutCelebrate && <div className="fx-flash" aria-hidden="true" />}
         <Confetti show={tutCelebrate} />
@@ -4347,6 +4368,17 @@ html, body { background: var(--bg); }
   -webkit-user-select: none; user-select: none;
   -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
 }
+/* Minor-key drills wear a full deep-blue / navy "immersion" theme. Overriding these
+   palette vars on the session root recolors the buttons, pads, tonic star, the
+   correct-answer flash AND the background in one place — and in BOTH skins, since
+   they all read var(--…). Only --wrong stays orange so a miss still reads as a miss. */
+.app.sess-minor {
+  --bg: #222839; --card: #2C334A; --line: #3B456A;
+  --green: #4F8FEF;   /* GO / submit / correct-flash → confident azure */
+  --teal: #7E86E8;    /* tonic star → indigo */
+  --blue: #6E9AC4;    /* note selection → steel blue */
+}
+.app.sess-minor .primary { color: #EAF1FB; text-shadow: none; } /* light text on the blue GO */
 button { touch-action: manipulation; }
 .path-note, .explore-pad, .pk, .num, .cu-note, .chip, .rung { touch-action: none; }
 /* installed web app: guarantee a top buffer that clears the iOS status bar,
