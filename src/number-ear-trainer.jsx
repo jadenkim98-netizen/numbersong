@@ -2028,6 +2028,20 @@ export default function NumberEarTrainer() {
   const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home")); // boot | menu | training | home | adventure | levels | session | results | learn | guide | settings
   // First-time map tour: Verda walks a new player around once, right after the tutorial.
   const [mapTour, setMapTour] = useState(false);
+  // Inject the base stylesheet ONCE into <head> so it's ALWAYS present. Every screen also
+  // renders its own <style>{CSS}</style>, which React removes+re-adds on each screen swap —
+  // and re-parsing that big block cost a one-frame flash of unstyled content (raw serif
+  // header, everything in document flow), most visibly on level → map. A persistent head
+  // copy keeps the styles applied continuously through the transition, so nothing flashes.
+  useLayoutEffect(() => {
+    if (typeof document === "undefined" || document.getElementById("ns-base-css")) return;
+    const s = document.createElement("style");
+    s.id = "ns-base-css";
+    s.textContent = CSS;
+    const retro = document.getElementById("retro-skin"); // keep base BEFORE retro so .retro still wins
+    if (retro && retro.parentNode) retro.parentNode.insertBefore(s, retro);
+    else document.head.appendChild(s);
+  }, []);
   const [mapReady, setMapReady] = useState(false); // false while the map loads → NUMBERSONG splash covers the entry
   // useLayoutEffect (not useEffect) so mapReady resets to false BEFORE the browser
   // paints the re-entry frame — otherwise the NUMBERSONG cover stays hidden (.out)
@@ -3057,7 +3071,8 @@ export default function NumberEarTrainer() {
     const id = n.raw + row * 100, oct = 4 + (n.upper ? 1 : 0) + row;
     setLitActive((a) => (a.includes(id) ? a : [...a, id]));
     holdNote(noteOf(n.label, oct));
-    sing(musicKey, (n.upper || row > 0) && n.label === 1 ? 8 : n.label, voiceOn);
+    // sing the number when Voice is on — Paths uses its own pathVoice toggle, others voiceOn
+    sing(musicKey, (n.upper || row > 0) && n.label === 1 ? 8 : n.label, fpTab === "paths" ? pathVoice : voiceOn);
   };
   const exploreUp = (n, row = 0) => {
     const id = n.raw + row * 100, oct = 4 + (n.upper ? 1 : 0) + row;
@@ -5309,7 +5324,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .fp-opts-btn { display: inline-flex; width: 40px; height: 34px; margin-left: auto; flex: 0 0 auto; }
   .app-wide .fp-starton { display: none; }               /* niche "Start on" — drop it from the bar */
   .app-wide .fp-voice-bar { display: inline-flex; }       /* show the bar's Voice toggle */
-  .app-wide.fp-notes .fp-keyrow-voice { display: none; }  /* avoid a duplicate voice (bar has it) in the notes tab */
+  .app-wide .fp-keyrow-voice { display: none; }  /* both tabs carry a bar Voice toggle now → never show the key-row one in landscape (avoids a duplicate when the ⚙ is open) */
   .app-wide .key-row { display: none; }                   /* Key/Hear/Sound/Voice/Coda → behind ⚙ */
   .app-wide .fp-sing { display: none; }                   /* Sing → behind ⚙ (settings) */
   .app-wide.fp-opts-open .key-row { display: flex; }
