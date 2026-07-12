@@ -1174,7 +1174,7 @@ function worldChordTones(w) {
   return [0, 2, 4, 6].map((k) => ((w - 1 + k) % 7) + 1);
 }
 
-function ExploreMap({ start, count, stage, octaves, world, active, hi, singDeg, singInTune, onPlay, onDown, onUp, staircase }) {
+function ExploreMap({ start, count, stage, octaves, world, active, hi, litDeg, singDeg, singInTune, onPlay, onDown, onUp, staircase }) {
   const evts = (n, row) => onDown // guide taps (onPlay); Free Play holds (onDown/onUp)
     ? { onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(n, row); }, onPointerUp: () => onUp(n, row) }
     : { onClick: () => onPlay(n, row) };
@@ -1195,6 +1195,7 @@ function ExploreMap({ start, count, stage, octaves, world, active, hi, singDeg, 
         stage === 1 && "blank",
         active?.includes(n.raw + row * 100) && "active",
         hi?.includes(n.raw + row * 100) && "hl",
+        litDeg?.includes(n.label) && "chord-lit",
         staircase && "stair",
         n.label === singDeg && (singInTune ? "singing in" : "singing off"),
       ].filter(Boolean).join(" ");
@@ -4290,6 +4291,9 @@ export default function NumberEarTrainer() {
 
   // free explore screen
   const stageLabels = ["Numbers on", "Blank pads"];
+  // Paths: the degrees of the chord currently sounding in the loop — lit up on the tonal map
+  const pathCurTones = fpTab === "paths" && pathPlaying && pathIdx >= 0 && pathProg[pathIdx]
+    ? chordTones(chordByRoman(pathProg[pathIdx]), pathSevenths) : [];
   return (
     <div className={"app app-wide fp-" + fpTab + (fpOptionsOpen ? " fp-opts-open" : "")}>
       <style>{CSS}</style>
@@ -4306,19 +4310,12 @@ export default function NumberEarTrainer() {
       </div>
       {fpTab === "paths" ? (
         <>
+        <div className="fp-stage">
+        <div className="fp-side">
           <div className="explore-controls">
             <button className="primary" onClick={() => (pathPlaying ? stopPath() : startPath())} disabled={!pathProg.length}>
               {pathPlaying ? "■ Stop" : "▶ Play loop"}
             </button>
-            <button className={"ghost" + (pathBuild ? " voice on" : "")} onClick={() => gated ? openUpsell() : setPathBuild((b) => !b)}>
-              {pathBuild ? "Done" : "Build"}{gated && " 🔒"}
-            </button>
-            <label className="key-label">
-              Tempo
-              <select value={pathBeat} onChange={(e) => { setTempo(Number(e.target.value)); e.target.blur(); }}>
-                {PATH_SPEEDS.map((s) => <option key={s.label} value={s.beat}>{s.label}</option>)}
-              </select>
-            </label>
             <button className={"ghost voice" + (pathSevenths ? " on" : "")}
               onClick={() => { stopPath(); setPathSevenths((v) => !v); }}>
               {pathSevenths ? "7ths on" : "7ths"}
@@ -4326,10 +4323,30 @@ export default function NumberEarTrainer() {
             <button className={"ghost voice" + (pathDrums ? " on" : "")} onClick={toggleDrums}>
               {pathDrums ? "Drums on" : "Drums"}
             </button>
+            {/* landscape bar: Voice on/off for the sung numbers over the loop */}
+            <button className={"ghost voice fp-voice-bar" + (pathVoice ? " on" : "")}
+              onClick={() => setPathVoice((v) => !v)} aria-pressed={pathVoice}>
+              {pathVoice ? "Voice on" : "Voice off"}
+            </button>
+            <button className={"ghost fp-path-secondary" + (pathBuild ? " voice on" : "")} onClick={() => gated ? openUpsell() : setPathBuild((b) => !b)}>
+              {pathBuild ? "Done" : "Build"}{gated && " 🔒"}
+            </button>
+            <label className="key-label fp-path-secondary">
+              Tempo
+              <select value={pathBeat} onChange={(e) => { setTempo(Number(e.target.value)); e.target.blur(); }}>
+                {PATH_SPEEDS.map((s) => <option key={s.label} value={s.beat}>{s.label}</option>)}
+              </select>
+            </label>
             {pathCount > 0 && <span className="path-count">{pathCount}</span>}
           </div>
+          {/* the chord names of the loop; the one currently sounding is highlighted */}
+          <div className="path-chords fp-pathchords">
+            {pathProg.map((r, i) => (
+              <span key={i} className={"pc" + (pathIdx === i ? " cur" : "")}>{chordNumber(r, false)}</span>
+            ))}
+          </div>
           {pathBuild ? (
-            <div className="path-build">
+            <div className="path-build fp-path-secondary">
               <div className="numpad chordpad">
                 {ALL_CHORDS.map((r) => (
                   <button key={r} className="num chordbtn"
@@ -4347,7 +4364,7 @@ export default function NumberEarTrainer() {
               </div>
             </div>
           ) : (
-            <div className="path-presets">
+            <div className="path-presets fp-path-secondary">
               {PATH_PRESETS.map((p, i) => (
                 <button key={i} className={"chip" + (p.join() === pathProg.join() ? " on" : "")}
                   onClick={() => setProg(p)}>
@@ -4356,15 +4373,25 @@ export default function NumberEarTrainer() {
               ))}
             </div>
           )}
+        </div>
+        <div className="fp-main">
+          {/* landscape: the big tonal map — the current chord's tones light up as it plays */}
+          <div className="fp-paths-map">
+            <ExploreMap start={1} count={7} stage={0} octaves={1} world={null}
+              litDeg={pathCurTones} active={litActive} onDown={exploreDown} onUp={exploreUp} />
+          </div>
+          {/* portrait: the per-chord solo columns */}
           <div className="path-grid">
             {pathProg.map((r, col) => (
               <PathColumn key={col} roman={r} col={col} current={pathIdx === col} lit={litPath} onDown={pathDown} onUp={pathUp} sevenths={pathSevenths} />
             ))}
           </div>
-          <p className="hint center">
+        </div>
+        </div>
+          <p className="hint center fp-help">
             Play the loop, then solo — tap the pads or use the number row (<strong>` 1–7 8 9 0 - =</strong>). Hop to the nearest circled tone of each chord.
           </p>
-          <footer className="foot">Solo over the changes. The circles are your safe landing notes.</footer>
+          <footer className="foot fp-help">Solo over the changes. The circles are your safe landing notes.</footer>
         </>
       ) : (
       <>
@@ -4726,6 +4753,17 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .explore-pad.tonic { box-shadow: inset 0 0 0 0; }
 .explore-pad.active { background: var(--green); border-color: var(--green); }
 .explore-pad.active .rung-num { color: #23302A; }
+/* Paths: the chord currently sounding in the loop lights its tones on the tonal map */
+.explore-pad.chord-lit { background: var(--blue); border-color: var(--blue);
+  box-shadow: 0 0 0 2px var(--blue), 0 0 18px 3px rgba(124,173,209,0.5); }
+.explore-pad.chord-lit .rung-num, .explore-pad.chord-lit .rung-sol { color: #16222b; }
+/* Paths: strip of the loop's chord names, current one highlighted (landscape-only) */
+.path-chords { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; align-items: center; }
+.path-chords .pc { font-family: 'Archivo Black', sans-serif; font-size: 0.9rem; color: var(--text-soft);
+  padding: 3px 10px; border-radius: 8px; border: 1.5px solid var(--line); }
+.path-chords .pc.cur { color: #16222b; background: var(--blue); border-color: var(--blue); }
+.fp-pathchords { display: none; }  /* shown only in landscape */
+.fp-paths-map { display: none; }   /* shown only in landscape */
 .explore-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 /* piano view */
@@ -5235,5 +5273,12 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .fp-main .ladder.explore { flex: 1 1 auto; align-content: stretch; grid-auto-rows: 1fr; }
   .app-wide .fp-main .explore-pad { min-height: 0; }
   .app-wide .fp-main .piano { flex: 1 1 auto; height: auto; min-height: 150px; }
+  /* Paths tab landscape: show the chord-name strip + the light-up map, hide the portrait
+     solo columns, and tuck the setup (Build / Tempo / presets) behind the ⚙. */
+  .app-wide .fp-pathchords { display: flex; }
+  .app-wide .fp-paths-map { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+  .app-wide .path-grid { display: none; }
+  .app-wide .fp-path-secondary { display: none; }
+  .app-wide.fp-opts-open .fp-path-secondary { display: flex; }
 }
 `;
