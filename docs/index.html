@@ -345,6 +345,779 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     font: 13px/1.5 ui-monospace, monospace; white-space: pre-wrap;
   }
 </style>
+<style id="ns-base-css">
+
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #383D3B;
+  --card: #424845;
+  --line: #565D59;
+  --text: #EDF2EE;
+  --text-soft: #A9B3AC;
+  --green: #6ABF5E;
+  --blue: #7CADD1;
+  --teal: #57C6C4;
+  --wrong: #E07856;
+  --wrong-text: #F59A72; /* brighter orange for NORMAL-size miss/error text — ~4.6:1 on --bg (AA); --wrong stays for fills */
+  --alt: #2B302D;
+}
+:root[data-theme="light"] {
+  --bg: #F1F5F1;
+  --card: #FFFFFF;
+  --line: #D2DBD4;
+  --text: #23302A;
+  --text-soft: #63706A;
+  --green: #4EA943;
+  --blue: #4E86AE;
+  --teal: #2FA6A4;
+  --wrong: #D0603F;
+  --wrong-text: #B8442A; /* darker orange for normal-size miss/error text on the light --bg (AA) */
+  --alt: #E4EAE5;
+}
+html, body { background: var(--bg); }
+* { box-sizing: border-box; }
+.app {
+  min-height: 100vh; min-height: 100dvh; background: var(--bg); color: var(--text);
+  font-family: 'Archivo', system-ui, sans-serif;
+  max-width: 560px; margin: 0 auto;
+  /* pad for the iOS status bar / notch when launched from the home screen */
+  padding:
+    calc(20px + env(safe-area-inset-top, 0px))
+    calc(16px + env(safe-area-inset-right, 0px))
+    calc(32px + env(safe-area-inset-bottom, 0px))
+    calc(16px + env(safe-area-inset-left, 0px));
+  display: flex; flex-direction: column; gap: 16px;
+  /* app-like touch: no text selection, callout, or tap flash on hold */
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+}
+/* Minor-key drills wear a full deep-blue / navy "immersion" theme. Overriding these
+   palette vars on the session root recolors the buttons, pads, tonic star, the
+   correct-answer flash AND the background in one place — and in BOTH skins, since
+   they all read var(--…). Only --wrong stays orange so a miss still reads as a miss. */
+.app.sess-minor {
+  --bg: #222839; --card: #2C334A; --line: #3B456A;
+  --green: #4F8FEF;   /* GO / submit / correct-flash → confident azure */
+  --teal: #7E86E8;    /* tonic star → indigo */
+  --blue: #6E9AC4;    /* note selection → steel blue */
+}
+.app.sess-minor .primary { color: #EAF1FB; text-shadow: none; } /* light text on the blue GO */
+/* Landscape reflow wrappers: transparent (display:contents) in portrait so layout is
+   pixel-identical to before; they only become flex rows inside the phone-landscape
+   media query at the bottom of this stylesheet. */
+.drill-stage, .prog-right, .fp-stage, .fp-side { display: contents; }
+.fp-opts-btn { display: none; } /* the landscape focus-mode ⚙ — shown only in the landscape media query */
+.ghost.fp-voice-bar { display: none; } /* landscape-bar voice toggle — hidden in portrait (specific enough to beat .ghost's display) */
+button { touch-action: manipulation; }
+.path-note, .explore-pad, .pk, .num, .cu-note, .chip, .rung { touch-action: none; }
+/* installed web app: guarantee a top buffer that clears the iOS status bar,
+   even where env(safe-area-inset-top) reports 0 */
+:root[data-standalone] .app {
+  padding-top: max(64px, calc(20px + env(safe-area-inset-top, 0px)));
+}
+.top { display: flex; flex-direction: column; gap: 12px; }
+.top-slim { display: flex; align-items: center; gap: 12px; }
+.screen-title {
+  font-family: 'Archivo Black', sans-serif; font-weight: 400; font-size: 1.15rem;
+  margin: 0; flex: 1;
+}
+.session-score { color: var(--green); font-weight: 700; font-size: 0.95rem; }
+.back {
+  background: transparent; border: 1.5px solid var(--line); color: var(--text-soft);
+  border-radius: 10px; padding: 7px 14px; font-size: 0.85rem; min-height: 44px;
+}
+.brand h1 {
+  font-family: 'Archivo Black', 'Archivo', sans-serif; font-weight: 400;
+  font-size: 2.1rem; margin: 0; letter-spacing: 0.01em; line-height: 1;
+}
+.brand .w1 { color: var(--green); }
+.brand .w2 { color: var(--blue); }
+.brand-line { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.wejam-logo { display: block; height: 46px; width: auto; }
+.brand p { margin: 6px 0 0; color: var(--text-soft); font-size: 0.95rem; }
+.key-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.fp-coda { height: 42px; width: auto; image-rendering: pixelated; align-self: center; margin-left: 6px; opacity: 0.92; }
+/* keep Coda snug beside the "Free play" title (don't let the title's flex:1 push it away).
+   Scoped via :has to the Free Play header only, so the drill header's score alignment is untouched. */
+.top-slim:has(.fp-coda) .screen-title { flex: 0 0 auto; }
+.key-label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-soft); }
+.drone-vol { gap: 8px; }
+.drone-vol input[type="range"] {
+  -webkit-appearance: none; appearance: none; width: 96px; height: 5px;
+  border-radius: 99px; background: var(--line); outline: none; cursor: pointer;
+}
+.drone-vol input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--teal); border: none; cursor: pointer;
+}
+.drone-vol input[type="range"]::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%; background: var(--teal); border: none; cursor: pointer;
+}
+select {
+  font-family: inherit; font-size: 0.95rem; color: var(--text);
+  background: var(--card); border: 1.5px solid var(--line); border-radius: 10px;
+  padding: 8px 10px;
+}
+button { font-family: inherit; cursor: pointer; transition: transform 0.06s, background 0.15s, border-color 0.15s, color 0.15s; }
+button:active { transform: scale(0.97); }
+button:disabled { opacity: 0.4; cursor: default; }
+button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+.ghost {
+  background: transparent; color: var(--text); border: 1.5px solid var(--line);
+  border-radius: 10px; padding: 8px 14px; font-size: 0.9rem; font-weight: 500;
+  min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+}
+.ghost.voice.on { border-color: var(--teal); color: var(--teal); }
+.primary {
+  background: var(--green); color: #23302A; border: none;
+  border-radius: 10px; padding: 10px 18px; font-size: 0.95rem; font-weight: 700;
+}
+.primary.wide { width: 100%; margin-top: 14px; padding: 13px; }
+
+/* home cards */
+.cards { display: flex; flex-direction: column; gap: 12px; }
+.card {
+  text-align: left; background: var(--card); border: 1.5px solid var(--line);
+  border-radius: 16px; padding: 18px 16px; display: flex; flex-direction: column; gap: 5px;
+  color: var(--text);
+}
+.card:hover { border-color: var(--blue); }
+.card-title { font-family: 'Archivo Black', sans-serif; font-size: 1.15rem; }
+.card-desc { color: var(--text-soft); font-size: 0.9rem; line-height: 1.45; }
+.card-progress { color: var(--green); font-size: 0.8rem; font-weight: 600; margin-top: 3px; }
+.card.quiet .card-title { color: var(--teal); }
+
+/* level list */
+.levels { display: flex; flex-direction: column; gap: 10px; }
+.stage-intro {
+  background: var(--card); border: 1.5px solid var(--line); border-left: 3px solid var(--teal);
+  border-radius: 12px; padding: 12px 14px; margin: 0 0 14px;
+}
+.stage-goal { margin: 0; font-size: 0.92rem; line-height: 1.5; color: var(--text); }
+.stage-meta { display: block; margin-top: 7px; font-size: 0.72rem; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.06em; }
+.level {
+  display: flex; align-items: center; gap: 14px; text-align: left;
+  background: var(--card); border: 1.5px solid var(--line); border-radius: 14px;
+  padding: 14px 16px; color: var(--text);
+}
+.level:hover:not(:disabled) { border-color: var(--green); }
+.level.locked { opacity: 0.45; }
+.level-num {
+  font-family: 'Archivo Black', sans-serif; font-size: 1.3rem; color: var(--blue);
+  min-width: 1.4em; text-align: center;
+}
+.level-body { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.level-name { font-weight: 700; }
+.level-desc { color: var(--text-soft); font-size: 0.85rem; }
+.level-state { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 3em; }
+.level-pct { font-family: 'Archivo Black', sans-serif; font-size: 0.95rem; color: var(--text-soft); }
+.level-pct.pass { color: var(--green); }
+.level-check { color: var(--green); font-size: 0.95rem; line-height: 1; }
+.level-stars { display: flex; gap: 1px; }
+.lvl-star { font-size: 0.72rem; color: var(--line); line-height: 1; }
+.lvl-star.on { color: #D9B45B; }
+.star { color: #D9B45B; }
+.shop-balance { text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 1.4rem; color: #D9B45B; }
+.shop-balance em { font-style: normal; font-size: 0.8rem; color: var(--text-soft); font-family: 'Archivo', sans-serif; margin-left: 4px; }
+.shop-grid { display: flex; flex-direction: column; gap: 10px; }
+.shop-item { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.shop-item.equipped { border-color: var(--teal); }
+.shop-swatch { width: 46px; height: 50px; border-radius: 8px; flex: 0 0 auto; background: rgba(0,0,0,.22); box-shadow: inset 0 0 0 2px rgba(255,255,255,.18); display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+.shop-swatch img { width: 100%; height: 100%; object-fit: contain; }
+.shop-info { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
+.shop-name { font-family: 'Archivo Black', sans-serif; font-size: 0.95rem; }
+.shop-desc { font-size: 0.8rem; color: var(--text-soft); }
+.shop-item .primary, .shop-item .ghost { flex: 0 0 auto; padding: 10px 14px; }
+
+/* session */
+.progressbar {
+  height: 8px; background: var(--card); border-radius: 99px; overflow: hidden;
+  border: 1px solid var(--line);
+}
+.progressbar .fill { height: 100%; background: var(--green); border-radius: 99px; transition: width 0.4s ease; }
+.qcount { margin: -6px 0 0; font-size: 0.8rem; color: var(--text-soft); text-align: center; }
+
+/* ── the signature: proportional tonal map ── */
+.ladder {
+  display: grid; grid-template-columns: repeat(13, 1fr); gap: 2px;
+  background: var(--card); border: 1.5px solid var(--line);
+  border-radius: 16px; padding: 14px 8px;
+  align-items: center;
+}
+.rung {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 10px 0; border-radius: 10px; position: relative;
+  transition: background 0.25s, box-shadow 0.25s, opacity 0.25s;
+}
+.rung-num {
+  font-family: 'Archivo Black', sans-serif; font-weight: 400;
+  font-size: 1.1rem; line-height: 1; color: var(--text);
+}
+.gap-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--text-soft); opacity: 0.5;
+  justify-self: center; align-self: center;
+}
+.rung.dim { opacity: 0.22; }
+.ladder.explore { padding: 16px 10px; }
+/* Staircase mode: each number lifts to its pitch height and cascades up like stairs. */
+.ladder.explore.staircase { align-items: end; padding-top: 104px; }
+.ladder.explore.staircase .explore-pad { min-height: 40px; }
+.ladder.explore.staircase .rung.stair {
+  animation: tut-stair 0.55s cubic-bezier(0.34, 1.3, 0.5, 1) both;
+  animation-delay: var(--delay);
+}
+@keyframes tut-stair {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(calc(var(--rise) * -8.5px)); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ladder.explore.staircase .rung.stair { animation: none; opacity: 1; transform: translateY(calc(var(--rise) * -8.5px)); }
+}
+.explore-pad {
+  border: 1.5px solid var(--line); background: var(--bg);
+  min-height: 74px; justify-content: center; cursor: pointer;
+}
+.explore-pad .rung-num { font-size: clamp(1.15rem, 5.5vw, 1.5rem); }
+.explore-pad.tonic { border-color: var(--teal); }
+.explore-pad.blank .rung-num { visibility: hidden; }
+.explore-pad.chordal { border-color: var(--blue); }
+.explore-pad.chordal .rung-num { color: var(--blue); }
+.explore-pad.world-root { border-width: 2.5px; }
+.explore-pad.tonic { box-shadow: inset 0 0 0 0; }
+.explore-pad.active { background: var(--green); border-color: var(--green); }
+.explore-pad.active .rung-num { color: #23302A; }
+/* Paths: the chord currently sounding in the loop lights its tones on the tonal map */
+.explore-pad.chord-lit { background: var(--blue); border-color: var(--blue);
+  box-shadow: 0 0 0 2px var(--blue), 0 0 18px 3px rgba(124,173,209,0.5); }
+.explore-pad.chord-lit .rung-num, .explore-pad.chord-lit .rung-sol { color: #16222b; }
+/* Paths: strip of the loop's chord names, current one highlighted (landscape-only) */
+.path-chords { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; align-items: center; }
+.path-chords .pc { font-family: 'Archivo Black', sans-serif; font-size: 0.9rem; color: var(--text-soft);
+  padding: 3px 10px; border-radius: 8px; border: 1.5px solid var(--line); }
+.path-chords .pc.cur { color: #16222b; background: var(--blue); border-color: var(--blue); }
+.fp-pathchords { display: none; }  /* shown only in landscape */
+.fp-paths-map { display: none; }   /* shown only in landscape */
+.explore-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* piano view */
+.piano {
+  position: relative; height: 190px;
+  background: #232725; border: 1.5px solid var(--line); border-radius: 12px;
+  overflow: hidden;
+}
+.pk { position: absolute; top: 0; padding: 0; display: flex; align-items: flex-end; justify-content: center; }
+.pk.white {
+  height: 100%; background: #EDF2EE; border: 1px solid #232725;
+  border-radius: 0 0 6px 6px; z-index: 1;
+}
+.pk.black {
+  height: 60%; background: #1A1D1B; border: 1px solid #000;
+  border-radius: 0 0 5px 5px; z-index: 2;
+}
+.pk.white.active { background: var(--green); }
+.pk.black.active { background: var(--green); }
+
+/* Sing tuner: a live ring on the pad matching the number you're singing —
+   green when you're in tune, orange when you're sharp/flat. Rides on top of
+   tap highlights (a pad can be both tapped and sung at once). */
+.explore-pad.singing, .pk.singing { position: relative; }
+.explore-pad.singing.in { box-shadow: 0 0 0 3px var(--green), 0 0 14px 1px var(--green); }
+.explore-pad.singing.off { box-shadow: 0 0 0 3px var(--wrong), 0 0 12px 1px var(--wrong); }
+.pk.singing.in { box-shadow: inset 0 0 0 3px var(--green); }
+.pk.singing.off { box-shadow: inset 0 0 0 3px var(--wrong); }
+@media (prefers-reduced-motion: no-preference) {
+  .explore-pad.singing.in, .pk.singing.in { animation: singPulse 0.9s ease-in-out infinite; }
+}
+@keyframes singPulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.18); } }
+
+/* Sing tuner panel: the number rides a horizontal track — drifts left when
+   you're flat, right when you're sharp, sits over the center line in tune. */
+.sing-panel { display: flex; flex-direction: column; gap: 8px; }
+.sing-track {
+  position: relative; height: 78px; border-radius: 12px;
+  background: var(--card); border: 1.5px solid var(--line);
+  transition: border-color 0.15s ease; overflow: hidden;
+}
+.sing-track.in { border-color: var(--green); }
+.sing-track.off { border-color: var(--wrong); }
+/* the forgiving in-tune band around center (±25¢ maps to ±21% of the track) */
+.sing-zone {
+  position: absolute; top: 0; bottom: 0; left: 29%; right: 29%;
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+}
+.sing-center { position: absolute; top: 10px; bottom: 10px; left: 50%; width: 2px; margin-left: -1px; background: var(--green); opacity: 0.5; }
+.sing-end {
+  position: absolute; top: 6px; font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.05em; color: var(--text-soft); text-transform: uppercase;
+}
+.sing-end.flat { left: 10px; }
+.sing-end.sharp { right: 10px; }
+.sing-marker {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  min-width: 46px; height: 46px; padding: 0 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Archivo Black', sans-serif; font-size: 1.7rem; line-height: 1;
+  border-radius: 12px; background: var(--alt); color: var(--text);
+  box-shadow: 0 0 0 2px var(--line);
+  transition: left 0.09s linear, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.sing-track.in .sing-marker { background: var(--green); color: #23302A; box-shadow: 0 0 0 2px var(--green), 0 0 16px 1px var(--green); }
+.sing-track.off .sing-marker { box-shadow: 0 0 0 2px var(--wrong); color: var(--wrong); }
+.sing-level { height: 5px; border-radius: 99px; background: var(--alt); overflow: hidden; }
+.sing-level-fill { height: 100%; background: var(--teal); border-radius: 99px; transition: width 0.08s linear; }
+.sing-coach { text-align: center; margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-soft); min-height: 1.2em; }
+.sing-privacy { text-align: center; margin: 0; font-size: 0.72rem; line-height: 1.4; color: var(--text-soft); opacity: 0.8; }
+.sing-err { color: var(--wrong-text); }
+.pk-label {
+  font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; color: #23302A;
+  margin-bottom: 10px; position: relative;
+}
+.pk.black .pk-label { color: var(--text); font-size: 0.9rem; margin-bottom: 8px; }
+.pk-label.chordal { color: #2F5E86; }
+.pk.black .pk-label.chordal { color: var(--blue); }
+.pk-label.tonic { color: #0F7B79; }
+.pk.black .pk-label.tonic { color: var(--teal); }
+.pk-label.world-root { text-decoration: underline; text-underline-offset: 3px; }
+.pk-star { position: absolute; top: -0.7em; right: -0.8em; font-size: 0.55em; }
+.rung.tonic { box-shadow: inset 0 0 0 1.5px var(--teal); }
+.rung.tonic .rung-num { color: var(--teal); }
+.rung.tonic::before {
+  content: "✳"; position: absolute; top: 1px; right: 2px;
+  font-size: 0.5rem; color: var(--teal); line-height: 1;
+}
+.rung.active, .rung.correct {
+  background: var(--green);
+  box-shadow: 0 0 0 3px rgba(106,191,94,0.25), 0 0 18px rgba(106,191,94,0.45);
+}
+.rung.active .rung-num, .rung.correct .rung-num { color: #23302A; }
+.rung.active::before, .rung.correct::before { color: #23302A; }
+.rung.selected { background: var(--blue); }
+.rung.selected .rung-num { color: #232E36; }
+.rung.wrong { background: var(--wrong); }
+.rung.wrong .rung-num { color: #3A241B; }
+@media (prefers-reduced-motion: no-preference) {
+  .rung.correct { animation: pulse 0.5s ease-out; }
+  @keyframes pulse { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
+}
+
+.panel {
+  background: var(--card); border: 1.5px solid var(--line);
+  border-radius: 16px; padding: 18px 16px;
+}
+.hint { margin: 0 0 14px; font-size: 0.92rem; color: var(--text-soft); line-height: 1.5; }
+.hint.center { text-align: center; margin: 0; }
+.hint.grow { flex: 1; margin: 0; min-height: 2.7em; }
+.hint em { color: var(--text); font-style: normal; font-weight: 600; }
+.hint strong { color: var(--teal); font-family: 'Archivo Black', sans-serif; font-weight: 400; font-size: 1.05rem; }
+.quiz-bar { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+.replay-group { display: flex; flex-shrink: 0; }
+.replay-group .ghost { border-radius: 10px 0 0 10px; border-right-width: 0.75px; }
+.replay-group .ghost.note { border-radius: 0 10px 10px 0; border-left-width: 0.75px; padding-left: 12px; padding-right: 12px; font-size: 1.05rem; }
+
+.numpad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.num {
+  aspect-ratio: 1; min-height: 58px; position: relative;
+  font-family: 'Archivo Black', sans-serif; font-weight: 400; font-size: 1.5rem;
+  background: var(--card); color: var(--text); /* --card (not --bg) so the pad reads as a control vs the page (WCAG 1.4.11) */
+  border: 1.5px solid var(--line); border-radius: 14px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+}
+/* colorblind-safe corner mark: ✓ on the pad you nailed, ✕ on a wrong tap — a SHAPE
+   cue so correct/wrong don't rely on green-vs-orange alone. Inset past the retro
+   4px corner notch so the clip-path never eats it. */
+.num-mark { position: absolute; top: 5px; right: 7px; font-family: 'Archivo', sans-serif;
+  font-weight: 800; font-size: 0.72rem; line-height: 1; color: inherit; opacity: .95; pointer-events: none; }
+/* the pressed pad on a wrong answer — previously nothing lit here, only the ladder */
+.num.wrong { background: var(--wrong); color: #3A241B; border-color: var(--wrong); }
+.num.wrong .num-sol { color: #3A241B; }
+.num-sol {
+  font-family: 'Archivo', sans-serif; font-weight: 500; font-size: 0.62rem;
+  color: var(--text-soft); letter-spacing: 0.05em;
+}
+.rung-sol {
+  font-family: 'Archivo', sans-serif; font-weight: 500; font-size: 0.6rem;
+  color: var(--text-soft); letter-spacing: 0.05em; margin-top: 2px;
+}
+.rung.active .rung-sol, .explore-pad.active .rung-sol { color: #23302A; }
+.num.tonic { border-color: var(--teal); color: var(--teal); }
+.num.picked { background: var(--blue); color: #232E36; border-color: var(--blue); }
+.num.dim { opacity: 0.38; }
+.num.picked.tonic { background: var(--teal); color: #1E3230; border-color: var(--teal); }
+/* per-question reward: the pad the player just answered correctly */
+.num.just { background: var(--green); color: #20301D; border-color: var(--green);
+  box-shadow: 0 0 0 2px rgba(106,191,94,0.4), 0 0 18px 2px rgba(106,191,94,0.5); }
+.num.just .num-sol { color: #20301D; }
+@media (prefers-reduced-motion: no-preference) {
+  .num.just { animation: numhit 0.45s cubic-bezier(0.2,1.6,0.35,1); }
+  @keyframes numhit { 0% { transform: scale(1); } 35% { transform: scale(1.14); } 100% { transform: scale(1); } }
+}
+
+/* chromatic answer pad: 12 notes in two rows, altered ones tinted darker */
+.numpad.chromatic { grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.num.chrom { aspect-ratio: auto; min-height: 52px; font-size: 1.2rem; padding: 10px 0; }
+.num.chrom.alt { background: var(--alt); color: var(--text-soft); }
+.num.chrom.tonic { border-color: var(--teal); color: var(--teal); }
+.num.chrom.tonic.alt { color: var(--teal); }
+
+/* altered positions on the tonal map when chromatics are shown */
+.alt-rung { padding: 7px 0; }
+.rung-num.alt { font-size: 0.72rem; color: var(--text-soft); }
+.rung.active .rung-num.alt, .rung.correct .rung-num.alt, .rung.wrong .rung-num.alt { color: #23302A; }
+
+/* FET-style pill tags on melody level cards */
+.level-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
+.tag {
+  font-size: 0.72rem; color: var(--text-soft);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 999px;
+  padding: 2px 9px; white-space: nowrap;
+}
+
+/* per-level progress squares */
+.squares { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 7px; }
+.sq { width: 9px; height: 9px; border-radius: 2px; background: var(--line); }
+.sq.on { background: var(--green); }
+
+/* Stages / Custom tabs */
+.tabs { display: flex; gap: 6px; background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 4px; }
+.tab {
+  flex: 1; background: transparent; border: none; color: var(--text-soft);
+  border-radius: 9px; padding: 9px; font-size: 0.9rem; font-weight: 600; min-height: 44px;
+}
+.tab.on { background: var(--bg); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--line); }
+
+/* custom level builder */
+.custom-builder { display: flex; flex-direction: column; gap: 14px; }
+.cu-row { display: flex; align-items: center; gap: 12px; }
+.cu-label { font-size: 0.85rem; color: var(--text-soft); min-width: 4.6em; }
+.seg { display: flex; flex: 1; gap: 6px; }
+.seg button {
+  flex: 1; background: var(--card); color: var(--text-soft);
+  border: 1.5px solid var(--line); border-radius: 10px; padding: 9px 6px; font-size: 0.85rem; font-weight: 600;
+}
+.seg button.on { border-color: var(--blue); color: var(--text); }
+.cu-notes-head { display: flex; align-items: center; justify-content: space-between; }
+.cu-presets { display: flex; gap: 6px; }
+.cu-presets button {
+  background: transparent; color: var(--text-soft); border: 1.5px solid var(--line);
+  border-radius: 8px; padding: 5px 12px; font-size: 0.78rem; font-weight: 600;
+}
+.cu-notes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.cu-note {
+  min-height: 48px; font-family: 'Archivo Black', sans-serif; font-size: 1.1rem;
+  background: var(--bg); color: var(--text-soft);
+  border: 1.5px solid var(--line); border-radius: 12px;
+}
+.cu-note.alt { background: var(--alt); }
+.cu-note.on { background: var(--blue); color: #232E36; border-color: var(--blue); }
+.cu-note.tonic { border-color: var(--teal); }
+.cu-note.on.tonic { background: var(--teal); color: #1E3230; }
+
+/* settings */
+.brand-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.gear {
+  background: transparent; border: 1.5px solid var(--line); color: var(--text-soft);
+  border-radius: 10px; width: 44px; height: 44px; font-size: 1.2rem; flex-shrink: 0;
+}
+.gear:hover { border-color: var(--teal); color: var(--teal); }
+
+/* adventure map (Harmonia) */
+.card.adventure { border-color: var(--teal); }
+.card.adventure .card-title { color: var(--teal); }
+.card.adventure:hover { border-color: var(--green); }
+/* full-screen immersive adventure: the map fills the screen, HUD floats on top */
+/* flex column: solid HUD bars top & bottom, the map lives fully BETWEEN them
+   (never scrolls under a bar), so nothing obscures the terrain or Coda. */
+.adv-screen { position: fixed; inset: 0; z-index: 40; background: #1b1f1d; overflow: hidden; display: flex; flex-direction: column; }
+.adv-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; justify-content: center; }
+.adv-map { image-rendering: pixelated; width: 100%; max-width: 460px; height: auto; align-self: center; margin: 0 auto; cursor: pointer; }
+.adv-hud { flex: 0 0 auto; z-index: 2; display: flex; align-items: center; gap: 12px; }
+.adv-hud-top {
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
+  background: #161a18; border-bottom: 2px solid #2b322d;
+}
+/* Bottom HUD floats transparently over the map so the map fills the screen. */
+.adv-hud-bottom {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
+  padding: 10px 14px calc(env(safe-area-inset-bottom, 0px) + 10px);
+  background: transparent; border-top: 0;
+  justify-content: flex-end; align-items: flex-end; gap: 8px; pointer-events: none;
+}
+.adv-hud-bottom > * { pointer-events: auto; }
+.adv-forge-chip { display: flex; align-items: center; gap: 6px; background: rgba(20,24,22,.82); padding: 5px 12px 5px 6px; border-radius: 12px; }
+.adv-logo { height: 24px; width: auto; image-rendering: pixelated; }
+.adv-title { flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 1rem; letter-spacing: 0.06em; color: var(--teal); text-transform: uppercase; }
+.adv-title .w1 { color: var(--green); } .adv-title .w2 { color: var(--blue); }
+.adv-splash { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; background: var(--bg); transition: opacity 0.45s ease; }
+.adv-splash.out { opacity: 0; pointer-events: none; }
+.adv-splash-logo { font-family: 'Archivo Black', sans-serif; font-size: 2.6rem; letter-spacing: 0.06em; margin: 0; text-transform: uppercase; }
+.adv-splash-logo .w1 { color: var(--green); } .adv-splash-logo .w2 { color: var(--blue); }
+.adv-sword-mini { image-rendering: pixelated; height: 46px; width: auto; flex-shrink: 0; }
+.adv-forge-txt { display: flex; flex-direction: column; gap: 1px; font-size: 0.74rem; color: var(--text-soft); line-height: 1.2; }
+.adv-forge-txt b { font-family: 'Archivo Black', sans-serif; font-size: 0.9rem; color: var(--teal); }
+.adv-hud-actions { display: flex; gap: 8px; }
+.adv-hud-actions .ghost { padding: 8px 11px; font-size: 1.1rem; background: rgba(20,24,22,.82); min-width: 44px; min-height: 44px; }
+.settings { display: flex; flex-direction: column; gap: 20px; }
+.set-block {
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--card); border: 1.5px solid var(--line); border-radius: 16px; padding: 16px;
+}
+.set-label { font-family: 'Archivo Black', sans-serif; font-size: 1rem; }
+.set-desc { margin: -4px 0 2px; font-size: 0.85rem; color: var(--text-soft); }
+.set-block .seg button.on { border-color: var(--teal); color: var(--teal); }
+
+/* chord-tones reference chart */
+.chord-ref {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;
+}
+.cr-row {
+  display: flex; align-items: baseline; gap: 8px;
+  background: var(--bg); border: 1.5px solid var(--line); border-radius: 10px;
+  padding: 7px 11px; flex: 1 1 auto; min-width: 128px;
+}
+.cr-sym { font-family: 'Archivo Black', sans-serif; font-size: 0.95rem; min-width: 2.6em; }
+.cr-num { color: var(--blue); font-weight: 700; font-size: 0.82rem; min-width: 2.6em; }
+.cr-tones { margin-left: auto; color: var(--text-soft); font-weight: 600; font-size: 0.9rem; }
+.cr-tones b { color: var(--teal); font-weight: 700; }
+
+/* chord progressions */
+.streak { color: var(--wrong-text); font-weight: 700; margin-right: 8px; }
+/* input area holds either the buttons or the review stacks — fixed height so
+   swapping between them never shifts the layout, and the stacks never clip */
+/* the answer slots ARE the stacks — always in place; the degree ladder is a
+   skeleton with a "?" until you tap a chord, then its tones circle in. */
+.prog-layout { display: flex; flex-direction: column; gap: 16px; }
+.prog-stacks { display: flex; gap: 12px; align-items: flex-start; justify-content: center; flex-wrap: nowrap; }
+.prog-stack { gap: 2px; flex: 0 0 auto; transition: transform 0.15s ease; }
+.prog-stack .stack-note {
+  width: 24px; height: 18px; font-size: 0.72rem; border-radius: 5px;
+  transition: border-color 0.2s, color 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+.prog-stack:not(.filled) .stack-note { opacity: 0.35; }
+.prog-stack:not(.filled) .stack-label { color: var(--text-soft); }
+.prog-stack .stack-note.on { border-width: 1.5px; }
+.prog-stack .stack-note.home { color: var(--teal); }
+.prog-stack .stack-note.on.home { border-color: var(--teal); color: var(--teal); }
+.prog-stack .stack-label { color: var(--blue); font-size: 0.85rem; padding-top: 4px; min-width: 30px; }
+.prog-stack.wrong .stack-label { color: var(--wrong-text); }
+.prog-stack.wrong .stack-note.on { border-color: var(--wrong); color: var(--wrong-text); }
+.prog-stack.active { transform: translateY(-3px) scale(1.06); }
+.prog-stack.active .stack-note.on { border-color: var(--green); color: var(--green); box-shadow: 0 0 8px rgba(106,191,94,0.5); }
+.prog-stack.active .stack-label { color: var(--green); }
+.numpad.chordpad { grid-template-columns: repeat(4, 1fr); }
+.num.chordbtn { aspect-ratio: auto; min-height: 52px; font-size: 1.15rem; }
+
+/* Melody Paths grid */
+.path-presets { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  background: var(--card); color: var(--text-soft); border: 1.5px solid var(--line);
+  border-radius: 999px; padding: 7px 13px; font-family: 'Archivo Black', sans-serif; font-size: 0.85rem;
+}
+.chip.on { border-color: var(--teal); color: var(--text); }
+.path-count {
+  font-family: 'Archivo Black', sans-serif; font-size: 1.4rem; color: var(--teal);
+  min-width: 1.4em; text-align: center;
+}
+.path-build { display: flex; flex-direction: column; gap: 12px; }
+.path-grid {
+  display: flex; gap: 10px; justify-content: center; overflow-x: auto;
+  background: var(--card); border: 1.5px solid var(--line); border-radius: 16px; padding: 14px 10px;
+}
+.path-col {
+  display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 0 0 auto;
+  padding: 6px 6px 4px; border-radius: 12px; border: 2px solid transparent; transition: background 0.2s, border-color 0.2s;
+}
+.path-col.current { border-color: var(--teal); background: rgba(87,198,196,0.08); }
+.path-note {
+  width: 40px; height: 34px; border-radius: 8px;
+  background: var(--bg); color: var(--text-soft); border: 1.5px solid transparent;
+  font-family: 'Archivo Black', sans-serif; font-size: 1rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.12s, color 0.12s, box-shadow 0.12s;
+}
+.path-note.on { border: 1.5px solid var(--blue); color: var(--blue); }
+.path-note.home { color: var(--teal); }
+.path-note.on.home { border-color: var(--teal); color: var(--teal); }
+.path-note.lit { background: var(--green); color: #23302A; border-color: var(--green); box-shadow: 0 0 14px rgba(106,191,94,0.5); }
+.path-label {
+  font-family: 'Archivo Black', sans-serif; font-size: 0.95rem; color: var(--text);
+  border-top: 2px solid var(--line); padding-top: 6px; margin-top: 2px; min-width: 40px; text-align: center;
+}
+.path-col.current .path-label { color: var(--teal); }
+.hint .numlabel { color: var(--blue); font-style: normal; font-weight: 600; font-family: 'Archivo', sans-serif; }
+.prog-actions { display: flex; gap: 10px; align-items: center; }
+.primary.grow { flex: 1; }
+
+/* results stats */
+.stat-row { display: flex; gap: 10px; width: 100%; }
+.stat {
+  flex: 1; text-align: center; font-size: 0.85rem; color: var(--text-soft);
+  background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 10px;
+}
+.stat b { display: block; font-family: 'Archivo Black', sans-serif; font-size: 1.4rem; color: var(--text); font-weight: 400; }
+
+/* results */
+.results { display: flex; flex-direction: column; gap: 16px; align-items: center; padding-top: 8px; }
+.score-big {
+  font-family: 'Archivo Black', sans-serif; font-size: 4rem; line-height: 1;
+  color: var(--wrong);
+}
+.score-big.pass { color: var(--green); }
+.bars { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.bar-row { display: flex; align-items: center; gap: 10px; }
+.bar-label {
+  font-family: 'Archivo Black', sans-serif; min-width: 2.2em; text-align: right;
+  color: var(--blue);
+}
+.bar-track { flex: 1; height: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--green); border-radius: 99px; }
+.bar-count { min-width: 2.6em; font-size: 0.8rem; color: var(--text-soft); }
+.results-actions { display: flex; gap: 10px; }
+
+.foot { text-align: center; font-size: 0.8rem; color: var(--text-soft); line-height: 1.5; padding: 0 12px; margin-top: auto; }
+
+/* guide */
+.card.start { border-color: var(--teal); }
+.card.start .card-title { color: var(--teal); }
+.guide-page { display: flex; flex-direction: column; gap: 14px; }
+.guide-page h3 {
+  font-family: 'Archivo Black', sans-serif; font-weight: 400; font-size: 1.25rem;
+  margin: 0; color: var(--green);
+}
+.guide-page p { margin: 0; font-size: 0.95rem; line-height: 1.6; color: var(--text); }
+.guide-page p em { color: var(--blue); font-style: normal; font-weight: 600; }
+.guide-page .guide-lead { color: var(--blue); font-weight: 700; margin-top: 6px; }
+.guide-numbers {
+  font-family: 'Archivo Black', sans-serif; font-size: 1.25rem; text-align: center;
+  color: var(--teal); letter-spacing: 0.06em;
+}
+.guide-page .primary { align-self: flex-start; }
+.stacks { display: flex; gap: 26px; justify-content: center; padding: 6px 0; }
+.stack { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.stack-note {
+  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+  font-family: 'Archivo Black', sans-serif; font-size: 0.95rem; color: var(--text-soft);
+  border-radius: 50%;
+}
+.stack-note.on { border: 2px solid var(--blue); color: var(--blue); }
+.stack-label {
+  font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; color: var(--text);
+  border-top: 2px solid var(--line); padding-top: 6px; margin-top: 2px; min-width: 34px; text-align: center;
+}
+.chord-layout { display: flex; gap: 16px; align-items: flex-start; }
+.chord-right { flex: 1; display: flex; flex-direction: column; }
+.session-stack .stack-note { width: 32px; height: 32px; font-size: 0.98rem; }
+.session-stack { gap: 3px; }
+.session-stack .stack-note.picked { border: 2px solid var(--blue); color: var(--blue); }
+.session-stack .stack-note.on-wrong { border: 2px solid var(--wrong); color: var(--wrong-text); }
+.session-stack .stack-note.on-correct { border: 2px solid var(--green); color: var(--green); background: rgba(106,191,94,0.12); }
+.session-stack .stack-label { color: var(--teal); }
+.pager { display: flex; align-items: center; gap: 12px; }
+.dots { flex: 1; display: flex; gap: 7px; justify-content: center; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.dot.on { background: var(--green); }
+
+/* ==========  PHONE-LANDSCAPE: use the width (two columns)  ==================
+   Triggers only when a phone is held sideways (short viewport). Scoped to
+   .app-wide (session drill + Free Play) so menu/settings/guide/home/results
+   keep today's centered 560 column. The .drill-stage / .fp-stage / .prog-right
+   wrappers are display:contents in portrait, so this block is the ONLY place
+   the layout changes — portrait stays pixel-identical. */
+@media (orientation: landscape) and (max-height: 600px) {
+  #root { max-width: 100%; }
+  .app-wide {
+    max-width: 100%; gap: 8px;
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  :root[data-standalone] .app-wide { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
+
+  /* ---- landscape FOCUS MODE: real phones are only ~340–430px tall sideways, so drop
+     non-essential chrome and tuck secondary options behind the ⚙ to maximize the play area. */
+  .app-wide .hpbar { display: none; }                    /* decorative trial cells */
+  .app-wide .qcount { display: none; }                   /* "Question N of 3 · key" line */
+  .app-wide .top-slim .back { min-height: 34px; padding: 5px 11px; }
+  .app-wide .top-slim .screen-title { font-size: 1rem; }
+  /* Free Play landscape bar: Notes + World selects stay visible; Key/Sound/Sing + Start-on
+     tuck behind the ⚙. The bar carries a Voice toggle (fp-voice-bar) in place of Sing. */
+  .app-wide .fp-opts-btn { display: inline-flex; width: 40px; height: 34px; margin-left: auto; flex: 0 0 auto; }
+  .app-wide .fp-starton { display: none; }               /* niche "Start on" — drop it from the bar */
+  .app-wide .ghost.fp-voice-bar { display: inline-flex; }  /* show the bar's Voice toggle (beats the portrait hide) */
+  .app-wide .fp-keyrow-voice { display: none; }  /* both tabs carry a bar Voice toggle now → never show the key-row one in landscape (avoids a duplicate when the ⚙ is open) */
+  .app-wide .key-row { display: none; }                   /* Key/Hear/Sound/Voice/Coda → behind ⚙ */
+  .app-wide .fp-sing { display: none; }                   /* Sing → behind ⚙ (settings) */
+  .app-wide.fp-opts-open .key-row { display: flex; }
+  .app-wide.fp-opts-open .fp-sing { display: inline-flex; }
+  .app-wide .panel { padding: 12px 14px; }
+  .app-wide .num { min-height: 48px; }
+  /* keep the feedback line on the SAME row as Repeat/♪/Voice (it otherwise wraps to its
+     own row — ~58px of height). Melody floats its quip instead (rule below wins there). */
+  .app-wide .quiz-bar { flex-wrap: nowrap; align-items: center; margin-bottom: 8px; }
+  .app-wide .quiz-bar .hint.grow { flex: 1 1 auto; min-height: 0; }
+
+  /* drill screen: tonal map / stack LEFT, controls + answer pads RIGHT */
+  .app-wide .drill-stage { display: flex; gap: 16px; align-items: flex-start; justify-content: center; }
+  .app-wide .drill-stage > .ladder { flex: 0 0 44%; }                 /* melody: the tonal map */
+  .app-wide .drill-stage > .panel { flex: 1 1 0; min-width: 0; max-width: 720px; }
+  /* melody: float the feedback/quip into the empty space UNDER the map (left column)
+     so the answer pads on the right rise up and the drill fits without scrolling */
+  .app-wide .drill-melody { position: relative; }
+  .app-wide .drill-melody .quiz-bar .hint.grow {
+    position: absolute; left: 0; bottom: 0; width: 44%; min-height: 0; margin: 0;
+  }
+  /* chords: a 3-column landscape layout — controls+reference | stack | pads+Check — so the
+     tall vertical content fits a short phone WITHOUT cramping. A CSS grid places the panel's
+     existing children into columns, so no markup changes; :has() scopes it to the chord panel. */
+  .app-wide .panel:has(.chord-layout) {
+    display: grid;
+    grid-template-columns: minmax(150px, 32%) 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "bar layout" "ref layout";
+    gap: 6px 14px; align-items: start; padding: 10px 12px;
+  }
+  .app-wide .panel:has(.chord-layout) .quiz-bar { grid-area: bar; flex-wrap: wrap; margin: 0; }
+  .app-wide .panel:has(.chord-layout) .chord-ref { grid-area: ref; margin: 0; }
+  .app-wide .panel:has(.chord-layout) .chord-layout { grid-area: layout; gap: 16px; }
+  .app-wide .session-stack { gap: 2px; }
+  .app-wide .session-stack .stack-note { width: 24px; height: 24px; font-size: 0.78rem; }
+  .app-wide .chord-right .primary.wide { min-height: 42px; padding: 9px; }
+  /* progressions: same idea — put the controls in a side column so the chord stacks +
+     pad + Undo/Check sit beside them instead of stacked below. */
+  .app-wide .panel:has(.prog-layout) {
+    display: grid;
+    grid-template-columns: minmax(140px, 26%) 1fr;
+    grid-template-areas: "bar layout";
+    gap: 6px 14px; align-items: start; padding: 10px 12px;
+  }
+  .app-wide .panel:has(.prog-layout) .quiz-bar { grid-area: bar; flex-wrap: wrap; margin: 0; }
+  .app-wide .panel:has(.prog-layout) .prog-layout { grid-area: layout; }
+  .app-wide .prog-layout { flex-direction: row; align-items: flex-start; gap: 16px; }
+  .app-wide .prog-stacks { flex: 0 0 auto; }
+  .app-wide .prog-right { display: flex; flex-direction: column; gap: 12px; flex: 1 1 0; min-width: 0; }
+
+  /* Free Play landscape: a thin control bar on top, and the map/piano fills MOST of the
+     screen so the 7 pads are big + finger-friendly. Secondary controls stay behind the ⚙. */
+  .app-wide .fp-stage { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1 1 auto; }
+  .app-wide .fp-side { display: flex; flex-flow: row wrap; gap: 8px; flex: 0 0 auto; align-items: center; justify-content: center; }
+  .app-wide .fp-side .explore-controls { flex: 0 0 auto; gap: 8px; margin: 0; }
+  .app-wide .fp-main { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; }
+  .app-wide .fp-numbers-toggle { display: none; }        /* drop the Numbers on / Blank pads toggle */
+  .app-wide .fp-help { display: none; }                   /* drop the "World N: the blue pads…" help line */
+  /* stretch the tonal map / piano to fill the freed height → big comfortable pads */
+  .app-wide .fp-main .ladder.explore { flex: 1 1 auto; align-content: stretch; grid-auto-rows: 1fr; }
+  .app-wide .fp-main .explore-pad { min-height: 0; }
+  .app-wide .fp-main .piano { flex: 1 1 auto; height: auto; min-height: 150px; }
+  /* Paths tab landscape: show the chord-name strip + the light-up map, hide the portrait
+     solo columns, and tuck the setup (Build / Tempo / presets) behind the ⚙. */
+  .app-wide .fp-pathchords { display: flex; }
+  .app-wide .fp-paths-map { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+  .app-wide .path-grid { display: none; }
+  .app-wide .fp-path-secondary { display: none; }
+  .app-wide.fp-opts-open .fp-path-secondary { display: flex; }
+}
+
+</style>
 <style id="retro-skin">
 /* ============================================================================
    NUMBERSONG — RETRO SKIN KIT  (v1)
