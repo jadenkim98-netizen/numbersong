@@ -55,10 +55,12 @@ keeper_art = json.dumps({
 # Map hero: the shop-swappable Coda skins, each as 4 directional frames (s/n/e/w)
 # so the hero faces the way he walks. "default" is the base look; gold/shadow/
 # crimson/violet are purchasable in the shop.
-coda_skins_data = json.dumps({
+_skins = {
   sid: {d: _png(f"skins/coda_{sid}_{d}.png") for d in ("s", "n", "e", "w")}
   for sid in ("default", "gold", "shadow", "crimson", "violet")
-})
+}
+_skins["default"]["s"] = coda_data  # hand-made open-eyed classic face when idle / facing the viewer
+coda_skins_data = json.dumps(_skins)
 adventure = open("adventure/assets.js").read().replace("export const", "const").replace("export function", "function")
 soundtrack = open("retro/soundtrack.js").read().replace("export const", "const")
 assert "</script" not in soundtrack
