@@ -4619,7 +4619,7 @@ export default function NumberEarTrainer() {
               <div className="sing-center" />
               {singDeg != null && !micReq && (
                 <div className="sing-marker" style={{ left: `${50 + offset}%` }}>
-                  {singDeg === 1 ? "★1" : singDeg}
+                  {singDeg === 1 ? <><span className="tonic-star">★</span>1</> : singDeg}
                 </div>
               )}
             </div>
@@ -4989,12 +4989,13 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .pk-label.tonic { color: #0F7B79; }
 .pk.black .pk-label.tonic { color: var(--teal); }
 .pk-label.world-root { text-decoration: underline; text-underline-offset: 3px; }
-.pk-star { position: absolute; top: -0.7em; right: -0.8em; font-size: 0.55em; }
+.pk-star { position: absolute; top: -0.7em; right: -0.8em; font-size: 0.55em; color: var(--green); }
+.tonic-star { color: var(--green); }
 .rung.tonic { box-shadow: inset 0 0 0 1.5px var(--teal); }
 .rung.tonic .rung-num { color: var(--teal); }
 .rung.tonic::before {
   content: "★"; position: absolute; top: 1px; right: 2px;
-  font-size: 0.5rem; color: var(--teal); line-height: 1;
+  font-size: 0.5rem; color: var(--green); line-height: 1;
 }
 .rung.active, .rung.correct {
   background: var(--green);

@@ -680,12 +680,13 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .pk-label.tonic { color: #0F7B79; }
 .pk.black .pk-label.tonic { color: var(--teal); }
 .pk-label.world-root { text-decoration: underline; text-underline-offset: 3px; }
-.pk-star { position: absolute; top: -0.7em; right: -0.8em; font-size: 0.55em; }
+.pk-star { position: absolute; top: -0.7em; right: -0.8em; font-size: 0.55em; color: var(--green); }
+.tonic-star { color: var(--green); }
 .rung.tonic { box-shadow: inset 0 0 0 1.5px var(--teal); }
 .rung.tonic .rung-num { color: var(--teal); }
 .rung.tonic::before {
   content: "★"; position: absolute; top: 1px; right: 2px;
-  font-size: 0.5rem; color: var(--teal); line-height: 1;
+  font-size: 0.5rem; color: var(--green); line-height: 1;
 }
 .rung.active, .rung.correct {
   background: var(--green);
@@ -6566,7 +6567,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         state = "off";
       }
       const offset = Math.max(-50, Math.min(50, singCents)) / 50 * 42;
-      return /* @__PURE__ */ React.createElement("div", { className: "sing-panel" }, /* @__PURE__ */ React.createElement("div", { className: "sing-track " + state }, /* @__PURE__ */ React.createElement("span", { className: "sing-end flat" }, "flat ◄"), /* @__PURE__ */ React.createElement("span", { className: "sing-end sharp" }, "► sharp"), /* @__PURE__ */ React.createElement("div", { className: "sing-zone" }), /* @__PURE__ */ React.createElement("div", { className: "sing-center" }), singDeg != null && !micReq && /* @__PURE__ */ React.createElement("div", { className: "sing-marker", style: { left: `${50 + offset}%` } }, singDeg === 1 ? "★1" : singDeg)), /* @__PURE__ */ React.createElement("div", { className: "sing-level" }, /* @__PURE__ */ React.createElement("div", { className: "sing-level-fill", style: { width: `${Math.round(singLevel * 100)}%` } })), /* @__PURE__ */ React.createElement("p", { className: "sing-coach" }, coach), /* @__PURE__ */ React.createElement("p", { className: "sing-privacy" }, "🔒 The mic is only used on your device to hear your pitch — nothing is recorded, saved, or sent anywhere."));
+      return /* @__PURE__ */ React.createElement("div", { className: "sing-panel" }, /* @__PURE__ */ React.createElement("div", { className: "sing-track " + state }, /* @__PURE__ */ React.createElement("span", { className: "sing-end flat" }, "flat ◄"), /* @__PURE__ */ React.createElement("span", { className: "sing-end sharp" }, "► sharp"), /* @__PURE__ */ React.createElement("div", { className: "sing-zone" }), /* @__PURE__ */ React.createElement("div", { className: "sing-center" }), singDeg != null && !micReq && /* @__PURE__ */ React.createElement("div", { className: "sing-marker", style: { left: `${50 + offset}%` } }, singDeg === 1 ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "tonic-star" }, "★"), "1") : singDeg)), /* @__PURE__ */ React.createElement("div", { className: "sing-level" }, /* @__PURE__ */ React.createElement("div", { className: "sing-level-fill", style: { width: `${Math.round(singLevel * 100)}%` } })), /* @__PURE__ */ React.createElement("p", { className: "sing-coach" }, coach), /* @__PURE__ */ React.createElement("p", { className: "sing-privacy" }, "🔒 The mic is only used on your device to hear your pitch — nothing is recorded, saved, or sent anywhere."));
     })()), /* @__PURE__ */ React.createElement("div", { className: "fp-main" }, exView === "map" ? /* @__PURE__ */ React.createElement(
       ExploreMap,
       {
@@ -6931,12 +6932,13 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .pk-label.tonic { color: #0F7B79; }
 .pk.black .pk-label.tonic { color: var(--teal); }
 .pk-label.world-root { text-decoration: underline; text-underline-offset: 3px; }
-.pk-star { position: absolute; top: -0.7em; right: -0.8em; font-size: 0.55em; }
+.pk-star { position: absolute; top: -0.7em; right: -0.8em; font-size: 0.55em; color: var(--green); }
+.tonic-star { color: var(--green); }
 .rung.tonic { box-shadow: inset 0 0 0 1.5px var(--teal); }
 .rung.tonic .rung-num { color: var(--teal); }
 .rung.tonic::before {
   content: "★"; position: absolute; top: 1px; right: 2px;
-  font-size: 0.5rem; color: var(--teal); line-height: 1;
+  font-size: 0.5rem; color: var(--green); line-height: 1;
 }
 .rung.active, .rung.correct {
   background: var(--green);
