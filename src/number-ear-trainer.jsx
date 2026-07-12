@@ -4731,7 +4731,10 @@ button { touch-action: manipulation; }
 .wejam-logo { display: block; height: 46px; width: auto; }
 .brand p { margin: 6px 0 0; color: var(--text-soft); font-size: 0.95rem; }
 .key-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.fp-coda { height: 34px; width: auto; image-rendering: pixelated; align-self: center; margin-left: 4px; opacity: 0.92; }
+.fp-coda { height: 42px; width: auto; image-rendering: pixelated; align-self: center; margin-left: 6px; opacity: 0.92; }
+/* keep Coda snug beside the "Free play" title (don't let the title's flex:1 push it away).
+   Scoped via :has to the Free Play header only, so the drill header's score alignment is untouched. */
+.top-slim:has(.fp-coda) .screen-title { flex: 0 0 auto; }
 .key-label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-soft); }
 .drone-vol { gap: 8px; }
 .drone-vol input[type="range"] {
