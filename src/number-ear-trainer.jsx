@@ -3766,7 +3766,7 @@ export default function NumberEarTrainer() {
                 <>
                   <span className="lead-kicker">✓ You're in</span>
                   <p className="lead-copy">{leadStatus === "done"
-                    ? "Awesome — check your inbox for the free ear-training resource. Your progress is saved."
+                    ? "Check your inbox to confirm — your Chords-by-Numbers PDF lands right after. Your progress is saved."
                     : "Your progress is saved on this device. (We couldn't reach the email service just now — no worries, keep playing.)"}</p>
                   <div className="lead-actions">
                     <button className="primary" onClick={() => { finishOnboarding(); openOffer(); }}>See the roadmap →</button>
@@ -3775,18 +3775,18 @@ export default function NumberEarTrainer() {
                 </>
               ) : (
                 <>
-                  <span className="lead-kicker alert">⚠ Save your progress ⚠</span>
-                  <p className="lead-copy">Don't let your hard work go to waste! Drop your email so you can save your progress and get a free resource to train your ear even faster.</p>
+                  <span className="lead-kicker">✦ Free guitar PDF ✦</span>
+                  <p className="lead-copy">Want to hear any guitar chord by ear? Pop in your email and I'll send you the free Chords-by-Numbers PDF — the method behind this whole game. Your progress saves, too.</p>
                   <input className="set-input lead-input" placeholder="first name" value={leadName} autoComplete="given-name" onChange={(e) => setLeadName(e.target.value)} />
                   <input className="set-input lead-input" type="email" name="email" placeholder="you@email.com" value={leadEmail}
                     inputMode="email" autoComplete="email" autoCapitalize="off" autoCorrect="off" spellCheck={false}
                     onChange={(e) => { setLeadEmail(e.target.value); if (leadStatus === "error") setLeadStatus("idle"); }}
                     onKeyDown={(e) => { if (e.key === "Enter") submitLead(); }} />
                   {leadStatus === "error" && <span className="lead-err">Enter a valid email, or skip.</span>}
-                  <span className="lead-consent">We'll email you the free resource. No spam — unsubscribe anytime.</span>
+                  <span className="lead-consent">We'll email you the free PDF. No spam — unsubscribe anytime.</span>
                   <div className="lead-actions">
                     <button className="primary" onClick={submitLead} disabled={leadStatus === "sending"}>
-                      {leadStatus === "sending" ? "Saving…" : "Save my progress"}
+                      {leadStatus === "sending" ? "Sending…" : "Send me the PDF"}
                     </button>
                     <button className="ghost" onClick={finishOnboarding}>Maybe later</button>
                   </div>
