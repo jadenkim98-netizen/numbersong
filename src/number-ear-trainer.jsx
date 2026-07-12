@@ -885,7 +885,7 @@ function useAudio() {
   const sing = useCallback(async (key, degree, enabled, delay = 0, cutAfter = null) => {
     if (!enabled) return;
     await ensure();
-    if (!voicesRef.current) { speak(NUMBER_WORDS[degree], enabled); return; }
+    if (!voicesRef.current) { speak(NUMBER_WORDS[parseInt(degree, 10)], enabled); return; }
     const idx = KEYS.indexOf(key);
     let bestBase = null, bestShift = 99;
     for (const base of Object.keys(voicesRef.current).map(Number)) {
@@ -895,7 +895,7 @@ function useAudio() {
       if (Math.abs(s) < Math.abs(bestShift)) { bestShift = s; bestBase = base; }
     }
     const buf = bestBase != null && voicesRef.current[bestBase][degree];
-    if (!buf) { speak(NUMBER_WORDS[degree], enabled); return; }
+    if (!buf) { speak(NUMBER_WORDS[parseInt(degree, 10)], enabled); return; }
     const player = new Tone.Player(buf).toDestination();
     player.playbackRate = Math.pow(2, bestShift / 12);
     player.fadeOut = 0.12; // gentle release when cut short
@@ -2572,7 +2572,10 @@ export default function NumberEarTrainer() {
       const isLast = i === path.length - 1;
       playSemi(key, semi, i * step, octave);
       const deg = PC_TO_DEGREE[mod12(semi)];
-      if (canSing && deg != null) sing(key, semi >= 12 && deg === 1 ? 8 : deg, voiceOn, i * step, isLast ? null : step);
+      // 6/7 stepping BELOW home (minor descent, semi<0) use the low-octave la/ti clips
+      // so the sung line descends smoothly instead of leaping up an octave.
+      const vdeg = semi >= 12 && deg === 1 ? 8 : ((deg === 6 || deg === 7) && semi < 0 ? deg + "L" : deg);
+      if (canSing && deg != null) sing(key, vdeg, voiceOn, i * step, isLast ? null : step);
       sessTimer(() => setLitCorrect([mod12(semi)]), i * step * 1000);
     });
     sessTimer(() => { setBusy(false); if (onDone) onDone(); }, (path.length * step + 0.7) * 1000);

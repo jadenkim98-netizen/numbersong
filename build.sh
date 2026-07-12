@@ -29,10 +29,20 @@ vend https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js tone.js
 
 # 3) Assemble the standalone index.html with embedded voice recordings
 python3 - << 'EOF'
-import base64, json
+import base64, json, os
 js = open(".app.compiled.js").read()
 assert "</script" not in js
-voices = json.dumps({str(base): {str(i): base64.b64encode(open(f"voice/{base}/{i}.mp3","rb").read()).decode() for i in range(1, 9)} for base in (0, 4, 8)})
+# Sung numbers: 1-8 (do-octave + high-1), plus 6L/7L = la/ti one octave LOW (home
+# octave for la-based minor, so the minor "walk home" descends smoothly instead of
+# jumping up). Guarded by os.path.exists so keys still missing 6L/7L just skip them.
+def _voicefiles(base):
+    d = {}
+    for i in ["1", "2", "3", "4", "5", "6", "7", "8", "6L", "7L"]:
+        p = f"voice/{base}/{i}.mp3"
+        if os.path.exists(p):
+            d[i] = base64.b64encode(open(p, "rb").read()).decode()
+    return d
+voices = json.dumps({str(base): _voicefiles(base) for base in (0, 4, 8)})
 icon_data = "data:image/png;base64," + base64.b64encode(open("icon.png","rb").read()).decode()
 logo_data = "data:image/png;base64," + base64.b64encode(open("wejam.png","rb").read()).decode()
 coda_data = "data:image/png;base64," + base64.b64encode(open("coda.png","rb").read()).decode()
