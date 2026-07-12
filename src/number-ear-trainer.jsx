@@ -3735,7 +3735,7 @@ export default function NumberEarTrainer() {
                     ? "Awesome — check your inbox for the free ear-training resource. Your progress is saved."
                     : "Your progress is saved on this device. (We couldn't reach the email service just now — no worries, keep playing.)"}</p>
                   <div className="lead-actions">
-                    <button className="primary" onClick={openOffer}>See the roadmap →</button>
+                    <button className="primary" onClick={() => { finishOnboarding(); openOffer(); }}>See the roadmap →</button>
                     <button className="ghost" onClick={finishOnboarding}>Keep playing</button>
                   </div>
                 </>
