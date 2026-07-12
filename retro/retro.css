@@ -596,6 +596,8 @@
 .retro .adv-forge-txt b{ font-family:var(--pf); font-size:12px; letter-spacing:1px; color:var(--gold); }
 .retro .adv-forge-txt span{ font-size:8px; letter-spacing:1px; opacity:.7; }
 .retro .adv-hud-bottom .ghost{ clip-path:var(--notch); }
+/* NUMBERSONG load cover: pixel font + drop shadow, matching the boot/title logo. */
+.retro .adv-splash-logo{ font-family:var(--pf); letter-spacing:2px; text-shadow:3px 3px 0 var(--ink); font-size:clamp(1.7rem,8.4vw,2.6rem); }
 
 /* =====================  FREEMIUM: upsell / CTA / locks / unlock  =========== */
 /* Base fallbacks (apply in BOTH skins — retro.css is always in <head>) so a gated

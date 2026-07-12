@@ -944,6 +944,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 .retro .adv-forge-txt b{ font-family:var(--pf); font-size:12px; letter-spacing:1px; color:var(--gold); }
 .retro .adv-forge-txt span{ font-size:8px; letter-spacing:1px; opacity:.7; }
 .retro .adv-hud-bottom .ghost{ clip-path:var(--notch); }
+/* NUMBERSONG load cover: pixel font + drop shadow, matching the boot/title logo. */
+.retro .adv-splash-logo{ font-family:var(--pf); letter-spacing:2px; text-shadow:3px 3px 0 var(--ink); font-size:clamp(1.7rem,8.4vw,2.6rem); }
 
 /* =====================  FREEMIUM: upsell / CTA / locks / unlock  =========== */
 /* Base fallbacks (apply in BOTH skins — retro.css is always in <head>) so a gated
@@ -2873,6 +2875,23 @@ window.SOUNDTRACK = SOUNDTRACK;
     if (!render) return null;
     return /* @__PURE__ */ React.createElement("div", { className: "confetti" + (out ? " out" : ""), "aria-hidden": "true" }, CONFETTI.map((cf, i) => /* @__PURE__ */ React.createElement("i", { key: i, style: { left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" } })));
   }
+  function AdvSplash({ ready }) {
+    const [render, setRender] = useState(true);
+    const [out, setOut] = useState(false);
+    const startRef = useRef(Date.now());
+    useEffect(() => {
+      if (!ready) return;
+      const hold = Math.max(0, 420 - (Date.now() - startRef.current));
+      const t1 = setTimeout(() => setOut(true), hold);
+      const t2 = setTimeout(() => setRender(false), hold + 400);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }, [ready]);
+    if (!render) return null;
+    return /* @__PURE__ */ React.createElement("div", { className: "adv-splash" + (out ? " out" : ""), "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("h1", { className: "adv-splash-logo" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG")));
+  }
   function ForgeSword({ collected, className }) {
     const H = window.HARMONIA;
     const ref = useRef(null);
@@ -3049,7 +3068,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       last ? onClose() : setStep(step + 1);
     } }, last ? "Let's go!" : "Next ▸")))));
   }
-  function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, burst, boringMode, celebrateNode, onCelebrateDone, skinId }) {
+  function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, burst, boringMode, celebrateNode, onCelebrateDone, skinId, onReady }) {
     const H = window.HARMONIA;
     const mapRef = useRef(null);
     const swordRef = useRef(null);
@@ -3085,6 +3104,14 @@ window.SOUNDTRACK = SOUNDTRACK;
         cancelled = true;
       };
     }, [skinId]);
+    const readyFiredRef = useRef(false);
+    useEffect(() => {
+      if (readyFiredRef.current || !onReady) return;
+      if ((bakedMap || tileset) && codaImg) {
+        readyFiredRef.current = true;
+        onReady();
+      }
+    }, [bakedMap, tileset, codaImg, onReady]);
     const codaRef = useRef(null);
     const standRef = useRef(null);
     const walkRef = useRef(false);
@@ -3320,7 +3347,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const have = collected.size;
     const restored = have >= 8;
     const next = nodes.find((n) => !collected.has(H.stageFrag[n.id]));
-    return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" + (restored ? " restored" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG"), restored && /* @__PURE__ */ React.createElement("em", { className: "adv-restored-tag" }, " · restored")), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear gear-settings", onClick: onSettings, "aria-label": "Settings" }, "⚙")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), celebrateNode && H.nodes[celebrateNode - 1] && /* @__PURE__ */ React.createElement("div", { className: "map-cleared", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "map-cleared-star" }, "★"), /* @__PURE__ */ React.createElement("span", { className: "map-cleared-text" }, H.nodes[celebrateNode - 1].name, /* @__PURE__ */ React.createElement("em", null, "region cleared"))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("div", { className: "adv-forge-chip" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost shop-btn", onClick: onShop, "aria-label": "Shop" }, "★"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"))));
+    return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" + (restored ? " restored" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", width: "32", height: "24", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG"), restored && /* @__PURE__ */ React.createElement("em", { className: "adv-restored-tag" }, " · restored")), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear gear-settings", onClick: onSettings, "aria-label": "Settings" }, "⚙")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), celebrateNode && H.nodes[celebrateNode - 1] && /* @__PURE__ */ React.createElement("div", { className: "map-cleared", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "map-cleared-star" }, "★"), /* @__PURE__ */ React.createElement("span", { className: "map-cleared-text" }, H.nodes[celebrateNode - 1].name, /* @__PURE__ */ React.createElement("em", null, "region cleared"))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("div", { className: "adv-forge-chip" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost shop-btn", onClick: onShop, "aria-label": "Shop" }, "★"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"))));
   }
   function NumberEarTrainer() {
     const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm } = useAudio();
@@ -3329,8 +3356,11 @@ window.SOUNDTRACK = SOUNDTRACK;
     const [boringMode, setBoringMode] = useState(() => loadPref("boring", "0") === "1");
     const [screen, setScreen] = useState(() => window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home");
     const [mapTour, setMapTour] = useState(false);
+    const [mapReady, setMapReady] = useState(false);
     useEffect(() => {
-      if (screen === "adventure" && loadPref("tut", "0") === "1" && loadPref("maptour", "0") !== "1") {
+      if (screen !== "adventure") return;
+      setMapReady(false);
+      if (loadPref("tut", "0") === "1" && loadPref("maptour", "0") !== "1") {
         savePref("maptour", "1");
         setMapTour(true);
       }
@@ -4587,7 +4617,8 @@ window.SOUNDTRACK = SOUNDTRACK;
             setAuxReturn("adventure");
             setFpTab("notes");
             setScreen("learn");
-          }
+          },
+          onReady: () => setMapReady(true)
         }
       ), en && /* @__PURE__ */ React.createElement("div", { className: "encounter-modal", onClick: () => setEncounterNode(null) }, /* @__PURE__ */ React.createElement("div", { className: "encounter mood-" + en.mood, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "enc-head" }, /* @__PURE__ */ React.createElement("span", { className: "enc-emblem", "aria-hidden": "true" }, window.KEEPER_ART && window.KEEPER_ART[encounterNode] ? /* @__PURE__ */ React.createElement("img", { src: window.KEEPER_ART[encounterNode], alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block", imageRendering: "pixelated" } }) : en.emblem), /* @__PURE__ */ React.createElement("div", { className: "enc-titles" }, /* @__PURE__ */ React.createElement("span", { className: "kicker" }, "Region ", encounterNode, " · Harmonia"), /* @__PURE__ */ React.createElement("h2", { className: "encounter-title" }, en.name), /* @__PURE__ */ React.createElement("span", { className: "encounter-sub" }, enTitle)), /* @__PURE__ */ React.createElement("span", { className: "enc-frag" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), enFrag)), /* @__PURE__ */ React.createElement("p", { className: "keeper-line" }, /* @__PURE__ */ React.createElement("b", { className: "keeper-name" }, en.keeper), /* @__PURE__ */ React.createElement("q", null, en.greet)), /* @__PURE__ */ React.createElement("p", { className: "stage-goal" }, stageGoal(enMode, enTitle)), /* @__PURE__ */ React.createElement("span", { className: "stage-meta" }, enLevels, " levels · ", enModeLabel, " · earn ", en.short, "'s mark → ◆"), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setEncounterNode(null) }, "Not yet"), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => {
         const id = encounterNode;
@@ -4598,7 +4629,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         const fid = window.HARMONIA.stageFrag[nd.id];
         const have = advCollected.has(fid);
         return /* @__PURE__ */ React.createElement("li", { key: nd.id, className: "frag-row" + (have ? " got" : " locked") }, /* @__PURE__ */ React.createElement("span", { className: "frag-mark" }, have ? "◆" : "◇"), /* @__PURE__ */ React.createElement("span", { className: "frag-name" }, window.HARMONIA.fragLabel[fid]), /* @__PURE__ */ React.createElement("em", { className: "frag-src" }, have ? nd.name : "— locked"));
-      })), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => setForgeOpen(false) }, "Close"))), upsellModal, mapTour && /* @__PURE__ */ React.createElement(MapTour, { onClose: () => setMapTour(false), onSfx: sfx }));
+      })), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => setForgeOpen(false) }, "Close"))), upsellModal, mapTour && mapReady && /* @__PURE__ */ React.createElement(MapTour, { onClose: () => setMapTour(false), onSfx: sfx }), /* @__PURE__ */ React.createElement(AdvSplash, { ready: mapReady }));
     }
     if (screen === "home") {
       return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top" }, /* @__PURE__ */ React.createElement("div", { className: "brand-row" }, brand, /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: () => {
@@ -5849,6 +5880,10 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .adv-logo { height: 24px; width: auto; image-rendering: pixelated; }
 .adv-title { flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 1rem; letter-spacing: 0.06em; color: var(--teal); text-transform: uppercase; }
 .adv-title .w1 { color: var(--green); } .adv-title .w2 { color: var(--blue); }
+.adv-splash { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; background: var(--bg); transition: opacity 0.45s ease; }
+.adv-splash.out { opacity: 0; pointer-events: none; }
+.adv-splash-logo { font-family: 'Archivo Black', sans-serif; font-size: 2.6rem; letter-spacing: 0.06em; margin: 0; text-transform: uppercase; }
+.adv-splash-logo .w1 { color: var(--green); } .adv-splash-logo .w2 { color: var(--blue); }
 .adv-sword-mini { image-rendering: pixelated; height: 46px; width: auto; flex-shrink: 0; }
 .adv-forge-txt { display: flex; flex-direction: column; gap: 1px; font-size: 0.74rem; color: var(--text-soft); line-height: 1.2; }
 .adv-forge-txt b { font-family: 'Archivo Black', sans-serif; font-size: 0.9rem; color: var(--teal); }

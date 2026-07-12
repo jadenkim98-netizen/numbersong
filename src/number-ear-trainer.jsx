@@ -1484,6 +1484,28 @@ function Confetti({ show }) {
   );
 }
 
+// "NUMBERSONG" cover shown over the Adventure screen while the map image + sprites
+// load, so the player never sees the raw HUD/logo reflow flash on the way in. Holds
+// for a beat once `ready`, then fades out and unmounts.
+function AdvSplash({ ready }) {
+  const [render, setRender] = useState(true);
+  const [out, setOut] = useState(false);
+  const startRef = useRef(Date.now());
+  useEffect(() => {
+    if (!ready) return;
+    const hold = Math.max(0, 420 - (Date.now() - startRef.current)); // guarantee it's visible, never itself a flash
+    const t1 = setTimeout(() => setOut(true), hold);
+    const t2 = setTimeout(() => setRender(false), hold + 400);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [ready]);
+  if (!render) return null;
+  return (
+    <div className={"adv-splash" + (out ? " out" : "")} aria-hidden="true">
+      <h1 className="adv-splash-logo"><span className="w1">NUMBER</span><span className="w2">SONG</span></h1>
+    </div>
+  );
+}
+
 // Excalibar rendered from the sword sheet; collected parts are solid, the rest ghosted.
 function ForgeSword({ collected, className }) {
   const H = window.HARMONIA;
@@ -1639,7 +1661,7 @@ function MapTour({ onClose, onSfx }) {
   );
 }
 
-function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, burst, boringMode, celebrateNode, onCelebrateDone, skinId }) {
+function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, burst, boringMode, celebrateNode, onCelebrateDone, skinId, onReady }) {
   const H = window.HARMONIA;
   const mapRef = useRef(null);
   const swordRef = useRef(null);
@@ -1667,6 +1689,13 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
     if (pending === 0) setHeroFrames(null);
     return () => { cancelled = true; };
   }, [skinId]);
+  // Signal the parent once the map bg + a hero sprite are loaded, so the NUMBERSONG
+  // cover can fade out onto a drawn map instead of a blank/loading frame.
+  const readyFiredRef = useRef(false);
+  useEffect(() => {
+    if (readyFiredRef.current || !onReady) return;
+    if ((bakedMap || tileset) && codaImg) { readyFiredRef.current = true; onReady(); }
+  }, [bakedMap, tileset, codaImg, onReady]);
   const codaRef = useRef(null);   // Coda's live tile position {c,r} (floats while walking)
   const standRef = useRef(null);  // the tile Coda is resting on (persists across re-renders, so he stays where he last walked)
   const walkRef = useRef(false);  // true while a walk animation is in flight
@@ -1869,7 +1898,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
     <div className={"adv-screen" + (restored ? " restored" : "")}>
       <style>{CSS}</style>
       <div className="adv-hud adv-hud-top">
-        <img className="adv-logo" src={typeof window !== "undefined" ? window.WEJAM_LOGO : ""} alt="WeJam" />
+        <img className="adv-logo" width="32" height="24" src={typeof window !== "undefined" ? window.WEJAM_LOGO : ""} alt="WeJam" />
         <span className="adv-title"><span className="w1">NUMBER</span><span className="w2">SONG</span>{restored && <em className="adv-restored-tag"> · restored</em>}</span>
         <button className="gear" onClick={onMenu} aria-label="Main menu">☰</button>
         <button className="gear gear-settings" onClick={onSettings} aria-label="Settings">⚙</button>
@@ -1911,8 +1940,11 @@ export default function NumberEarTrainer() {
   const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home")); // boot | menu | training | home | adventure | levels | session | results | learn | guide | settings
   // First-time map tour: Verda walks a new player around once, right after the tutorial.
   const [mapTour, setMapTour] = useState(false);
+  const [mapReady, setMapReady] = useState(false); // false while the map loads → NUMBERSONG splash covers the entry
   useEffect(() => {
-    if (screen === "adventure" && loadPref("tut", "0") === "1" && loadPref("maptour", "0") !== "1") {
+    if (screen !== "adventure") return;
+    setMapReady(false); // AdventureMap re-mounts on each entry and re-fires onReady
+    if (loadPref("tut", "0") === "1" && loadPref("maptour", "0") !== "1") {
       savePref("maptour", "1"); setMapTour(true);
     }
   }, [screen]);
@@ -3042,7 +3074,8 @@ export default function NumberEarTrainer() {
           onMenu={() => setScreen(boringMode ? "home" : "menu")}
           onSettings={() => { setAuxReturn("adventure"); setScreen("settings"); }}
           onGuide={() => { setAuxReturn("adventure"); setGuidePage(0); setScreen("guide"); }}
-          onFree={() => { setAuxReturn("adventure"); setFpTab("notes"); setScreen("learn"); }} />
+          onFree={() => { setAuxReturn("adventure"); setFpTab("notes"); setScreen("learn"); }}
+          onReady={() => setMapReady(true)} />
         {en && (
           <div className="encounter-modal" onClick={() => setEncounterNode(null)}>
             <div className={"encounter mood-" + en.mood} onClick={(e) => e.stopPropagation()}>
@@ -3097,7 +3130,8 @@ export default function NumberEarTrainer() {
           </div>
         )}
         {upsellModal}
-        {mapTour && <MapTour onClose={() => setMapTour(false)} onSfx={sfx} />}
+        {mapTour && mapReady && <MapTour onClose={() => setMapTour(false)} onSfx={sfx} />}
+        <AdvSplash ready={mapReady} />
       </>
     );
   }
@@ -4729,6 +4763,10 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .adv-logo { height: 24px; width: auto; image-rendering: pixelated; }
 .adv-title { flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 1rem; letter-spacing: 0.06em; color: var(--teal); text-transform: uppercase; }
 .adv-title .w1 { color: var(--green); } .adv-title .w2 { color: var(--blue); }
+.adv-splash { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; background: var(--bg); transition: opacity 0.45s ease; }
+.adv-splash.out { opacity: 0; pointer-events: none; }
+.adv-splash-logo { font-family: 'Archivo Black', sans-serif; font-size: 2.6rem; letter-spacing: 0.06em; margin: 0; text-transform: uppercase; }
+.adv-splash-logo .w1 { color: var(--green); } .adv-splash-logo .w2 { color: var(--blue); }
 .adv-sword-mini { image-rendering: pixelated; height: 46px; width: auto; flex-shrink: 0; }
 .adv-forge-txt { display: flex; flex-direction: column; gap: 1px; font-size: 0.74rem; color: var(--text-soft); line-height: 1.2; }
 .adv-forge-txt b { font-family: 'Archivo Black', sans-serif; font-size: 0.9rem; color: var(--teal); }
