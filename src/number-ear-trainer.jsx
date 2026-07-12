@@ -1432,12 +1432,11 @@ function ProgressSquares({ best, total = SESSION_LEN }) {
 function drawHero(ctx, cx, cy, coda, bob) {
   ctx.save();                                                            // soft ground shadow
   ctx.fillStyle = "rgba(0,0,0,0.28)";
-  ctx.beginPath(); ctx.ellipse(cx, cy + 2, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx, cy + 2, 7, 2.5, 0, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
   if (coda) {
-    const dh = 40, dw = coda.width * (dh / coda.height);                 // hero drawn large so the sprite detail reads
+    const dh = 26, dw = coda.width * (dh / coda.height);
     ctx.save();
-    ctx.imageSmoothingEnabled = true;                                    // smooth-scale the ~29px sprite up (crisp nearest would look uneven)
     ctx.shadowColor = "rgba(87,198,196,0.7)"; ctx.shadowBlur = 5;        // faint teal aura
     ctx.drawImage(coda, cx - dw / 2, cy + 3 - dh - (bob || 0), dw, dh);  // feet just below node center; bob while walking
     ctx.restore();

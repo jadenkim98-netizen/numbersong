@@ -153,7 +153,7 @@ html = f'''<!DOCTYPE html>
 <script>
 window.SUNG_NUMBERS = {voices};
 window.WEJAM_LOGO = "{logo_data}";
-window.CODA_SPRITE = "{coda_map_data}";
+window.CODA_SPRITE = "{coda_data}";
 window.CODA_SKINS = {coda_skins_data};
 window.CODA_MEDITATE = "{coda_med_data}";
 window.CODA_VICTORY = "{coda_vic_data}";
