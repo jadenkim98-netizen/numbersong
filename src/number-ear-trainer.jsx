@@ -3049,7 +3049,8 @@ export default function NumberEarTrainer() {
     const id = n.raw + row * 100, oct = 4 + (n.upper ? 1 : 0) + row;
     setLitActive((a) => (a.includes(id) ? a : [...a, id]));
     holdNote(noteOf(n.label, oct));
-    sing(musicKey, (n.upper || row > 0) && n.label === 1 ? 8 : n.label, voiceOn);
+    // sing the number when Voice is on — Paths uses its own pathVoice toggle, others voiceOn
+    sing(musicKey, (n.upper || row > 0) && n.label === 1 ? 8 : n.label, fpTab === "paths" ? pathVoice : voiceOn);
   };
   const exploreUp = (n, row = 0) => {
     const id = n.raw + row * 100, oct = 4 + (n.upper ? 1 : 0) + row;
@@ -5288,7 +5289,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .fp-opts-btn { display: inline-flex; width: 40px; height: 34px; margin-left: auto; flex: 0 0 auto; }
   .app-wide .fp-starton { display: none; }               /* niche "Start on" — drop it from the bar */
   .app-wide .fp-voice-bar { display: inline-flex; }       /* show the bar's Voice toggle */
-  .app-wide.fp-notes .fp-keyrow-voice { display: none; }  /* avoid a duplicate voice (bar has it) in the notes tab */
+  .app-wide .fp-keyrow-voice { display: none; }  /* both tabs carry a bar Voice toggle now → never show the key-row one in landscape (avoids a duplicate when the ⚙ is open) */
   .app-wide .key-row { display: none; }                   /* Key/Hear/Sound/Voice/Coda → behind ⚙ */
   .app-wide .fp-sing { display: none; }                   /* Sing → behind ⚙ (settings) */
   .app-wide.fp-opts-open .key-row { display: flex; }
