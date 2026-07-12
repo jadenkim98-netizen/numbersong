@@ -546,6 +546,7 @@ function useAudio() {
   const synthRef = useRef(null);
   const padRef = useRef(null);
   const voicesRef = useRef(null);
+  const minorVoiceRef = useRef(null); // pitch-keyed minor scale (Jojo's A-minor 2-octave take), base 0 = C
   const buffersRef = useRef(null);
   const voicePlayersRef = useRef([]);
 
@@ -605,6 +606,21 @@ function useAudio() {
       } catch (e) {
         voicesRef.current = null; // fall back to speech synthesis
       }
+    }
+    // Decode the pitch-keyed minor-scale voice (A-minor 2-octave take), keyed by MIDI.
+    if (!minorVoiceRef.current && window.MINOR_VOICE) {
+      try {
+        const out = {};
+        for (const [base, set] of Object.entries(window.MINOR_VOICE)) {
+          out[base] = {};
+          for (const [midi, b64] of Object.entries(set)) {
+            const bin = atob(b64); const arr = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            out[base][midi] = await Tone.getContext().rawContext.decodeAudioData(arr.buffer);
+          }
+        }
+        minorVoiceRef.current = out;
+      } catch (e) { minorVoiceRef.current = null; }
     }
   }, []);
 
@@ -912,6 +928,52 @@ function useAudio() {
       voicePlayersRef.current = voicePlayersRef.current.filter((p) => p !== player);
     }, (delay + 4) * 1000);
   }, [ensure]);
+
+  // Sing a minor number at an EXACT target pitch (MIDI) so the voice tracks the synth
+  // and never drifts an octave. Uses the pitch-keyed minor set (base 0 = C / A-minor),
+  // shifted into the current key, picking the recorded octave nearest the target.
+  const singMinor = useCallback(async (key, targetMidi, enabled, delay = 0, cutAfter = null) => {
+    if (!enabled) return;
+    await ensure();
+    const set = minorVoiceRef.current && minorVoiceRef.current["0"];
+    if (!set) return;
+    let ks = KEYS.indexOf(key); if (ks > 6) ks -= 12; // shift the C-base take into the current key
+    const cbase = targetMidi - ks;
+    const pc = ((cbase % 12) + 12) % 12;
+    let recMidi = null, bestD = 1e9;
+    for (const m of Object.keys(set)) {
+      const mm = +m;
+      if (((mm % 12) + 12) % 12 !== pc) continue;     // same scale degree (pitch class)
+      const d = Math.abs(mm - cbase);
+      if (d < bestD) { bestD = d; recMidi = mm; }
+    }
+    if (recMidi == null) return;
+    const player = new Tone.Player(set[recMidi]).toDestination();
+    player.playbackRate = Math.pow(2, (targetMidi - recMidi) / 12);
+    player.fadeOut = 0.12;
+    const t = Tone.now() + delay;
+    if (lastVoiceRef.current) { try { lastVoiceRef.current.stop(t); } catch (e) {} }
+    lastVoiceRef.current = player;
+    voicePlayersRef.current.push(player);
+    player.start(t);
+    if (cutAfter) player.stop(t + cutAfter);
+    setTimeout(() => {
+      player.dispose();
+      voicePlayersRef.current = voicePlayersRef.current.filter((p) => p !== player);
+    }, (delay + 4) * 1000);
+  }, [ensure]);
+
+  // Semitones the minor take must shift to hit this target. Small only for keys near
+  // the recorded one (C / A-minor); used to gate pitch-tracking vs the fallback.
+  const minorShift = useCallback((key, targetMidi) => {
+    const set = minorVoiceRef.current && minorVoiceRef.current["0"];
+    if (!set) return 999;
+    let ks = KEYS.indexOf(key); if (ks > 6) ks -= 12;
+    const cbase = targetMidi - ks; const pc = ((cbase % 12) + 12) % 12;
+    let rec = null, bd = 1e9;
+    for (const m of Object.keys(set)) { const mm = +m; if (((mm % 12) + 12) % 12 !== pc) continue; const d = Math.abs(mm - cbase); if (d < bd) { bd = d; rec = mm; } }
+    return rec == null ? 999 : Math.abs(targetMidi - rec);
+  }, []);
 
   const droneRef = useRef(null);
   const startDrone = useCallback(async (key, degree = 1, vol = -8) => {
@@ -2571,10 +2633,17 @@ export default function NumberEarTrainer() {
       const isLast = i === path.length - 1;
       playSemi(key, semi, i * step, octave);
       const deg = PC_TO_DEGREE[mod12(semi)];
-      // 6/7 stepping BELOW home (minor descent, semi<0) use the low-octave la/ti clips
-      // so the sung line descends smoothly instead of leaping up an octave.
-      const vdeg = semi >= 12 && deg === 1 ? 8 : ((deg === 6 || deg === 7) && semi < 0 ? deg + "L" : deg);
-      if (canSing && deg != null) sing(key, vdeg, voiceOn, i * step, isLast ? null : step);
+      if (canSing && deg != null) {
+        const targetMidi = Tone.Frequency(key + octave).toMidi() + semi;
+        if (mode === "minor" && minorVoiceRef.current && minorShift(key, targetMidi) <= 3) {
+          // close to the recorded minor key → sing at the synth's exact pitch (no octave drift)
+          singMinor(key, targetMidi, voiceOn, i * step, isLast ? null : step);
+        } else {
+          // fallback (major, far minor key, or take not loaded): degree-based, low la/ti on descent
+          const vdeg = semi >= 12 && deg === 1 ? 8 : ((deg === 6 || deg === 7) && semi < 0 ? deg + "L" : deg);
+          sing(key, vdeg, voiceOn, i * step, isLast ? null : step);
+        }
+      }
       sessTimer(() => setLitCorrect([mod12(semi)]), i * step * 1000);
     });
     sessTimer(() => { setBusy(false); if (onDone) onDone(); }, (path.length * step + 0.7) * 1000);

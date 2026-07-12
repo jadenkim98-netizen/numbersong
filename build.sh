@@ -43,6 +43,15 @@ def _voicefiles(base):
             d[i] = base64.b64encode(open(p, "rb").read()).decode()
     return d
 voices = json.dumps({str(base): _voicefiles(base) for base in (0, 2, 4, 6, 8, 10)})
+# Pitch-keyed minor-scale voice (A-minor 2-octave take), files named by MIDI number.
+# Lets the minor "walk home" sing each number at the synth's exact pitch (no octave drift).
+def _minorvoice():
+    d = {}
+    if os.path.isdir("voice/mv0"):
+        d["0"] = {n[:-4]: base64.b64encode(open(f"voice/mv0/{n}", "rb").read()).decode()
+                  for n in os.listdir("voice/mv0") if n.endswith(".mp3")}
+    return d
+minor_voice = json.dumps(_minorvoice())
 icon_data = "data:image/png;base64," + base64.b64encode(open("icon.png","rb").read()).decode()
 logo_data = "data:image/png;base64," + base64.b64encode(open("wejam.png","rb").read()).decode()
 coda_data = "data:image/png;base64," + base64.b64encode(open("coda.png","rb").read()).decode()
@@ -166,6 +175,7 @@ html = f'''<!DOCTYPE html>
 </script>
 <script>
 window.SUNG_NUMBERS = {voices};
+window.MINOR_VOICE = {minor_voice};
 window.WEJAM_LOGO = "{logo_data}";
 window.CODA_SPRITE = "{coda_data}";
 window.CODA_SKINS = {coda_skins_data};
