@@ -95,7 +95,7 @@ tone_js      = inline_js("vendor/tone.js")
 # PWA manifest for Android/Chrome install (folder deploys); iOS uses the meta tags below.
 json.dump({
   "name": "Numbersong", "short_name": "Numbersong", "start_url": "./", "scope": "./",
-  "display": "standalone", "orientation": "portrait",
+  "display": "standalone", "orientation": "any",
   "background_color": "#383D3B", "theme_color": "#383D3B",
   "icons": [{"src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}],
 }, open("manifest.json", "w"))

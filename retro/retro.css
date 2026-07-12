@@ -131,7 +131,7 @@
 /* ---- the NUMPAD & numbers (Archivo — readability protected) --------------- */
 .retro .key-row{ display:flex; gap:8px; }
 .retro .num{
-  font-family:var(--black); text-transform:none; letter-spacing:0;
+  font-family:var(--black); text-transform:none; letter-spacing:0; position:relative;
   font-size:26px; color:var(--text); cursor:pointer; border:0;
   background:var(--card); clip-path:var(--notch); padding:14px 0; flex:1 1 0;
   display:flex; align-items:center; justify-content:center;
@@ -178,12 +178,20 @@
   .retro *{ animation:none!important; }
   /* Elements that start at opacity:0 and rely on an animation to reveal must stay visible. */
   .retro .finale-quote, .retro .finale-btn, .retro .finale-sword, .retro .finale-coda{ opacity:1!important; transform:none!important; }
+  /* Purely decorative celebration overlays animate a flash/fall to opacity:0 — with
+     animation off they'd freeze fully-painted (the flash is a gold veil at z-index 199,
+     over the results). Hide them outright; the win is still conveyed by the victory card. */
+  .retro .fx-flash, .retro .confetti{ display:none!important; }
 }
 
 /* ============================================================================
    APP PATCHES — map the kit onto Numbersong's real class names + boot/menu.
    ============================================================================ */
 .retro .app{ position:relative; }
+
+/* clip-path:var(--notch) on retro buttons clips an OUTSIDE outline away, so keyboard
+   focus was invisible. Inset the ring (negative offset) so it renders within the notch. */
+.retro button:focus-visible{ outline:3px solid var(--teal); outline-offset:-4px; }
 
 /* numpad: keep our column layout + solfège; readability protected */
 .retro .num{ flex:initial; display:flex; flex-direction:column; gap:1px; aspect-ratio:auto; padding:12px 0; }
@@ -376,7 +384,7 @@
 
 /* ---- encounter as a MAP MODAL (tap a region → pops over the map) --------- */
 .retro .encounter-modal{
-  position:fixed; inset:0; z-index:50; display:flex; align-items:center;
+  position:fixed; inset:0; z-index:120; display:flex; align-items:center;
   justify-content:center; padding:max(20px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom));
   background:rgba(0,0,0,.6); animation:rt-fadein .2s ease-out;
 }
@@ -409,7 +417,7 @@
 /* ---- Excalibar fragment inventory (tap the HUD sword) -------------------- */
 .retro .adv-sword-mini{ cursor:pointer; }
 .retro .forge-modal{
-  position:fixed; inset:0; z-index:50; display:flex; align-items:center;
+  position:fixed; inset:0; z-index:120; display:flex; align-items:center;
   justify-content:center; padding:max(20px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom));
   background:rgba(0,0,0,.72); animation:rt-fadein .2s ease-out;
 }
@@ -602,12 +610,28 @@
 /* =====================  FREEMIUM: upsell / CTA / locks / unlock  =========== */
 /* Base fallbacks (apply in BOTH skins — retro.css is always in <head>) so a gated
    boring-mode player still gets a usable modal even without the .retro forge styles. */
-.upsell-modal{ position:fixed; inset:0; z-index:50; display:flex; align-items:center;
+.upsell-modal{ position:fixed; inset:0; z-index:120; display:flex; align-items:center;
   justify-content:center; padding:max(20px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom)); background:rgba(0,0,0,.62); }
 .upsell-panel{ width:100%; max-width:400px; background:var(--card,#424845); border-radius:14px;
   padding:22px 20px; text-align:center; max-height:calc(100% - 24px); overflow-y:auto; }
 .upsell-copy{ font-size:.95rem; line-height:1.5; margin:10px 0 18px; }
 .upsell-panel .enc-actions{ display:flex; gap:10px; justify-content:center; }
+/* The forge-inventory + encounter modals reuse these .forge-* classes but (unlike
+   the upsell) had NO base styling — a boring-mode player who opened them saw a raw
+   unstyled text blob. Give them the same base fallback so both skins render a panel. */
+.forge-modal{ position:fixed; inset:0; z-index:120; display:flex; align-items:center;
+  justify-content:center; padding:max(20px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom)); background:rgba(0,0,0,.62); }
+.forge-panel{ width:100%; max-width:400px; background:var(--card,#424845); border-radius:14px;
+  padding:22px 20px; text-align:center; max-height:calc(100% - 24px); overflow-y:auto; }
+.forge-kicker{ display:block; font-size:.72rem; letter-spacing:1.5px; text-transform:uppercase; opacity:.7; }
+.forge-title{ font-size:1.5rem; margin:6px 0 4px; }
+.forge-tally{ display:block; font-size:.82rem; opacity:.8; margin-bottom:12px; }
+.forge-sword-big{ display:block; width:auto; height:130px; margin:10px auto 6px; image-rendering:pixelated; }
+.frag-list{ list-style:none; margin:0 0 16px; padding:0; text-align:left; display:flex; flex-direction:column; gap:6px; }
+.frag-row{ display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; background:var(--bg,#383D3B); font-size:.82rem; }
+.frag-row.locked{ opacity:.5; }
+.frag-name{ flex:1 1 auto; }
+.frag-src{ font-style:normal; font-size:.72rem; opacity:.6; text-align:right; margin-left:auto; }
 /* locked rows are tappable (they open the upsell), so pointer — not not-allowed */
 .retro .level.locked{ cursor:pointer; opacity:.6; }
 .retro .level.locked .level-state{ color:var(--gold); opacity:1; }
@@ -850,3 +874,17 @@
 @keyframes rt-coach-glow{ 50%{ filter:drop-shadow(0 0 9px rgba(87,198,196,.45)); } }
 .num.coach-target{ animation:rt-coach-target 1s ease-in-out infinite; z-index:2; }
 @keyframes rt-coach-target{ 50%{ filter:brightness(1.55) drop-shadow(0 0 10px var(--gold)); transform:translateY(-3px); } }
+
+/* ==========  PHONE-LANDSCAPE guards  ========================================
+   Companion to the main landscape block in the CSS-in-JS. Two jobs: (1) don't
+   trap a first-run player who rotates mid-cutscene — the fixed tutorial is
+   overflow:hidden, so let it scroll instead of clipping the Continue/drill
+   controls; (2) clamp vh-scaled celebration art so it isn't absurd when the
+   viewport is short. */
+@media (orientation: landscape) and (max-height: 600px) {
+  .retro .app.tutorial { overflow-y: auto; }
+  .app.tutorial { overflow-y: auto; }
+  .boot-screen { justify-content: flex-start; }        /* boring-mode boot: no top clip */
+  .retro .finale-rays { width: min(150vh, 150vw); height: min(150vh, 150vw); }
+  .retro .finale-sword { height: min(33vh, 40vw, 240px); }
+}

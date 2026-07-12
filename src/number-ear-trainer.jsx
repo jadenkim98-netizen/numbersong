@@ -2040,6 +2040,7 @@ export default function NumberEarTrainer() {
   const tutTimerRef = useRef(null);
   const [tutorialActive, setTutorialActive] = useState(false); // (legacy) session Q1 coaching — unused now
   const [tutReveal, setTutReveal] = useState(false);  // reveal the target pad after a wrong tap
+  const [revealPc, setRevealPc] = useState(null);     // real-drill: pc of the target, revealed after repeated misses so a stuck learner isn't left guessing
   const [tutCelebrate, setTutCelebrate] = useState(false); // win flash/confetti overlay
   const gated = !unlocked;
   const isMelodyFree = (idx) => unlocked || groupIndexOf(idx) < FREE.melodyGroups;
@@ -2051,7 +2052,7 @@ export default function NumberEarTrainer() {
   // First-run lead capture (shown once on the first results screen for public players).
   const [leadName, setLeadName] = useState("");
   const [leadEmail, setLeadEmail] = useState("");
-  const [leadStatus, setLeadStatus] = useState("idle"); // idle | sending | done | error
+  const [leadStatus, setLeadStatus] = useState("idle"); // idle | sending | done | saved | error
   const submitLead = async () => {
     const email = leadEmail.trim();
     if (!/.+@.+\..+/.test(email)) { setLeadStatus("error"); return; }
@@ -2077,7 +2078,7 @@ export default function NumberEarTrainer() {
     enableSaves(); // giving your email is what actually saves your progress
     setLeadStatus(delivered ? "done" : "saved"); // "saved" = progress kept, but no email promise
   };
-  const openUpsell = () => { try { sfx("wrong"); } catch (e) {} setUpsellOpen(true); };
+  const openUpsell = () => { try { sfx("select"); } catch (e) {} setUpsellOpen(true); };
   const openOffer = () => { try { window.open(OFFER_URL, "_blank", "noopener"); } catch (e) {} };
   const tryUnlock = () => {
     if (codeInput.trim().toLowerCase() === UNLOCK_CODE.toLowerCase()) { grantUnlock(); try { sfx("select"); } catch (e) {} }
@@ -2147,6 +2148,10 @@ export default function NumberEarTrainer() {
   const [encounterNode, setEncounterNode] = useState(null);  // region id whose encounter modal is open on the map
   const [auxReturn, setAuxReturn] = useState(null);          // where guide/free-play/settings back should go (e.g. "adventure")
   const [forgeOpen, setForgeOpen] = useState(false);         // Excalibar fragment inventory modal (on the map)
+  // overlay-modal a11y: panel refs for focus-move-in / focus-trap
+  const upsellPanelRef = useRef(null);
+  const forgePanelRef = useRef(null);
+  const encPanelRef = useRef(null);
   const [mapCelebrateNode, setMapCelebrateNode] = useState(null); // node to play a "region cleared!" flourish on next map view
   const [swordBurst, setSwordBurst] = useState(false);       // one-shot forge flash after earning a fragment
   const sessWasClearedRef = useRef(false);                   // was the region already cleared before this session?
@@ -2317,11 +2322,51 @@ export default function NumberEarTrainer() {
   const nextQuestionRef = useRef(() => {});
   const sessTimersRef = useRef([]);
   const sessTimer = (fn, ms) => { sessTimersRef.current.push(setTimeout(fn, ms)); };
+  // Generation token: bumped on every teardown/restart. An async nextQuestion() that
+  // was mid-await (e.g. waiting on the first-question audio context) checks this after
+  // each await and bails — so quitting during load can't leak a note or set phase on a
+  // dead session.
+  const sessGenRef = useRef(0);
   const killSession = () => {
+    sessGenRef.current++;
     sessTimersRef.current.forEach(clearTimeout);
     sessTimersRef.current = [];
     stopAll();
   };
+
+  // ── overlay-modal accessibility (upsell / forge / encounter) ──
+  // One effect covers all three: role="dialog"+aria-modal are on the panels; here we
+  // move focus into the panel on open, trap Tab inside it, close on Escape, lock body
+  // scroll, and restore focus to the trigger on close.
+  useEffect(() => {
+    let panelRef = null, close = null;
+    if (upsellOpen) { panelRef = upsellPanelRef; close = () => setUpsellOpen(false); }
+    else if (forgeOpen) { panelRef = forgePanelRef; close = () => setForgeOpen(false); }
+    else if (encounterNode) { panelRef = encPanelRef; close = () => setEncounterNode(null); }
+    if (!close) return;
+    const prevFocus = typeof document !== "undefined" ? document.activeElement : null;
+    const panel = panelRef && panelRef.current;
+    if (panel) { try { panel.focus(); } catch (e) {} }
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => {
+      if (e.key === "Escape") { e.preventDefault(); close(); return; }
+      if (e.key === "Tab" && panel) {
+        const list = Array.from(panel.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])'))
+          .filter((el) => !el.disabled && el.offsetParent !== null);
+        if (!list.length) { e.preventDefault(); return; }
+        const first = list[0], last = list[list.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} }
+    };
+  }, [upsellOpen, forgeOpen, encounterNode]);
 
   // guide
   const [guidePage, setGuidePage] = useState(0);
@@ -2612,7 +2657,7 @@ export default function NumberEarTrainer() {
     releaseNote(noteOf(row.d, row.oct));
   };
 
-  const clearLadder = () => { setLitActive([]); setLitCorrect([]); setLitWrong([]); setHitPad(null); };
+  const clearLadder = () => { setLitActive([]); setLitCorrect([]); setLitWrong([]); setHitPad(null); setRevealPc(null); };
 
   const levels = mode === "melody" ? MELODY_LEVELS : mode === "chords" ? CHORD_LEVELS : PROG_LEVELS;
 
@@ -2677,8 +2722,9 @@ export default function NumberEarTrainer() {
 
   const nextQuestion = async (isFirst = false) => {
     const s = sess.current;
+    const gen = sessGenRef.current; // capture; if the session is quit/restarted mid-await this goes stale
     clearLadder(); setChPicked([]); setProgAnswer([]); setProgWrong([]); setProgActive(-1); setFeedback(null);
-    s.attempted = false;
+    s.attempted = false; s.misses = 0;
     setPhase("playing"); setBusy(true);
 
     if (s.mode === "progressions") {
@@ -2690,7 +2736,9 @@ export default function NumberEarTrainer() {
       const prog = pickProgression(lvl, s.target);
       s.target = prog;
       const cad = (await playCadence(s.key, lvl.mode)) + 0.35;
+      if (gen !== sessGenRef.current) return; // quit during audio load → don't play/schedule on a dead session
       const dur = await playProgression(s.key, prog.map((r) => chordByRoman(r).tones), cad, progBeat);
+      if (gen !== sessGenRef.current) return;
       sessTimer(() => { setPhase("answer"); setBusy(false); }, (cad + dur + 0.2) * 1000);
     } else if (s.mode === "melody") {
       const lvl = s.lvl;
@@ -2705,6 +2753,7 @@ export default function NumberEarTrainer() {
       while (lvl.pool.length > 1 && pc === s.target);
       s.target = pc;
       const t = (await playCadence(s.key, lvl.mode)) + 0.25;
+      if (gen !== sessGenRef.current) return; // quit during audio load → bail before the target note leaks
       playSemi(s.key, pc, t, oct);
       // open answering the moment the pitch sounds (note keeps ringing) — don't
       // make them wait for it to finish. Tiny lead so the attack is clearly heard.
@@ -2722,7 +2771,9 @@ export default function NumberEarTrainer() {
       } while (lvl.pool.length > 1 && s.target && c.roman === s.target.roman);
       s.target = c;
       const cad = (await playCadence(s.key, lvl.mode)) + 0.25;
+      if (gen !== sessGenRef.current) return; // quit during audio load → bail
       await playChord(s.key, chordTones(c, s.sevenths), cad); // block + arpeggio
+      if (gen !== sessGenRef.current) return;
       sessTimer(() => { setPhase("answer"); setBusy(false); }, (cad + 0.7) * 1000); // but answer as soon as it sounds
     }
   };
@@ -2819,7 +2870,7 @@ export default function NumberEarTrainer() {
       s.results.push({ target: s.target, firstTry: first });
       setSessionResults([...s.results]);
       if (first) { setScore((sc) => sc + 1); setStreak((x) => x + 1); }
-      setLitWrong([]);
+      setLitWrong([]); setRevealPc(null);
       setHitPad(pc);
       setPhase("resolving");
       const deg = PC_TO_DEGREE[pc];
@@ -2838,11 +2889,22 @@ export default function NumberEarTrainer() {
       playResolution(s.key, s.octave, s.target, lvl.mode, !lvl.chromatic, advance);
     } else {
       s.attempted = true;
+      s.misses = (s.misses || 0) + 1;
       setStreak(0);
       setLitWrong([pc]);
-      playSemi(s.key, pc, 0, s.octave);
+      playSemi(s.key, pc, 0, s.octave); // echo the note they actually pressed
       if (tutorialActive) { setTutReveal(true); setFeedback("Almost — hear it again, then tap the glowing number."); }
-      else setFeedback("Not that one — that's the note you pressed. Try again.");
+      else if (s.misses >= 2) {
+        // don't leave a stuck learner brute-forcing: reveal + name the target, then replay it
+        const tdeg = PC_TO_DEGREE[s.target];
+        setRevealPc(s.target);
+        setFeedback("It's the " + (tdeg != null ? tdeg : NOTE_LABELS[s.target]) + " — hear it, then tap it.");
+        sessTimer(() => replayTarget(), 650);
+      } else {
+        // a miss should teach: re-play the TARGET (not just the note pressed) so they can compare
+        setFeedback("Not that one — that's what you played. Here's the note again…");
+        sessTimer(() => replayTarget(), 650);
+      }
     }
   };
 
@@ -3079,13 +3141,13 @@ export default function NumberEarTrainer() {
   // includes it; drop {upsellModal} into each screen that can trigger it.
   const upsellModal = upsellOpen ? (
     <div className="forge-modal upsell-modal" onClick={() => setUpsellOpen(false)}>
-      <div className="forge-panel upsell-panel" onClick={(e) => e.stopPropagation()}>
-        <span className="forge-kicker">Effortless Improvisation Accelerator</span>
-        <h2 className="forge-title">Locked</h2>
-        <p className="upsell-copy">These advanced levels unlock when you join the Accelerator — where we wire these ear skills into real songs, solos, and jams.</p>
+      <div className="forge-panel upsell-panel" role="dialog" aria-modal="true" aria-label="Keep going — the full program" tabIndex={-1} ref={upsellPanelRef} onClick={(e) => e.stopPropagation()}>
+        <span className="forge-kicker">✦ Keep going ✦</span>
+        <h2 className="forge-title">This is where it gets good</h2>
+        <p className="upsell-copy">You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program.</p>
         <div className="enc-actions">
           <button className="ghost" onClick={() => setUpsellOpen(false)}>Maybe later</button>
-          <button className="primary" onClick={openOffer}>See the roadmap →</button>
+          <button className="primary" onClick={openOffer}>Show me how →</button>
         </div>
       </div>
     </div>
@@ -3170,7 +3232,7 @@ export default function NumberEarTrainer() {
           onReady={() => setMapReady(true)} />
         {en && (
           <div className="encounter-modal" onClick={() => setEncounterNode(null)}>
-            <div className={"encounter mood-" + en.mood} onClick={(e) => e.stopPropagation()}>
+            <div className={"encounter mood-" + en.mood} role="dialog" aria-modal="true" aria-label={"Keeper of " + en.name} tabIndex={-1} ref={encPanelRef} onClick={(e) => e.stopPropagation()}>
               <div className="enc-head">
                 <span className="enc-emblem" aria-hidden="true">
                   {window.KEEPER_ART && window.KEEPER_ART[encounterNode]
@@ -3199,7 +3261,7 @@ export default function NumberEarTrainer() {
         )}
         {forgeOpen && window.HARMONIA && (
           <div className="forge-modal" onClick={() => setForgeOpen(false)}>
-            <div className="forge-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="forge-panel" role="dialog" aria-modal="true" aria-label="Excalibar — fragment inventory" tabIndex={-1} ref={forgePanelRef} onClick={(e) => e.stopPropagation()}>
               <span className="forge-kicker">The legendary blade</span>
               <h2 className="forge-title">Excalibar</h2>
               <ForgeSword collected={advCollected} className="forge-sword-big" />
@@ -3608,7 +3670,7 @@ export default function NumberEarTrainer() {
     const tutCoach = tutorialActive && mode === "melody";
     const tutTarget = tutCoach && tutReveal && sess.current ? sess.current.target : null;
     return (
-      <div className={"app" + (lvl.mode === "minor" ? " sess-minor" : "")}>
+      <div className={"app app-wide" + (lvl.mode === "minor" ? " sess-minor" : "")}>
         <style>{CSS}</style>
         {tutCelebrate && <div className="fx-flash" aria-hidden="true" />}
         <Confetti show={tutCelebrate} />
@@ -3636,6 +3698,8 @@ export default function NumberEarTrainer() {
         )}
         <p className="qcount">Question {Math.min(qNum + 1, qCountOf(lvl))} of {qCountOf(lvl)} · {displayKey}{lvl.keyMode === "random" ? " (changes every question)" : ""}</p>
 
+        {/* drill-stage = display:contents in portrait (no change); a two-column flex row in phone-landscape */}
+        <div className="drill-stage">
         {mode === "melody" && (
           <DegreeLadder active={litActive} correct={litCorrect} wrong={litWrong}
             tonicPc={tonicPc} pool={pool} showChrom={lvl.chromatic} />
@@ -3680,10 +3744,12 @@ export default function NumberEarTrainer() {
                   const out = !pool.includes(pc);
                   return (
                     <button key={pc}
-                      className={"num chrom" + (pc === tonicPc ? " tonic" : "") + (ALTERED_PCS.includes(pc) ? " alt" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "")}
+                      className={"num chrom" + (pc === tonicPc ? " tonic" : "") + (ALTERED_PCS.includes(pc) ? " alt" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "") + (litWrong.includes(pc) ? " wrong" : "") + (revealPc === pc ? " coach-target" : "")}
                       onClick={() => answerMelodySession(pc)}
                       disabled={phase !== "answer" || out}>
                       {NOTE_LABELS[pc]}<span className="num-sol">{NOTE_SOLFEGE[pc]}</span>
+                      {hitPad === pc && <span className="num-mark" aria-hidden="true">✓</span>}
+                      {litWrong.includes(pc) && <span className="num-mark" aria-hidden="true">✕</span>}
                     </button>
                   );
                 })}
@@ -3695,10 +3761,12 @@ export default function NumberEarTrainer() {
                   const out = !pool.includes(pc);
                   return (
                     <button key={deg}
-                      className={"num" + (pc === tonicPc ? " tonic" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "") + (tutTarget === pc ? " coach-target" : "")}
+                      className={"num" + (pc === tonicPc ? " tonic" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "") + (litWrong.includes(pc) ? " wrong" : "") + (tutTarget === pc || revealPc === pc ? " coach-target" : "")}
                       onClick={() => answerMelodySession(pc)}
                       disabled={phase !== "answer" || out}>
                       {deg}<span className="num-sol">{SOLFEGE[deg]}</span>
+                      {hitPad === pc && <span className="num-mark" aria-hidden="true">✓</span>}
+                      {litWrong.includes(pc) && <span className="num-mark" aria-hidden="true">✕</span>}
                     </button>
                   );
                 })}
@@ -3755,6 +3823,7 @@ export default function NumberEarTrainer() {
                   );
                 })}
               </div>
+              <div className="prog-right">
               <div className="numpad chordpad">
                 {lvl.pool.map((r) => (
                   <button key={r} className="num chordbtn"
@@ -3772,9 +3841,11 @@ export default function NumberEarTrainer() {
                   Check answer
                 </button>
               </div>
+              </div>
             </div>
           )}
         </section>
+        </div>
       </div>
     );
   }
@@ -3852,40 +3923,6 @@ export default function NumberEarTrainer() {
               <span className="forge-count">{advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments"}</span>
             </div>
           )}
-          {!onboarded && (
-            <div className="lead-card">
-              {(leadStatus === "done" || leadStatus === "saved") ? (
-                <>
-                  <span className="lead-kicker">✓ You're in</span>
-                  <p className="lead-copy">{leadStatus === "done"
-                    ? "Check your inbox to confirm — your Chords-by-Numbers PDF lands right after. Your progress is saved."
-                    : "Your progress is saved on this device. (We couldn't reach the email service just now — no worries, keep playing.)"}</p>
-                  <div className="lead-actions">
-                    <button className="primary" onClick={() => { finishOnboarding(); openOffer(); }}>See the roadmap →</button>
-                    <button className="ghost" onClick={finishOnboarding}>Keep playing</button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <span className="lead-kicker">✦ Free guitar PDF ✦</span>
-                  <p className="lead-copy">Want to hear any guitar chord by ear? Pop in your email and I'll send you the free Chords-by-Numbers PDF — the method behind this whole game. Your progress saves, too.</p>
-                  <input className="set-input lead-input" placeholder="first name" value={leadName} autoComplete="given-name" onChange={(e) => setLeadName(e.target.value)} />
-                  <input className="set-input lead-input" type="email" name="email" placeholder="you@email.com" value={leadEmail}
-                    inputMode="email" autoComplete="email" autoCapitalize="off" autoCorrect="off" spellCheck={false}
-                    onChange={(e) => { setLeadEmail(e.target.value); if (leadStatus === "error") setLeadStatus("idle"); }}
-                    onKeyDown={(e) => { if (e.key === "Enter") submitLead(); }} />
-                  {leadStatus === "error" && <span className="lead-err">Enter a valid email, or skip.</span>}
-                  <span className="lead-consent">We'll email you the free PDF. No spam — unsubscribe anytime.</span>
-                  <div className="lead-actions">
-                    <button className="primary" onClick={submitLead} disabled={leadStatus === "sending"}>
-                      {leadStatus === "sending" ? "Sending…" : "Send me the PDF"}
-                    </button>
-                    <button className="ghost" onClick={finishOnboarding}>Maybe later</button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
           {justCleared && !finale && (
             <button className="primary map-return" onClick={() => { setSwordBurst(true); setScreen("adventure"); }}>← Return to the map</button>
           )}
@@ -3910,6 +3947,47 @@ export default function NumberEarTrainer() {
                   <span className="bar-count">{v.right}/{v.total}</span>
                 </div>
               ))}
+            </div>
+          )}
+          {!onboarded && (passed || justCleared) && (
+            <div className="lead-card">
+              {leadStatus === "done" ? (
+                <>
+                  <span className="lead-kicker">✓ You're in</span>
+                  <p className="lead-copy">Check your inbox to confirm — your Chords-by-Numbers PDF lands right after. Your progress is saved, too.</p>
+                  <div className="lead-actions">
+                    <button className="primary" onClick={() => { finishOnboarding(); openOffer(); }}>See the roadmap →</button>
+                    <button className="ghost" onClick={finishOnboarding}>Keep playing</button>
+                  </div>
+                </>
+              ) : leadStatus === "saved" ? (
+                <>
+                  <span className="lead-kicker">✓ Progress saved</span>
+                  <p className="lead-copy">Saved on this device. I couldn't send the PDF just now — give it another try, or keep playing and grab it later.</p>
+                  <div className="lead-actions">
+                    <button className="primary" onClick={submitLead} disabled={leadStatus === "sending"}>{leadStatus === "sending" ? "Sending…" : "Try again"}</button>
+                    <button className="ghost" onClick={finishOnboarding}>Keep playing</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="lead-kicker">✦ Free guitar PDF ✦</span>
+                  <p className="lead-copy">Want to hear any guitar chord by ear? Pop in your email and I'll send you the free Chords-by-Numbers PDF — the method behind this whole game. Your progress saves, too.</p>
+                  <input className="set-input lead-input" placeholder="first name" value={leadName} autoComplete="given-name" onChange={(e) => setLeadName(e.target.value)} />
+                  <input className="set-input lead-input" type="email" name="email" placeholder="you@email.com" value={leadEmail}
+                    inputMode="email" autoComplete="email" autoCapitalize="off" autoCorrect="off" spellCheck={false}
+                    onChange={(e) => { setLeadEmail(e.target.value); if (leadStatus === "error") setLeadStatus("idle"); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") submitLead(); }} />
+                  {leadStatus === "error" && <span className="lead-err">Enter a valid email, or tap Maybe later.</span>}
+                  <span className="lead-consent">We'll email you the free PDF. No spam — unsubscribe anytime.</span>
+                  <div className="lead-actions">
+                    <button className="primary" onClick={submitLead} disabled={leadStatus === "sending"}>
+                      {leadStatus === "sending" ? "Sending…" : "Send me the PDF"}
+                    </button>
+                    <button className="ghost" onClick={finishOnboarding}>Maybe later</button>
+                  </div>
+                </>
+              )}
             </div>
           )}
           <div className="results-actions">
@@ -4212,7 +4290,7 @@ export default function NumberEarTrainer() {
   // free explore screen
   const stageLabels = ["Numbers on", "Blank pads"];
   return (
-    <div className="app">
+    <div className="app app-wide">
       <style>{CSS}</style>
       <header className="top-slim">
         <button className="back" onClick={() => { setDroneOn(false); stopPath(); killSession(); setBusy(false); setScreen(auxReturn || (boringMode ? "home" : "menu")); }}>{auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"}</button>
@@ -4287,6 +4365,9 @@ export default function NumberEarTrainer() {
         </>
       ) : (
       <>
+      {/* fp-stage/fp-side = display:contents in portrait (no change); two-column in phone-landscape (controls+tuner sidebar | wide map) */}
+      <div className="fp-stage">
+      <div className="fp-side">
       <div className="explore-controls">
         <label className="key-label">
           Start on
@@ -4372,6 +4453,8 @@ export default function NumberEarTrainer() {
           </div>
         );
       })()}
+      </div>
+      <div className="fp-main">
       {exView === "map"
         ? <ExploreMap start={exStart} count={exCount} stage={exStage}
             octaves={exOctaves} world={exWorld} singDeg={micOn ? singDeg : null} singInTune={singInTune}
@@ -4379,6 +4462,8 @@ export default function NumberEarTrainer() {
         : <PianoMap start={exStart} count={exCount} stage={exStage}
             world={exWorld} musicKey={musicKey} singDeg={micOn ? singDeg : null} singInTune={singInTune}
             active={litActive} onDown={pianoDown} onUp={pianoUp} />}
+      </div>
+      </div>
       <p className="hint center">
         {exStage === 0
           ? `World ${exWorld}: the blue pads are its chord tones (${worldChordTones(exWorld).join("·")}). Drone on, sing the numbers.`
@@ -4408,6 +4493,7 @@ const CSS = `
   --blue: #7CADD1;
   --teal: #57C6C4;
   --wrong: #E07856;
+  --wrong-text: #F59A72; /* brighter orange for NORMAL-size miss/error text — ~4.6:1 on --bg (AA); --wrong stays for fills */
   --alt: #2B302D;
 }
 :root[data-theme="light"] {
@@ -4420,6 +4506,7 @@ const CSS = `
   --blue: #4E86AE;
   --teal: #2FA6A4;
   --wrong: #D0603F;
+  --wrong-text: #B8442A; /* darker orange for normal-size miss/error text on the light --bg (AA) */
   --alt: #E4EAE5;
 }
 html, body { background: var(--bg); }
@@ -4450,6 +4537,10 @@ html, body { background: var(--bg); }
   --blue: #6E9AC4;    /* note selection → steel blue */
 }
 .app.sess-minor .primary { color: #EAF1FB; text-shadow: none; } /* light text on the blue GO */
+/* Landscape reflow wrappers: transparent (display:contents) in portrait so layout is
+   pixel-identical to before; they only become flex rows inside the phone-landscape
+   media query at the bottom of this stylesheet. */
+.drill-stage, .prog-right, .fp-stage, .fp-side { display: contents; }
 button { touch-action: manipulation; }
 .path-note, .explore-pad, .pk, .num, .cu-note, .chip, .rung { touch-action: none; }
 /* installed web app: guarantee a top buffer that clears the iOS status bar,
@@ -4504,6 +4595,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .ghost {
   background: transparent; color: var(--text); border: 1.5px solid var(--line);
   border-radius: 10px; padding: 8px 14px; font-size: 0.9rem; font-weight: 500;
+  min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
 }
 .ghost.voice.on { border-color: var(--teal); color: var(--teal); }
 .primary {
@@ -4695,7 +4787,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .sing-level-fill { height: 100%; background: var(--teal); border-radius: 99px; transition: width 0.08s linear; }
 .sing-coach { text-align: center; margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-soft); min-height: 1.2em; }
 .sing-privacy { text-align: center; margin: 0; font-size: 0.72rem; line-height: 1.4; color: var(--text-soft); opacity: 0.8; }
-.sing-err { color: var(--wrong); }
+.sing-err { color: var(--wrong-text); }
 .pk-label {
   font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; color: #23302A;
   margin-bottom: 10px; position: relative;
@@ -4744,12 +4836,20 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 
 .numpad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .num {
-  aspect-ratio: 1; min-height: 58px;
+  aspect-ratio: 1; min-height: 58px; position: relative;
   font-family: 'Archivo Black', sans-serif; font-weight: 400; font-size: 1.5rem;
-  background: var(--bg); color: var(--text);
+  background: var(--card); color: var(--text); /* --card (not --bg) so the pad reads as a control vs the page (WCAG 1.4.11) */
   border: 1.5px solid var(--line); border-radius: 14px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
 }
+/* colorblind-safe corner mark: ✓ on the pad you nailed, ✕ on a wrong tap — a SHAPE
+   cue so correct/wrong don't rely on green-vs-orange alone. Inset past the retro
+   4px corner notch so the clip-path never eats it. */
+.num-mark { position: absolute; top: 5px; right: 7px; font-family: 'Archivo', sans-serif;
+  font-weight: 800; font-size: 0.72rem; line-height: 1; color: inherit; opacity: .95; pointer-events: none; }
+/* the pressed pad on a wrong answer — previously nothing lit here, only the ladder */
+.num.wrong { background: var(--wrong); color: #3A241B; border-color: var(--wrong); }
+.num.wrong .num-sol { color: #3A241B; }
 .num-sol {
   font-family: 'Archivo', sans-serif; font-weight: 500; font-size: 0.62rem;
   color: var(--text-soft); letter-spacing: 0.05em;
@@ -4836,7 +4936,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .brand-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .gear {
   background: transparent; border: 1.5px solid var(--line); color: var(--text-soft);
-  border-radius: 10px; width: 40px; height: 40px; font-size: 1.2rem; flex-shrink: 0;
+  border-radius: 10px; width: 44px; height: 44px; font-size: 1.2rem; flex-shrink: 0;
 }
 .gear:hover { border-color: var(--teal); color: var(--teal); }
 
@@ -4900,7 +5000,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .cr-tones b { color: var(--teal); font-weight: 700; }
 
 /* chord progressions */
-.streak { color: var(--wrong); font-weight: 700; margin-right: 8px; }
+.streak { color: var(--wrong-text); font-weight: 700; margin-right: 8px; }
 /* input area holds either the buttons or the review stacks — fixed height so
    swapping between them never shifts the layout, and the stacks never clip */
 /* the answer slots ARE the stacks — always in place; the degree ladder is a
@@ -4918,8 +5018,8 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .prog-stack .stack-note.home { color: var(--teal); }
 .prog-stack .stack-note.on.home { border-color: var(--teal); color: var(--teal); }
 .prog-stack .stack-label { color: var(--blue); font-size: 0.85rem; padding-top: 4px; min-width: 30px; }
-.prog-stack.wrong .stack-label { color: var(--wrong); }
-.prog-stack.wrong .stack-note.on { border-color: var(--wrong); color: var(--wrong); }
+.prog-stack.wrong .stack-label { color: var(--wrong-text); }
+.prog-stack.wrong .stack-note.on { border-color: var(--wrong); color: var(--wrong-text); }
 .prog-stack.active { transform: translateY(-3px) scale(1.06); }
 .prog-stack.active .stack-note.on { border-color: var(--green); color: var(--green); box-shadow: 0 0 8px rgba(106,191,94,0.5); }
 .prog-stack.active .stack-label { color: var(--green); }
@@ -5028,11 +5128,42 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .session-stack .stack-note { width: 32px; height: 32px; font-size: 0.98rem; }
 .session-stack { gap: 3px; }
 .session-stack .stack-note.picked { border: 2px solid var(--blue); color: var(--blue); }
-.session-stack .stack-note.on-wrong { border: 2px solid var(--wrong); color: var(--wrong); }
+.session-stack .stack-note.on-wrong { border: 2px solid var(--wrong); color: var(--wrong-text); }
 .session-stack .stack-note.on-correct { border: 2px solid var(--green); color: var(--green); background: rgba(106,191,94,0.12); }
 .session-stack .stack-label { color: var(--teal); }
 .pager { display: flex; align-items: center; gap: 12px; }
 .dots { flex: 1; display: flex; gap: 7px; justify-content: center; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
 .dot.on { background: var(--green); }
+
+/* ==========  PHONE-LANDSCAPE: use the width (two columns)  ==================
+   Triggers only when a phone is held sideways (short viewport). Scoped to
+   .app-wide (session drill + Free Play) so menu/settings/guide/home/results
+   keep today's centered 560 column. The .drill-stage / .fp-stage / .prog-right
+   wrappers are display:contents in portrait, so this block is the ONLY place
+   the layout changes — portrait stays pixel-identical. */
+@media (orientation: landscape) and (max-height: 600px) {
+  #root { max-width: 100%; }
+  .app-wide {
+    max-width: 100%; gap: 10px;
+    padding-top: calc(10px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+  :root[data-standalone] .app-wide { padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
+
+  /* drill screen: tonal map / stack LEFT, controls + answer pads RIGHT */
+  .app-wide .drill-stage { display: flex; gap: 16px; align-items: flex-start; justify-content: center; }
+  .app-wide .drill-stage > .ladder { flex: 0 0 44%; }                 /* melody: the tonal map */
+  .app-wide .drill-stage > .panel { flex: 1 1 0; min-width: 0; max-width: 720px; }
+  .app-wide .chord-layout { gap: 24px; }                              /* chords are already two-column */
+  /* progressions: mini-stacks LEFT, chord pad + Undo/Check RIGHT */
+  .app-wide .prog-layout { flex-direction: row; align-items: flex-start; gap: 16px; }
+  .app-wide .prog-stacks { flex: 0 0 auto; }
+  .app-wide .prog-right { display: flex; flex-direction: column; gap: 16px; flex: 1 1 0; min-width: 0; }
+
+  /* Free Play: controls + sing tuner in a slim sidebar; map/piano take the wide side */
+  .app-wide .fp-stage { display: flex; gap: 16px; align-items: flex-start; }
+  .app-wide .fp-side { display: flex; flex-direction: column; gap: 10px; flex: 0 0 34%; }
+  .app-wide .fp-main { flex: 1 1 0; min-width: 0; }
+}
 `;

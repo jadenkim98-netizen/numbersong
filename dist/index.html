@@ -479,7 +479,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 /* ---- the NUMPAD & numbers (Archivo — readability protected) --------------- */
 .retro .key-row{ display:flex; gap:8px; }
 .retro .num{
-  font-family:var(--black); text-transform:none; letter-spacing:0;
+  font-family:var(--black); text-transform:none; letter-spacing:0; position:relative;
   font-size:26px; color:var(--text); cursor:pointer; border:0;
   background:var(--card); clip-path:var(--notch); padding:14px 0; flex:1 1 0;
   display:flex; align-items:center; justify-content:center;
@@ -526,12 +526,20 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   .retro *{ animation:none!important; }
   /* Elements that start at opacity:0 and rely on an animation to reveal must stay visible. */
   .retro .finale-quote, .retro .finale-btn, .retro .finale-sword, .retro .finale-coda{ opacity:1!important; transform:none!important; }
+  /* Purely decorative celebration overlays animate a flash/fall to opacity:0 — with
+     animation off they'd freeze fully-painted (the flash is a gold veil at z-index 199,
+     over the results). Hide them outright; the win is still conveyed by the victory card. */
+  .retro .fx-flash, .retro .confetti{ display:none!important; }
 }
 
 /* ============================================================================
    APP PATCHES — map the kit onto Numbersong's real class names + boot/menu.
    ============================================================================ */
 .retro .app{ position:relative; }
+
+/* clip-path:var(--notch) on retro buttons clips an OUTSIDE outline away, so keyboard
+   focus was invisible. Inset the ring (negative offset) so it renders within the notch. */
+.retro button:focus-visible{ outline:3px solid var(--teal); outline-offset:-4px; }
 
 /* numpad: keep our column layout + solfège; readability protected */
 .retro .num{ flex:initial; display:flex; flex-direction:column; gap:1px; aspect-ratio:auto; padding:12px 0; }
@@ -724,7 +732,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 
 /* ---- encounter as a MAP MODAL (tap a region → pops over the map) --------- */
 .retro .encounter-modal{
-  position:fixed; inset:0; z-index:50; display:flex; align-items:center;
+  position:fixed; inset:0; z-index:120; display:flex; align-items:center;
   justify-content:center; padding:max(20px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom));
   background:rgba(0,0,0,.6); animation:rt-fadein .2s ease-out;
 }
@@ -757,7 +765,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 /* ---- Excalibar fragment inventory (tap the HUD sword) -------------------- */
 .retro .adv-sword-mini{ cursor:pointer; }
 .retro .forge-modal{
-  position:fixed; inset:0; z-index:50; display:flex; align-items:center;
+  position:fixed; inset:0; z-index:120; display:flex; align-items:center;
   justify-content:center; padding:max(20px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom));
   background:rgba(0,0,0,.72); animation:rt-fadein .2s ease-out;
 }
@@ -950,12 +958,28 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 /* =====================  FREEMIUM: upsell / CTA / locks / unlock  =========== */
 /* Base fallbacks (apply in BOTH skins — retro.css is always in <head>) so a gated
    boring-mode player still gets a usable modal even without the .retro forge styles. */
-.upsell-modal{ position:fixed; inset:0; z-index:50; display:flex; align-items:center;
+.upsell-modal{ position:fixed; inset:0; z-index:120; display:flex; align-items:center;
   justify-content:center; padding:max(20px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom)); background:rgba(0,0,0,.62); }
 .upsell-panel{ width:100%; max-width:400px; background:var(--card,#424845); border-radius:14px;
   padding:22px 20px; text-align:center; max-height:calc(100% - 24px); overflow-y:auto; }
 .upsell-copy{ font-size:.95rem; line-height:1.5; margin:10px 0 18px; }
 .upsell-panel .enc-actions{ display:flex; gap:10px; justify-content:center; }
+/* The forge-inventory + encounter modals reuse these .forge-* classes but (unlike
+   the upsell) had NO base styling — a boring-mode player who opened them saw a raw
+   unstyled text blob. Give them the same base fallback so both skins render a panel. */
+.forge-modal{ position:fixed; inset:0; z-index:120; display:flex; align-items:center;
+  justify-content:center; padding:max(20px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom)); background:rgba(0,0,0,.62); }
+.forge-panel{ width:100%; max-width:400px; background:var(--card,#424845); border-radius:14px;
+  padding:22px 20px; text-align:center; max-height:calc(100% - 24px); overflow-y:auto; }
+.forge-kicker{ display:block; font-size:.72rem; letter-spacing:1.5px; text-transform:uppercase; opacity:.7; }
+.forge-title{ font-size:1.5rem; margin:6px 0 4px; }
+.forge-tally{ display:block; font-size:.82rem; opacity:.8; margin-bottom:12px; }
+.forge-sword-big{ display:block; width:auto; height:130px; margin:10px auto 6px; image-rendering:pixelated; }
+.frag-list{ list-style:none; margin:0 0 16px; padding:0; text-align:left; display:flex; flex-direction:column; gap:6px; }
+.frag-row{ display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; background:var(--bg,#383D3B); font-size:.82rem; }
+.frag-row.locked{ opacity:.5; }
+.frag-name{ flex:1 1 auto; }
+.frag-src{ font-style:normal; font-size:.72rem; opacity:.6; text-align:right; margin-left:auto; }
 /* locked rows are tappable (they open the upsell), so pointer — not not-allowed */
 .retro .level.locked{ cursor:pointer; opacity:.6; }
 .retro .level.locked .level-state{ color:var(--gold); opacity:1; }
@@ -1198,6 +1222,20 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 @keyframes rt-coach-glow{ 50%{ filter:drop-shadow(0 0 9px rgba(87,198,196,.45)); } }
 .num.coach-target{ animation:rt-coach-target 1s ease-in-out infinite; z-index:2; }
 @keyframes rt-coach-target{ 50%{ filter:brightness(1.55) drop-shadow(0 0 10px var(--gold)); transform:translateY(-3px); } }
+
+/* ==========  PHONE-LANDSCAPE guards  ========================================
+   Companion to the main landscape block in the CSS-in-JS. Two jobs: (1) don't
+   trap a first-run player who rotates mid-cutscene — the fixed tutorial is
+   overflow:hidden, so let it scroll instead of clipping the Continue/drill
+   controls; (2) clamp vh-scaled celebration art so it isn't absurd when the
+   viewport is short. */
+@media (orientation: landscape) and (max-height: 600px) {
+  .retro .app.tutorial { overflow-y: auto; }
+  .app.tutorial { overflow-y: auto; }
+  .boot-screen { justify-content: flex-start; }        /* boring-mode boot: no top clip */
+  .retro .finale-rays { width: min(150vh, 150vw); height: min(150vh, 150vw); }
+  .retro .finale-sword { height: min(33vh, 40vw, 240px); }
+}
 
 </style>
 </head>
@@ -3465,6 +3503,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const tutTimerRef = useRef(null);
     const [tutorialActive, setTutorialActive] = useState(false);
     const [tutReveal, setTutReveal] = useState(false);
+    const [revealPc, setRevealPc] = useState(null);
     const [tutCelebrate, setTutCelebrate] = useState(false);
     const gated = !unlocked;
     const isMelodyFree = (idx) => unlocked || groupIndexOf(idx) < FREE.melodyGroups;
@@ -3520,7 +3559,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     };
     const openUpsell = () => {
       try {
-        sfx("wrong");
+        sfx("select");
       } catch (e) {
       }
       setUpsellOpen(true);
@@ -3659,6 +3698,9 @@ window.SOUNDTRACK = SOUNDTRACK;
     const [encounterNode, setEncounterNode] = useState(null);
     const [auxReturn, setAuxReturn] = useState(null);
     const [forgeOpen, setForgeOpen] = useState(false);
+    const upsellPanelRef = useRef(null);
+    const forgePanelRef = useRef(null);
+    const encPanelRef = useRef(null);
     const [mapCelebrateNode, setMapCelebrateNode] = useState(null);
     const [swordBurst, setSwordBurst] = useState(false);
     const sessWasClearedRef = useRef(false);
@@ -3860,11 +3902,70 @@ window.SOUNDTRACK = SOUNDTRACK;
     const sessTimer = (fn, ms) => {
       sessTimersRef.current.push(setTimeout(fn, ms));
     };
+    const sessGenRef = useRef(0);
     const killSession = () => {
+      sessGenRef.current++;
       sessTimersRef.current.forEach(clearTimeout);
       sessTimersRef.current = [];
       stopAll();
     };
+    useEffect(() => {
+      let panelRef = null, close = null;
+      if (upsellOpen) {
+        panelRef = upsellPanelRef;
+        close = () => setUpsellOpen(false);
+      } else if (forgeOpen) {
+        panelRef = forgePanelRef;
+        close = () => setForgeOpen(false);
+      } else if (encounterNode) {
+        panelRef = encPanelRef;
+        close = () => setEncounterNode(null);
+      }
+      if (!close) return;
+      const prevFocus = typeof document !== "undefined" ? document.activeElement : null;
+      const panel = panelRef && panelRef.current;
+      if (panel) {
+        try {
+          panel.focus();
+        } catch (e) {
+        }
+      }
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      const onKey = (e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          close();
+          return;
+        }
+        if (e.key === "Tab" && panel) {
+          const list = Array.from(panel.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')).filter((el) => !el.disabled && el.offsetParent !== null);
+          if (!list.length) {
+            e.preventDefault();
+            return;
+          }
+          const first = list[0], last = list[list.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      };
+      document.addEventListener("keydown", onKey);
+      return () => {
+        document.removeEventListener("keydown", onKey);
+        document.body.style.overflow = prevOverflow;
+        if (prevFocus && prevFocus.focus) {
+          try {
+            prevFocus.focus();
+          } catch (e) {
+          }
+        }
+      };
+    }, [upsellOpen, forgeOpen, encounterNode]);
     const [guidePage, setGuidePage] = useState(0);
     const playPhrase = (degs) => {
       if (busy) return;
@@ -4198,6 +4299,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       setLitCorrect([]);
       setLitWrong([]);
       setHitPad(null);
+      setRevealPc(null);
     };
     const levels = mode === "melody" ? MELODY_LEVELS : mode === "chords" ? CHORD_LEVELS : PROG_LEVELS;
     const hearKey = async () => {
@@ -4264,6 +4366,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     };
     const nextQuestion = async (isFirst = false) => {
       const s = sess.current;
+      const gen = sessGenRef.current;
       clearLadder();
       setChPicked([]);
       setProgAnswer([]);
@@ -4271,6 +4374,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       setProgActive(-1);
       setFeedback(null);
       s.attempted = false;
+      s.misses = 0;
       setPhase("playing");
       setBusy(true);
       if (s.mode === "progressions") {
@@ -4282,7 +4386,9 @@ window.SOUNDTRACK = SOUNDTRACK;
         const prog = pickProgression(lvl, s.target);
         s.target = prog;
         const cad = await playCadence(s.key, lvl.mode) + 0.35;
+        if (gen !== sessGenRef.current) return;
         const dur = await playProgression(s.key, prog.map((r) => chordByRoman(r).tones), cad, progBeat);
+        if (gen !== sessGenRef.current) return;
         sessTimer(() => {
           setPhase("answer");
           setBusy(false);
@@ -4301,6 +4407,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         } while (lvl.pool.length > 1 && pc === s.target);
         s.target = pc;
         const t = await playCadence(s.key, lvl.mode) + 0.25;
+        if (gen !== sessGenRef.current) return;
         playSemi(s.key, pc, t, oct);
         sessTimer(() => {
           setPhase("answer");
@@ -4319,7 +4426,9 @@ window.SOUNDTRACK = SOUNDTRACK;
         } while (lvl.pool.length > 1 && s.target && c.roman === s.target.roman);
         s.target = c;
         const cad = await playCadence(s.key, lvl.mode) + 0.25;
+        if (gen !== sessGenRef.current) return;
         await playChord(s.key, chordTones(c, s.sevenths), cad);
+        if (gen !== sessGenRef.current) return;
         sessTimer(() => {
           setPhase("answer");
           setBusy(false);
@@ -4419,6 +4528,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           setStreak((x) => x + 1);
         }
         setLitWrong([]);
+        setRevealPc(null);
         setHitPad(pc);
         setPhase("resolving");
         const deg = PC_TO_DEGREE[pc];
@@ -4440,13 +4550,22 @@ window.SOUNDTRACK = SOUNDTRACK;
         playResolution(s.key, s.octave, s.target, lvl.mode, !lvl.chromatic, advance);
       } else {
         s.attempted = true;
+        s.misses = (s.misses || 0) + 1;
         setStreak(0);
         setLitWrong([pc]);
         playSemi(s.key, pc, 0, s.octave);
         if (tutorialActive) {
           setTutReveal(true);
           setFeedback("Almost — hear it again, then tap the glowing number.");
-        } else setFeedback("Not that one — that's the note you pressed. Try again.");
+        } else if (s.misses >= 2) {
+          const tdeg = PC_TO_DEGREE[s.target];
+          setRevealPc(s.target);
+          setFeedback("It's the " + (tdeg != null ? tdeg : NOTE_LABELS[s.target]) + " — hear it, then tap it.");
+          sessTimer(() => replayTarget(), 650);
+        } else {
+          setFeedback("Not that one — that's what you played. Here's the note again…");
+          sessTimer(() => replayTarget(), 650);
+        }
       }
     };
     const toggleChordPick = (d) => {
@@ -4626,7 +4745,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         (c, i) => c.gap ? /* @__PURE__ */ React.createElement("div", { key: i, className: "bi-cl bi-gap" }, /* @__PURE__ */ React.createElement("i", { className: "bi-st" }), /* @__PURE__ */ React.createElement("span", { className: "bi-mid" }, /* @__PURE__ */ React.createElement("s", null)), /* @__PURE__ */ React.createElement("u", { className: "bi-sol" })) : /* @__PURE__ */ React.createElement("div", { key: i, className: "bi-cl " + c.d + (c.tonic ? " tonic" : "") }, /* @__PURE__ */ React.createElement("i", { className: "bi-st" }, c.tonic ? "✱" : ""), /* @__PURE__ */ React.createElement("b", { className: "bi-pad" }, c.n), /* @__PURE__ */ React.createElement("u", { className: "bi-sol" }, c.sol))
       ))), /* @__PURE__ */ React.createElement("div", { className: "bi-wave" }, Array.from({ length: 24 }).map((_, i) => /* @__PURE__ */ React.createElement("i", { key: i })))), /* @__PURE__ */ React.createElement("img", { className: "bi-coda", src: typeof window !== "undefined" ? window.CODA_VICTORY : "", alt: "", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("button", { className: "bi-cta", onClick: bootAdvance }, "START YOUR EAR QUEST"), /* @__PURE__ */ React.createElement("div", { className: "bi-foot" }, "EVERY NOTE IS ON THE MAP"));
     }
-    const upsellModal = upsellOpen ? /* @__PURE__ */ React.createElement("div", { className: "forge-modal upsell-modal", onClick: () => setUpsellOpen(false) }, /* @__PURE__ */ React.createElement("div", { className: "forge-panel upsell-panel", onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("span", { className: "forge-kicker" }, "Effortless Improvisation Accelerator"), /* @__PURE__ */ React.createElement("h2", { className: "forge-title" }, "Locked"), /* @__PURE__ */ React.createElement("p", { className: "upsell-copy" }, "These advanced levels unlock when you join the Accelerator — where we wire these ear skills into real songs, solos, and jams."), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setUpsellOpen(false) }, "Maybe later"), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: openOffer }, "See the roadmap →")))) : null;
+    const upsellModal = upsellOpen ? /* @__PURE__ */ React.createElement("div", { className: "forge-modal upsell-modal", onClick: () => setUpsellOpen(false) }, /* @__PURE__ */ React.createElement("div", { className: "forge-panel upsell-panel", role: "dialog", "aria-modal": "true", "aria-label": "Keep going — the full program", tabIndex: -1, ref: upsellPanelRef, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("span", { className: "forge-kicker" }, "✦ Keep going ✦"), /* @__PURE__ */ React.createElement("h2", { className: "forge-title" }, "This is where it gets good"), /* @__PURE__ */ React.createElement("p", { className: "upsell-copy" }, "You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program."), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setUpsellOpen(false) }, "Maybe later"), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: openOffer }, "Show me how →")))) : null;
     if (screen === "menu") {
       const item = (icon, label, go) => /* @__PURE__ */ React.createElement("button", { className: "menu-item", onClick: () => {
         sfx("select");
@@ -4720,12 +4839,12 @@ window.SOUNDTRACK = SOUNDTRACK;
           },
           onReady: () => setMapReady(true)
         }
-      ), en && /* @__PURE__ */ React.createElement("div", { className: "encounter-modal", onClick: () => setEncounterNode(null) }, /* @__PURE__ */ React.createElement("div", { className: "encounter mood-" + en.mood, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "enc-head" }, /* @__PURE__ */ React.createElement("span", { className: "enc-emblem", "aria-hidden": "true" }, window.KEEPER_ART && window.KEEPER_ART[encounterNode] ? /* @__PURE__ */ React.createElement("img", { src: window.KEEPER_ART[encounterNode], alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block", imageRendering: "pixelated" } }) : en.emblem), /* @__PURE__ */ React.createElement("div", { className: "enc-titles" }, /* @__PURE__ */ React.createElement("span", { className: "kicker" }, "Region ", encounterNode, " · Harmonia"), /* @__PURE__ */ React.createElement("h2", { className: "encounter-title" }, en.name), /* @__PURE__ */ React.createElement("span", { className: "encounter-sub" }, enTitle)), /* @__PURE__ */ React.createElement("span", { className: "enc-frag" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), enFrag)), /* @__PURE__ */ React.createElement("p", { className: "keeper-line" }, /* @__PURE__ */ React.createElement("b", { className: "keeper-name" }, en.keeper), /* @__PURE__ */ React.createElement("q", null, en.greet)), /* @__PURE__ */ React.createElement("p", { className: "stage-goal" }, stageGoal(enMode, enTitle)), /* @__PURE__ */ React.createElement("span", { className: "stage-meta" }, enLevels, " levels · ", enModeLabel, " · earn ", en.short, "'s mark → ◆"), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setEncounterNode(null) }, "Not yet"), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => {
+      ), en && /* @__PURE__ */ React.createElement("div", { className: "encounter-modal", onClick: () => setEncounterNode(null) }, /* @__PURE__ */ React.createElement("div", { className: "encounter mood-" + en.mood, role: "dialog", "aria-modal": "true", "aria-label": "Keeper of " + en.name, tabIndex: -1, ref: encPanelRef, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "enc-head" }, /* @__PURE__ */ React.createElement("span", { className: "enc-emblem", "aria-hidden": "true" }, window.KEEPER_ART && window.KEEPER_ART[encounterNode] ? /* @__PURE__ */ React.createElement("img", { src: window.KEEPER_ART[encounterNode], alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block", imageRendering: "pixelated" } }) : en.emblem), /* @__PURE__ */ React.createElement("div", { className: "enc-titles" }, /* @__PURE__ */ React.createElement("span", { className: "kicker" }, "Region ", encounterNode, " · Harmonia"), /* @__PURE__ */ React.createElement("h2", { className: "encounter-title" }, en.name), /* @__PURE__ */ React.createElement("span", { className: "encounter-sub" }, enTitle)), /* @__PURE__ */ React.createElement("span", { className: "enc-frag" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), enFrag)), /* @__PURE__ */ React.createElement("p", { className: "keeper-line" }, /* @__PURE__ */ React.createElement("b", { className: "keeper-name" }, en.keeper), /* @__PURE__ */ React.createElement("q", null, en.greet)), /* @__PURE__ */ React.createElement("p", { className: "stage-goal" }, stageGoal(enMode, enTitle)), /* @__PURE__ */ React.createElement("span", { className: "stage-meta" }, enLevels, " levels · ", enModeLabel, " · earn ", en.short, "'s mark → ◆"), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setEncounterNode(null) }, "Not yet"), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => {
         const id = encounterNode;
         sfx("select");
         setEncounterNode(null);
         enterStage({ id });
-      } }, "Continue →")))), forgeOpen && window.HARMONIA && /* @__PURE__ */ React.createElement("div", { className: "forge-modal", onClick: () => setForgeOpen(false) }, /* @__PURE__ */ React.createElement("div", { className: "forge-panel", onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("span", { className: "forge-kicker" }, "The legendary blade"), /* @__PURE__ */ React.createElement("h2", { className: "forge-title" }, "Excalibar"), /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "forge-sword-big" }), /* @__PURE__ */ React.createElement("span", { className: "forge-tally" }, advCollected.size, " / 8 fragments"), /* @__PURE__ */ React.createElement("ul", { className: "frag-list" }, window.HARMONIA.nodes.map((nd) => {
+      } }, "Continue →")))), forgeOpen && window.HARMONIA && /* @__PURE__ */ React.createElement("div", { className: "forge-modal", onClick: () => setForgeOpen(false) }, /* @__PURE__ */ React.createElement("div", { className: "forge-panel", role: "dialog", "aria-modal": "true", "aria-label": "Excalibar — fragment inventory", tabIndex: -1, ref: forgePanelRef, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("span", { className: "forge-kicker" }, "The legendary blade"), /* @__PURE__ */ React.createElement("h2", { className: "forge-title" }, "Excalibar"), /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "forge-sword-big" }), /* @__PURE__ */ React.createElement("span", { className: "forge-tally" }, advCollected.size, " / 8 fragments"), /* @__PURE__ */ React.createElement("ul", { className: "frag-list" }, window.HARMONIA.nodes.map((nd) => {
         const fid = window.HARMONIA.stageFrag[nd.id];
         const have = advCollected.has(fid);
         return /* @__PURE__ */ React.createElement("li", { key: nd.id, className: "frag-row" + (have ? " got" : " locked") }, /* @__PURE__ */ React.createElement("span", { className: "frag-mark" }, have ? "◆" : "◇"), /* @__PURE__ */ React.createElement("span", { className: "frag-name" }, window.HARMONIA.fragLabel[fid]), /* @__PURE__ */ React.createElement("em", { className: "frag-src" }, have ? nd.name : "— locked"));
@@ -4973,7 +5092,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       const chromOrder = ALL12.map((i) => mod12(tonicPc + i));
       const tutCoach = tutorialActive && mode === "melody";
       const tutTarget = tutCoach && tutReveal && sess.current ? sess.current.target : null;
-      return /* @__PURE__ */ React.createElement("div", { className: "app" + (lvl.mode === "minor" ? " sess-minor" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement(Confetti, { show: tutCelebrate }), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app app-wide" + (lvl.mode === "minor" ? " sess-minor" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement(Confetti, { show: tutCelebrate }), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
         killSession();
         setPhase("idle");
         setBusy(false);
@@ -4982,7 +5101,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         const r = sessionResults[i];
         const cls = "cell" + (r ? r.firstTry ? " hit" : " miss" : "") + (i === passCountFor(lvl) - 1 ? " mark" : "") + (streak >= 2 && i === sessionResults.length - 1 && r && r.firstTry ? " hot" : "");
         return /* @__PURE__ */ React.createElement("i", { key: i, className: cls });
-      })), streak >= 2 && /* @__PURE__ */ React.createElement("span", { className: "combo" }, "×", streak)), /* @__PURE__ */ React.createElement("p", { className: "qcount" }, "Question ", Math.min(qNum + 1, qCountOf(lvl)), " of ", qCountOf(lvl), " · ", displayKey, lvl.keyMode === "random" ? " (changes every question)" : ""), mode === "melody" && /* @__PURE__ */ React.createElement(
+      })), streak >= 2 && /* @__PURE__ */ React.createElement("span", { className: "combo" }, "×", streak)), /* @__PURE__ */ React.createElement("p", { className: "qcount" }, "Question ", Math.min(qNum + 1, qCountOf(lvl)), " of ", qCountOf(lvl), " · ", displayKey, lvl.keyMode === "random" ? " (changes every question)" : ""), /* @__PURE__ */ React.createElement("div", { className: "drill-stage" }, mode === "melody" && /* @__PURE__ */ React.createElement(
         DegreeLadder,
         {
           active: litActive,
@@ -5027,12 +5146,14 @@ window.SOUNDTRACK = SOUNDTRACK;
           "button",
           {
             key: pc,
-            className: "num chrom" + (pc === tonicPc ? " tonic" : "") + (ALTERED_PCS.includes(pc) ? " alt" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : ""),
+            className: "num chrom" + (pc === tonicPc ? " tonic" : "") + (ALTERED_PCS.includes(pc) ? " alt" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "") + (litWrong.includes(pc) ? " wrong" : "") + (revealPc === pc ? " coach-target" : ""),
             onClick: () => answerMelodySession(pc),
             disabled: phase !== "answer" || out
           },
           NOTE_LABELS[pc],
-          /* @__PURE__ */ React.createElement("span", { className: "num-sol" }, NOTE_SOLFEGE[pc])
+          /* @__PURE__ */ React.createElement("span", { className: "num-sol" }, NOTE_SOLFEGE[pc]),
+          hitPad === pc && /* @__PURE__ */ React.createElement("span", { className: "num-mark", "aria-hidden": "true" }, "✓"),
+          litWrong.includes(pc) && /* @__PURE__ */ React.createElement("span", { className: "num-mark", "aria-hidden": "true" }, "✕")
         );
       })) : /* @__PURE__ */ React.createElement("div", { className: "numpad" + (tutCoach && phase === "answer" ? " coach" : "") }, diaOrder.map((deg) => {
         const pc = DEGREE_TO_PC[deg];
@@ -5041,12 +5162,14 @@ window.SOUNDTRACK = SOUNDTRACK;
           "button",
           {
             key: deg,
-            className: "num" + (pc === tonicPc ? " tonic" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "") + (tutTarget === pc ? " coach-target" : ""),
+            className: "num" + (pc === tonicPc ? " tonic" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "") + (litWrong.includes(pc) ? " wrong" : "") + (tutTarget === pc || revealPc === pc ? " coach-target" : ""),
             onClick: () => answerMelodySession(pc),
             disabled: phase !== "answer" || out
           },
           deg,
-          /* @__PURE__ */ React.createElement("span", { className: "num-sol" }, SOLFEGE[deg])
+          /* @__PURE__ */ React.createElement("span", { className: "num-sol" }, SOLFEGE[deg]),
+          hitPad === pc && /* @__PURE__ */ React.createElement("span", { className: "num-mark", "aria-hidden": "true" }, "✓"),
+          litWrong.includes(pc) && /* @__PURE__ */ React.createElement("span", { className: "num-mark", "aria-hidden": "true" }, "✕")
         );
       })) : mode === "chords" ? /* @__PURE__ */ React.createElement(React.Fragment, null, showRef && /* @__PURE__ */ React.createElement("div", { className: "chord-ref" }, lvl.pool.map((r) => {
         const tones = chordTones(chordByRoman(r), lvl.sevenths);
@@ -5090,7 +5213,7 @@ window.SOUNDTRACK = SOUNDTRACK;
             active: revealing && progActive === i
           }
         );
-      })), /* @__PURE__ */ React.createElement("div", { className: "numpad chordpad" }, lvl.pool.map((r) => /* @__PURE__ */ React.createElement(
+      })), /* @__PURE__ */ React.createElement("div", { className: "prog-right" }, /* @__PURE__ */ React.createElement("div", { className: "numpad chordpad" }, lvl.pool.map((r) => /* @__PURE__ */ React.createElement(
         "button",
         {
           key: r,
@@ -5116,7 +5239,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           disabled: phase !== "answer" || busy || progAnswer.length !== lvl.len
         },
         "Check answer"
-      )))));
+      )))))));
     }
     if (screen === "results") {
       const total = sessionResults.length || 1;
@@ -5161,10 +5284,13 @@ window.SOUNDTRACK = SOUNDTRACK;
         } else {
           setScreen("levels");
         }
-      } }, fromAdventure ? "← To the map" : "← Levels"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, resultName)), /* @__PURE__ */ React.createElement("div", { className: "results" }, justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "victory" }, /* @__PURE__ */ React.createElement("div", { className: "victory-rays", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", { className: "victory-glow", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Fragment forged ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, advNode.winTitle), /* @__PURE__ */ React.createElement("div", { className: "victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" }), /* @__PURE__ */ React.createElement("div", { className: "forge-sparks", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null))), /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), fragName, " — forged into Excalibar"), /* @__PURE__ */ React.createElement("span", { className: "victory-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("span", { className: "forge-count" }, advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments")), !onboarded && /* @__PURE__ */ React.createElement("div", { className: "lead-card" }, leadStatus === "done" || leadStatus === "saved" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✓ You're in"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, leadStatus === "done" ? "Check your inbox to confirm — your Chords-by-Numbers PDF lands right after. Your progress is saved." : "Your progress is saved on this device. (We couldn't reach the email service just now — no worries, keep playing.)"), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => {
+      } }, fromAdventure ? "← To the map" : "← Levels"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, resultName)), /* @__PURE__ */ React.createElement("div", { className: "results" }, justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "victory" }, /* @__PURE__ */ React.createElement("div", { className: "victory-rays", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", { className: "victory-glow", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Fragment forged ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, advNode.winTitle), /* @__PURE__ */ React.createElement("div", { className: "victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" }), /* @__PURE__ */ React.createElement("div", { className: "forge-sparks", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null))), /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), fragName, " — forged into Excalibar"), /* @__PURE__ */ React.createElement("span", { className: "victory-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("span", { className: "forge-count" }, advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments")), justCleared && !finale && /* @__PURE__ */ React.createElement("button", { className: "primary map-return", onClick: () => {
+        setSwordBurst(true);
+        setScreen("adventure");
+      } }, "← Return to the map"), /* @__PURE__ */ React.createElement("div", { className: "score-big" + (passed ? " pass" : "") }, pct, "%"), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, isCustom ? passed ? "Strong run. Custom sessions aren't scored toward stages." : "Custom sessions aren't scored toward stages — tweak the notes and go again." : passed ? hasNext ? "Passed! This level is checked off." : "Passed — that's the top level. Your ears are working." : `${Math.round(passRate * 100)}% on first tries earns the check. Every rep counts.`), /* @__PURE__ */ React.createElement("div", { className: "stat-row" }, /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, firstTries, "/", total), " first try"), /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, bestStreak >= 2 ? "🔥" : "", bestStreak), " best streak")), showBars && /* @__PURE__ */ React.createElement("div", { className: "bars" }, Object.entries(byTarget).map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, className: "bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "bar-label" }, k), /* @__PURE__ */ React.createElement("div", { className: "bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "bar-fill", style: { width: `${v.right / v.total * 100}%` } })), /* @__PURE__ */ React.createElement("span", { className: "bar-count" }, v.right, "/", v.total)))), !onboarded && (passed || justCleared) && /* @__PURE__ */ React.createElement("div", { className: "lead-card" }, leadStatus === "done" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✓ You're in"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Check your inbox to confirm — your Chords-by-Numbers PDF lands right after. Your progress is saved, too."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => {
         finishOnboarding();
         openOffer();
-      } }, "See the roadmap →"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Keep playing"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✦ Free guitar PDF ✦"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Want to hear any guitar chord by ear? Pop in your email and I'll send you the free Chords-by-Numbers PDF — the method behind this whole game. Your progress saves, too."), /* @__PURE__ */ React.createElement("input", { className: "set-input lead-input", placeholder: "first name", value: leadName, autoComplete: "given-name", onChange: (e) => setLeadName(e.target.value) }), /* @__PURE__ */ React.createElement(
+      } }, "See the roadmap →"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Keep playing"))) : leadStatus === "saved" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✓ Progress saved"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Saved on this device. I couldn't send the PDF just now — give it another try, or keep playing and grab it later."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: submitLead, disabled: leadStatus === "sending" }, leadStatus === "sending" ? "Sending…" : "Try again"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Keep playing"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✦ Free guitar PDF ✦"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Want to hear any guitar chord by ear? Pop in your email and I'll send you the free Chords-by-Numbers PDF — the method behind this whole game. Your progress saves, too."), /* @__PURE__ */ React.createElement("input", { className: "set-input lead-input", placeholder: "first name", value: leadName, autoComplete: "given-name", onChange: (e) => setLeadName(e.target.value) }), /* @__PURE__ */ React.createElement(
         "input",
         {
           className: "set-input lead-input",
@@ -5185,10 +5311,7 @@ window.SOUNDTRACK = SOUNDTRACK;
             if (e.key === "Enter") submitLead();
           }
         }
-      ), leadStatus === "error" && /* @__PURE__ */ React.createElement("span", { className: "lead-err" }, "Enter a valid email, or skip."), /* @__PURE__ */ React.createElement("span", { className: "lead-consent" }, "We'll email you the free PDF. No spam — unsubscribe anytime."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: submitLead, disabled: leadStatus === "sending" }, leadStatus === "sending" ? "Sending…" : "Send me the PDF"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Maybe later")))), justCleared && !finale && /* @__PURE__ */ React.createElement("button", { className: "primary map-return", onClick: () => {
-        setSwordBurst(true);
-        setScreen("adventure");
-      } }, "← Return to the map"), /* @__PURE__ */ React.createElement("div", { className: "score-big" + (passed ? " pass" : "") }, pct, "%"), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, isCustom ? passed ? "Strong run. Custom sessions aren't scored toward stages." : "Custom sessions aren't scored toward stages — tweak the notes and go again." : passed ? hasNext ? "Passed! This level is checked off." : "Passed — that's the top level. Your ears are working." : `${Math.round(passRate * 100)}% on first tries earns the check. Every rep counts.`), /* @__PURE__ */ React.createElement("div", { className: "stat-row" }, /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, firstTries, "/", total), " first try"), /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, bestStreak >= 2 ? "🔥" : "", bestStreak), " best streak")), showBars && /* @__PURE__ */ React.createElement("div", { className: "bars" }, Object.entries(byTarget).map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, className: "bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "bar-label" }, k), /* @__PURE__ */ React.createElement("div", { className: "bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "bar-fill", style: { width: `${v.right / v.total * 100}%` } })), /* @__PURE__ */ React.createElement("span", { className: "bar-count" }, v.right, "/", v.total)))), /* @__PURE__ */ React.createElement("div", { className: "results-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => isCustom ? startSession(mode, null, sessLvl) : startSession(mode, levelIdx) }, "Try again"), hasNext && /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => startSession(mode, levelIdx + 1) }, "Next level →"))));
+      ), leadStatus === "error" && /* @__PURE__ */ React.createElement("span", { className: "lead-err" }, "Enter a valid email, or tap Maybe later."), /* @__PURE__ */ React.createElement("span", { className: "lead-consent" }, "We'll email you the free PDF. No spam — unsubscribe anytime."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: submitLead, disabled: leadStatus === "sending" }, leadStatus === "sending" ? "Sending…" : "Send me the PDF"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Maybe later")))), /* @__PURE__ */ React.createElement("div", { className: "results-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => isCustom ? startSession(mode, null, sessLvl) : startSession(mode, levelIdx) }, "Try again"), hasNext && /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => startSession(mode, levelIdx + 1) }, "Next level →"))));
     }
     if (screen === "shop") {
       const bal = starBalance();
@@ -5365,7 +5488,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       } }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "How music works")), /* @__PURE__ */ React.createElement("section", { className: "panel" }, pages[guidePage]), /* @__PURE__ */ React.createElement("div", { className: "pager" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", disabled: guidePage === 0, onClick: () => setGuidePage((p) => p - 1) }, "← Back"), /* @__PURE__ */ React.createElement("div", { className: "dots" }, pages.map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "dot" + (i === guidePage ? " on" : "") }))), guidePage < pages.length - 1 ? /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => setGuidePage((p) => p + 1) }, "Next →") : /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => startSession("melody", 0) }, "Start training →")));
     }
     const stageLabels = ["Numbers on", "Blank pads"];
-    return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
+    return /* @__PURE__ */ React.createElement("div", { className: "app app-wide" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
       setDroneOn(false);
       stopPath();
       killSession();
@@ -5407,7 +5530,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         onClick: () => setProg(p)
       },
       p.map((r) => chordNumber(r, false)).join(" ")
-    ))), /* @__PURE__ */ React.createElement("div", { className: "path-grid" }, pathProg.map((r, col) => /* @__PURE__ */ React.createElement(PathColumn, { key: col, roman: r, col, current: pathIdx === col, lit: litPath, onDown: pathDown, onUp: pathUp, sevenths: pathSevenths }))), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, "Play the loop, then solo — tap the pads or use the number row (", /* @__PURE__ */ React.createElement("strong", null, "` 1–7 8 9 0 - ="), "). Hop to the nearest circled tone of each chord."), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Solo over the changes. The circles are your safe landing notes.")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "explore-controls" }, /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Start on", /* @__PURE__ */ React.createElement("select", { value: exStart, onChange: (e) => {
+    ))), /* @__PURE__ */ React.createElement("div", { className: "path-grid" }, pathProg.map((r, col) => /* @__PURE__ */ React.createElement(PathColumn, { key: col, roman: r, col, current: pathIdx === col, lit: litPath, onDown: pathDown, onUp: pathUp, sevenths: pathSevenths }))), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, "Play the loop, then solo — tap the pads or use the number row (", /* @__PURE__ */ React.createElement("strong", null, "` 1–7 8 9 0 - ="), "). Hop to the nearest circled tone of each chord."), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Solo over the changes. The circles are your safe landing notes.")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "fp-stage" }, /* @__PURE__ */ React.createElement("div", { className: "fp-side" }, /* @__PURE__ */ React.createElement("div", { className: "explore-controls" }, /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Start on", /* @__PURE__ */ React.createElement("select", { value: exStart, onChange: (e) => {
       setExStart(Number(e.target.value));
       e.target.blur();
     } }, [1, 2, 3, 4, 5, 6, 7].map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: d }, d)))), /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Notes", /* @__PURE__ */ React.createElement("select", { value: exCount, onChange: (e) => {
@@ -5489,7 +5612,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
       const offset = Math.max(-50, Math.min(50, singCents)) / 50 * 42;
       return /* @__PURE__ */ React.createElement("div", { className: "sing-panel" }, /* @__PURE__ */ React.createElement("div", { className: "sing-track " + state }, /* @__PURE__ */ React.createElement("span", { className: "sing-end flat" }, "flat ◄"), /* @__PURE__ */ React.createElement("span", { className: "sing-end sharp" }, "► sharp"), /* @__PURE__ */ React.createElement("div", { className: "sing-zone" }), /* @__PURE__ */ React.createElement("div", { className: "sing-center" }), singDeg != null && !micReq && /* @__PURE__ */ React.createElement("div", { className: "sing-marker", style: { left: `${50 + offset}%` } }, singDeg === 1 ? "✳1" : singDeg)), /* @__PURE__ */ React.createElement("div", { className: "sing-level" }, /* @__PURE__ */ React.createElement("div", { className: "sing-level-fill", style: { width: `${Math.round(singLevel * 100)}%` } })), /* @__PURE__ */ React.createElement("p", { className: "sing-coach" }, coach), /* @__PURE__ */ React.createElement("p", { className: "sing-privacy" }, "🔒 The mic is only used on your device to hear your pitch — nothing is recorded, saved, or sent anywhere."));
-    })(), exView === "map" ? /* @__PURE__ */ React.createElement(
+    })()), /* @__PURE__ */ React.createElement("div", { className: "fp-main" }, exView === "map" ? /* @__PURE__ */ React.createElement(
       ExploreMap,
       {
         start: exStart,
@@ -5517,7 +5640,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         onDown: pianoDown,
         onUp: pianoUp
       }
-    ), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, exStage === 0 ? `World ${exWorld}: the blue pads are its chord tones (${worldChordTones(exWorld).join("·")}). Drone on, sing the numbers.` : "Numbers hidden. Sing each number as you press its pad.", " ", "Or play the number row on your keyboard (", /* @__PURE__ */ React.createElement("strong", null, "` 1–7 8 9 0 - ="), ")."), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Your imagined instrument, made briefly visible. The goal is to need it less and less.")), upsellModal);
+    ))), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, exStage === 0 ? `World ${exWorld}: the blue pads are its chord tones (${worldChordTones(exWorld).join("·")}). Drone on, sing the numbers.` : "Numbers hidden. Sing each number as you press its pad.", " ", "Or play the number row on your keyboard (", /* @__PURE__ */ React.createElement("strong", null, "` 1–7 8 9 0 - ="), ")."), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Your imagined instrument, made briefly visible. The goal is to need it less and less.")), upsellModal);
   }
   const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700&display=swap');
@@ -5532,6 +5655,7 @@ window.SOUNDTRACK = SOUNDTRACK;
   --blue: #7CADD1;
   --teal: #57C6C4;
   --wrong: #E07856;
+  --wrong-text: #F59A72; /* brighter orange for NORMAL-size miss/error text — ~4.6:1 on --bg (AA); --wrong stays for fills */
   --alt: #2B302D;
 }
 :root[data-theme="light"] {
@@ -5544,6 +5668,7 @@ window.SOUNDTRACK = SOUNDTRACK;
   --blue: #4E86AE;
   --teal: #2FA6A4;
   --wrong: #D0603F;
+  --wrong-text: #B8442A; /* darker orange for normal-size miss/error text on the light --bg (AA) */
   --alt: #E4EAE5;
 }
 html, body { background: var(--bg); }
@@ -5574,6 +5699,10 @@ html, body { background: var(--bg); }
   --blue: #6E9AC4;    /* note selection → steel blue */
 }
 .app.sess-minor .primary { color: #EAF1FB; text-shadow: none; } /* light text on the blue GO */
+/* Landscape reflow wrappers: transparent (display:contents) in portrait so layout is
+   pixel-identical to before; they only become flex rows inside the phone-landscape
+   media query at the bottom of this stylesheet. */
+.drill-stage, .prog-right, .fp-stage, .fp-side { display: contents; }
 button { touch-action: manipulation; }
 .path-note, .explore-pad, .pk, .num, .cu-note, .chip, .rung { touch-action: none; }
 /* installed web app: guarantee a top buffer that clears the iOS status bar,
@@ -5628,6 +5757,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .ghost {
   background: transparent; color: var(--text); border: 1.5px solid var(--line);
   border-radius: 10px; padding: 8px 14px; font-size: 0.9rem; font-weight: 500;
+  min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
 }
 .ghost.voice.on { border-color: var(--teal); color: var(--teal); }
 .primary {
@@ -5819,7 +5949,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .sing-level-fill { height: 100%; background: var(--teal); border-radius: 99px; transition: width 0.08s linear; }
 .sing-coach { text-align: center; margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-soft); min-height: 1.2em; }
 .sing-privacy { text-align: center; margin: 0; font-size: 0.72rem; line-height: 1.4; color: var(--text-soft); opacity: 0.8; }
-.sing-err { color: var(--wrong); }
+.sing-err { color: var(--wrong-text); }
 .pk-label {
   font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; color: #23302A;
   margin-bottom: 10px; position: relative;
@@ -5868,12 +5998,20 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 
 .numpad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .num {
-  aspect-ratio: 1; min-height: 58px;
+  aspect-ratio: 1; min-height: 58px; position: relative;
   font-family: 'Archivo Black', sans-serif; font-weight: 400; font-size: 1.5rem;
-  background: var(--bg); color: var(--text);
+  background: var(--card); color: var(--text); /* --card (not --bg) so the pad reads as a control vs the page (WCAG 1.4.11) */
   border: 1.5px solid var(--line); border-radius: 14px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
 }
+/* colorblind-safe corner mark: ✓ on the pad you nailed, ✕ on a wrong tap — a SHAPE
+   cue so correct/wrong don't rely on green-vs-orange alone. Inset past the retro
+   4px corner notch so the clip-path never eats it. */
+.num-mark { position: absolute; top: 5px; right: 7px; font-family: 'Archivo', sans-serif;
+  font-weight: 800; font-size: 0.72rem; line-height: 1; color: inherit; opacity: .95; pointer-events: none; }
+/* the pressed pad on a wrong answer — previously nothing lit here, only the ladder */
+.num.wrong { background: var(--wrong); color: #3A241B; border-color: var(--wrong); }
+.num.wrong .num-sol { color: #3A241B; }
 .num-sol {
   font-family: 'Archivo', sans-serif; font-weight: 500; font-size: 0.62rem;
   color: var(--text-soft); letter-spacing: 0.05em;
@@ -5960,7 +6098,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .brand-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .gear {
   background: transparent; border: 1.5px solid var(--line); color: var(--text-soft);
-  border-radius: 10px; width: 40px; height: 40px; font-size: 1.2rem; flex-shrink: 0;
+  border-radius: 10px; width: 44px; height: 44px; font-size: 1.2rem; flex-shrink: 0;
 }
 .gear:hover { border-color: var(--teal); color: var(--teal); }
 
@@ -6024,7 +6162,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .cr-tones b { color: var(--teal); font-weight: 700; }
 
 /* chord progressions */
-.streak { color: var(--wrong); font-weight: 700; margin-right: 8px; }
+.streak { color: var(--wrong-text); font-weight: 700; margin-right: 8px; }
 /* input area holds either the buttons or the review stacks — fixed height so
    swapping between them never shifts the layout, and the stacks never clip */
 /* the answer slots ARE the stacks — always in place; the degree ladder is a
@@ -6042,8 +6180,8 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .prog-stack .stack-note.home { color: var(--teal); }
 .prog-stack .stack-note.on.home { border-color: var(--teal); color: var(--teal); }
 .prog-stack .stack-label { color: var(--blue); font-size: 0.85rem; padding-top: 4px; min-width: 30px; }
-.prog-stack.wrong .stack-label { color: var(--wrong); }
-.prog-stack.wrong .stack-note.on { border-color: var(--wrong); color: var(--wrong); }
+.prog-stack.wrong .stack-label { color: var(--wrong-text); }
+.prog-stack.wrong .stack-note.on { border-color: var(--wrong); color: var(--wrong-text); }
 .prog-stack.active { transform: translateY(-3px) scale(1.06); }
 .prog-stack.active .stack-note.on { border-color: var(--green); color: var(--green); box-shadow: 0 0 8px rgba(106,191,94,0.5); }
 .prog-stack.active .stack-label { color: var(--green); }
@@ -6152,13 +6290,44 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .session-stack .stack-note { width: 32px; height: 32px; font-size: 0.98rem; }
 .session-stack { gap: 3px; }
 .session-stack .stack-note.picked { border: 2px solid var(--blue); color: var(--blue); }
-.session-stack .stack-note.on-wrong { border: 2px solid var(--wrong); color: var(--wrong); }
+.session-stack .stack-note.on-wrong { border: 2px solid var(--wrong); color: var(--wrong-text); }
 .session-stack .stack-note.on-correct { border: 2px solid var(--green); color: var(--green); background: rgba(106,191,94,0.12); }
 .session-stack .stack-label { color: var(--teal); }
 .pager { display: flex; align-items: center; gap: 12px; }
 .dots { flex: 1; display: flex; gap: 7px; justify-content: center; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
 .dot.on { background: var(--green); }
+
+/* ==========  PHONE-LANDSCAPE: use the width (two columns)  ==================
+   Triggers only when a phone is held sideways (short viewport). Scoped to
+   .app-wide (session drill + Free Play) so menu/settings/guide/home/results
+   keep today's centered 560 column. The .drill-stage / .fp-stage / .prog-right
+   wrappers are display:contents in portrait, so this block is the ONLY place
+   the layout changes — portrait stays pixel-identical. */
+@media (orientation: landscape) and (max-height: 600px) {
+  #root { max-width: 100%; }
+  .app-wide {
+    max-width: 100%; gap: 10px;
+    padding-top: calc(10px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+  :root[data-standalone] .app-wide { padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
+
+  /* drill screen: tonal map / stack LEFT, controls + answer pads RIGHT */
+  .app-wide .drill-stage { display: flex; gap: 16px; align-items: flex-start; justify-content: center; }
+  .app-wide .drill-stage > .ladder { flex: 0 0 44%; }                 /* melody: the tonal map */
+  .app-wide .drill-stage > .panel { flex: 1 1 0; min-width: 0; max-width: 720px; }
+  .app-wide .chord-layout { gap: 24px; }                              /* chords are already two-column */
+  /* progressions: mini-stacks LEFT, chord pad + Undo/Check RIGHT */
+  .app-wide .prog-layout { flex-direction: row; align-items: flex-start; gap: 16px; }
+  .app-wide .prog-stacks { flex: 0 0 auto; }
+  .app-wide .prog-right { display: flex; flex-direction: column; gap: 16px; flex: 1 1 0; min-width: 0; }
+
+  /* Free Play: controls + sing tuner in a slim sidebar; map/piano take the wide side */
+  .app-wide .fp-stage { display: flex; gap: 16px; align-items: flex-start; }
+  .app-wide .fp-side { display: flex; flex-direction: column; gap: 10px; flex: 0 0 34%; }
+  .app-wide .fp-main { flex: 1 1 0; min-width: 0; }
+}
 `;
   ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(NumberEarTrainer));
 })();
