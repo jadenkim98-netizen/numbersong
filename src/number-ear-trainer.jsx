@@ -1637,7 +1637,7 @@ function MapTour({ onClose, onSfx }) {
   );
 }
 
-function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, burst, boringMode, celebrateNode, onCelebrateDone, skinSrc }) {
+function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, burst, boringMode, celebrateNode, onCelebrateDone, skinId }) {
   const H = window.HARMONIA;
   const mapRef = useRef(null);
   const swordRef = useRef(null);
@@ -1647,13 +1647,24 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
   const [codaImg, setCodaImg] = useState(null);
   const [dojoImg, setDojoImg] = useState(null);
   const [bakedMap, setBakedMap] = useState(null);
-  // Equipped shop skin: a distinct Coda sprite that replaces the base one on the map.
-  const [skinImg, setSkinImg] = useState(null);
+  // Equipped skin as 4 directional frames {s,n,e,w} so the hero faces the way he
+  // walks. faceRef holds the current facing ("s" while idle → faces the viewer).
+  const [heroFrames, setHeroFrames] = useState(null);
+  const faceRef = useRef("s");
   useEffect(() => {
-    if (!skinSrc) { setSkinImg(null); return; }
-    const im = new Image(); im.onload = () => setSkinImg(im); im.src = skinSrc;
-    return () => { im.onload = null; };
-  }, [skinSrc]);
+    const set = (typeof window !== "undefined" && window.CODA_SKINS && window.CODA_SKINS[skinId]) || null;
+    if (!set) { setHeroFrames(null); return; }
+    const out = {}; let pending = 0; let cancelled = false;
+    ["s", "n", "e", "w"].forEach((d) => {
+      if (!set[d]) return;
+      pending++;
+      const im = new Image();
+      im.onload = () => { out[d] = im; if (--pending === 0 && !cancelled) setHeroFrames({ ...out }); };
+      im.src = set[d];
+    });
+    if (pending === 0) setHeroFrames(null);
+    return () => { cancelled = true; };
+  }, [skinId]);
   const codaRef = useRef(null);   // Coda's live tile position {c,r} (floats while walking)
   const standRef = useRef(null);  // the tile Coda is resting on (persists across re-renders, so he stays where he last walked)
   const walkRef = useRef(false);  // true while a walk animation is in flight
@@ -1723,8 +1734,9 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       ctx.drawImage(swordImg, mx - sw / 2, my + 5 - sh, sw, sh);
       ctx.restore();
     }
-    drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, skinImg || codaImg, bob);
-  }, [tileset, nodes, currentId, collected, codaImg, skinImg, swordImg, dojoImg, bakedMap]);
+    const frame = heroFrames ? (heroFrames[faceRef.current] || heroFrames.s) : null;
+    drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, frame || codaImg, bob);
+  }, [tileset, nodes, currentId, collected, codaImg, heroFrames, swordImg, dojoImg, bakedMap]);
 
   // static render: Coda rests on the tile he last walked to (his standing tile), so a
   // re-render (opening/closing an encounter, coming back from a stage) doesn't snap him
@@ -1803,7 +1815,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
     // (e.g. stage 1 → 7) walks proportionally faster so it doesn't drag; short
     // hops stay natural. Duration lands ~0.9–2.0s either way.
     const len = route.reduce((a, p, i) => (i ? a + Math.hypot(p.c - route[i - 1].c, p.r - route[i - 1].r) : 0), 0);
-    const dur = Math.min(2.0, Math.max(0.9, len / 13));
+    const dur = Math.min(2.0, Math.max(0.9, len / 13)); // tiles per second
     const SPEED = len / dur; // tiles per second
     let seg = 1, prevTs = 0;
     const step = (ts) => {
@@ -1812,12 +1824,13 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       while (remain > 0 && seg < route.length) {
         const b = route[seg], cur = codaRef.current;
         const dc = b.c - cur.c, dr = b.r - cur.r, dist = Math.hypot(dc, dr);
+        if (dist > 1e-4) faceRef.current = Math.abs(dc) >= Math.abs(dr) ? (dc > 0 ? "e" : "w") : (dr > 0 ? "s" : "n");
         if (dist <= remain || dist < 1e-4) { codaRef.current = { c: b.c, r: b.r }; remain -= dist; seg++; }
         else { codaRef.current = { c: cur.c + dc / dist * remain, r: cur.r + dr / dist * remain }; remain = 0; }
       }
       draw(codaRef.current.c, codaRef.current.r, Math.abs(Math.sin(ts / 95)) * 2.5);
       if (seg < route.length) { rafRef.current = requestAnimationFrame(step); }
-      else { walkRef.current = false; standRef.current = { c: target.c, r: target.r }; draw(target.c, target.r, 0); done && done(); }
+      else { walkRef.current = false; faceRef.current = "s"; standRef.current = { c: target.c, r: target.r }; draw(target.c, target.r, 0); done && done(); }
     };
     rafRef.current = requestAnimationFrame(step);
   };
@@ -2064,7 +2077,7 @@ export default function NumberEarTrainer() {
     sfx("select");
   };
   const equipSkin = (id) => { saveShop({ ...shop, skin: id }); sfx("move"); };
-  const skinSrc = (typeof window !== "undefined" && window.CODA_SKINS && window.CODA_SKINS[shop.skin]) || null;
+  const skinId = shop.skin || "default";
   const [progress, setProgress] = useState(loadProgress);
   // Progress only PERSISTS (survives reload) once the player has "saved" — i.e. given
   // their email on the results card, or unlocked the full app. It still updates
@@ -3020,7 +3033,7 @@ export default function NumberEarTrainer() {
     return (
       <>
         <AdventureMap
-          nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={onTapNode} skinSrc={skinSrc}
+          nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={onTapNode} skinId={skinId}
           burst={swordBurst} boringMode={boringMode} onForge={() => { sfx("select"); setForgeOpen(true); }}
           celebrateNode={mapCelebrateNode} onCelebrateDone={() => setMapCelebrateNode(null)}
           onShop={() => { setAuxReturn("adventure"); setScreen("shop"); }}
@@ -3787,9 +3800,8 @@ export default function NumberEarTrainer() {
       const owned = id === "default" || shop.owned.includes(id);
       const equipped = shop.skin === id;
       const cost = (SHOP.find((x) => x.id === id) || {}).cost;
-      const src = id === "default"
-        ? (typeof window !== "undefined" ? window.CODA_SPRITE : "")
-        : (typeof window !== "undefined" && window.CODA_SKINS ? window.CODA_SKINS[id] : "");
+      const frames = (typeof window !== "undefined" && window.CODA_SKINS) ? window.CODA_SKINS[id] : null;
+      const src = (frames && frames.s) || (typeof window !== "undefined" ? window.CODA_SPRITE : "");
       return (
         <div key={id} className={"shop-item" + (equipped ? " equipped" : "")}>
           <span className="shop-swatch" style={{ boxShadow: "inset 0 0 0 2px " + tint + "55" }}>

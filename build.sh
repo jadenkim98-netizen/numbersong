@@ -52,11 +52,13 @@ keeper_art = json.dumps({
   "3": _png("keepers/portrait_sylva.png"),
   "4": _png("keepers/portrait_bassil.png"),
 })
-# Map hero: the shop-swappable Coda skins. "default" is the base look drawn on the
-# map; gold/shadow/crimson/violet are purchasable in the shop. All are the same-size
-# ~29px sprites (drawn larger on the map), so swapping one for another is seamless.
-coda_map_data = _png("skins/coda_default.png")
-coda_skins_data = json.dumps({sid: _png(f"skins/coda_{sid}.png") for sid in ("gold", "shadow", "crimson", "violet")})
+# Map hero: the shop-swappable Coda skins, each as 4 directional frames (s/n/e/w)
+# so the hero faces the way he walks. "default" is the base look; gold/shadow/
+# crimson/violet are purchasable in the shop.
+coda_skins_data = json.dumps({
+  sid: {d: _png(f"skins/coda_{sid}_{d}.png") for d in ("s", "n", "e", "w")}
+  for sid in ("default", "gold", "shadow", "crimson", "violet")
+})
 adventure = open("adventure/assets.js").read().replace("export const", "const").replace("export function", "function")
 soundtrack = open("retro/soundtrack.js").read().replace("export const", "const")
 assert "</script" not in soundtrack
