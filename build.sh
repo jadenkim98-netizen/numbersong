@@ -45,12 +45,17 @@ map_baked_data = "data:image/png;base64," + base64.b64encode(open("map_baked.png
 music_books_data = "data:image/png;base64," + base64.b64encode(open("music_books.png","rb").read()).decode()
 def _png(p): return "data:image/png;base64," + base64.b64encode(open(p,"rb").read()).decode()
 # Keeper art shown in the encounter modal, keyed by region node id. Region 1 = Verda's
-# bust portrait; 2-4 = full-body keeper sprites. Regions 5-8 still fall back to the emoji.
+# bust portrait; 2-8 = bust portraits derived from each keeper's full-body sprite
+# (PixelLab, generated at 32px then upscaled 4x to match the chunky retro look).
 keeper_art = json.dumps({
   "1": verda_portrait_data,
   "2": _png("keepers/portrait_rue.png"),
   "3": _png("keepers/portrait_sylva.png"),
   "4": _png("keepers/portrait_bassil.png"),
+  "5": _png("keepers/portrait_marin.png"),
+  "6": _png("keepers/portrait_sable.png"),
+  "7": _png("keepers/portrait_chroma.png"),
+  "8": _png("keepers/portrait_ferro.png"),
 })
 # Map hero: the shop-swappable Coda skins, each as 4 directional frames (s/n/e/w)
 # so the hero faces the way he walks. "default" is the base look; gold/shadow/
