@@ -442,6 +442,9 @@ const PROG_SPEEDS = [
   { label: "Fast",    beat: 0.72 },
   { label: "Fastest", beat: 0.5 },
 ];
+// Question tempo — a continuous speed factor for the "establish home" cadence at
+// the start of each question. 1 = normal; >1 faster, <1 slower (slider-driven).
+const TEMPO_MIN = 0.6, TEMPO_MAX = 2.0;
 function loadPref(key, fallback) {
   try {
     const v = window.localStorage.getItem("numbersong-" + key);
@@ -624,19 +627,23 @@ function useAudio() {
     }
   }, []);
 
-  // Cadence to anchor the ear in the key — major (I–IV–V–I) or minor (i–iv–V–i)
+  // Cadence to anchor the ear in the key — major (I–IV–V–I) or minor (i–iv–V–i).
+  // cadSpeedRef scales its timing (set from the Test-settings tempo slider; <1 = faster).
+  const cadSpeedRef = useRef(1 / (parseFloat(loadPref("tempo", "1")) || 1));
+  const setCadenceSpeed = useCallback((tempo) => { cadSpeedRef.current = tempo > 0 ? 1 / tempo : 1; }, []);
   const playCadence = useCallback(async (key, mode = "major") => {
     await ensure();
     const now = Tone.now();
+    const sp = cadSpeedRef.current;
     const base = Tone.Frequency(key + "4").toMidi();
     const noteAt = (semi) => Tone.Frequency(base + semi, "midi").toNote();
     (CADENCES[mode] || CADENCES.major).forEach((ch, i) => {
-      const t = i * 0.55;
-      padRef.current.triggerAttackRelease(ch.semis.map(noteAt), 0.5, now + t, 0.45);
+      const t = i * 0.55 * sp;
+      padRef.current.triggerAttackRelease(ch.semis.map(noteAt), 0.5 * sp, now + t, 0.45);
       // bass: the chord's root an octave below, slightly stronger
-      padRef.current.triggerAttackRelease(noteAt(ch.bass - 12), 0.6, now + t, 0.6);
+      padRef.current.triggerAttackRelease(noteAt(ch.bass - 12), 0.6 * sp, now + t, 0.6);
     });
-    return 2.4; // total seconds
+    return 2.4 * sp; // total seconds
   }, [ensure]);
 
   const playDegree = useCallback(async (key, degree, delay = 0, octave = 4) => {
@@ -1020,7 +1027,7 @@ function useAudio() {
     }
   }, []);
 
-  return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm: ensure };
+  return { playCadence, setCadenceSpeed, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm: ensure };
 }
 
 // Background music engine (Fable's soundtrack). Owns Tone.Transport; routes
@@ -2013,7 +2020,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
 /* ─────────────────────────────  APP  ───────────────────────────── */
 
 export default function NumberEarTrainer() {
-  const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm } = useAudio();
+  const { playCadence, setCadenceSpeed, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm } = useAudio();
   const { playTheme, stopMusic, setMusicOn } = useMusic();
   const [musicPref, setMusicPref] = useState(() => loadPref("music", "1") === "1");
 
@@ -2229,6 +2236,7 @@ export default function NumberEarTrainer() {
   const [testCfgOpen, setTestCfgOpen] = useState(false); // in-session quick settings (tempo/resolution/theme)
   const [resStep, setResStep] = useState(() => parseFloat(loadPref("resstep", "0.8")) || 0.8);
   const [progBeat, setProgBeat] = useState(() => parseFloat(loadPref("progbeat", "1.0")) || 1.0);
+  const [testTempo, setTestTempo] = useState(() => parseFloat(loadPref("tempo", "1")) || 1); // question-cadence speed (slider; >1 faster)
   const [chordSevenths, setChordSevenths] = useState(() => loadPref("sevenths", "0") === "1");
   const [showRef, setShowRef] = useState(() => loadPref("chordref", "1") === "1"); // chord-tones reference chart
   useEffect(() => {
@@ -3723,11 +3731,24 @@ export default function NumberEarTrainer() {
               .test-cfg .tc-title{ font-weight:800; font-size:1.05rem; margin:0; }
               .retro .test-cfg .tc-title{ font-family:var(--pf); font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--gold); }
               .test-cfg .set-block{ display:flex; flex-direction:column; gap:8px; }
+              .test-cfg .tempo-row{ display:flex; align-items:center; gap:12px; }
+              .test-cfg .tempo-row input[type=range]{ flex:1; accent-color:var(--teal,#57C6C4); height:24px; }
+              .test-cfg .tempo-val{ font-variant-numeric:tabular-nums; min-width:3.4em; text-align:right; font-weight:700; color:var(--teal,#57C6C4); }
+              .retro .test-cfg .tempo-val{ font-family:var(--pf); font-size:11px; }
             `}</style>
             <div className="test-cfg" onClick={(e) => e.stopPropagation()}>
               <p className="tc-title">Test settings</p>
               <div className="set-block">
                 <span className="set-label">Tempo</span>
+                <p className="set-desc">How fast the cadence plays at the start of each question.</p>
+                <div className="tempo-row">
+                  <input type="range" min={TEMPO_MIN} max={TEMPO_MAX} step={0.05} value={testTempo} aria-label="Question tempo"
+                    onChange={(e) => { const v = parseFloat(e.target.value); setTestTempo(v); savePref("tempo", v); setCadenceSpeed(v); }} />
+                  <span className="tempo-val">{testTempo.toFixed(2)}×</span>
+                </div>
+              </div>
+              <div className="set-block">
+                <span className="set-label">Resolution speed</span>
                 <p className="set-desc">How fast the notes walk home after a correct answer.</p>
                 <div className="seg">
                   {RES_SPEEDS.map((s) => (

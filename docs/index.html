@@ -1859,6 +1859,8 @@ window.SOUNDTRACK = SOUNDTRACK;
     { label: "Fast", beat: 0.72 },
     { label: "Fastest", beat: 0.5 }
   ];
+  const TEMPO_MIN = 0.6;
+  const TEMPO_MAX = 2;
   function loadPref(key, fallback) {
     try {
       const v = window.localStorage.getItem("numbersong-" + key);
@@ -2034,17 +2036,22 @@ window.SOUNDTRACK = SOUNDTRACK;
         }
       }
     }, []);
+    const cadSpeedRef = useRef(1 / (parseFloat(loadPref("tempo", "1")) || 1));
+    const setCadenceSpeed = useCallback((tempo) => {
+      cadSpeedRef.current = tempo > 0 ? 1 / tempo : 1;
+    }, []);
     const playCadence = useCallback(async (key, mode = "major") => {
       await ensure();
       const now = Tone.now();
+      const sp = cadSpeedRef.current;
       const base = Tone.Frequency(key + "4").toMidi();
       const noteAt = (semi) => Tone.Frequency(base + semi, "midi").toNote();
       (CADENCES[mode] || CADENCES.major).forEach((ch, i) => {
-        const t = i * 0.55;
-        padRef.current.triggerAttackRelease(ch.semis.map(noteAt), 0.5, now + t, 0.45);
-        padRef.current.triggerAttackRelease(noteAt(ch.bass - 12), 0.6, now + t, 0.6);
+        const t = i * 0.55 * sp;
+        padRef.current.triggerAttackRelease(ch.semis.map(noteAt), 0.5 * sp, now + t, 0.45);
+        padRef.current.triggerAttackRelease(noteAt(ch.bass - 12), 0.6 * sp, now + t, 0.6);
       });
-      return 2.4;
+      return 2.4 * sp;
     }, [ensure]);
     const playDegree = useCallback(async (key, degree, delay = 0, octave = 4) => {
       await ensure();
@@ -2496,7 +2503,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         padRef.current = synthRef.current;
       }
     }, []);
-    return { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm: ensure };
+    return { playCadence, setCadenceSpeed, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm: ensure };
   }
   function useMusic() {
     const busRef = useRef(null);
@@ -3479,7 +3486,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" + (restored ? " restored" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", width: "32", height: "24", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG"), restored && /* @__PURE__ */ React.createElement("em", { className: "adv-restored-tag" }, " · restored")), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear gear-settings", onClick: onSettings, "aria-label": "Settings" }, "⚙")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), celebrateNode && H.nodes[celebrateNode - 1] && /* @__PURE__ */ React.createElement("div", { className: "map-cleared", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "map-cleared-star" }, "★"), /* @__PURE__ */ React.createElement("span", { className: "map-cleared-text" }, H.nodes[celebrateNode - 1].name, /* @__PURE__ */ React.createElement("em", null, "region cleared"))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("div", { className: "adv-forge-chip" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost shop-btn", onClick: onShop, "aria-label": "Shop" }, "★"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"))));
   }
   function NumberEarTrainer() {
-    const { playCadence, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm } = useAudio();
+    const { playCadence, setCadenceSpeed, playDegree, playChord, playProgression, playSemi, sing, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm } = useAudio();
     const { playTheme, stopMusic, setMusicOn } = useMusic();
     const [musicPref, setMusicPref] = useState(() => loadPref("music", "1") === "1");
     const [boringMode, setBoringMode] = useState(() => loadPref("boring", "0") === "1");
@@ -3788,6 +3795,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const [testCfgOpen, setTestCfgOpen] = useState(false);
     const [resStep, setResStep] = useState(() => parseFloat(loadPref("resstep", "0.8")) || 0.8);
     const [progBeat, setProgBeat] = useState(() => parseFloat(loadPref("progbeat", "1.0")) || 1);
+    const [testTempo, setTestTempo] = useState(() => parseFloat(loadPref("tempo", "1")) || 1);
     const [chordSevenths, setChordSevenths] = useState(() => loadPref("sevenths", "0") === "1");
     const [showRef, setShowRef] = useState(() => loadPref("chordref", "1") === "1");
     useEffect(() => {
@@ -5143,7 +5151,27 @@ window.SOUNDTRACK = SOUNDTRACK;
               .test-cfg .tc-title{ font-weight:800; font-size:1.05rem; margin:0; }
               .retro .test-cfg .tc-title{ font-family:var(--pf); font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--gold); }
               .test-cfg .set-block{ display:flex; flex-direction:column; gap:8px; }
-            `), /* @__PURE__ */ React.createElement("div", { className: "test-cfg", onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("p", { className: "tc-title" }, "Test settings"), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Tempo"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "How fast the notes walk home after a correct answer."), /* @__PURE__ */ React.createElement("div", { className: "seg" }, RES_SPEEDS.map((s) => /* @__PURE__ */ React.createElement(
+              .test-cfg .tempo-row{ display:flex; align-items:center; gap:12px; }
+              .test-cfg .tempo-row input[type=range]{ flex:1; accent-color:var(--teal,#57C6C4); height:24px; }
+              .test-cfg .tempo-val{ font-variant-numeric:tabular-nums; min-width:3.4em; text-align:right; font-weight:700; color:var(--teal,#57C6C4); }
+              .retro .test-cfg .tempo-val{ font-family:var(--pf); font-size:11px; }
+            `), /* @__PURE__ */ React.createElement("div", { className: "test-cfg", onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("p", { className: "tc-title" }, "Test settings"), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Tempo"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "How fast the cadence plays at the start of each question."), /* @__PURE__ */ React.createElement("div", { className: "tempo-row" }, /* @__PURE__ */ React.createElement(
+        "input",
+        {
+          type: "range",
+          min: TEMPO_MIN,
+          max: TEMPO_MAX,
+          step: 0.05,
+          value: testTempo,
+          "aria-label": "Question tempo",
+          onChange: (e) => {
+            const v = parseFloat(e.target.value);
+            setTestTempo(v);
+            savePref("tempo", v);
+            setCadenceSpeed(v);
+          }
+        }
+      ), /* @__PURE__ */ React.createElement("span", { className: "tempo-val" }, testTempo.toFixed(2), "×"))), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Resolution speed"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "How fast the notes walk home after a correct answer."), /* @__PURE__ */ React.createElement("div", { className: "seg" }, RES_SPEEDS.map((s) => /* @__PURE__ */ React.createElement(
         "button",
         {
           key: s.label,
