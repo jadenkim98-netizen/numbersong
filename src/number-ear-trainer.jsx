@@ -3783,6 +3783,7 @@ export default function NumberEarTrainer() {
                     onChange={(e) => { setLeadEmail(e.target.value); if (leadStatus === "error") setLeadStatus("idle"); }}
                     onKeyDown={(e) => { if (e.key === "Enter") submitLead(); }} />
                   {leadStatus === "error" && <span className="lead-err">Enter a valid email, or skip.</span>}
+                  <span className="lead-consent">We'll email you the free resource. No spam — unsubscribe anytime.</span>
                   <div className="lead-actions">
                     <button className="primary" onClick={submitLead} disabled={leadStatus === "sending"}>
                       {leadStatus === "sending" ? "Saving…" : "Save my progress"}

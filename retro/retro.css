@@ -708,6 +708,7 @@
 .lead-copy{ font-size:.9rem; line-height:1.45; color:var(--text,#EDF2EE); opacity:.92; margin:0; }
 .lead-input{ width:100%; text-align:center; }
 .lead-err{ font-size:.78rem; color:var(--wrong,#E07856); }
+.lead-consent{ font-size:.72rem; line-height:1.4; color:var(--text-soft,#9aa39c); opacity:.85; margin:-2px 0 0; }
 .lead-actions{ display:flex; gap:8px; width:100%; margin-top:2px; }
 .lead-actions .primary{ flex:1 1 auto; }
 .lead-actions .ghost{ flex:0 0 auto; }
