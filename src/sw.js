@@ -29,16 +29,15 @@ self.addEventListener("fetch", (event) => {
   const sameOrigin = new URL(req.url).origin === self.location.origin;
 
   if (sameOrigin) {
-    // App shell: cache-first (works fully offline), refresh the cache when online,
-    // and fall back to the cached page for any navigation.
+    // App shell: NETWORK-FIRST so an online reload always gets the freshest deploy
+    // (no stale-cache lag), but fall back to the cached shell when offline so the
+    // installed app still boots with zero internet.
     event.respondWith(
-      caches.match(req).then((hit) =>
-        hit || fetch(req).then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
-          return res;
-        }).catch(() => caches.match("./index.html"))
-      )
+      fetch(req).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(req, copy));
+        return res;
+      }).catch(() => caches.match(req).then((hit) => hit || caches.match("./index.html")))
     );
   } else {
     // Cross-origin piano samples (tonejs.github.io): serve from cache if present,
