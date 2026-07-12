@@ -91,6 +91,13 @@ assert "</script" not in soundtrack
 assert "</script" not in adventure
 retro_css = open("retro/retro.css").read().replace("__FONT_B64__", open("retro/pixelfont.b64").read().strip())
 assert "</style" not in retro_css
+# Extract the base (CSS-in-JS) stylesheet and inline it into <head> at build time so it's
+# parsed BEFORE React renders — no first-paint flash of unstyled content on load/refresh.
+# The constant is static (no ${...} interpolation), delimited by backticks, so a plain split
+# is safe. The component's useLayoutEffect re-inject is gated on this same id, so it no-ops.
+_srcfile = open("src/number-ear-trainer.jsx").read()
+base_css = _srcfile.split("const CSS = `", 1)[1].split("`;", 1)[0]
+assert "</style" not in base_css
 def inline_js(path):
     # Escape the end-tag so an inlined library can't close the <script> early.
     return open(path).read().replace("</script", "<\\/script")
@@ -150,6 +157,9 @@ html = f'''<!DOCTYPE html>
     background: #E07856; color: #3A241B; padding: 12px 16px; border-radius: 10px;
     font: 13px/1.5 ui-monospace, monospace; white-space: pre-wrap;
   }}
+</style>
+<style id="ns-base-css">
+{base_css}
 </style>
 <style id="retro-skin">
 {retro_css}

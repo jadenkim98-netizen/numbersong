@@ -3098,7 +3098,6 @@ export default function NumberEarTrainer() {
           {KEYS.map((k) => <option key={k} value={k}>{k} major</option>)}
         </select>
       </label>
-      <button className="ghost" onClick={hearKey} disabled={busy}>♪ Hear the key</button>
       <label className="key-label">
         Sound
         <select value={susVoice} onChange={(e) => { setSusVoice(e.target.value); e.target.blur(); }}>
@@ -3117,9 +3116,6 @@ export default function NumberEarTrainer() {
           </button>
         );
       })()}
-      {typeof window !== "undefined" && window.CODA_MEDITATE && (
-        <img className="fp-coda" src={window.CODA_MEDITATE} alt="Coda, meditating" aria-hidden="true" />
-      )}
     </div>
   );
 
@@ -4432,12 +4428,16 @@ export default function NumberEarTrainer() {
   // Paths: the degrees of the chord currently sounding in the loop — lit up on the tonal map
   const pathCurTones = fpTab === "paths" && pathPlaying && pathIdx >= 0 && pathProg[pathIdx]
     ? chordTones(chordByRoman(pathProg[pathIdx]), pathSevenths) : [];
+  const curPreset = PATH_PRESETS.findIndex((p) => p.join() === pathProg.join()); // -1 = custom/built
   return (
     <div className={"app app-wide fp-" + fpTab + (fpOptionsOpen ? " fp-opts-open" : "")}>
       <style>{CSS}</style>
       <header className="top-slim">
         <button className="back" onClick={() => { setDroneOn(false); stopPath(); killSession(); setBusy(false); setScreen(auxReturn || (boringMode ? "home" : "menu")); }}>{auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"}</button>
         <h2 className="screen-title">Free play</h2>
+        {typeof window !== "undefined" && window.CODA_MEDITATE && (
+          <img className="fp-coda" src={window.CODA_MEDITATE} alt="Coda, meditating" aria-hidden="true" />
+        )}
         {/* landscape focus mode only (hidden in portrait via CSS): reveal/hide the tucked-away controls */}
         <button className="fp-opts-btn gear" onClick={() => setFpOptionsOpen((o) => !o)} aria-label={fpOptionsOpen ? "Hide options" : "Show options"} aria-pressed={fpOptionsOpen}>{fpOptionsOpen ? "✕" : "⚙"}</button>
       </header>
@@ -4454,6 +4454,14 @@ export default function NumberEarTrainer() {
             <button className="primary" onClick={() => (pathPlaying ? stopPath() : startPath())} disabled={!pathProg.length}>
               {pathPlaying ? "■ Stop" : "▶ Play loop"}
             </button>
+            {/* the preset progressions, collapsed into one dropdown to save space */}
+            <label className="key-label">
+              Loop
+              <select value={curPreset} onChange={(e) => { const i = Number(e.target.value); e.target.blur(); if (i < 0) return; if (gated && i >= FREE.freePlayPaths) { openUpsell(); return; } setProg(PATH_PRESETS[i]); }}>
+                {curPreset < 0 && <option value={-1}>Custom</option>}
+                {PATH_PRESETS.map((p, i) => <option key={i} value={i} disabled={gated && i >= FREE.freePlayPaths}>{p.map((r) => chordNumber(r, false)).join(" ")}{gated && i >= FREE.freePlayPaths ? " 🔒" : ""}</option>)}
+              </select>
+            </label>
             <button className={"ghost voice" + (pathSevenths ? " on" : "")}
               onClick={() => { stopPath(); setPathSevenths((v) => !v); }}>
               {pathSevenths ? "7ths on" : "7ths"}
@@ -4483,7 +4491,7 @@ export default function NumberEarTrainer() {
               <span key={i} className={"pc" + (pathIdx === i ? " cur" : "")}>{chordNumber(r, false)}</span>
             ))}
           </div>
-          {pathBuild ? (
+          {pathBuild && (
             <div className="path-build fp-path-secondary">
               <div className="numpad chordpad">
                 {ALL_CHORDS.map((r) => (
@@ -4501,15 +4509,6 @@ export default function NumberEarTrainer() {
                 <button className="ghost" onClick={() => setProg([])} disabled={!pathProg.length}>Clear</button>
               </div>
             </div>
-          ) : (
-            <div className="path-presets fp-path-secondary">
-              {PATH_PRESETS.map((p, i) => (
-                <button key={i} className={"chip" + (p.join() === pathProg.join() ? " on" : "") + (gated && i >= FREE.freePlayPaths ? " locked" : "")}
-                  onClick={() => (gated && i >= FREE.freePlayPaths) ? openUpsell() : setProg(p)}>
-                  {p.map((r) => chordNumber(r, false)).join(" ")}{gated && i >= FREE.freePlayPaths ? " 🔒" : ""}
-                </button>
-              ))}
-            </div>
           )}
         </div>
         <div className="fp-main">
@@ -4526,10 +4525,7 @@ export default function NumberEarTrainer() {
           </div>
         </div>
         </div>
-          <p className="hint center fp-help">
-            Play the loop, then solo — tap the pads or use the number row (<strong>` 1–7 8 9 0 - =</strong>). Hop to the nearest circled tone of each chord.
-          </p>
-          <footer className="foot fp-help">Solo over the changes. The circles are your safe landing notes.</footer>
+          <p className="hint center fp-help">Solo over the changes — land on the circled tones. <em>Try the number keys on a keyboard, or turn to landscape on mobile.</em></p>
         </>
       ) : (
       <>
@@ -4641,7 +4637,7 @@ export default function NumberEarTrainer() {
         {exStage === 0
           ? `World ${exWorld}: the blue pads are its chord tones (${worldChordTones(exWorld).join("·")}). Drone on, sing the numbers.`
           : "Numbers hidden. Sing each number as you press its pad."}
-        {" "}Or play the number row on your keyboard (<strong>` 1–7 8 9 0 - =</strong>).
+        {" "}<em>Try the number keys on a keyboard, or turn to landscape on mobile.</em>
       </p>
       </>
       )}
@@ -4714,7 +4710,7 @@ html, body { background: var(--bg); }
    media query at the bottom of this stylesheet. */
 .drill-stage, .prog-right, .fp-stage, .fp-side { display: contents; }
 .fp-opts-btn { display: none; } /* the landscape focus-mode ⚙ — shown only in the landscape media query */
-.fp-voice-bar { display: none; } /* landscape-bar voice toggle — portrait uses the key-row voice instead */
+.ghost.fp-voice-bar { display: none; } /* landscape-bar voice toggle — hidden in portrait (specific enough to beat .ghost's display) */
 button { touch-action: manipulation; }
 .path-note, .explore-pad, .pk, .num, .cu-note, .chip, .rung { touch-action: none; }
 /* installed web app: guarantee a top buffer that clears the iOS status bar,
@@ -4743,7 +4739,10 @@ button { touch-action: manipulation; }
 .wejam-logo { display: block; height: 46px; width: auto; }
 .brand p { margin: 6px 0 0; color: var(--text-soft); font-size: 0.95rem; }
 .key-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.fp-coda { height: 46px; width: auto; image-rendering: pixelated; align-self: center; opacity: 0.92; }
+.fp-coda { height: 42px; width: auto; image-rendering: pixelated; align-self: center; margin-left: 6px; opacity: 0.92; }
+/* keep Coda snug beside the "Free play" title (don't let the title's flex:1 push it away).
+   Scoped via :has to the Free Play header only, so the drill header's score alignment is untouched. */
+.top-slim:has(.fp-coda) .screen-title { flex: 0 0 auto; }
 .key-label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-soft); }
 .drone-vol { gap: 8px; }
 .drone-vol input[type="range"] {
@@ -5346,7 +5345,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
      tuck behind the ⚙. The bar carries a Voice toggle (fp-voice-bar) in place of Sing. */
   .app-wide .fp-opts-btn { display: inline-flex; width: 40px; height: 34px; margin-left: auto; flex: 0 0 auto; }
   .app-wide .fp-starton { display: none; }               /* niche "Start on" — drop it from the bar */
-  .app-wide .fp-voice-bar { display: inline-flex; }       /* show the bar's Voice toggle */
+  .app-wide .ghost.fp-voice-bar { display: inline-flex; }  /* show the bar's Voice toggle (beats the portrait hide) */
   .app-wide .fp-keyrow-voice { display: none; }  /* both tabs carry a bar Voice toggle now → never show the key-row one in landscape (avoids a duplicate when the ⚙ is open) */
   .app-wide .key-row { display: none; }                   /* Key/Hear/Sound/Voice/Coda → behind ⚙ */
   .app-wide .fp-sing { display: none; }                   /* Sing → behind ⚙ (settings) */
