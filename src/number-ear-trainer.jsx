@@ -3108,9 +3108,6 @@ export default function NumberEarTrainer() {
           </button>
         );
       })()}
-      {typeof window !== "undefined" && window.CODA_MEDITATE && (
-        <img className="fp-coda" src={window.CODA_MEDITATE} alt="Coda, meditating" aria-hidden="true" />
-      )}
     </div>
   );
 
@@ -4423,12 +4420,16 @@ export default function NumberEarTrainer() {
   // Paths: the degrees of the chord currently sounding in the loop — lit up on the tonal map
   const pathCurTones = fpTab === "paths" && pathPlaying && pathIdx >= 0 && pathProg[pathIdx]
     ? chordTones(chordByRoman(pathProg[pathIdx]), pathSevenths) : [];
+  const curPreset = PATH_PRESETS.findIndex((p) => p.join() === pathProg.join()); // -1 = custom/built
   return (
     <div className={"app app-wide fp-" + fpTab + (fpOptionsOpen ? " fp-opts-open" : "")}>
       <style>{CSS}</style>
       <header className="top-slim">
         <button className="back" onClick={() => { setDroneOn(false); stopPath(); killSession(); setBusy(false); setScreen(auxReturn || (boringMode ? "home" : "menu")); }}>{auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"}</button>
         <h2 className="screen-title">Free play</h2>
+        {typeof window !== "undefined" && window.CODA_MEDITATE && (
+          <img className="fp-coda" src={window.CODA_MEDITATE} alt="Coda, meditating" aria-hidden="true" />
+        )}
         {/* landscape focus mode only (hidden in portrait via CSS): reveal/hide the tucked-away controls */}
         <button className="fp-opts-btn gear" onClick={() => setFpOptionsOpen((o) => !o)} aria-label={fpOptionsOpen ? "Hide options" : "Show options"} aria-pressed={fpOptionsOpen}>{fpOptionsOpen ? "✕" : "⚙"}</button>
       </header>
@@ -4445,6 +4446,14 @@ export default function NumberEarTrainer() {
             <button className="primary" onClick={() => (pathPlaying ? stopPath() : startPath())} disabled={!pathProg.length}>
               {pathPlaying ? "■ Stop" : "▶ Play loop"}
             </button>
+            {/* the preset progressions, collapsed into one dropdown to save space */}
+            <label className="key-label">
+              Loop
+              <select value={curPreset} onChange={(e) => { const i = Number(e.target.value); if (i >= 0) setProg(PATH_PRESETS[i]); e.target.blur(); }}>
+                {curPreset < 0 && <option value={-1}>Custom</option>}
+                {PATH_PRESETS.map((p, i) => <option key={i} value={i}>{p.map((r) => chordNumber(r, false)).join(" ")}</option>)}
+              </select>
+            </label>
             <button className={"ghost voice" + (pathSevenths ? " on" : "")}
               onClick={() => { stopPath(); setPathSevenths((v) => !v); }}>
               {pathSevenths ? "7ths on" : "7ths"}
@@ -4474,7 +4483,7 @@ export default function NumberEarTrainer() {
               <span key={i} className={"pc" + (pathIdx === i ? " cur" : "")}>{chordNumber(r, false)}</span>
             ))}
           </div>
-          {pathBuild ? (
+          {pathBuild && (
             <div className="path-build fp-path-secondary">
               <div className="numpad chordpad">
                 {ALL_CHORDS.map((r) => (
@@ -4491,15 +4500,6 @@ export default function NumberEarTrainer() {
                 <button className="ghost" onClick={() => setProg(pathProg.slice(0, -1))} disabled={!pathProg.length}>⌫ Undo</button>
                 <button className="ghost" onClick={() => setProg([])} disabled={!pathProg.length}>Clear</button>
               </div>
-            </div>
-          ) : (
-            <div className="path-presets fp-path-secondary">
-              {PATH_PRESETS.map((p, i) => (
-                <button key={i} className={"chip" + (p.join() === pathProg.join() ? " on" : "")}
-                  onClick={() => setProg(p)}>
-                  {p.map((r) => chordNumber(r, false)).join(" ")}
-                </button>
-              ))}
             </div>
           )}
         </div>
@@ -4731,7 +4731,7 @@ button { touch-action: manipulation; }
 .wejam-logo { display: block; height: 46px; width: auto; }
 .brand p { margin: 6px 0 0; color: var(--text-soft); font-size: 0.95rem; }
 .key-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.fp-coda { height: 46px; width: auto; image-rendering: pixelated; align-self: center; opacity: 0.92; }
+.fp-coda { height: 34px; width: auto; image-rendering: pixelated; align-self: center; margin-left: 4px; opacity: 0.92; }
 .key-label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-soft); }
 .drone-vol { gap: 8px; }
 .drone-vol input[type="range"] {

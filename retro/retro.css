@@ -888,3 +888,7 @@
   .retro .finale-rays { width: min(150vh, 150vw); height: min(150vh, 150vw); }
   .retro .finale-sword { height: min(33vh, 40vw, 240px); }
 }
+
+/* Free Play hints in the retro pixel font (per request) */
+.retro .fp-help{ font-family:var(--pf); font-size:9px; letter-spacing:.5px; line-height:1.9; text-transform:none; opacity:.92; }
+.retro .fp-help em{ font-family:var(--pf); color:var(--gold); font-style:normal; }

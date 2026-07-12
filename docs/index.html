@@ -1237,6 +1237,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   .retro .finale-sword { height: min(33vh, 40vw, 240px); }
 }
 
+/* Free Play hints in the retro pixel font (per request) */
+.retro .fp-help{ font-family:var(--pf); font-size:9px; letter-spacing:.5px; line-height:1.9; text-transform:none; opacity:.92; }
+.retro .fp-help em{ font-family:var(--pf); color:var(--gold); font-style:normal; }
+
 </style>
 </head>
 <body>
@@ -4744,7 +4748,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       const on = fpTab === "paths" ? pathVoice : voiceOn;
       const set = fpTab === "paths" ? setPathVoice : setVoiceOn;
       return /* @__PURE__ */ React.createElement("button", { className: "ghost voice fp-keyrow-voice" + (on ? " on" : ""), onClick: () => set(!on), "aria-pressed": on }, on ? "Voice on" : "Voice off");
-    })(), typeof window !== "undefined" && window.CODA_MEDITATE && /* @__PURE__ */ React.createElement("img", { className: "fp-coda", src: window.CODA_MEDITATE, alt: "Coda, meditating", "aria-hidden": "true" }));
+    })());
     const brand = /* @__PURE__ */ React.createElement("div", { className: "brand" }, /* @__PURE__ */ React.createElement("div", { className: "brand-line" }, /* @__PURE__ */ React.createElement("h1", null, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG")), /* @__PURE__ */ React.createElement("img", { className: "wejam-logo", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" })), /* @__PURE__ */ React.createElement("p", null, "Learn to speak and understand the true language of music"));
     const advNodes = window.HARMONIA && window.HARMONIA.nodes || [];
     const stageClearedAdv = (id) => {
@@ -5615,16 +5619,21 @@ window.SOUNDTRACK = SOUNDTRACK;
     }
     const stageLabels = ["Numbers on", "Blank pads"];
     const pathCurTones = fpTab === "paths" && pathPlaying && pathIdx >= 0 && pathProg[pathIdx] ? chordTones(chordByRoman(pathProg[pathIdx]), pathSevenths) : [];
+    const curPreset = PATH_PRESETS.findIndex((p) => p.join() === pathProg.join());
     return /* @__PURE__ */ React.createElement("div", { className: "app app-wide fp-" + fpTab + (fpOptionsOpen ? " fp-opts-open" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
       setDroneOn(false);
       stopPath();
       killSession();
       setBusy(false);
       setScreen(auxReturn || (boringMode ? "home" : "menu"));
-    } }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Free play"), /* @__PURE__ */ React.createElement("button", { className: "fp-opts-btn gear", onClick: () => setFpOptionsOpen((o) => !o), "aria-label": fpOptionsOpen ? "Hide options" : "Show options", "aria-pressed": fpOptionsOpen }, fpOptionsOpen ? "✕" : "⚙")), keyRow, /* @__PURE__ */ React.createElement("div", { className: "tabs" }, /* @__PURE__ */ React.createElement("button", { className: "tab" + (fpTab === "notes" ? " on" : ""), onClick: () => setFpTab("notes") }, "7 worlds"), /* @__PURE__ */ React.createElement("button", { className: "tab" + (fpTab === "paths" ? " on" : ""), onClick: () => {
+    } }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Free play"), typeof window !== "undefined" && window.CODA_MEDITATE && /* @__PURE__ */ React.createElement("img", { className: "fp-coda", src: window.CODA_MEDITATE, alt: "Coda, meditating", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("button", { className: "fp-opts-btn gear", onClick: () => setFpOptionsOpen((o) => !o), "aria-label": fpOptionsOpen ? "Hide options" : "Show options", "aria-pressed": fpOptionsOpen }, fpOptionsOpen ? "✕" : "⚙")), keyRow, /* @__PURE__ */ React.createElement("div", { className: "tabs" }, /* @__PURE__ */ React.createElement("button", { className: "tab" + (fpTab === "notes" ? " on" : ""), onClick: () => setFpTab("notes") }, "7 worlds"), /* @__PURE__ */ React.createElement("button", { className: "tab" + (fpTab === "paths" ? " on" : ""), onClick: () => {
       setDroneOn(false);
       setFpTab("paths");
-    } }, "Paths")), fpTab === "paths" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "fp-stage" }, /* @__PURE__ */ React.createElement("div", { className: "fp-side" }, /* @__PURE__ */ React.createElement("div", { className: "explore-controls" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => pathPlaying ? stopPath() : startPath(), disabled: !pathProg.length }, pathPlaying ? "■ Stop" : "▶ Play loop"), /* @__PURE__ */ React.createElement(
+    } }, "Paths")), fpTab === "paths" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "fp-stage" }, /* @__PURE__ */ React.createElement("div", { className: "fp-side" }, /* @__PURE__ */ React.createElement("div", { className: "explore-controls" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => pathPlaying ? stopPath() : startPath(), disabled: !pathProg.length }, pathPlaying ? "■ Stop" : "▶ Play loop"), /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Loop", /* @__PURE__ */ React.createElement("select", { value: curPreset, onChange: (e) => {
+      const i = Number(e.target.value);
+      if (i >= 0) setProg(PATH_PRESETS[i]);
+      e.target.blur();
+    } }, curPreset < 0 && /* @__PURE__ */ React.createElement("option", { value: -1 }, "Custom"), PATH_PRESETS.map((p, i) => /* @__PURE__ */ React.createElement("option", { key: i, value: i }, p.map((r) => chordNumber(r, false)).join(" "))))), /* @__PURE__ */ React.createElement(
       "button",
       {
         className: "ghost voice" + (pathSevenths ? " on" : ""),
@@ -5645,7 +5654,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     ), /* @__PURE__ */ React.createElement("button", { className: "ghost fp-path-secondary" + (pathBuild ? " voice on" : ""), onClick: () => gated ? openUpsell() : setPathBuild((b) => !b) }, pathBuild ? "Done" : "Build", gated && " 🔒"), /* @__PURE__ */ React.createElement("label", { className: "key-label fp-path-secondary" }, "Tempo", /* @__PURE__ */ React.createElement("select", { value: pathBeat, onChange: (e) => {
       setTempo(Number(e.target.value));
       e.target.blur();
-    } }, PATH_SPEEDS.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.label, value: s.beat }, s.label)))), pathCount > 0 && /* @__PURE__ */ React.createElement("span", { className: "path-count" }, pathCount)), /* @__PURE__ */ React.createElement("div", { className: "path-chords fp-pathchords" }, pathProg.map((r, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "pc" + (pathIdx === i ? " cur" : "") }, chordNumber(r, false)))), pathBuild ? /* @__PURE__ */ React.createElement("div", { className: "path-build fp-path-secondary" }, /* @__PURE__ */ React.createElement("div", { className: "numpad chordpad" }, ALL_CHORDS.map((r) => /* @__PURE__ */ React.createElement(
+    } }, PATH_SPEEDS.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.label, value: s.beat }, s.label)))), pathCount > 0 && /* @__PURE__ */ React.createElement("span", { className: "path-count" }, pathCount)), /* @__PURE__ */ React.createElement("div", { className: "path-chords fp-pathchords" }, pathProg.map((r, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "pc" + (pathIdx === i ? " cur" : "") }, chordNumber(r, false)))), pathBuild && /* @__PURE__ */ React.createElement("div", { className: "path-build fp-path-secondary" }, /* @__PURE__ */ React.createElement("div", { className: "numpad chordpad" }, ALL_CHORDS.map((r) => /* @__PURE__ */ React.createElement(
       "button",
       {
         key: r,
@@ -5657,15 +5666,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       },
       r,
       /* @__PURE__ */ React.createElement("span", { className: "num-sol" }, chordNumber(r, false))
-    ))), /* @__PURE__ */ React.createElement("div", { className: "prog-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setProg(pathProg.slice(0, -1)), disabled: !pathProg.length }, "⌫ Undo"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setProg([]), disabled: !pathProg.length }, "Clear"))) : /* @__PURE__ */ React.createElement("div", { className: "path-presets fp-path-secondary" }, PATH_PRESETS.map((p, i) => /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        key: i,
-        className: "chip" + (p.join() === pathProg.join() ? " on" : ""),
-        onClick: () => setProg(p)
-      },
-      p.map((r) => chordNumber(r, false)).join(" ")
-    )))), /* @__PURE__ */ React.createElement("div", { className: "fp-main" }, /* @__PURE__ */ React.createElement("div", { className: "fp-paths-map" }, /* @__PURE__ */ React.createElement(
+    ))), /* @__PURE__ */ React.createElement("div", { className: "prog-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setProg(pathProg.slice(0, -1)), disabled: !pathProg.length }, "⌫ Undo"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setProg([]), disabled: !pathProg.length }, "Clear")))), /* @__PURE__ */ React.createElement("div", { className: "fp-main" }, /* @__PURE__ */ React.createElement("div", { className: "fp-paths-map" }, /* @__PURE__ */ React.createElement(
       ExploreMap,
       {
         start: 1,
@@ -5889,7 +5890,7 @@ button { touch-action: manipulation; }
 .wejam-logo { display: block; height: 46px; width: auto; }
 .brand p { margin: 6px 0 0; color: var(--text-soft); font-size: 0.95rem; }
 .key-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.fp-coda { height: 46px; width: auto; image-rendering: pixelated; align-self: center; opacity: 0.92; }
+.fp-coda { height: 34px; width: auto; image-rendering: pixelated; align-self: center; margin-left: 4px; opacity: 0.92; }
 .key-label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-soft); }
 .drone-vol { gap: 8px; }
 .drone-vol input[type="range"] {
