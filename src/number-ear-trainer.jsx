@@ -1432,11 +1432,12 @@ function ProgressSquares({ best, total = SESSION_LEN }) {
 function drawHero(ctx, cx, cy, coda, bob) {
   ctx.save();                                                            // soft ground shadow
   ctx.fillStyle = "rgba(0,0,0,0.28)";
-  ctx.beginPath(); ctx.ellipse(cx, cy + 2, 7, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx, cy + 2, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
   if (coda) {
-    const dh = 26, dw = coda.width * (dh / coda.height);
+    const dh = 40, dw = coda.width * (dh / coda.height);                 // hero drawn large so the sprite detail reads
     ctx.save();
+    ctx.imageSmoothingEnabled = true;                                    // smooth-scale the ~29px sprite up (crisp nearest would look uneven)
     ctx.shadowColor = "rgba(87,198,196,0.7)"; ctx.shadowBlur = 5;        // faint teal aura
     ctx.drawImage(coda, cx - dw / 2, cy + 3 - dh - (bob || 0), dw, dh);  // feet just below node center; bob while walking
     ctx.restore();
@@ -1637,7 +1638,7 @@ function MapTour({ onClose, onSfx }) {
   );
 }
 
-function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, burst, boringMode, celebrateNode, onCelebrateDone, skinTint }) {
+function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, burst, boringMode, celebrateNode, onCelebrateDone, skinSrc }) {
   const H = window.HARMONIA;
   const mapRef = useRef(null);
   const swordRef = useRef(null);
@@ -1647,16 +1648,13 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
   const [codaImg, setCodaImg] = useState(null);
   const [dojoImg, setDojoImg] = useState(null);
   const [bakedMap, setBakedMap] = useState(null);
-  const [tintedCoda, setTintedCoda] = useState(null);
+  // Equipped shop skin: a distinct Coda sprite that replaces the base one on the map.
+  const [skinImg, setSkinImg] = useState(null);
   useEffect(() => {
-    if (!codaImg || !skinTint) { setTintedCoda(null); return; }
-    const tc = document.createElement("canvas"); tc.width = codaImg.width; tc.height = codaImg.height;
-    const x = tc.getContext("2d"); x.imageSmoothingEnabled = false;
-    x.drawImage(codaImg, 0, 0);
-    x.globalCompositeOperation = "source-atop"; x.globalAlpha = 0.5; x.fillStyle = skinTint;
-    x.fillRect(0, 0, tc.width, tc.height);
-    setTintedCoda(tc);
-  }, [codaImg, skinTint]);
+    if (!skinSrc) { setSkinImg(null); return; }
+    const im = new Image(); im.onload = () => setSkinImg(im); im.src = skinSrc;
+    return () => { im.onload = null; };
+  }, [skinSrc]);
   const codaRef = useRef(null);   // Coda's live tile position {c,r} (floats while walking)
   const standRef = useRef(null);  // the tile Coda is resting on (persists across re-renders, so he stays where he last walked)
   const walkRef = useRef(false);  // true while a walk animation is in flight
@@ -1726,8 +1724,8 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       ctx.drawImage(swordImg, mx - sw / 2, my + 5 - sh, sw, sh);
       ctx.restore();
     }
-    drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, tintedCoda || codaImg, bob);
-  }, [tileset, nodes, currentId, collected, codaImg, tintedCoda, swordImg, dojoImg, bakedMap]);
+    drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, skinImg || codaImg, bob);
+  }, [tileset, nodes, currentId, collected, codaImg, skinImg, swordImg, dojoImg, bakedMap]);
 
   // static render: Coda rests on the tile he last walked to (his standing tile), so a
   // re-render (opening/closing an encounter, coming back from a stage) doesn't snap him
@@ -2067,7 +2065,7 @@ export default function NumberEarTrainer() {
     sfx("select");
   };
   const equipSkin = (id) => { saveShop({ ...shop, skin: id }); sfx("move"); };
-  const skinTint = (SHOP.find((x) => x.id === shop.skin) || {}).tint || null;
+  const skinSrc = (typeof window !== "undefined" && window.CODA_SKINS && window.CODA_SKINS[shop.skin]) || null;
   const [progress, setProgress] = useState(loadProgress);
   // Progress only PERSISTS (survives reload) once the player has "saved" — i.e. given
   // their email on the results card, or unlocked the full app. It still updates
@@ -3023,7 +3021,7 @@ export default function NumberEarTrainer() {
     return (
       <>
         <AdventureMap
-          nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={onTapNode} skinTint={skinTint}
+          nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={onTapNode} skinSrc={skinSrc}
           burst={swordBurst} boringMode={boringMode} onForge={() => { sfx("select"); setForgeOpen(true); }}
           celebrateNode={mapCelebrateNode} onCelebrateDone={() => setMapCelebrateNode(null)}
           onShop={() => { setAuxReturn("adventure"); setScreen("shop"); }}
@@ -3790,9 +3788,14 @@ export default function NumberEarTrainer() {
       const owned = id === "default" || shop.owned.includes(id);
       const equipped = shop.skin === id;
       const cost = (SHOP.find((x) => x.id === id) || {}).cost;
+      const src = id === "default"
+        ? (typeof window !== "undefined" ? window.CODA_SPRITE : "")
+        : (typeof window !== "undefined" && window.CODA_SKINS ? window.CODA_SKINS[id] : "");
       return (
         <div key={id} className={"shop-item" + (equipped ? " equipped" : "")}>
-          <span className="shop-swatch" style={{ background: tint }} />
+          <span className="shop-swatch" style={{ boxShadow: "inset 0 0 0 2px " + tint + "55" }}>
+            {src ? <img src={src} alt="" /> : null}
+          </span>
           <div className="shop-info"><span className="shop-name">{name}</span><span className="shop-desc">{desc}</span></div>
           {owned
             ? <button className={"ghost" + (equipped ? " on" : "")} onClick={() => equipSkin(id)} disabled={equipped}>{equipped ? "Equipped" : "Equip"}</button>
@@ -4406,7 +4409,8 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .shop-grid { display: flex; flex-direction: column; gap: 10px; }
 .shop-item { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 14px; }
 .shop-item.equipped { border-color: var(--teal); }
-.shop-swatch { width: 34px; height: 34px; border-radius: 8px; flex: 0 0 auto; box-shadow: inset 0 0 0 2px rgba(255,255,255,.18); }
+.shop-swatch { width: 46px; height: 50px; border-radius: 8px; flex: 0 0 auto; background: rgba(0,0,0,.22); box-shadow: inset 0 0 0 2px rgba(255,255,255,.18); display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+.shop-swatch img { width: 100%; height: 100%; object-fit: contain; }
 .shop-info { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
 .shop-name { font-family: 'Archivo Black', sans-serif; font-size: 0.95rem; }
 .shop-desc { font-size: 0.8rem; color: var(--text-soft); }

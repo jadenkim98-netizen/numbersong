@@ -52,6 +52,11 @@ keeper_art = json.dumps({
   "3": _png("keepers/portrait_sylva.png"),
   "4": _png("keepers/portrait_bassil.png"),
 })
+# Map hero: the shop-swappable Coda skins. "default" is the base look drawn on the
+# map; gold/shadow/crimson/violet are purchasable in the shop. All are the same-size
+# ~29px sprites (drawn larger on the map), so swapping one for another is seamless.
+coda_map_data = _png("skins/coda_default.png")
+coda_skins_data = json.dumps({sid: _png(f"skins/coda_{sid}.png") for sid in ("gold", "shadow", "crimson", "violet")})
 adventure = open("adventure/assets.js").read().replace("export const", "const").replace("export function", "function")
 soundtrack = open("retro/soundtrack.js").read().replace("export const", "const")
 assert "</script" not in soundtrack
@@ -148,7 +153,8 @@ html = f'''<!DOCTYPE html>
 <script>
 window.SUNG_NUMBERS = {voices};
 window.WEJAM_LOGO = "{logo_data}";
-window.CODA_SPRITE = "{coda_data}";
+window.CODA_SPRITE = "{coda_map_data}";
+window.CODA_SKINS = {coda_skins_data};
 window.CODA_MEDITATE = "{coda_med_data}";
 window.CODA_VICTORY = "{coda_vic_data}";
 window.VERDA_SPRITE = "{verda_data}";
