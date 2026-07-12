@@ -2452,6 +2452,7 @@ export default function NumberEarTrainer() {
 
   // Free Play: Melody Paths jam
   const [fpTab, setFpTab] = useState("notes");         // notes | paths
+  const [fpOptionsOpen, setFpOptionsOpen] = useState(false); // landscape focus mode: reveal the tucked-away secondary controls
   const [pathProg, setPathProg] = useState(["I", "V", "vi", "IV"]);
   const [pathIdx, setPathIdx] = useState(-1);          // current chord in the loop (-1 stopped)
   const [pathCount, setPathCount] = useState(0);       // count-in number showing (0 = none)
@@ -4290,11 +4291,13 @@ export default function NumberEarTrainer() {
   // free explore screen
   const stageLabels = ["Numbers on", "Blank pads"];
   return (
-    <div className="app app-wide">
+    <div className={"app app-wide" + (fpOptionsOpen ? " fp-opts-open" : "")}>
       <style>{CSS}</style>
       <header className="top-slim">
         <button className="back" onClick={() => { setDroneOn(false); stopPath(); killSession(); setBusy(false); setScreen(auxReturn || (boringMode ? "home" : "menu")); }}>{auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"}</button>
         <h2 className="screen-title">Free play</h2>
+        {/* landscape focus mode only (hidden in portrait via CSS): reveal/hide the tucked-away controls */}
+        <button className="fp-opts-btn gear" onClick={() => setFpOptionsOpen((o) => !o)} aria-label={fpOptionsOpen ? "Hide options" : "Show options"} aria-pressed={fpOptionsOpen}>{fpOptionsOpen ? "✕" : "⚙"}</button>
       </header>
       {keyRow}
       <div className="tabs">
@@ -4368,7 +4371,7 @@ export default function NumberEarTrainer() {
       {/* fp-stage/fp-side = display:contents in portrait (no change); two-column in phone-landscape (controls+tuner sidebar | wide map) */}
       <div className="fp-stage">
       <div className="fp-side">
-      <div className="explore-controls">
+      <div className="explore-controls fp-secondary">
         <label className="key-label">
           Start on
           <select value={exStart} onChange={(e) => { setExStart(Number(e.target.value)); e.target.blur(); }}>
@@ -4541,6 +4544,7 @@ html, body { background: var(--bg); }
    pixel-identical to before; they only become flex rows inside the phone-landscape
    media query at the bottom of this stylesheet. */
 .drill-stage, .prog-right, .fp-stage, .fp-side { display: contents; }
+.fp-opts-btn { display: none; } /* the landscape focus-mode ⚙ — shown only in the landscape media query */
 button { touch-action: manipulation; }
 .path-note, .explore-pad, .pk, .num, .cu-note, .chip, .rung { touch-action: none; }
 /* installed web app: guarantee a top buffer that clears the iOS status bar,
@@ -5151,10 +5155,17 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   }
   :root[data-standalone] .app-wide { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 
-  /* Real phones are only ~375–430px tall in landscape, so reclaim vertical chrome:
-     drop the decorative TRIAL cells, shrink the question line + the panel padding. */
-  .app-wide .hpbar { display: none; }
-  .app-wide .qcount { margin: 0; font-size: 0.78rem; }
+  /* ---- landscape FOCUS MODE: real phones are only ~340–430px tall sideways, so drop
+     non-essential chrome and tuck secondary options behind the ⚙ to maximize the play area. */
+  .app-wide .hpbar { display: none; }                    /* decorative trial cells */
+  .app-wide .qcount { display: none; }                   /* "Question N of 3 · key" line */
+  .app-wide .top-slim .back { min-height: 34px; padding: 5px 11px; }
+  .app-wide .top-slim .screen-title { font-size: 1rem; }
+  /* Free Play: hide the key row + start-on/notes/world selects; the ⚙ reveals them */
+  .app-wide .fp-opts-btn { display: inline-flex; width: 40px; height: 34px; margin-left: auto; flex: 0 0 auto; }
+  .app-wide .key-row, .app-wide .explore-controls.fp-secondary { display: none; }
+  .app-wide.fp-opts-open .key-row { display: flex; }
+  .app-wide.fp-opts-open .explore-controls.fp-secondary { display: flex; }
   .app-wide .panel { padding: 12px 14px; }
   .app-wide .num { min-height: 48px; }
   /* keep the feedback line on the SAME row as Repeat/♪/Voice (it otherwise wraps to its

@@ -4050,6 +4050,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const [singLevel, setSingLevel] = useState(0);
     const micRef = useRef(null);
     const [fpTab, setFpTab] = useState("notes");
+    const [fpOptionsOpen, setFpOptionsOpen] = useState(false);
     const [pathProg, setPathProg] = useState(["I", "V", "vi", "IV"]);
     const [pathIdx, setPathIdx] = useState(-1);
     const [pathCount, setPathCount] = useState(0);
@@ -5488,13 +5489,13 @@ window.SOUNDTRACK = SOUNDTRACK;
       } }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "How music works")), /* @__PURE__ */ React.createElement("section", { className: "panel" }, pages[guidePage]), /* @__PURE__ */ React.createElement("div", { className: "pager" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", disabled: guidePage === 0, onClick: () => setGuidePage((p) => p - 1) }, "← Back"), /* @__PURE__ */ React.createElement("div", { className: "dots" }, pages.map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "dot" + (i === guidePage ? " on" : "") }))), guidePage < pages.length - 1 ? /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => setGuidePage((p) => p + 1) }, "Next →") : /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => startSession("melody", 0) }, "Start training →")));
     }
     const stageLabels = ["Numbers on", "Blank pads"];
-    return /* @__PURE__ */ React.createElement("div", { className: "app app-wide" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
+    return /* @__PURE__ */ React.createElement("div", { className: "app app-wide" + (fpOptionsOpen ? " fp-opts-open" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
       setDroneOn(false);
       stopPath();
       killSession();
       setBusy(false);
       setScreen(auxReturn || (boringMode ? "home" : "menu"));
-    } }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Free play")), keyRow, /* @__PURE__ */ React.createElement("div", { className: "tabs" }, /* @__PURE__ */ React.createElement("button", { className: "tab" + (fpTab === "notes" ? " on" : ""), onClick: () => setFpTab("notes") }, "7 worlds"), /* @__PURE__ */ React.createElement("button", { className: "tab" + (fpTab === "paths" ? " on" : ""), onClick: () => {
+    } }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Free play"), /* @__PURE__ */ React.createElement("button", { className: "fp-opts-btn gear", onClick: () => setFpOptionsOpen((o) => !o), "aria-label": fpOptionsOpen ? "Hide options" : "Show options", "aria-pressed": fpOptionsOpen }, fpOptionsOpen ? "✕" : "⚙")), keyRow, /* @__PURE__ */ React.createElement("div", { className: "tabs" }, /* @__PURE__ */ React.createElement("button", { className: "tab" + (fpTab === "notes" ? " on" : ""), onClick: () => setFpTab("notes") }, "7 worlds"), /* @__PURE__ */ React.createElement("button", { className: "tab" + (fpTab === "paths" ? " on" : ""), onClick: () => {
       setDroneOn(false);
       setFpTab("paths");
     } }, "Paths")), fpTab === "paths" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "explore-controls" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => pathPlaying ? stopPath() : startPath(), disabled: !pathProg.length }, pathPlaying ? "■ Stop" : "▶ Play loop"), /* @__PURE__ */ React.createElement("button", { className: "ghost" + (pathBuild ? " voice on" : ""), onClick: () => gated ? openUpsell() : setPathBuild((b) => !b) }, pathBuild ? "Done" : "Build", gated && " 🔒"), /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Tempo", /* @__PURE__ */ React.createElement("select", { value: pathBeat, onChange: (e) => {
@@ -5530,7 +5531,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         onClick: () => setProg(p)
       },
       p.map((r) => chordNumber(r, false)).join(" ")
-    ))), /* @__PURE__ */ React.createElement("div", { className: "path-grid" }, pathProg.map((r, col) => /* @__PURE__ */ React.createElement(PathColumn, { key: col, roman: r, col, current: pathIdx === col, lit: litPath, onDown: pathDown, onUp: pathUp, sevenths: pathSevenths }))), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, "Play the loop, then solo — tap the pads or use the number row (", /* @__PURE__ */ React.createElement("strong", null, "` 1–7 8 9 0 - ="), "). Hop to the nearest circled tone of each chord."), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Solo over the changes. The circles are your safe landing notes.")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "fp-stage" }, /* @__PURE__ */ React.createElement("div", { className: "fp-side" }, /* @__PURE__ */ React.createElement("div", { className: "explore-controls" }, /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Start on", /* @__PURE__ */ React.createElement("select", { value: exStart, onChange: (e) => {
+    ))), /* @__PURE__ */ React.createElement("div", { className: "path-grid" }, pathProg.map((r, col) => /* @__PURE__ */ React.createElement(PathColumn, { key: col, roman: r, col, current: pathIdx === col, lit: litPath, onDown: pathDown, onUp: pathUp, sevenths: pathSevenths }))), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, "Play the loop, then solo — tap the pads or use the number row (", /* @__PURE__ */ React.createElement("strong", null, "` 1–7 8 9 0 - ="), "). Hop to the nearest circled tone of each chord."), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Solo over the changes. The circles are your safe landing notes.")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "fp-stage" }, /* @__PURE__ */ React.createElement("div", { className: "fp-side" }, /* @__PURE__ */ React.createElement("div", { className: "explore-controls fp-secondary" }, /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Start on", /* @__PURE__ */ React.createElement("select", { value: exStart, onChange: (e) => {
       setExStart(Number(e.target.value));
       e.target.blur();
     } }, [1, 2, 3, 4, 5, 6, 7].map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: d }, d)))), /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Notes", /* @__PURE__ */ React.createElement("select", { value: exCount, onChange: (e) => {
@@ -5703,6 +5704,7 @@ html, body { background: var(--bg); }
    pixel-identical to before; they only become flex rows inside the phone-landscape
    media query at the bottom of this stylesheet. */
 .drill-stage, .prog-right, .fp-stage, .fp-side { display: contents; }
+.fp-opts-btn { display: none; } /* the landscape focus-mode ⚙ — shown only in the landscape media query */
 button { touch-action: manipulation; }
 .path-note, .explore-pad, .pk, .num, .cu-note, .chip, .rung { touch-action: none; }
 /* installed web app: guarantee a top buffer that clears the iOS status bar,
@@ -6313,10 +6315,17 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   }
   :root[data-standalone] .app-wide { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 
-  /* Real phones are only ~375–430px tall in landscape, so reclaim vertical chrome:
-     drop the decorative TRIAL cells, shrink the question line + the panel padding. */
-  .app-wide .hpbar { display: none; }
-  .app-wide .qcount { margin: 0; font-size: 0.78rem; }
+  /* ---- landscape FOCUS MODE: real phones are only ~340–430px tall sideways, so drop
+     non-essential chrome and tuck secondary options behind the ⚙ to maximize the play area. */
+  .app-wide .hpbar { display: none; }                    /* decorative trial cells */
+  .app-wide .qcount { display: none; }                   /* "Question N of 3 · key" line */
+  .app-wide .top-slim .back { min-height: 34px; padding: 5px 11px; }
+  .app-wide .top-slim .screen-title { font-size: 1rem; }
+  /* Free Play: hide the key row + start-on/notes/world selects; the ⚙ reveals them */
+  .app-wide .fp-opts-btn { display: inline-flex; width: 40px; height: 34px; margin-left: auto; flex: 0 0 auto; }
+  .app-wide .key-row, .app-wide .explore-controls.fp-secondary { display: none; }
+  .app-wide.fp-opts-open .key-row { display: flex; }
+  .app-wide.fp-opts-open .explore-controls.fp-secondary { display: flex; }
   .app-wide .panel { padding: 12px 14px; }
   .app-wide .num { min-height: 48px; }
   /* keep the feedback line on the SAME row as Repeat/♪/Voice (it otherwise wraps to its
