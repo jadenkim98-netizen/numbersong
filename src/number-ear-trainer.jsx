@@ -2130,6 +2130,7 @@ export default function NumberEarTrainer() {
 
   // preferences
   const [theme, setTheme] = useState(() => loadPref("theme", "dark"));
+  const [testCfgOpen, setTestCfgOpen] = useState(false); // in-session quick settings (tempo/resolution/theme)
   const [resStep, setResStep] = useState(() => parseFloat(loadPref("resstep", "0.8")) || 0.8);
   const [progBeat, setProgBeat] = useState(() => parseFloat(loadPref("progbeat", "1.0")) || 1.0);
   const [chordSevenths, setChordSevenths] = useState(() => loadPref("sevenths", "0") === "1");
@@ -3527,7 +3528,55 @@ export default function NumberEarTrainer() {
           <button className="back" onClick={() => { killSession(); setPhase("idle"); setBusy(false); setScreen("levels"); }}>← Quit</button>
           <h2 className="screen-title">{lvl.name}</h2>
           <span className="session-score">{streak >= 2 && <span key={streak} className="streak">🔥{streak}</span>}{score} ✓</span>
+          <button className="sess-gear" onClick={() => setTestCfgOpen(true)} aria-label="Test settings"
+            style={{ background: "none", border: 0, color: "var(--text)", fontSize: "1.15rem", lineHeight: 1, cursor: "pointer", padding: "2px 6px" }}>⚙</button>
         </header>
+        {testCfgOpen && (
+          <div className="test-cfg-backdrop" onClick={() => setTestCfgOpen(false)}>
+            <style>{`
+              .test-cfg-backdrop{ position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,.55); }
+              .test-cfg{ width:100%; max-width:380px; max-height:85vh; overflow-y:auto; background:var(--card,#424845); color:var(--text,#EDF2EE); border-radius:14px; padding:18px 18px 20px; display:flex; flex-direction:column; gap:16px; }
+              .retro .test-cfg{ clip-path:var(--notch); border-radius:0; box-shadow:inset 0 0 0 2px var(--line),inset 0 0 0 4px rgba(0,0,0,.25); }
+              .test-cfg .tc-title{ font-weight:800; font-size:1.05rem; margin:0; }
+              .retro .test-cfg .tc-title{ font-family:var(--pf); font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--gold); }
+              .test-cfg .set-block{ display:flex; flex-direction:column; gap:8px; }
+            `}</style>
+            <div className="test-cfg" onClick={(e) => e.stopPropagation()}>
+              <p className="tc-title">Test settings</p>
+              <div className="set-block">
+                <span className="set-label">Tempo</span>
+                <p className="set-desc">How fast the notes walk home after a correct answer.</p>
+                <div className="seg">
+                  {RES_SPEEDS.map((s) => (
+                    <button key={s.label} className={Math.abs(resStep - s.step) < 0.001 ? "on" : ""}
+                      onClick={() => { setResStep(s.step); savePref("resstep", s.step); }}>{s.label}</button>
+                  ))}
+                </div>
+              </div>
+              {mode === "progressions" && (
+                <div className="set-block">
+                  <span className="set-label">Progression speed</span>
+                  <p className="set-desc">How fast the chords play in a progression.</p>
+                  <div className="seg">
+                    {PROG_SPEEDS.map((s) => (
+                      <button key={s.label} className={Math.abs(progBeat - s.beat) < 0.001 ? "on" : ""}
+                        onClick={() => { setProgBeat(s.beat); savePref("progbeat", s.beat); }}>{s.label}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="set-block">
+                <span className="set-label">Theme</span>
+                <p className="set-desc">Light currently reskins Boring mode; the Adventure skin stays dark.</p>
+                <div className="seg">
+                  <button className={theme === "dark" ? "on" : ""} onClick={() => setTheme("dark")}>Dark</button>
+                  <button className={theme === "light" ? "on" : ""} onClick={() => setTheme("light")}>Light</button>
+                </div>
+              </div>
+              <button className="primary" onClick={() => setTestCfgOpen(false)}>Done</button>
+            </div>
+          </div>
+        )}
         <div className="progressbar"><div className="fill" style={{ width: `${(qNum / qCountOf(lvl)) * 100}%` }} /></div>
         {!boringMode && (
           <div className="hpbar">
