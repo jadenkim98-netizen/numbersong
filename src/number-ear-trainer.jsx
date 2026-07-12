@@ -4395,7 +4395,7 @@ export default function NumberEarTrainer() {
         </label>
       </div>
       <div className="explore-controls">
-        <button className={"ghost" + (exStage > 0 ? " voice on" : "")}
+        <button className={"ghost fp-numbers-toggle" + (exStage > 0 ? " voice on" : "")}
           onClick={() => setExStage((s) => (s + 1) % 2)}>
           {stageLabels[exStage]}
         </button>
@@ -4467,13 +4467,12 @@ export default function NumberEarTrainer() {
             active={litActive} onDown={pianoDown} onUp={pianoUp} />}
       </div>
       </div>
-      <p className="hint center">
+      <p className="hint center fp-help">
         {exStage === 0
           ? `World ${exWorld}: the blue pads are its chord tones (${worldChordTones(exWorld).join("·")}). Drone on, sing the numbers.`
           : "Numbers hidden. Sing each number as you press its pad."}
         {" "}Or play the number row on your keyboard (<strong>` 1–7 8 9 0 - =</strong>).
       </p>
-      <footer className="foot">Your imagined instrument, made briefly visible. The goal is to need it less and less.</footer>
       </>
       )}
       {upsellModal}
@@ -5213,9 +5212,17 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .prog-stacks { flex: 0 0 auto; }
   .app-wide .prog-right { display: flex; flex-direction: column; gap: 12px; flex: 1 1 0; min-width: 0; }
 
-  /* Free Play: controls + sing tuner in a slim sidebar; map/piano take the wide side */
-  .app-wide .fp-stage { display: flex; gap: 16px; align-items: flex-start; }
-  .app-wide .fp-side { display: flex; flex-direction: column; gap: 10px; flex: 0 0 34%; }
-  .app-wide .fp-main { flex: 1 1 0; min-width: 0; }
+  /* Free Play landscape: a thin control bar on top, and the map/piano fills MOST of the
+     screen so the 7 pads are big + finger-friendly. Secondary controls stay behind the ⚙. */
+  .app-wide .fp-stage { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1 1 auto; }
+  .app-wide .fp-side { display: flex; flex-flow: row wrap; gap: 8px; flex: 0 0 auto; align-items: center; justify-content: center; }
+  .app-wide .fp-side .explore-controls { flex: 0 0 auto; gap: 8px; margin: 0; }
+  .app-wide .fp-main { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; }
+  .app-wide .fp-numbers-toggle { display: none; }        /* drop the Numbers on / Blank pads toggle */
+  .app-wide .fp-help { display: none; }                   /* drop the "World N: the blue pads…" help line */
+  /* stretch the tonal map / piano to fill the freed height → big comfortable pads */
+  .app-wide .fp-main .ladder.explore { flex: 1 1 auto; align-content: stretch; grid-auto-rows: 1fr; }
+  .app-wide .fp-main .explore-pad { min-height: 0; }
+  .app-wide .fp-main .piano { flex: 1 1 auto; height: auto; min-height: 150px; }
 }
 `;
