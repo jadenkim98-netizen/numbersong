@@ -821,6 +821,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 }
 @keyframes rt-bigflash{ 0%{ opacity:0; } 10%{ opacity:1; } 100%{ opacity:0; } }
 .retro .confetti{ position:fixed; inset:0; z-index:200; pointer-events:none; overflow:hidden; }
+.confetti.out{ animation:confetti-out .6s ease forwards; }
+@keyframes confetti-out{ to{ opacity:0; } }
 .retro .confetti i{
   position:absolute; top:-24px; width:12px; height:18px; opacity:.97;
   box-shadow:0 0 3px rgba(0,0,0,.35);
@@ -2849,6 +2851,23 @@ window.SOUNDTRACK = SOUNDTRACK;
     color: ["var(--gold)", "var(--teal)", "var(--green)", "var(--blue)", "#fff", "var(--wrong)"][i % 6],
     drift: (i * 17 % 13 - 6) * 16
   }));
+  function Confetti({ show }) {
+    const [render, setRender] = useState(show);
+    const [out, setOut] = useState(false);
+    useEffect(() => {
+      if (show) {
+        setRender(true);
+        setOut(false);
+        return;
+      }
+      if (!render) return;
+      setOut(true);
+      const t = setTimeout(() => setRender(false), 650);
+      return () => clearTimeout(t);
+    }, [show]);
+    if (!render) return null;
+    return /* @__PURE__ */ React.createElement("div", { className: "confetti" + (out ? " out" : ""), "aria-hidden": "true" }, CONFETTI.map((cf, i) => /* @__PURE__ */ React.createElement("i", { key: i, style: { left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" } })));
+  }
   function ForgeSword({ collected, className }) {
     const H = window.HARMONIA;
     const ref = useRef(null);
@@ -3054,6 +3073,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       setTintedCoda(tc);
     }, [codaImg, skinTint]);
     const codaRef = useRef(null);
+    const standRef = useRef(null);
     const walkRef = useRef(false);
     const rafRef = useRef(0);
     useEffect(() => {
@@ -3142,10 +3162,14 @@ window.SOUNDTRACK = SOUNDTRACK;
       drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, tintedCoda || codaImg, bob);
     }, [tileset, nodes, currentId, collected, codaImg, tintedCoda, swordImg, dojoImg, bakedMap]);
     useEffect(() => {
-      const cn = nodes.find((n) => n.id === currentId);
-      if (!cn || walkRef.current) return;
-      codaRef.current = { c: cn.c, r: cn.r };
-      draw(cn.c, cn.r, 0);
+      if (walkRef.current) return;
+      if (!standRef.current) {
+        const cn = nodes.find((n) => n.id === currentId);
+        if (cn) standRef.current = { c: cn.c, r: cn.r };
+      }
+      if (!standRef.current) return;
+      codaRef.current = { c: standRef.current.c, r: standRef.current.r };
+      draw(standRef.current.c, standRef.current.r, 0);
     }, [draw, currentId, nodes]);
     useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
     useEffect(() => {
@@ -3241,6 +3265,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           rafRef.current = requestAnimationFrame(step);
         } else {
           walkRef.current = false;
+          standRef.current = { c: target.c, r: target.r };
           draw(target.c, target.r, 0);
           done && done();
         }
@@ -4801,7 +4826,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       const chromOrder = ALL12.map((i) => mod12(tonicPc + i));
       const tutCoach = tutorialActive && mode === "melody";
       const tutTarget = tutCoach && tutReveal && sess.current ? sess.current.target : null;
-      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "confetti", "aria-hidden": "true" }, CONFETTI.map((cf, i) => /* @__PURE__ */ React.createElement("i", { key: i, style: { left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" } }))), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement(Confetti, { show: tutCelebrate }), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
         killSession();
         setPhase("idle");
         setBusy(false);
@@ -4975,7 +5000,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         byTarget[k].total += 1;
         if (r.firstTry) byTarget[k].right += 1;
       });
-      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), justCleared && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), justCleared && /* @__PURE__ */ React.createElement("div", { className: "confetti", "aria-hidden": "true" }, CONFETTI.map((cf, i) => /* @__PURE__ */ React.createElement("i", { key: i, style: { left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" } }))), finale && /* @__PURE__ */ React.createElement("div", { className: "finale", onClick: () => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), justCleared && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement(Confetti, { show: justCleared }), finale && /* @__PURE__ */ React.createElement("div", { className: "finale", onClick: () => {
         setSwordBurst(true);
         setScreen("adventure");
       } }, /* @__PURE__ */ React.createElement("div", { className: "finale-rays", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", { className: "finale-inner" }, /* @__PURE__ */ React.createElement("span", { className: "finale-kicker" }, "✦ The blade is whole ✦"), /* @__PURE__ */ React.createElement("div", { className: "finale-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "finale-sword" }), /* @__PURE__ */ React.createElement("span", { className: "finale-shine", "aria-hidden": "true" }), typeof window !== "undefined" && window.CODA_VICTORY && /* @__PURE__ */ React.createElement("img", { className: "finale-coda", src: window.CODA_VICTORY, alt: "Coda, victorious", "aria-hidden": "true" })), /* @__PURE__ */ React.createElement("h2", { className: "finale-title" }, "EXCALIBAR", /* @__PURE__ */ React.createElement("br", null), "REFORGED"), /* @__PURE__ */ React.createElement("span", { className: "finale-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("button", { className: "primary finale-btn", onClick: (e) => {
@@ -5135,7 +5160,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       const done = tutMode === "done";
       const drillTitle = tutDrillPhase === "play" ? "Listen…" : tutDrillPhase === "win" ? "You felt it!" : "Which number?";
       const drillLine = tutDrillPhase === "win" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "Yes — that's the one. You're ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "naming what you hear"), ".") : tutReveal ? /* @__PURE__ */ React.createElement(React.Fragment, null, "Not quite. Listen again and feel where it ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "lies"), " — it's the glowing number.") : tutDrillPhase === "play" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "Understanding begins with ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "listening"), ". Listen deeply — feel where the note lies.") : /* @__PURE__ */ React.createElement(React.Fragment, null, "Now ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "name it"), " — which number does it feel like?");
-      return /* @__PURE__ */ React.createElement("div", { className: "app tutorial" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "tut-scene", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("div", { className: "sun" }), /* @__PURE__ */ React.createElement("div", { className: "cloud c1" }), /* @__PURE__ */ React.createElement("div", { className: "cloud c2" }), /* @__PURE__ */ React.createElement("div", { className: "hills far" }), /* @__PURE__ */ React.createElement("div", { className: "hills" }), /* @__PURE__ */ React.createElement("div", { className: "steps1" }), /* @__PURE__ */ React.createElement("div", { className: "steps2" }), /* @__PURE__ */ React.createElement("div", { className: "ground" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t1" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t2" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t3" })), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "confetti", "aria-hidden": "true" }, CONFETTI.map((cf, i) => /* @__PURE__ */ React.createElement("i", { key: i, style: { left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" } }))), /* @__PURE__ */ React.createElement("div", { className: "tut-inner" }, /* @__PURE__ */ React.createElement("div", { className: "hud" }, /* @__PURE__ */ React.createElement("span", { className: "loc" }, /* @__PURE__ */ React.createElement("b", null, "✦"), " Staircase Meadows"), !done && /* @__PURE__ */ React.createElement("button", { className: "skip", onClick: skipTutorial }, "Skip ▸")), /* @__PURE__ */ React.createElement("div", { className: "stagepanel" }, /* @__PURE__ */ React.createElement("div", { className: "stagetitle" }, done ? "The map is yours" : drill ? drillTitle : beat.title), /* @__PURE__ */ React.createElement("div", { className: "stage-fit" }, done ? tutMap : drill ? /* @__PURE__ */ React.createElement("div", { className: "numpad coach tut-drillpad" }, [1, 2, 3, 4, 5, 6, 7].map((d) => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app tutorial" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "tut-scene", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("div", { className: "sun" }), /* @__PURE__ */ React.createElement("div", { className: "cloud c1" }), /* @__PURE__ */ React.createElement("div", { className: "cloud c2" }), /* @__PURE__ */ React.createElement("div", { className: "hills far" }), /* @__PURE__ */ React.createElement("div", { className: "hills" }), /* @__PURE__ */ React.createElement("div", { className: "steps1" }), /* @__PURE__ */ React.createElement("div", { className: "steps2" }), /* @__PURE__ */ React.createElement("div", { className: "ground" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t1" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t2" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t3" })), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement(Confetti, { show: tutCelebrate }), /* @__PURE__ */ React.createElement("div", { className: "tut-inner" }, /* @__PURE__ */ React.createElement("div", { className: "hud" }, /* @__PURE__ */ React.createElement("span", { className: "loc" }, /* @__PURE__ */ React.createElement("b", null, "✦"), " Staircase Meadows"), !done && /* @__PURE__ */ React.createElement("button", { className: "skip", onClick: skipTutorial }, "Skip ▸")), /* @__PURE__ */ React.createElement("div", { className: "stagepanel" }, /* @__PURE__ */ React.createElement("div", { className: "stagetitle" }, done ? "The map is yours" : drill ? drillTitle : beat.title), /* @__PURE__ */ React.createElement("div", { className: "stage-fit" }, done ? tutMap : drill ? /* @__PURE__ */ React.createElement("div", { className: "numpad coach tut-drillpad" }, [1, 2, 3, 4, 5, 6, 7].map((d) => {
         const pc = DEGREE_TO_PC[d];
         const out = ![0, 2, 4].includes(pc);
         return /* @__PURE__ */ React.createElement(

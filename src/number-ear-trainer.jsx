@@ -1460,6 +1460,28 @@ const CONFETTI = Array.from({ length: 140 }, (_, i) => ({
   drift: (((i * 17) % 13) - 6) * 16,
 }));
 
+// Confetti overlay that FADES OUT before unmounting (instead of vanishing mid-fall
+// when the celebration state clears). Keeps itself mounted for a short fade.
+function Confetti({ show }) {
+  const [render, setRender] = useState(show);
+  const [out, setOut] = useState(false);
+  useEffect(() => {
+    if (show) { setRender(true); setOut(false); return; }
+    if (!render) return;
+    setOut(true); // add the .out class → CSS fades the container to transparent
+    const t = setTimeout(() => setRender(false), 650);
+    return () => clearTimeout(t);
+  }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!render) return null;
+  return (
+    <div className={"confetti" + (out ? " out" : "")} aria-hidden="true">
+      {CONFETTI.map((cf, i) => (
+        <i key={i} style={{ left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" }} />
+      ))}
+    </div>
+  );
+}
+
 // Excalibar rendered from the sword sheet; collected parts are solid, the rest ghosted.
 function ForgeSword({ collected, className }) {
   const H = window.HARMONIA;
@@ -1636,6 +1658,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
     setTintedCoda(tc);
   }, [codaImg, skinTint]);
   const codaRef = useRef(null);   // Coda's live tile position {c,r} (floats while walking)
+  const standRef = useRef(null);  // the tile Coda is resting on (persists across re-renders, so he stays where he last walked)
   const walkRef = useRef(false);  // true while a walk animation is in flight
   const rafRef = useRef(0);
 
@@ -1706,12 +1729,18 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
     drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, tintedCoda || codaImg, bob);
   }, [tileset, nodes, currentId, collected, codaImg, tintedCoda, swordImg, dojoImg, bakedMap]);
 
-  // static render: Coda rests on the current node (unless mid-walk)
+  // static render: Coda rests on the tile he last walked to (his standing tile), so a
+  // re-render (opening/closing an encounter, coming back from a stage) doesn't snap him
+  // back to the current-progression node. First mount seeds the standing tile from currentId.
   useEffect(() => {
-    const cn = nodes.find((n) => n.id === currentId);
-    if (!cn || walkRef.current) return;
-    codaRef.current = { c: cn.c, r: cn.r };
-    draw(cn.c, cn.r, 0);
+    if (walkRef.current) return;
+    if (!standRef.current) {
+      const cn = nodes.find((n) => n.id === currentId);
+      if (cn) standRef.current = { c: cn.c, r: cn.r };
+    }
+    if (!standRef.current) return;
+    codaRef.current = { c: standRef.current.c, r: standRef.current.r };
+    draw(standRef.current.c, standRef.current.r, 0);
   }, [draw, currentId, nodes]);
 
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
@@ -1791,7 +1820,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       }
       draw(codaRef.current.c, codaRef.current.r, Math.abs(Math.sin(ts / 95)) * 2.5);
       if (seg < route.length) { rafRef.current = requestAnimationFrame(step); }
-      else { walkRef.current = false; draw(target.c, target.r, 0); done && done(); }
+      else { walkRef.current = false; standRef.current = { c: target.c, r: target.r }; draw(target.c, target.r, 0); done && done(); }
     };
     rafRef.current = requestAnimationFrame(step);
   };
@@ -3444,7 +3473,7 @@ export default function NumberEarTrainer() {
       <div className="app">
         <style>{CSS}</style>
         {tutCelebrate && <div className="fx-flash" aria-hidden="true" />}
-        {tutCelebrate && <div className="confetti" aria-hidden="true">{CONFETTI.map((cf, i) => <i key={i} style={{ left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" }} />)}</div>}
+        <Confetti show={tutCelebrate} />
         <header className="top-slim">
           <button className="back" onClick={() => { killSession(); setPhase("idle"); setBusy(false); setScreen("levels"); }}>← Quit</button>
           <h2 className="screen-title">{lvl.name}</h2>
@@ -3646,13 +3675,7 @@ export default function NumberEarTrainer() {
       <div className="app">
         <style>{CSS}</style>
         {justCleared && <div className="fx-flash" aria-hidden="true" />}
-        {justCleared && (
-          <div className="confetti" aria-hidden="true">
-            {CONFETTI.map((cf, i) => (
-              <i key={i} style={{ left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" }} />
-            ))}
-          </div>
-        )}
+        <Confetti show={justCleared} />
         {finale && (
           <div className="finale" onClick={() => { setSwordBurst(true); setScreen("adventure"); }}>
             <div className="finale-rays" aria-hidden="true" />
@@ -3894,7 +3917,7 @@ export default function NumberEarTrainer() {
           <div className="tuft t1" /><div className="tuft t2" /><div className="tuft t3" />
         </div>
         {tutCelebrate && <div className="fx-flash" aria-hidden="true" />}
-        {tutCelebrate && <div className="confetti" aria-hidden="true">{CONFETTI.map((cf, i) => <i key={i} style={{ left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" }} />)}</div>}
+        <Confetti show={tutCelebrate} />
         <div className="tut-inner">
           <div className="hud">
             <span className="loc"><b>✦</b> Staircase Meadows</span>

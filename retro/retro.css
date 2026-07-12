@@ -473,6 +473,8 @@
 }
 @keyframes rt-bigflash{ 0%{ opacity:0; } 10%{ opacity:1; } 100%{ opacity:0; } }
 .retro .confetti{ position:fixed; inset:0; z-index:200; pointer-events:none; overflow:hidden; }
+.confetti.out{ animation:confetti-out .6s ease forwards; }
+@keyframes confetti-out{ to{ opacity:0; } }
 .retro .confetti i{
   position:absolute; top:-24px; width:12px; height:18px; opacity:.97;
   box-shadow:0 0 3px rgba(0,0,0,.35);
