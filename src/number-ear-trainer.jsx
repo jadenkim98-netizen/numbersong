@@ -2140,6 +2140,13 @@ export default function NumberEarTrainer() {
   const TUT_DRILLS = 3;
   const skipTutorial = () => { savePref("tut", "1"); if (tutTimerRef.current) clearTimeout(tutTimerRef.current); try { sfx("select"); } catch (e) {} setScreen("adventure"); };
   const graduateTutorial = () => { savePref("tut", "1"); setTutMode("teach"); try { sfx("select"); } catch (e) {} setScreen("adventure"); };
+  // Replay Verda's tutorial from the top (from the menu) — reset its state, don't touch the tut flag.
+  const replayTutorial = () => {
+    setTutStep(0); setTutMode("teach"); setTutDrillN(0);
+    setTutDrillTarget(null); setTutDrillPhase("play"); setTutReveal(false);
+    try { sfx("select"); } catch (e) {}
+    setScreen("tutorial");
+  };
   const startTutDrill = async (n) => {
     const pool = [0, 2, 4]; // degrees 1·2·3 (First Steps range)
     let pc; do { pc = pool[Math.floor(Math.random() * pool.length)]; } while (pc === tutDrillTarget && pool.length > 1);
@@ -3226,9 +3233,9 @@ export default function NumberEarTrainer() {
         <div className="menu-list">
           {item("⚔", "Adventure", () => setScreen("adventure"))}
           {item("🎯", "Basic Training", () => setScreen("training"))}
-          {item("🎸", "Free Play", () => { setFpTab("notes"); setScreen("learn"); })}
           {item("📖", "How music works", () => { setGuidePage(0); setScreen("guide"); })}
           {item("★", "Shop (" + starBalance() + ")", () => setScreen("shop"))}
+          {item("🎓", "Replay tutorial", replayTutorial)}
           {item("⚙", "Settings", () => setScreen("settings"))}
         </div>
         {gated && (

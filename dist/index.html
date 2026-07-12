@@ -4425,6 +4425,19 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
       setScreen("adventure");
     };
+    const replayTutorial = () => {
+      setTutStep(0);
+      setTutMode("teach");
+      setTutDrillN(0);
+      setTutDrillTarget(null);
+      setTutDrillPhase("play");
+      setTutReveal(false);
+      try {
+        sfx("select");
+      } catch (e) {
+      }
+      setScreen("tutorial");
+    };
     const startTutDrill = async (n) => {
       const pool = [0, 2, 4];
       let pc;
@@ -5585,13 +5598,10 @@ window.SOUNDTRACK = SOUNDTRACK;
         setAuxReturn(null);
         go();
       }, onMouseEnter: () => sfx("move") }, /* @__PURE__ */ React.createElement("span", { className: "mi-icon" }, icon), " ", label);
-      return /* @__PURE__ */ React.createElement("div", { className: "app menu-screen" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("h1", { className: "menu-logo" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG")), /* @__PURE__ */ React.createElement("div", { className: "menu-list" }, item("⚔", "Adventure", () => setScreen("adventure")), item("🎯", "Basic Training", () => setScreen("training")), item("🎸", "Free Play", () => {
-        setFpTab("notes");
-        setScreen("learn");
-      }), item("📖", "How music works", () => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app menu-screen" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("h1", { className: "menu-logo" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG")), /* @__PURE__ */ React.createElement("div", { className: "menu-list" }, item("⚔", "Adventure", () => setScreen("adventure")), item("🎯", "Basic Training", () => setScreen("training")), item("📖", "How music works", () => {
         setGuidePage(0);
         setScreen("guide");
-      }), item("★", "Shop (" + starBalance() + ")", () => setScreen("shop")), item("⚙", "Settings", () => setScreen("settings"))), gated && /* @__PURE__ */ React.createElement("button", { className: "cta-more", onClick: () => {
+      }), item("★", "Shop (" + starBalance() + ")", () => setScreen("shop")), item("🎓", "Replay tutorial", replayTutorial), item("⚙", "Settings", () => setScreen("settings"))), gated && /* @__PURE__ */ React.createElement("button", { className: "cta-more", onClick: () => {
         sfx("select");
         openOffer();
       } }, "Want more than the game?", /* @__PURE__ */ React.createElement("span", { className: "cta-sub" }, "See the 16-week roadmap →")), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "One map to rule them all."));
