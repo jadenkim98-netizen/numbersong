@@ -3699,7 +3699,7 @@ export default function NumberEarTrainer() {
         <p className="qcount">Question {Math.min(qNum + 1, qCountOf(lvl))} of {qCountOf(lvl)} · {displayKey}{lvl.keyMode === "random" ? " (changes every question)" : ""}</p>
 
         {/* drill-stage = display:contents in portrait (no change); a two-column flex row in phone-landscape */}
-        <div className="drill-stage">
+        <div className={"drill-stage drill-" + mode}>
         {mode === "melody" && (
           <DegreeLadder active={litActive} correct={litCorrect} wrong={litWrong}
             tonicPc={tonicPc} pool={pool} showChrom={lvl.chromatic} />
@@ -5145,17 +5145,40 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 @media (orientation: landscape) and (max-height: 600px) {
   #root { max-width: 100%; }
   .app-wide {
-    max-width: 100%; gap: 10px;
-    padding-top: calc(10px + env(safe-area-inset-top, 0px));
-    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    max-width: 100%; gap: 8px;
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   }
-  :root[data-standalone] .app-wide { padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
+  :root[data-standalone] .app-wide { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
+
+  /* Real phones are only ~375–430px tall in landscape, so reclaim vertical chrome:
+     drop the decorative TRIAL cells, shrink the question line + the panel padding. */
+  .app-wide .hpbar { display: none; }
+  .app-wide .qcount { margin: 0; font-size: 0.78rem; }
+  .app-wide .panel { padding: 12px 14px; }
+  .app-wide .num { min-height: 48px; }
+  /* keep the feedback line on the SAME row as Repeat/♪/Voice (it otherwise wraps to its
+     own row — ~58px of height). Melody floats its quip instead (rule below wins there). */
+  .app-wide .quiz-bar { flex-wrap: nowrap; align-items: center; margin-bottom: 8px; }
+  .app-wide .quiz-bar .hint.grow { flex: 1 1 auto; min-height: 0; }
 
   /* drill screen: tonal map / stack LEFT, controls + answer pads RIGHT */
   .app-wide .drill-stage { display: flex; gap: 16px; align-items: flex-start; justify-content: center; }
   .app-wide .drill-stage > .ladder { flex: 0 0 44%; }                 /* melody: the tonal map */
   .app-wide .drill-stage > .panel { flex: 1 1 0; min-width: 0; max-width: 720px; }
-  .app-wide .chord-layout { gap: 24px; }                              /* chords are already two-column */
+  /* melody: float the feedback/quip into the empty space UNDER the map (left column)
+     so the answer pads on the right rise up and the drill fits without scrolling */
+  .app-wide .drill-melody { position: relative; }
+  .app-wide .drill-melody .quiz-bar .hint.grow {
+    position: absolute; left: 0; bottom: 0; width: 44%; min-height: 0; margin: 0;
+  }
+  .app-wide .chord-layout { gap: 20px; }                              /* chords are already two-column */
+  /* chords: the 7-high (+answer slot) vertical stack is the tallest element — shrink it
+     so stack|pads fits a short landscape phone without scrolling */
+  .app-wide .session-stack { gap: 2px; }
+  .app-wide .session-stack .stack-note { width: 26px; height: 26px; font-size: 0.82rem; }
+  .app-wide .chord-ref { margin: 0; }
+  .app-wide .chord-right .primary.wide { min-height: 42px; padding: 9px; }
   /* progressions: mini-stacks LEFT, chord pad + Undo/Check RIGHT */
   .app-wide .prog-layout { flex-direction: row; align-items: flex-start; gap: 16px; }
   .app-wide .prog-stacks { flex: 0 0 auto; }
