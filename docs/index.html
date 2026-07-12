@@ -3572,6 +3572,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         saveLocal();
       }
       enableSaves();
+      savePref("onboarded", "1");
       setLeadStatus(delivered ? "done" : "saved");
     };
     const openUpsell = () => {
@@ -4122,6 +4123,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       savePref("dronevol", String(droneVol));
     }, [droneVol, setDroneVolume]);
     const micWantRef = useRef(false);
+    const micBusyRef = useRef(false);
     const stopMic = useCallback(() => {
       micWantRef.current = false;
       const m = micRef.current;
@@ -4148,11 +4150,17 @@ window.SOUNDTRACK = SOUNDTRACK;
       setSingLevel(0);
     }, []);
     const toggleMic = useCallback(async () => {
+      if (micBusyRef.current) {
+        micWantRef.current = false;
+        setMicReq(false);
+        return;
+      }
       if (micRef.current) {
         stopMic();
         return;
       }
       micWantRef.current = true;
+      micBusyRef.current = true;
       setMicErr(false);
       setMicReq(true);
       try {
@@ -4181,6 +4189,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         setMicErr(true);
         setMicOn(false);
       } finally {
+        micBusyRef.current = false;
         setMicReq(false);
       }
     }, [stopMic]);
@@ -5072,7 +5081,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           {
             className: "primary wide",
             disabled: cuNotes.length < 2,
-            onClick: () => startSession("melody", null, {
+            onClick: () => gated ? openUpsell() : startSession("melody", null, {
               name: "Custom",
               group: null,
               mode: cuMode,
@@ -5082,7 +5091,8 @@ window.SOUNDTRACK = SOUNDTRACK;
               octaves: cuOct ? [3, 4, 5] : [4]
             })
           },
-          "Start custom session"
+          "Start custom session",
+          gated && " 🔒"
         ), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, "Pick your notes and key — custom runs aren't scored toward stages.")), upsellModal);
       }
       const chapters = mode === "chords" ? CHORD_CHAPTERS : PROG_CHAPTERS;
@@ -5437,7 +5447,7 @@ window.SOUNDTRACK = SOUNDTRACK;
             if (e.key === "Enter") submitLead();
           }
         }
-      ), leadStatus === "error" && /* @__PURE__ */ React.createElement("span", { className: "lead-err" }, "Enter a valid email, or tap Maybe later."), /* @__PURE__ */ React.createElement("span", { className: "lead-consent" }, "We'll email you the free PDF. No spam — unsubscribe anytime."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: submitLead, disabled: leadStatus === "sending" }, leadStatus === "sending" ? "Sending…" : "Send me the PDF"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Maybe later")))), /* @__PURE__ */ React.createElement("div", { className: "results-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => isCustom ? startSession(mode, null, sessLvl) : startSession(mode, levelIdx) }, "Try again"), hasNext && /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => startSession(mode, levelIdx + 1) }, "Next level →"))));
+      ), leadStatus === "error" && /* @__PURE__ */ React.createElement("span", { className: "lead-err" }, "Enter a valid email, or tap Maybe later."), /* @__PURE__ */ React.createElement("span", { className: "lead-consent" }, "We'll email you the free PDF. No spam — unsubscribe anytime."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: submitLead, disabled: leadStatus === "sending" }, leadStatus === "sending" ? "Sending…" : "Send me the PDF"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Maybe later")))), /* @__PURE__ */ React.createElement("div", { className: "results-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => isCustom ? startSession(mode, null, sessLvl) : startSession(mode, levelIdx) }, "Try again"), hasNext && /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => gated && !fromAdventure && !(mode === "melody" && isMelodyFree(levelIdx + 1)) ? openUpsell() : startSession(mode, levelIdx + 1) }, "Next level →"))));
     }
     if (screen === "shop") {
       const bal = starBalance();
@@ -5661,10 +5671,11 @@ window.SOUNDTRACK = SOUNDTRACK;
       "button",
       {
         key: i,
-        className: "chip" + (p.join() === pathProg.join() ? " on" : ""),
-        onClick: () => setProg(p)
+        className: "chip" + (p.join() === pathProg.join() ? " on" : "") + (gated && i >= FREE.freePlayPaths ? " locked" : ""),
+        onClick: () => gated && i >= FREE.freePlayPaths ? openUpsell() : setProg(p)
       },
-      p.map((r) => chordNumber(r, false)).join(" ")
+      p.map((r) => chordNumber(r, false)).join(" "),
+      gated && i >= FREE.freePlayPaths ? " 🔒" : ""
     )))), /* @__PURE__ */ React.createElement("div", { className: "fp-main" }, /* @__PURE__ */ React.createElement("div", { className: "fp-paths-map" }, /* @__PURE__ */ React.createElement(
       ExploreMap,
       {

@@ -2101,6 +2101,7 @@ export default function NumberEarTrainer() {
       saveLocal(); // offline / network error: keep the lead rather than losing it
     }
     enableSaves(); // giving your email is what actually saves your progress
+    savePref("onboarded", "1"); // persist so a reload never re-nags a converted lead (or double-subscribes) — the confirmation card still shows this session since onboarded STATE stays false
     setLeadStatus(delivered ? "done" : "saved"); // "saved" = progress kept, but no email promise
   };
   const openUpsell = () => { try { sfx("select"); } catch (e) {} setUpsellOpen(true); };
@@ -2540,6 +2541,7 @@ export default function NumberEarTrainer() {
   // call anytime; mirrors the app's killSession discipline so nothing keeps the
   // mic warm after you leave.
   const micWantRef = useRef(false); // false = mic no longer wanted (toggled off / unmounting)
+  const micBusyRef = useRef(false); // true while a getUserMedia request is in flight
   const stopMic = useCallback(() => {
     micWantRef.current = false;
     const m = micRef.current;
@@ -2557,8 +2559,13 @@ export default function NumberEarTrainer() {
   // analyser hangs off Tone's own AudioContext and is never routed to the
   // speakers, so there's no feedback loop.
   const toggleMic = useCallback(async () => {
+    // A request is already in flight (e.g. the permission prompt is up) — a second
+    // tap cancels it instead of starting a duplicate stream (the in-flight await
+    // sees micWantRef go false and releases its stream). Without this, re-tapping
+    // Sing during the prompt leaks a live mic track (OS indicator stays on).
+    if (micBusyRef.current) { micWantRef.current = false; setMicReq(false); return; }
     if (micRef.current) { stopMic(); return; }
-    micWantRef.current = true;
+    micWantRef.current = true; micBusyRef.current = true;
     setMicErr(false); setMicReq(true);
     try {
       await Tone.start();
@@ -2583,6 +2590,7 @@ export default function NumberEarTrainer() {
     } catch (e) {
       setMicErr(true); setMicOn(false);
     } finally {
+      micBusyRef.current = false;
       setMicReq(false);
     }
   }, [stopMic]);
@@ -3605,13 +3613,13 @@ export default function NumberEarTrainer() {
                 })}
               </div>
               <button className="primary wide" disabled={cuNotes.length < 2}
-                onClick={() => startSession("melody", null, {
+                onClick={() => gated ? openUpsell() : startSession("melody", null, {
                   name: "Custom", group: null, mode: cuMode,
                   chromatic: cuNotes.some((pc) => ALTERED_PCS.includes(pc)),
                   pool: [...cuNotes].sort((a, b) => a - b),
                   keyMode: cuKey, octaves: cuOct ? [3, 4, 5] : [4],
                 })}>
-                Start custom session
+                Start custom session{gated && " 🔒"}
               </button>
               <p className="hint center">Pick your notes and key — custom runs aren't scored toward stages.</p>
             </div>
@@ -4125,7 +4133,7 @@ export default function NumberEarTrainer() {
           <div className="results-actions">
             <button className="primary" onClick={() => isCustom ? startSession(mode, null, sessLvl) : startSession(mode, levelIdx)}>Try again</button>
             {hasNext && (
-              <button className="primary" onClick={() => startSession(mode, levelIdx + 1)}>Next level →</button>
+              <button className="primary" onClick={() => (gated && !fromAdventure && !(mode === "melody" && isMelodyFree(levelIdx + 1))) ? openUpsell() : startSession(mode, levelIdx + 1)}>Next level →</button>
             )}
           </div>
         </div>
@@ -4496,9 +4504,9 @@ export default function NumberEarTrainer() {
           ) : (
             <div className="path-presets fp-path-secondary">
               {PATH_PRESETS.map((p, i) => (
-                <button key={i} className={"chip" + (p.join() === pathProg.join() ? " on" : "")}
-                  onClick={() => setProg(p)}>
-                  {p.map((r) => chordNumber(r, false)).join(" ")}
+                <button key={i} className={"chip" + (p.join() === pathProg.join() ? " on" : "") + (gated && i >= FREE.freePlayPaths ? " locked" : "")}
+                  onClick={() => (gated && i >= FREE.freePlayPaths) ? openUpsell() : setProg(p)}>
+                  {p.map((r) => chordNumber(r, false)).join(" ")}{gated && i >= FREE.freePlayPaths ? " 🔒" : ""}
                 </button>
               ))}
             </div>
