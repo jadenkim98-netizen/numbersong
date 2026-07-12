@@ -3437,6 +3437,21 @@ export default function NumberEarTrainer() {
             </div>
           )}
           <div className="set-block">
+            <style>{`
+              .tempo-row{ display:flex; align-items:center; gap:12px; }
+              .tempo-row input[type=range]{ flex:1; accent-color:var(--teal,#57C6C4); height:24px; }
+              .tempo-val{ font-variant-numeric:tabular-nums; min-width:3.4em; text-align:right; font-weight:700; color:var(--teal,#57C6C4); }
+              .retro .tempo-val{ font-family:var(--pf); font-size:11px; }
+            `}</style>
+            <span className="set-label">Tempo</span>
+            <p className="set-desc">How fast the cadence plays at the start of each question.</p>
+            <div className="tempo-row">
+              <input type="range" min={TEMPO_MIN} max={TEMPO_MAX} step={0.05} value={testTempo} aria-label="Question tempo"
+                onChange={(e) => { const v = parseFloat(e.target.value); setTestTempo(v); savePref("tempo", v); setCadenceSpeed(v); }} />
+              <span className="tempo-val">{testTempo.toFixed(2)}×</span>
+            </div>
+          </div>
+          <div className="set-block">
             <span className="set-label">Resolution speed</span>
             <p className="set-desc">How fast the notes walk home after a correct answer.</p>
             <div className="seg">
