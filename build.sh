@@ -42,7 +42,7 @@ def _voicefiles(base):
         if os.path.exists(p):
             d[i] = base64.b64encode(open(p, "rb").read()).decode()
     return d
-voices = json.dumps({str(base): _voicefiles(base) for base in (0, 4, 8)})
+voices = json.dumps({str(base): _voicefiles(base) for base in (0, 2, 4, 6, 8, 10)})
 icon_data = "data:image/png;base64," + base64.b64encode(open("icon.png","rb").read()).decode()
 logo_data = "data:image/png;base64," + base64.b64encode(open("wejam.png","rb").read()).decode()
 coda_data = "data:image/png;base64," + base64.b64encode(open("coda.png","rb").read()).decode()

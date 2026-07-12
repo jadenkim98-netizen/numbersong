@@ -887,17 +887,16 @@ function useAudio() {
     await ensure();
     if (!voicesRef.current) { speak(NUMBER_WORDS[parseInt(degree, 10)], enabled); return; }
     const idx = KEYS.indexOf(key);
-    let bestBase = null, bestShift = 99;
-    for (const base of Object.keys(voicesRef.current).map(Number)) {
-      let s = idx - base;
-      if (s > 6) s -= 12;
-      if (s < -6) s += 12;
-      if (Math.abs(s) < Math.abs(bestShift)) { bestShift = s; bestBase = base; }
-    }
-    const buf = bestBase != null && voicesRef.current[bestBase][degree];
-    if (!buf) { speak(NUMBER_WORDS[parseInt(degree, 10)], enabled); return; }
-    const player = new Tone.Player(buf).toDestination();
-    player.playbackRate = Math.pow(2, bestShift / 12);
+    // nearest recorded base that ACTUALLY has this clip — so a key still missing
+    // 6L/7L borrows the low la/ti from a neighbouring key (shifted) instead of
+    // dropping to robotic speech synthesis.
+    const cands = Object.keys(voicesRef.current).map(Number).map((base) => {
+      let s = idx - base; if (s > 6) s -= 12; if (s < -6) s += 12; return { base, s };
+    }).sort((a, z) => Math.abs(a.s) - Math.abs(z.s));
+    const pick = cands.find((c) => voicesRef.current[c.base][degree]);
+    if (!pick) { speak(NUMBER_WORDS[parseInt(degree, 10)], enabled); return; }
+    const player = new Tone.Player(voicesRef.current[pick.base][degree]).toDestination();
+    player.playbackRate = Math.pow(2, pick.s / 12);
     player.fadeOut = 0.12; // gentle release when cut short
     const t = Tone.now() + delay;
     // one voice at a time: the previous number stops the moment this one starts
