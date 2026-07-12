@@ -1870,7 +1870,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       <style>{CSS}</style>
       <div className="adv-hud adv-hud-top">
         <img className="adv-logo" src={typeof window !== "undefined" ? window.WEJAM_LOGO : ""} alt="WeJam" />
-        <span className="adv-title">Numbersong{restored && <em className="adv-restored-tag"> · restored</em>}</span>
+        <span className="adv-title"><span className="w1">NUMBER</span><span className="w2">SONG</span>{restored && <em className="adv-restored-tag"> · restored</em>}</span>
         <button className="gear" onClick={onMenu} aria-label="Main menu">☰</button>
         <button className="gear gear-settings" onClick={onSettings} aria-label="Settings">⚙</button>
       </div>
@@ -4728,6 +4728,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .adv-forge-chip { display: flex; align-items: center; gap: 6px; background: rgba(20,24,22,.82); padding: 5px 12px 5px 6px; border-radius: 12px; }
 .adv-logo { height: 24px; width: auto; image-rendering: pixelated; }
 .adv-title { flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 1rem; letter-spacing: 0.06em; color: var(--teal); text-transform: uppercase; }
+.adv-title .w1 { color: var(--green); } .adv-title .w2 { color: var(--blue); }
 .adv-sword-mini { image-rendering: pixelated; height: 46px; width: auto; flex-shrink: 0; }
 .adv-forge-txt { display: flex; flex-direction: column; gap: 1px; font-size: 0.74rem; color: var(--text-soft); line-height: 1.2; }
 .adv-forge-txt b { font-family: 'Archivo Black', sans-serif; font-size: 0.9rem; color: var(--teal); }

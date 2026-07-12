@@ -591,6 +591,10 @@
 .retro .lvl-star.on{ color:var(--gold); }
 .retro .adv-hud-actions .shop-btn{ color:var(--gold); box-shadow:inset 0 0 0 2px var(--gold),inset 2px 2px 0 rgba(217,180,91,.25); }
 .retro .adv-forge-chip{ clip-path:var(--notch); box-shadow:inset 0 0 0 2px var(--line); }
+/* Fragment counter HUD in the pixel font so it matches the rest of the retro chrome. */
+.retro .adv-forge-txt{ font-family:var(--pf); font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--text); gap:2px; }
+.retro .adv-forge-txt b{ font-family:var(--pf); font-size:12px; letter-spacing:1px; color:var(--gold); }
+.retro .adv-forge-txt span{ font-size:8px; letter-spacing:1px; opacity:.7; }
 .retro .adv-hud-bottom .ghost{ clip-path:var(--notch); }
 
 /* =====================  FREEMIUM: upsell / CTA / locks / unlock  =========== */
