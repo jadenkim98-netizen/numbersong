@@ -90,6 +90,25 @@ const ALT_QUIPS = {
   10: "♭7 — bluesy, leans down.",
 };
 
+// Minor-key quips — home is now 6 (la-based minor), so the mood is darker and the
+// pull is toward 6, not 1.  (DRAFT copy — refine the teaching voice to taste.)
+const DEGREE_QUIPS_MINOR = {
+  6: "Home — la, where minor rests.",
+  7: "One step above home.",
+  1: "Bright — but not home down here.",
+  2: "A bit suspended — the '5 of 6'.",
+  3: "3 — it pulls you home.",
+  4: "Half-step above 3 — a bit of ache.",
+  5: "5 — a bit mellow.",
+};
+const ALT_QUIPS_MINOR = {
+  1: "♭2 — a dark half-step.",
+  3: "♭3 — the minor's blue note.",
+  6: "♯4 — the tritone's edge.",
+  8: "♭6 — also ♯5, points home.",
+  10: "♭7 — close to home, maybe too close.",
+};
+
 const CHORD_INSIGHTS = {
   I:    "Home itself — 1, 3 and 5 all at rest.",
   ii:   "All three tones lean toward home: 2→1, 4→3, 6→5.",
@@ -527,6 +546,7 @@ function useAudio() {
   const synthRef = useRef(null);
   const padRef = useRef(null);
   const voicesRef = useRef(null);
+  const minorVoiceRef = useRef(null); // pitch-keyed minor scale (Jojo's A-minor 2-octave take), base 0 = C
   const buffersRef = useRef(null);
   const voicePlayersRef = useRef([]);
 
@@ -586,6 +606,21 @@ function useAudio() {
       } catch (e) {
         voicesRef.current = null; // fall back to speech synthesis
       }
+    }
+    // Decode the pitch-keyed minor-scale voice (A-minor 2-octave take), keyed by MIDI.
+    if (!minorVoiceRef.current && window.MINOR_VOICE) {
+      try {
+        const out = {};
+        for (const [base, set] of Object.entries(window.MINOR_VOICE)) {
+          out[base] = {};
+          for (const [midi, b64] of Object.entries(set)) {
+            const bin = atob(b64); const arr = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            out[base][midi] = await Tone.getContext().rawContext.decodeAudioData(arr.buffer);
+          }
+        }
+        minorVoiceRef.current = out;
+      } catch (e) { minorVoiceRef.current = null; }
     }
   }, []);
 
@@ -866,19 +901,18 @@ function useAudio() {
   const sing = useCallback(async (key, degree, enabled, delay = 0, cutAfter = null) => {
     if (!enabled) return;
     await ensure();
-    if (!voicesRef.current) { speak(NUMBER_WORDS[degree], enabled); return; }
+    if (!voicesRef.current) { speak(NUMBER_WORDS[parseInt(degree, 10)], enabled); return; }
     const idx = KEYS.indexOf(key);
-    let bestBase = null, bestShift = 99;
-    for (const base of Object.keys(voicesRef.current).map(Number)) {
-      let s = idx - base;
-      if (s > 6) s -= 12;
-      if (s < -6) s += 12;
-      if (Math.abs(s) < Math.abs(bestShift)) { bestShift = s; bestBase = base; }
-    }
-    const buf = bestBase != null && voicesRef.current[bestBase][degree];
-    if (!buf) { speak(NUMBER_WORDS[degree], enabled); return; }
-    const player = new Tone.Player(buf).toDestination();
-    player.playbackRate = Math.pow(2, bestShift / 12);
+    // nearest recorded base that ACTUALLY has this clip — so a key still missing
+    // 6L/7L borrows the low la/ti from a neighbouring key (shifted) instead of
+    // dropping to robotic speech synthesis.
+    const cands = Object.keys(voicesRef.current).map(Number).map((base) => {
+      let s = idx - base; if (s > 6) s -= 12; if (s < -6) s += 12; return { base, s };
+    }).sort((a, z) => Math.abs(a.s) - Math.abs(z.s));
+    const pick = cands.find((c) => voicesRef.current[c.base][degree]);
+    if (!pick) { speak(NUMBER_WORDS[parseInt(degree, 10)], enabled); return; }
+    const player = new Tone.Player(voicesRef.current[pick.base][degree]).toDestination();
+    player.playbackRate = Math.pow(2, pick.s / 12);
     player.fadeOut = 0.12; // gentle release when cut short
     const t = Tone.now() + delay;
     // one voice at a time: the previous number stops the moment this one starts
@@ -894,6 +928,52 @@ function useAudio() {
       voicePlayersRef.current = voicePlayersRef.current.filter((p) => p !== player);
     }, (delay + 4) * 1000);
   }, [ensure]);
+
+  // Sing a minor number at an EXACT target pitch (MIDI) so the voice tracks the synth
+  // and never drifts an octave. Uses the pitch-keyed minor set (base 0 = C / A-minor),
+  // shifted into the current key, picking the recorded octave nearest the target.
+  const singMinor = useCallback(async (key, targetMidi, enabled, delay = 0, cutAfter = null) => {
+    if (!enabled) return;
+    await ensure();
+    const set = minorVoiceRef.current && minorVoiceRef.current["0"];
+    if (!set) return;
+    let ks = KEYS.indexOf(key); if (ks > 6) ks -= 12; // shift the C-base take into the current key
+    const cbase = targetMidi - ks;
+    const pc = ((cbase % 12) + 12) % 12;
+    let recMidi = null, bestD = 1e9;
+    for (const m of Object.keys(set)) {
+      const mm = +m;
+      if (((mm % 12) + 12) % 12 !== pc) continue;     // same scale degree (pitch class)
+      const d = Math.abs(mm - cbase);
+      if (d < bestD) { bestD = d; recMidi = mm; }
+    }
+    if (recMidi == null) return;
+    const player = new Tone.Player(set[recMidi]).toDestination();
+    player.playbackRate = Math.pow(2, (targetMidi - recMidi) / 12);
+    player.fadeOut = 0.12;
+    const t = Tone.now() + delay;
+    if (lastVoiceRef.current) { try { lastVoiceRef.current.stop(t); } catch (e) {} }
+    lastVoiceRef.current = player;
+    voicePlayersRef.current.push(player);
+    player.start(t);
+    if (cutAfter) player.stop(t + cutAfter);
+    setTimeout(() => {
+      player.dispose();
+      voicePlayersRef.current = voicePlayersRef.current.filter((p) => p !== player);
+    }, (delay + 4) * 1000);
+  }, [ensure]);
+
+  // Semitones the minor take must shift to hit this target. Small only for keys near
+  // the recorded one (C / A-minor); used to gate pitch-tracking vs the fallback.
+  const minorShift = useCallback((key, targetMidi) => {
+    const set = minorVoiceRef.current && minorVoiceRef.current["0"];
+    if (!set) return 999;
+    let ks = KEYS.indexOf(key); if (ks > 6) ks -= 12;
+    const cbase = targetMidi - ks; const pc = ((cbase % 12) + 12) % 12;
+    let rec = null, bd = 1e9;
+    for (const m of Object.keys(set)) { const mm = +m; if (((mm % 12) + 12) % 12 !== pc) continue; const d = Math.abs(mm - cbase); if (d < bd) { bd = d; rec = mm; } }
+    return rec == null ? 999 : Math.abs(targetMidi - rec);
+  }, []);
 
   const droneRef = useRef(null);
   const startDrone = useCallback(async (key, degree = 1, vol = -8) => {
@@ -1094,7 +1174,7 @@ function worldChordTones(w) {
   return [0, 2, 4, 6].map((k) => ((w - 1 + k) % 7) + 1);
 }
 
-function ExploreMap({ start, count, stage, octaves, world, active, hi, singDeg, singInTune, onPlay, onDown, onUp, staircase }) {
+function ExploreMap({ start, count, stage, octaves, world, active, hi, litDeg, singDeg, singInTune, onPlay, onDown, onUp, staircase }) {
   const evts = (n, row) => onDown // guide taps (onPlay); Free Play holds (onDown/onUp)
     ? { onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(n, row); }, onPointerUp: () => onUp(n, row) }
     : { onClick: () => onPlay(n, row) };
@@ -1115,6 +1195,7 @@ function ExploreMap({ start, count, stage, octaves, world, active, hi, singDeg, 
         stage === 1 && "blank",
         active?.includes(n.raw + row * 100) && "active",
         hi?.includes(n.raw + row * 100) && "hl",
+        litDeg?.includes(n.label) && "chord-lit",
         staircase && "stair",
         n.label === singDeg && (singInTune ? "singing in" : "singing off"),
       ].filter(Boolean).join(" ");
@@ -1963,6 +2044,7 @@ export default function NumberEarTrainer() {
   const tutTimerRef = useRef(null);
   const [tutorialActive, setTutorialActive] = useState(false); // (legacy) session Q1 coaching — unused now
   const [tutReveal, setTutReveal] = useState(false);  // reveal the target pad after a wrong tap
+  const [revealPc, setRevealPc] = useState(null);     // real-drill: pc of the target, revealed after repeated misses so a stuck learner isn't left guessing
   const [tutCelebrate, setTutCelebrate] = useState(false); // win flash/confetti overlay
   const gated = !unlocked;
   const isMelodyFree = (idx) => unlocked || groupIndexOf(idx) < FREE.melodyGroups;
@@ -1974,7 +2056,7 @@ export default function NumberEarTrainer() {
   // First-run lead capture (shown once on the first results screen for public players).
   const [leadName, setLeadName] = useState("");
   const [leadEmail, setLeadEmail] = useState("");
-  const [leadStatus, setLeadStatus] = useState("idle"); // idle | sending | done | error
+  const [leadStatus, setLeadStatus] = useState("idle"); // idle | sending | done | saved | error
   const submitLead = async () => {
     const email = leadEmail.trim();
     if (!/.+@.+\..+/.test(email)) { setLeadStatus("error"); return; }
@@ -2000,7 +2082,7 @@ export default function NumberEarTrainer() {
     enableSaves(); // giving your email is what actually saves your progress
     setLeadStatus(delivered ? "done" : "saved"); // "saved" = progress kept, but no email promise
   };
-  const openUpsell = () => { try { sfx("wrong"); } catch (e) {} setUpsellOpen(true); };
+  const openUpsell = () => { try { sfx("select"); } catch (e) {} setUpsellOpen(true); };
   const openOffer = () => {
     // In a standalone/home-screen PWA, window.open(_blank) loads the URL INSIDE the
     // app's own webview — trapping the user (no back button) and suspending audio.
@@ -2080,6 +2162,10 @@ export default function NumberEarTrainer() {
   const [encounterNode, setEncounterNode] = useState(null);  // region id whose encounter modal is open on the map
   const [auxReturn, setAuxReturn] = useState(null);          // where guide/free-play/settings back should go (e.g. "adventure")
   const [forgeOpen, setForgeOpen] = useState(false);         // Excalibar fragment inventory modal (on the map)
+  // overlay-modal a11y: panel refs for focus-move-in / focus-trap
+  const upsellPanelRef = useRef(null);
+  const forgePanelRef = useRef(null);
+  const encPanelRef = useRef(null);
   const [mapCelebrateNode, setMapCelebrateNode] = useState(null); // node to play a "region cleared!" flourish on next map view
   const [swordBurst, setSwordBurst] = useState(false);       // one-shot forge flash after earning a fragment
   const sessWasClearedRef = useRef(false);                   // was the region already cleared before this session?
@@ -2268,11 +2354,51 @@ export default function NumberEarTrainer() {
   const nextQuestionRef = useRef(() => {});
   const sessTimersRef = useRef([]);
   const sessTimer = (fn, ms) => { sessTimersRef.current.push(setTimeout(fn, ms)); };
+  // Generation token: bumped on every teardown/restart. An async nextQuestion() that
+  // was mid-await (e.g. waiting on the first-question audio context) checks this after
+  // each await and bails — so quitting during load can't leak a note or set phase on a
+  // dead session.
+  const sessGenRef = useRef(0);
   const killSession = () => {
+    sessGenRef.current++;
     sessTimersRef.current.forEach(clearTimeout);
     sessTimersRef.current = [];
     stopAll();
   };
+
+  // ── overlay-modal accessibility (upsell / forge / encounter) ──
+  // One effect covers all three: role="dialog"+aria-modal are on the panels; here we
+  // move focus into the panel on open, trap Tab inside it, close on Escape, lock body
+  // scroll, and restore focus to the trigger on close.
+  useEffect(() => {
+    let panelRef = null, close = null;
+    if (upsellOpen) { panelRef = upsellPanelRef; close = () => setUpsellOpen(false); }
+    else if (forgeOpen) { panelRef = forgePanelRef; close = () => setForgeOpen(false); }
+    else if (encounterNode) { panelRef = encPanelRef; close = () => setEncounterNode(null); }
+    if (!close) return;
+    const prevFocus = typeof document !== "undefined" ? document.activeElement : null;
+    const panel = panelRef && panelRef.current;
+    if (panel) { try { panel.focus(); } catch (e) {} }
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => {
+      if (e.key === "Escape") { e.preventDefault(); close(); return; }
+      if (e.key === "Tab" && panel) {
+        const list = Array.from(panel.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])'))
+          .filter((el) => !el.disabled && el.offsetParent !== null);
+        if (!list.length) { e.preventDefault(); return; }
+        const first = list[0], last = list[list.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} }
+    };
+  }, [upsellOpen, forgeOpen, encounterNode]);
 
   // guide
   const [guidePage, setGuidePage] = useState(0);
@@ -2358,6 +2484,7 @@ export default function NumberEarTrainer() {
 
   // Free Play: Melody Paths jam
   const [fpTab, setFpTab] = useState("notes");         // notes | paths
+  const [fpOptionsOpen, setFpOptionsOpen] = useState(false); // landscape focus mode: reveal the tucked-away secondary controls
   const [pathProg, setPathProg] = useState(["I", "V", "vi", "IV"]);
   const [pathIdx, setPathIdx] = useState(-1);          // current chord in the loop (-1 stopped)
   const [pathCount, setPathCount] = useState(0);       // count-in number showing (0 = none)
@@ -2563,7 +2690,7 @@ export default function NumberEarTrainer() {
     releaseNote(noteOf(row.d, row.oct));
   };
 
-  const clearLadder = () => { setLitActive([]); setLitCorrect([]); setLitWrong([]); setHitPad(null); };
+  const clearLadder = () => { setLitActive([]); setLitCorrect([]); setLitWrong([]); setHitPad(null); setRevealPc(null); };
 
   const levels = mode === "melody" ? MELODY_LEVELS : mode === "chords" ? CHORD_LEVELS : PROG_LEVELS;
 
@@ -2584,7 +2711,17 @@ export default function NumberEarTrainer() {
       const isLast = i === path.length - 1;
       playSemi(key, semi, i * step, octave);
       const deg = PC_TO_DEGREE[mod12(semi)];
-      if (canSing && deg != null) sing(key, semi >= 12 && deg === 1 ? 8 : deg, voiceOn, i * step, isLast ? null : step);
+      if (canSing && deg != null) {
+        const targetMidi = Tone.Frequency(key + octave).toMidi() + semi;
+        if (mode === "minor" && minorVoiceRef.current && minorShift(key, targetMidi) <= 3) {
+          // close to the recorded minor key → sing at the synth's exact pitch (no octave drift)
+          singMinor(key, targetMidi, voiceOn, i * step, isLast ? null : step);
+        } else {
+          // fallback (major, far minor key, or take not loaded): degree-based, low la/ti on descent
+          const vdeg = semi >= 12 && deg === 1 ? 8 : ((deg === 6 || deg === 7) && semi < 0 ? deg + "L" : deg);
+          sing(key, vdeg, voiceOn, i * step, isLast ? null : step);
+        }
+      }
       sessTimer(() => setLitCorrect([mod12(semi)]), i * step * 1000);
     });
     sessTimer(() => { setBusy(false); if (onDone) onDone(); }, (path.length * step + 0.7) * 1000);
@@ -2618,8 +2755,9 @@ export default function NumberEarTrainer() {
 
   const nextQuestion = async (isFirst = false) => {
     const s = sess.current;
+    const gen = sessGenRef.current; // capture; if the session is quit/restarted mid-await this goes stale
     clearLadder(); setChPicked([]); setProgAnswer([]); setProgWrong([]); setProgActive(-1); setFeedback(null);
-    s.attempted = false;
+    s.attempted = false; s.misses = 0;
     setPhase("playing"); setBusy(true);
 
     if (s.mode === "progressions") {
@@ -2631,7 +2769,9 @@ export default function NumberEarTrainer() {
       const prog = pickProgression(lvl, s.target);
       s.target = prog;
       const cad = (await playCadence(s.key, lvl.mode)) + 0.35;
+      if (gen !== sessGenRef.current) return; // quit during audio load → don't play/schedule on a dead session
       const dur = await playProgression(s.key, prog.map((r) => chordByRoman(r).tones), cad, progBeat);
+      if (gen !== sessGenRef.current) return;
       sessTimer(() => { setPhase("answer"); setBusy(false); }, (cad + dur + 0.2) * 1000);
     } else if (s.mode === "melody") {
       const lvl = s.lvl;
@@ -2646,6 +2786,7 @@ export default function NumberEarTrainer() {
       while (lvl.pool.length > 1 && pc === s.target);
       s.target = pc;
       const t = (await playCadence(s.key, lvl.mode)) + 0.25;
+      if (gen !== sessGenRef.current) return; // quit during audio load → bail before the target note leaks
       playSemi(s.key, pc, t, oct);
       // open answering the moment the pitch sounds (note keeps ringing) — don't
       // make them wait for it to finish. Tiny lead so the attack is clearly heard.
@@ -2663,7 +2804,9 @@ export default function NumberEarTrainer() {
       } while (lvl.pool.length > 1 && s.target && c.roman === s.target.roman);
       s.target = c;
       const cad = (await playCadence(s.key, lvl.mode)) + 0.25;
+      if (gen !== sessGenRef.current) return; // quit during audio load → bail
       await playChord(s.key, chordTones(c, s.sevenths), cad); // block + arpeggio
+      if (gen !== sessGenRef.current) return;
       sessTimer(() => { setPhase("answer"); setBusy(false); }, (cad + 0.7) * 1000); // but answer as soon as it sounds
     }
   };
@@ -2760,7 +2903,7 @@ export default function NumberEarTrainer() {
       s.results.push({ target: s.target, firstTry: first });
       setSessionResults([...s.results]);
       if (first) { setScore((sc) => sc + 1); setStreak((x) => x + 1); }
-      setLitWrong([]);
+      setLitWrong([]); setRevealPc(null);
       setHitPad(pc);
       setPhase("resolving");
       const deg = PC_TO_DEGREE[pc];
@@ -2772,16 +2915,29 @@ export default function NumberEarTrainer() {
         setTutCelebrate(true); sessTimer(() => setTutCelebrate(false), 1400);
         try { haptic(true); } catch (e) {}
       } else {
-        setFeedback(deg != null ? DEGREE_QUIPS[deg] : ALT_QUIPS[pc]);
+        const dq = lvl.mode === "minor" ? DEGREE_QUIPS_MINOR : DEGREE_QUIPS;
+        const aq = lvl.mode === "minor" ? ALT_QUIPS_MINOR : ALT_QUIPS;
+        setFeedback(deg != null ? dq[deg] : aq[pc]);
       }
       playResolution(s.key, s.octave, s.target, lvl.mode, !lvl.chromatic, advance);
     } else {
       s.attempted = true;
+      s.misses = (s.misses || 0) + 1;
       setStreak(0);
       setLitWrong([pc]);
-      playSemi(s.key, pc, 0, s.octave);
+      playSemi(s.key, pc, 0, s.octave); // echo the note they actually pressed
       if (tutorialActive) { setTutReveal(true); setFeedback("Almost — hear it again, then tap the glowing number."); }
-      else setFeedback("Not that one — that's the note you pressed. Try again.");
+      else if (s.misses >= 2) {
+        // don't leave a stuck learner brute-forcing: reveal + name the target, then replay it
+        const tdeg = PC_TO_DEGREE[s.target];
+        setRevealPc(s.target);
+        setFeedback("It's the " + (tdeg != null ? tdeg : NOTE_LABELS[s.target]) + " — hear it, then tap it.");
+        sessTimer(() => replayTarget(), 650);
+      } else {
+        // a miss should teach: re-play the TARGET (not just the note pressed) so they can compare
+        setFeedback("Not that one — that's what you played. Here's the note again…");
+        sessTimer(() => replayTarget(), 650);
+      }
     }
   };
 
@@ -2925,7 +3081,7 @@ export default function NumberEarTrainer() {
         const on = fpTab === "paths" ? pathVoice : voiceOn;
         const set = fpTab === "paths" ? setPathVoice : setVoiceOn;
         return (
-          <button className={"ghost voice" + (on ? " on" : "")} onClick={() => set(!on)} aria-pressed={on}>
+          <button className={"ghost voice fp-keyrow-voice" + (on ? " on" : "")} onClick={() => set(!on)} aria-pressed={on}>
             {on ? "Voice on" : "Voice off"}
           </button>
         );
@@ -3018,13 +3174,13 @@ export default function NumberEarTrainer() {
   // includes it; drop {upsellModal} into each screen that can trigger it.
   const upsellModal = upsellOpen ? (
     <div className="forge-modal upsell-modal" onClick={() => setUpsellOpen(false)}>
-      <div className="forge-panel upsell-panel" onClick={(e) => e.stopPropagation()}>
-        <span className="forge-kicker">Effortless Improvisation Accelerator</span>
-        <h2 className="forge-title">Locked</h2>
-        <p className="upsell-copy">These advanced levels unlock when you join the Accelerator — where we wire these ear skills into real songs, solos, and jams.</p>
+      <div className="forge-panel upsell-panel" role="dialog" aria-modal="true" aria-label="Keep going — the full program" tabIndex={-1} ref={upsellPanelRef} onClick={(e) => e.stopPropagation()}>
+        <span className="forge-kicker">✦ Keep going ✦</span>
+        <h2 className="forge-title">This is where it gets good</h2>
+        <p className="upsell-copy">You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program.</p>
         <div className="enc-actions">
           <button className="ghost" onClick={() => setUpsellOpen(false)}>Maybe later</button>
-          <button className="primary" onClick={openOffer}>See the roadmap →</button>
+          <button className="primary" onClick={openOffer}>Show me how →</button>
         </div>
       </div>
     </div>
@@ -3109,7 +3265,7 @@ export default function NumberEarTrainer() {
           onReady={() => setMapReady(true)} />
         {en && (
           <div className="encounter-modal" onClick={() => setEncounterNode(null)}>
-            <div className={"encounter mood-" + en.mood} onClick={(e) => e.stopPropagation()}>
+            <div className={"encounter mood-" + en.mood} role="dialog" aria-modal="true" aria-label={"Keeper of " + en.name} tabIndex={-1} ref={encPanelRef} onClick={(e) => e.stopPropagation()}>
               <div className="enc-head">
                 <span className="enc-emblem" aria-hidden="true">
                   {window.KEEPER_ART && window.KEEPER_ART[encounterNode]
@@ -3138,7 +3294,7 @@ export default function NumberEarTrainer() {
         )}
         {forgeOpen && window.HARMONIA && (
           <div className="forge-modal" onClick={() => setForgeOpen(false)}>
-            <div className="forge-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="forge-panel" role="dialog" aria-modal="true" aria-label="Excalibar — fragment inventory" tabIndex={-1} ref={forgePanelRef} onClick={(e) => e.stopPropagation()}>
               <span className="forge-kicker">The legendary blade</span>
               <h2 className="forge-title">Excalibar</h2>
               <ForgeSword collected={advCollected} className="forge-sword-big" />
@@ -3547,7 +3703,7 @@ export default function NumberEarTrainer() {
     const tutCoach = tutorialActive && mode === "melody";
     const tutTarget = tutCoach && tutReveal && sess.current ? sess.current.target : null;
     return (
-      <div className="app">
+      <div className={"app app-wide" + (lvl.mode === "minor" ? " sess-minor" : "")}>
         <style>{CSS}</style>
         {tutCelebrate && <div className="fx-flash" aria-hidden="true" />}
         <Confetti show={tutCelebrate} />
@@ -3623,6 +3779,8 @@ export default function NumberEarTrainer() {
         )}
         <p className="qcount">Question {Math.min(qNum + 1, qCountOf(lvl))} of {qCountOf(lvl)} · {displayKey}{lvl.keyMode === "random" ? " (changes every question)" : ""}</p>
 
+        {/* drill-stage = display:contents in portrait (no change); a two-column flex row in phone-landscape */}
+        <div className={"drill-stage drill-" + mode}>
         {mode === "melody" && (
           <DegreeLadder active={litActive} correct={litCorrect} wrong={litWrong}
             tonicPc={tonicPc} pool={pool} showChrom={lvl.chromatic} />
@@ -3667,10 +3825,12 @@ export default function NumberEarTrainer() {
                   const out = !pool.includes(pc);
                   return (
                     <button key={pc}
-                      className={"num chrom" + (pc === tonicPc ? " tonic" : "") + (ALTERED_PCS.includes(pc) ? " alt" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "")}
+                      className={"num chrom" + (pc === tonicPc ? " tonic" : "") + (ALTERED_PCS.includes(pc) ? " alt" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "") + (litWrong.includes(pc) ? " wrong" : "") + (revealPc === pc ? " coach-target" : "")}
                       onClick={() => answerMelodySession(pc)}
                       disabled={phase !== "answer" || out}>
                       {NOTE_LABELS[pc]}<span className="num-sol">{NOTE_SOLFEGE[pc]}</span>
+                      {hitPad === pc && <span className="num-mark" aria-hidden="true">✓</span>}
+                      {litWrong.includes(pc) && <span className="num-mark" aria-hidden="true">✕</span>}
                     </button>
                   );
                 })}
@@ -3682,10 +3842,12 @@ export default function NumberEarTrainer() {
                   const out = !pool.includes(pc);
                   return (
                     <button key={deg}
-                      className={"num" + (pc === tonicPc ? " tonic" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "") + (tutTarget === pc ? " coach-target" : "")}
+                      className={"num" + (pc === tonicPc ? " tonic" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "") + (litWrong.includes(pc) ? " wrong" : "") + (tutTarget === pc || revealPc === pc ? " coach-target" : "")}
                       onClick={() => answerMelodySession(pc)}
                       disabled={phase !== "answer" || out}>
                       {deg}<span className="num-sol">{SOLFEGE[deg]}</span>
+                      {hitPad === pc && <span className="num-mark" aria-hidden="true">✓</span>}
+                      {litWrong.includes(pc) && <span className="num-mark" aria-hidden="true">✕</span>}
                     </button>
                   );
                 })}
@@ -3742,6 +3904,7 @@ export default function NumberEarTrainer() {
                   );
                 })}
               </div>
+              <div className="prog-right">
               <div className="numpad chordpad">
                 {lvl.pool.map((r) => (
                   <button key={r} className="num chordbtn"
@@ -3759,9 +3922,11 @@ export default function NumberEarTrainer() {
                   Check answer
                 </button>
               </div>
+              </div>
             </div>
           )}
         </section>
+        </div>
       </div>
     );
   }
@@ -3839,40 +4004,6 @@ export default function NumberEarTrainer() {
               <span className="forge-count">{advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments"}</span>
             </div>
           )}
-          {!onboarded && (
-            <div className="lead-card">
-              {(leadStatus === "done" || leadStatus === "saved") ? (
-                <>
-                  <span className="lead-kicker">✓ You're in</span>
-                  <p className="lead-copy">{leadStatus === "done"
-                    ? "Check your inbox to confirm — your Chords-by-Numbers PDF lands right after. Your progress is saved."
-                    : "Your progress is saved on this device. (We couldn't reach the email service just now — no worries, keep playing.)"}</p>
-                  <div className="lead-actions">
-                    <button className="primary" onClick={() => { finishOnboarding(); openOffer(); }}>See the roadmap →</button>
-                    <button className="ghost" onClick={finishOnboarding}>Keep playing</button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <span className="lead-kicker">✦ Save your progress + a free gift ✦</span>
-                  <p className="lead-copy">Want to hear any guitar chord by ear? Pop in your email and I'll send you the free Chords-by-Numbers PDF — the method behind this whole game. Your progress saves, too.</p>
-                  <input className="set-input lead-input" placeholder="first name" value={leadName} autoComplete="given-name" onChange={(e) => setLeadName(e.target.value)} />
-                  <input className="set-input lead-input" type="email" name="email" placeholder="you@email.com" value={leadEmail}
-                    inputMode="email" autoComplete="email" autoCapitalize="off" autoCorrect="off" spellCheck={false}
-                    onChange={(e) => { setLeadEmail(e.target.value); if (leadStatus === "error") setLeadStatus("idle"); }}
-                    onKeyDown={(e) => { if (e.key === "Enter") submitLead(); }} />
-                  {leadStatus === "error" && <span className="lead-err">Enter a valid email, or skip.</span>}
-                  <span className="lead-consent">We'll email you the free PDF. No spam — unsubscribe anytime.</span>
-                  <div className="lead-actions">
-                    <button className="primary" onClick={submitLead} disabled={leadStatus === "sending"}>
-                      {leadStatus === "sending" ? "Sending…" : "Send me the PDF"}
-                    </button>
-                    <button className="ghost" onClick={finishOnboarding}>Maybe later</button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
           {justCleared && !finale && (
             <button className="primary map-return" onClick={() => { setSwordBurst(true); setScreen("adventure"); }}>← Return to the map</button>
           )}
@@ -3897,6 +4028,47 @@ export default function NumberEarTrainer() {
                   <span className="bar-count">{v.right}/{v.total}</span>
                 </div>
               ))}
+            </div>
+          )}
+          {!onboarded && (passed || justCleared) && (
+            <div className="lead-card">
+              {leadStatus === "done" ? (
+                <>
+                  <span className="lead-kicker">✓ You're in</span>
+                  <p className="lead-copy">Check your inbox to confirm — your Chords-by-Numbers PDF lands right after. Your progress is saved, too.</p>
+                  <div className="lead-actions">
+                    <button className="primary" onClick={() => { finishOnboarding(); openOffer(); }}>Show me how →</button>
+                    <button className="ghost" onClick={finishOnboarding}>Keep playing</button>
+                  </div>
+                </>
+              ) : leadStatus === "saved" ? (
+                <>
+                  <span className="lead-kicker">✓ Progress saved</span>
+                  <p className="lead-copy">Saved on this device. I couldn't send the PDF just now — give it another try, or keep playing and grab it later.</p>
+                  <div className="lead-actions">
+                    <button className="primary" onClick={submitLead} disabled={leadStatus === "sending"}>{leadStatus === "sending" ? "Sending…" : "Try again"}</button>
+                    <button className="ghost" onClick={finishOnboarding}>Keep playing</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="lead-kicker">✦ Save your progress + a free gift ✦</span>
+                  <p className="lead-copy">Want to hear any guitar chord by ear? Pop in your email and I'll send you the free Chords-by-Numbers PDF — the method behind this whole game. Your progress saves, too.</p>
+                  <input className="set-input lead-input" placeholder="first name" value={leadName} autoComplete="given-name" onChange={(e) => setLeadName(e.target.value)} />
+                  <input className="set-input lead-input" type="email" name="email" placeholder="you@email.com" value={leadEmail}
+                    inputMode="email" autoComplete="email" autoCapitalize="off" autoCorrect="off" spellCheck={false}
+                    onChange={(e) => { setLeadEmail(e.target.value); if (leadStatus === "error") setLeadStatus("idle"); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") submitLead(); }} />
+                  {leadStatus === "error" && <span className="lead-err">Enter a valid email, or tap Maybe later.</span>}
+                  <span className="lead-consent">We'll email you the free PDF. No spam — unsubscribe anytime.</span>
+                  <div className="lead-actions">
+                    <button className="primary" onClick={submitLead} disabled={leadStatus === "sending"}>
+                      {leadStatus === "sending" ? "Sending…" : "Send me the PDF"}
+                    </button>
+                    <button className="ghost" onClick={finishOnboarding}>Maybe later</button>
+                  </div>
+                </>
+              )}
             </div>
           )}
           <div className="results-actions">
@@ -4198,12 +4370,17 @@ export default function NumberEarTrainer() {
 
   // free explore screen
   const stageLabels = ["Numbers on", "Blank pads"];
+  // Paths: the degrees of the chord currently sounding in the loop — lit up on the tonal map
+  const pathCurTones = fpTab === "paths" && pathPlaying && pathIdx >= 0 && pathProg[pathIdx]
+    ? chordTones(chordByRoman(pathProg[pathIdx]), pathSevenths) : [];
   return (
-    <div className="app">
+    <div className={"app app-wide fp-" + fpTab + (fpOptionsOpen ? " fp-opts-open" : "")}>
       <style>{CSS}</style>
       <header className="top-slim">
         <button className="back" onClick={() => { setDroneOn(false); stopPath(); killSession(); setBusy(false); setScreen(auxReturn || (boringMode ? "home" : "menu")); }}>{auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"}</button>
         <h2 className="screen-title">Free play</h2>
+        {/* landscape focus mode only (hidden in portrait via CSS): reveal/hide the tucked-away controls */}
+        <button className="fp-opts-btn gear" onClick={() => setFpOptionsOpen((o) => !o)} aria-label={fpOptionsOpen ? "Hide options" : "Show options"} aria-pressed={fpOptionsOpen}>{fpOptionsOpen ? "✕" : "⚙"}</button>
       </header>
       {keyRow}
       <div className="tabs">
@@ -4212,19 +4389,12 @@ export default function NumberEarTrainer() {
       </div>
       {fpTab === "paths" ? (
         <>
+        <div className="fp-stage">
+        <div className="fp-side">
           <div className="explore-controls">
             <button className="primary" onClick={() => (pathPlaying ? stopPath() : startPath())} disabled={!pathProg.length}>
               {pathPlaying ? "■ Stop" : "▶ Play loop"}
             </button>
-            <button className={"ghost" + (pathBuild ? " voice on" : "")} onClick={() => gated ? openUpsell() : setPathBuild((b) => !b)}>
-              {pathBuild ? "Done" : "Build"}{gated && " 🔒"}
-            </button>
-            <label className="key-label">
-              Tempo
-              <select value={pathBeat} onChange={(e) => { setTempo(Number(e.target.value)); e.target.blur(); }}>
-                {PATH_SPEEDS.map((s) => <option key={s.label} value={s.beat}>{s.label}</option>)}
-              </select>
-            </label>
             <button className={"ghost voice" + (pathSevenths ? " on" : "")}
               onClick={() => { stopPath(); setPathSevenths((v) => !v); }}>
               {pathSevenths ? "7ths on" : "7ths"}
@@ -4232,10 +4402,30 @@ export default function NumberEarTrainer() {
             <button className={"ghost voice" + (pathDrums ? " on" : "")} onClick={toggleDrums}>
               {pathDrums ? "Drums on" : "Drums"}
             </button>
+            {/* landscape bar: Voice on/off for the sung numbers over the loop */}
+            <button className={"ghost voice fp-voice-bar" + (pathVoice ? " on" : "")}
+              onClick={() => setPathVoice((v) => !v)} aria-pressed={pathVoice}>
+              {pathVoice ? "Voice on" : "Voice off"}
+            </button>
+            <button className={"ghost fp-path-secondary" + (pathBuild ? " voice on" : "")} onClick={() => gated ? openUpsell() : setPathBuild((b) => !b)}>
+              {pathBuild ? "Done" : "Build"}{gated && " 🔒"}
+            </button>
+            <label className="key-label fp-path-secondary">
+              Tempo
+              <select value={pathBeat} onChange={(e) => { setTempo(Number(e.target.value)); e.target.blur(); }}>
+                {PATH_SPEEDS.map((s) => <option key={s.label} value={s.beat}>{s.label}</option>)}
+              </select>
+            </label>
             {pathCount > 0 && <span className="path-count">{pathCount}</span>}
           </div>
+          {/* the chord names of the loop; the one currently sounding is highlighted */}
+          <div className="path-chords fp-pathchords">
+            {pathProg.map((r, i) => (
+              <span key={i} className={"pc" + (pathIdx === i ? " cur" : "")}>{chordNumber(r, false)}</span>
+            ))}
+          </div>
           {pathBuild ? (
-            <div className="path-build">
+            <div className="path-build fp-path-secondary">
               <div className="numpad chordpad">
                 {ALL_CHORDS.map((r) => (
                   <button key={r} className="num chordbtn"
@@ -4253,7 +4443,7 @@ export default function NumberEarTrainer() {
               </div>
             </div>
           ) : (
-            <div className="path-presets">
+            <div className="path-presets fp-path-secondary">
               {PATH_PRESETS.map((p, i) => (
                 <button key={i} className={"chip" + (p.join() === pathProg.join() ? " on" : "")}
                   onClick={() => setProg(p)}>
@@ -4262,20 +4452,33 @@ export default function NumberEarTrainer() {
               ))}
             </div>
           )}
+        </div>
+        <div className="fp-main">
+          {/* landscape: the big tonal map — the current chord's tones light up as it plays */}
+          <div className="fp-paths-map">
+            <ExploreMap start={1} count={7} stage={0} octaves={1} world={null}
+              litDeg={pathCurTones} active={litActive} onDown={exploreDown} onUp={exploreUp} />
+          </div>
+          {/* portrait: the per-chord solo columns */}
           <div className="path-grid">
             {pathProg.map((r, col) => (
               <PathColumn key={col} roman={r} col={col} current={pathIdx === col} lit={litPath} onDown={pathDown} onUp={pathUp} sevenths={pathSevenths} />
             ))}
           </div>
-          <p className="hint center">
+        </div>
+        </div>
+          <p className="hint center fp-help">
             Play the loop, then solo — tap the pads or use the number row (<strong>` 1–7 8 9 0 - =</strong>). Hop to the nearest circled tone of each chord.
           </p>
-          <footer className="foot">Solo over the changes. The circles are your safe landing notes.</footer>
+          <footer className="foot fp-help">Solo over the changes. The circles are your safe landing notes.</footer>
         </>
       ) : (
       <>
-      <div className="explore-controls">
-        <label className="key-label">
+      {/* fp-stage/fp-side = display:contents in portrait (no change); two-column in phone-landscape (controls+tuner sidebar | wide map) */}
+      <div className="fp-stage">
+      <div className="fp-side">
+      <div className="explore-controls fp-selects">
+        <label className="key-label fp-starton">
           Start on
           <select value={exStart} onChange={(e) => { setExStart(Number(e.target.value)); e.target.blur(); }}>
             {[1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d}</option>)}
@@ -4298,7 +4501,7 @@ export default function NumberEarTrainer() {
         </label>
       </div>
       <div className="explore-controls">
-        <button className={"ghost" + (exStage > 0 ? " voice on" : "")}
+        <button className={"ghost fp-numbers-toggle" + (exStage > 0 ? " voice on" : "")}
           onClick={() => setExStage((s) => (s + 1) % 2)}>
           {stageLabels[exStage]}
         </button>
@@ -4323,7 +4526,12 @@ export default function NumberEarTrainer() {
         <button className="ghost" onClick={() => setExView(exView === "map" ? "piano" : "map")}>
           {exView === "map" ? "Piano view" : "Map view"}
         </button>
-        <button className={"ghost voice" + (micOn ? " on" : "")}
+        {/* landscape bar only: a Voice on/off toggle (replaces Sing here; Sing moves behind ⚙) */}
+        <button className={"ghost voice fp-voice-bar" + (voiceOn ? " on" : "")}
+          onClick={() => setVoiceOn((v) => !v)} aria-pressed={voiceOn}>
+          {voiceOn ? "Voice on" : "Voice off"}
+        </button>
+        <button className={"ghost voice fp-sing" + (micOn ? " on" : "")}
           onClick={toggleMic} aria-pressed={micOn}>
           {micOn ? "🎤 Sing on" : "🎤 Sing"}
         </button>
@@ -4359,6 +4567,8 @@ export default function NumberEarTrainer() {
           </div>
         );
       })()}
+      </div>
+      <div className="fp-main">
       {exView === "map"
         ? <ExploreMap start={exStart} count={exCount} stage={exStage}
             octaves={exOctaves} world={exWorld} singDeg={micOn ? singDeg : null} singInTune={singInTune}
@@ -4366,13 +4576,14 @@ export default function NumberEarTrainer() {
         : <PianoMap start={exStart} count={exCount} stage={exStage}
             world={exWorld} musicKey={musicKey} singDeg={micOn ? singDeg : null} singInTune={singInTune}
             active={litActive} onDown={pianoDown} onUp={pianoUp} />}
-      <p className="hint center">
+      </div>
+      </div>
+      <p className="hint center fp-help">
         {exStage === 0
           ? `World ${exWorld}: the blue pads are its chord tones (${worldChordTones(exWorld).join("·")}). Drone on, sing the numbers.`
           : "Numbers hidden. Sing each number as you press its pad."}
         {" "}Or play the number row on your keyboard (<strong>` 1–7 8 9 0 - =</strong>).
       </p>
-      <footer className="foot">Your imagined instrument, made briefly visible. The goal is to need it less and less.</footer>
       </>
       )}
       {upsellModal}
@@ -4395,6 +4606,7 @@ const CSS = `
   --blue: #7CADD1;
   --teal: #57C6C4;
   --wrong: #E07856;
+  --wrong-text: #F59A72; /* brighter orange for NORMAL-size miss/error text — ~4.6:1 on --bg (AA); --wrong stays for fills */
   --alt: #2B302D;
 }
 :root[data-theme="light"] {
@@ -4407,6 +4619,7 @@ const CSS = `
   --blue: #4E86AE;
   --teal: #2FA6A4;
   --wrong: #D0603F;
+  --wrong-text: #B8442A; /* darker orange for normal-size miss/error text on the light --bg (AA) */
   --alt: #E4EAE5;
 }
 html, body { background: var(--bg); }
@@ -4426,6 +4639,23 @@ html, body { background: var(--bg); }
   -webkit-user-select: none; user-select: none;
   -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
 }
+/* Minor-key drills wear a full deep-blue / navy "immersion" theme. Overriding these
+   palette vars on the session root recolors the buttons, pads, tonic star, the
+   correct-answer flash AND the background in one place — and in BOTH skins, since
+   they all read var(--…). Only --wrong stays orange so a miss still reads as a miss. */
+.app.sess-minor {
+  --bg: #222839; --card: #2C334A; --line: #3B456A;
+  --green: #4F8FEF;   /* GO / submit / correct-flash → confident azure */
+  --teal: #7E86E8;    /* tonic star → indigo */
+  --blue: #6E9AC4;    /* note selection → steel blue */
+}
+.app.sess-minor .primary { color: #EAF1FB; text-shadow: none; } /* light text on the blue GO */
+/* Landscape reflow wrappers: transparent (display:contents) in portrait so layout is
+   pixel-identical to before; they only become flex rows inside the phone-landscape
+   media query at the bottom of this stylesheet. */
+.drill-stage, .prog-right, .fp-stage, .fp-side { display: contents; }
+.fp-opts-btn { display: none; } /* the landscape focus-mode ⚙ — shown only in the landscape media query */
+.fp-voice-bar { display: none; } /* landscape-bar voice toggle — portrait uses the key-row voice instead */
 button { touch-action: manipulation; }
 .path-note, .explore-pad, .pk, .num, .cu-note, .chip, .rung { touch-action: none; }
 /* installed web app: guarantee a top buffer that clears the iOS status bar,
@@ -4480,6 +4710,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .ghost {
   background: transparent; color: var(--text); border: 1.5px solid var(--line);
   border-radius: 10px; padding: 8px 14px; font-size: 0.9rem; font-weight: 500;
+  min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
 }
 .ghost.voice.on { border-color: var(--teal); color: var(--teal); }
 .primary {
@@ -4601,6 +4832,17 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .explore-pad.tonic { box-shadow: inset 0 0 0 0; }
 .explore-pad.active { background: var(--green); border-color: var(--green); }
 .explore-pad.active .rung-num { color: #23302A; }
+/* Paths: the chord currently sounding in the loop lights its tones on the tonal map */
+.explore-pad.chord-lit { background: var(--blue); border-color: var(--blue);
+  box-shadow: 0 0 0 2px var(--blue), 0 0 18px 3px rgba(124,173,209,0.5); }
+.explore-pad.chord-lit .rung-num, .explore-pad.chord-lit .rung-sol { color: #16222b; }
+/* Paths: strip of the loop's chord names, current one highlighted (landscape-only) */
+.path-chords { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; align-items: center; }
+.path-chords .pc { font-family: 'Archivo Black', sans-serif; font-size: 0.9rem; color: var(--text-soft);
+  padding: 3px 10px; border-radius: 8px; border: 1.5px solid var(--line); }
+.path-chords .pc.cur { color: #16222b; background: var(--blue); border-color: var(--blue); }
+.fp-pathchords { display: none; }  /* shown only in landscape */
+.fp-paths-map { display: none; }   /* shown only in landscape */
 .explore-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 /* piano view */
@@ -4671,7 +4913,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .sing-level-fill { height: 100%; background: var(--teal); border-radius: 99px; transition: width 0.08s linear; }
 .sing-coach { text-align: center; margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-soft); min-height: 1.2em; }
 .sing-privacy { text-align: center; margin: 0; font-size: 0.72rem; line-height: 1.4; color: var(--text-soft); opacity: 0.8; }
-.sing-err { color: var(--wrong); }
+.sing-err { color: var(--wrong-text); }
 .pk-label {
   font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; color: #23302A;
   margin-bottom: 10px; position: relative;
@@ -4720,12 +4962,20 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 
 .numpad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .num {
-  aspect-ratio: 1; min-height: 58px;
+  aspect-ratio: 1; min-height: 58px; position: relative;
   font-family: 'Archivo Black', sans-serif; font-weight: 400; font-size: 1.5rem;
-  background: var(--bg); color: var(--text);
+  background: var(--card); color: var(--text); /* --card (not --bg) so the pad reads as a control vs the page (WCAG 1.4.11) */
   border: 1.5px solid var(--line); border-radius: 14px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
 }
+/* colorblind-safe corner mark: ✓ on the pad you nailed, ✕ on a wrong tap — a SHAPE
+   cue so correct/wrong don't rely on green-vs-orange alone. Inset past the retro
+   4px corner notch so the clip-path never eats it. */
+.num-mark { position: absolute; top: 5px; right: 7px; font-family: 'Archivo', sans-serif;
+  font-weight: 800; font-size: 0.72rem; line-height: 1; color: inherit; opacity: .95; pointer-events: none; }
+/* the pressed pad on a wrong answer — previously nothing lit here, only the ladder */
+.num.wrong { background: var(--wrong); color: #3A241B; border-color: var(--wrong); }
+.num.wrong .num-sol { color: #3A241B; }
 .num-sol {
   font-family: 'Archivo', sans-serif; font-weight: 500; font-size: 0.62rem;
   color: var(--text-soft); letter-spacing: 0.05em;
@@ -4812,7 +5062,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .brand-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .gear {
   background: transparent; border: 1.5px solid var(--line); color: var(--text-soft);
-  border-radius: 10px; width: 40px; height: 40px; font-size: 1.2rem; flex-shrink: 0;
+  border-radius: 10px; width: 44px; height: 44px; font-size: 1.2rem; flex-shrink: 0;
 }
 .gear:hover { border-color: var(--teal); color: var(--teal); }
 
@@ -4876,7 +5126,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .cr-tones b { color: var(--teal); font-weight: 700; }
 
 /* chord progressions */
-.streak { color: var(--wrong); font-weight: 700; margin-right: 8px; }
+.streak { color: var(--wrong-text); font-weight: 700; margin-right: 8px; }
 /* input area holds either the buttons or the review stacks — fixed height so
    swapping between them never shifts the layout, and the stacks never clip */
 /* the answer slots ARE the stacks — always in place; the degree ladder is a
@@ -4894,8 +5144,8 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .prog-stack .stack-note.home { color: var(--teal); }
 .prog-stack .stack-note.on.home { border-color: var(--teal); color: var(--teal); }
 .prog-stack .stack-label { color: var(--blue); font-size: 0.85rem; padding-top: 4px; min-width: 30px; }
-.prog-stack.wrong .stack-label { color: var(--wrong); }
-.prog-stack.wrong .stack-note.on { border-color: var(--wrong); color: var(--wrong); }
+.prog-stack.wrong .stack-label { color: var(--wrong-text); }
+.prog-stack.wrong .stack-note.on { border-color: var(--wrong); color: var(--wrong-text); }
 .prog-stack.active { transform: translateY(-3px) scale(1.06); }
 .prog-stack.active .stack-note.on { border-color: var(--green); color: var(--green); box-shadow: 0 0 8px rgba(106,191,94,0.5); }
 .prog-stack.active .stack-label { color: var(--green); }
@@ -5004,11 +5254,110 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .session-stack .stack-note { width: 32px; height: 32px; font-size: 0.98rem; }
 .session-stack { gap: 3px; }
 .session-stack .stack-note.picked { border: 2px solid var(--blue); color: var(--blue); }
-.session-stack .stack-note.on-wrong { border: 2px solid var(--wrong); color: var(--wrong); }
+.session-stack .stack-note.on-wrong { border: 2px solid var(--wrong); color: var(--wrong-text); }
 .session-stack .stack-note.on-correct { border: 2px solid var(--green); color: var(--green); background: rgba(106,191,94,0.12); }
 .session-stack .stack-label { color: var(--teal); }
 .pager { display: flex; align-items: center; gap: 12px; }
 .dots { flex: 1; display: flex; gap: 7px; justify-content: center; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
 .dot.on { background: var(--green); }
+
+/* ==========  PHONE-LANDSCAPE: use the width (two columns)  ==================
+   Triggers only when a phone is held sideways (short viewport). Scoped to
+   .app-wide (session drill + Free Play) so menu/settings/guide/home/results
+   keep today's centered 560 column. The .drill-stage / .fp-stage / .prog-right
+   wrappers are display:contents in portrait, so this block is the ONLY place
+   the layout changes — portrait stays pixel-identical. */
+@media (orientation: landscape) and (max-height: 600px) {
+  #root { max-width: 100%; }
+  .app-wide {
+    max-width: 100%; gap: 8px;
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  :root[data-standalone] .app-wide { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
+
+  /* ---- landscape FOCUS MODE: real phones are only ~340–430px tall sideways, so drop
+     non-essential chrome and tuck secondary options behind the ⚙ to maximize the play area. */
+  .app-wide .hpbar { display: none; }                    /* decorative trial cells */
+  .app-wide .qcount { display: none; }                   /* "Question N of 3 · key" line */
+  .app-wide .top-slim .back { min-height: 34px; padding: 5px 11px; }
+  .app-wide .top-slim .screen-title { font-size: 1rem; }
+  /* Free Play landscape bar: Notes + World selects stay visible; Key/Sound/Sing + Start-on
+     tuck behind the ⚙. The bar carries a Voice toggle (fp-voice-bar) in place of Sing. */
+  .app-wide .fp-opts-btn { display: inline-flex; width: 40px; height: 34px; margin-left: auto; flex: 0 0 auto; }
+  .app-wide .fp-starton { display: none; }               /* niche "Start on" — drop it from the bar */
+  .app-wide .fp-voice-bar { display: inline-flex; }       /* show the bar's Voice toggle */
+  .app-wide.fp-notes .fp-keyrow-voice { display: none; }  /* avoid a duplicate voice (bar has it) in the notes tab */
+  .app-wide .key-row { display: none; }                   /* Key/Hear/Sound/Voice/Coda → behind ⚙ */
+  .app-wide .fp-sing { display: none; }                   /* Sing → behind ⚙ (settings) */
+  .app-wide.fp-opts-open .key-row { display: flex; }
+  .app-wide.fp-opts-open .fp-sing { display: inline-flex; }
+  .app-wide .panel { padding: 12px 14px; }
+  .app-wide .num { min-height: 48px; }
+  /* keep the feedback line on the SAME row as Repeat/♪/Voice (it otherwise wraps to its
+     own row — ~58px of height). Melody floats its quip instead (rule below wins there). */
+  .app-wide .quiz-bar { flex-wrap: nowrap; align-items: center; margin-bottom: 8px; }
+  .app-wide .quiz-bar .hint.grow { flex: 1 1 auto; min-height: 0; }
+
+  /* drill screen: tonal map / stack LEFT, controls + answer pads RIGHT */
+  .app-wide .drill-stage { display: flex; gap: 16px; align-items: flex-start; justify-content: center; }
+  .app-wide .drill-stage > .ladder { flex: 0 0 44%; }                 /* melody: the tonal map */
+  .app-wide .drill-stage > .panel { flex: 1 1 0; min-width: 0; max-width: 720px; }
+  /* melody: float the feedback/quip into the empty space UNDER the map (left column)
+     so the answer pads on the right rise up and the drill fits without scrolling */
+  .app-wide .drill-melody { position: relative; }
+  .app-wide .drill-melody .quiz-bar .hint.grow {
+    position: absolute; left: 0; bottom: 0; width: 44%; min-height: 0; margin: 0;
+  }
+  /* chords: a 3-column landscape layout — controls+reference | stack | pads+Check — so the
+     tall vertical content fits a short phone WITHOUT cramping. A CSS grid places the panel's
+     existing children into columns, so no markup changes; :has() scopes it to the chord panel. */
+  .app-wide .panel:has(.chord-layout) {
+    display: grid;
+    grid-template-columns: minmax(150px, 32%) 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "bar layout" "ref layout";
+    gap: 6px 14px; align-items: start; padding: 10px 12px;
+  }
+  .app-wide .panel:has(.chord-layout) .quiz-bar { grid-area: bar; flex-wrap: wrap; margin: 0; }
+  .app-wide .panel:has(.chord-layout) .chord-ref { grid-area: ref; margin: 0; }
+  .app-wide .panel:has(.chord-layout) .chord-layout { grid-area: layout; gap: 16px; }
+  .app-wide .session-stack { gap: 2px; }
+  .app-wide .session-stack .stack-note { width: 24px; height: 24px; font-size: 0.78rem; }
+  .app-wide .chord-right .primary.wide { min-height: 42px; padding: 9px; }
+  /* progressions: same idea — put the controls in a side column so the chord stacks +
+     pad + Undo/Check sit beside them instead of stacked below. */
+  .app-wide .panel:has(.prog-layout) {
+    display: grid;
+    grid-template-columns: minmax(140px, 26%) 1fr;
+    grid-template-areas: "bar layout";
+    gap: 6px 14px; align-items: start; padding: 10px 12px;
+  }
+  .app-wide .panel:has(.prog-layout) .quiz-bar { grid-area: bar; flex-wrap: wrap; margin: 0; }
+  .app-wide .panel:has(.prog-layout) .prog-layout { grid-area: layout; }
+  .app-wide .prog-layout { flex-direction: row; align-items: flex-start; gap: 16px; }
+  .app-wide .prog-stacks { flex: 0 0 auto; }
+  .app-wide .prog-right { display: flex; flex-direction: column; gap: 12px; flex: 1 1 0; min-width: 0; }
+
+  /* Free Play landscape: a thin control bar on top, and the map/piano fills MOST of the
+     screen so the 7 pads are big + finger-friendly. Secondary controls stay behind the ⚙. */
+  .app-wide .fp-stage { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1 1 auto; }
+  .app-wide .fp-side { display: flex; flex-flow: row wrap; gap: 8px; flex: 0 0 auto; align-items: center; justify-content: center; }
+  .app-wide .fp-side .explore-controls { flex: 0 0 auto; gap: 8px; margin: 0; }
+  .app-wide .fp-main { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; }
+  .app-wide .fp-numbers-toggle { display: none; }        /* drop the Numbers on / Blank pads toggle */
+  .app-wide .fp-help { display: none; }                   /* drop the "World N: the blue pads…" help line */
+  /* stretch the tonal map / piano to fill the freed height → big comfortable pads */
+  .app-wide .fp-main .ladder.explore { flex: 1 1 auto; align-content: stretch; grid-auto-rows: 1fr; }
+  .app-wide .fp-main .explore-pad { min-height: 0; }
+  .app-wide .fp-main .piano { flex: 1 1 auto; height: auto; min-height: 150px; }
+  /* Paths tab landscape: show the chord-name strip + the light-up map, hide the portrait
+     solo columns, and tuck the setup (Build / Tempo / presets) behind the ⚙. */
+  .app-wide .fp-pathchords { display: flex; }
+  .app-wide .fp-paths-map { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+  .app-wide .path-grid { display: none; }
+  .app-wide .fp-path-secondary { display: none; }
+  .app-wide.fp-opts-open .fp-path-secondary { display: flex; }
+}
 `;

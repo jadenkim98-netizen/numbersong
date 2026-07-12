@@ -1,8 +1,8 @@
 // Numbersong service worker — makes the installed app boot and run with ZERO
 // internet after one successful load. The VERSION string is injected at build
-// time (build.sh replaces 20260712150901), so every deploy makes a fresh cache
+// time (build.sh replaces 20260712225211), so every deploy makes a fresh cache
 // and students automatically pick up the new build on their next launch.
-const VERSION = "20260712150901";
+const VERSION = "20260712225211";
 const CACHE = "numbersong-" + VERSION;
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon.png"];
 
@@ -34,8 +34,12 @@ self.addEventListener("fetch", (event) => {
     // installed app still boots with zero internet.
     event.respondWith(
       fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(req, copy));
+        // Only cache a genuine success — a transient 404/5xx must never overwrite
+        // the good cached shell, or the app could boot into an error page offline.
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, copy));
+        }
         return res;
       }).catch(() => caches.match(req).then((hit) => hit || caches.match("./index.html")))
     );

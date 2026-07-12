@@ -34,8 +34,12 @@ self.addEventListener("fetch", (event) => {
     // installed app still boots with zero internet.
     event.respondWith(
       fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(req, copy));
+        // Only cache a genuine success — a transient 404/5xx must never overwrite
+        // the good cached shell, or the app could boot into an error page offline.
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, copy));
+        }
         return res;
       }).catch(() => caches.match(req).then((hit) => hit || caches.match("./index.html")))
     );

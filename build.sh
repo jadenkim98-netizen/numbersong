@@ -6,10 +6,10 @@ cd "$(dirname "$0")"
 # 1) Prepare the component for browser use
 python3 - << 'EOF'
 src = open("src/number-ear-trainer.jsx").read()
-src = src.replace('import React, { useState, useRef, useEffect, useCallback } from "react";\n', '')
+src = src.replace('import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";\n', '')
 src = src.replace('import * as Tone from "tone";\n', '')
 src = src.replace('export default function NumberEarTrainer()', 'function NumberEarTrainer()')
-prefix = 'const { useState, useRef, useEffect, useCallback } = React;\n\n'
+prefix = 'const { useState, useRef, useEffect, useLayoutEffect, useCallback } = React;\n\n'
 suffix = '\n\nReactDOM.createRoot(document.getElementById("root")).render(React.createElement(NumberEarTrainer));\n'
 open(".app.jsx", "w").write(prefix + src + suffix)
 EOF
@@ -29,10 +29,29 @@ vend https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js tone.js
 
 # 3) Assemble the standalone index.html with embedded voice recordings
 python3 - << 'EOF'
-import base64, json
+import base64, json, os
 js = open(".app.compiled.js").read()
 assert "</script" not in js
-voices = json.dumps({str(base): {str(i): base64.b64encode(open(f"voice/{base}/{i}.mp3","rb").read()).decode() for i in range(1, 9)} for base in (0, 4, 8)})
+# Sung numbers: 1-8 (do-octave + high-1), plus 6L/7L = la/ti one octave LOW (home
+# octave for la-based minor, so the minor "walk home" descends smoothly instead of
+# jumping up). Guarded by os.path.exists so keys still missing 6L/7L just skip them.
+def _voicefiles(base):
+    d = {}
+    for i in ["1", "2", "3", "4", "5", "6", "7", "8", "6L", "7L"]:
+        p = f"voice/{base}/{i}.mp3"
+        if os.path.exists(p):
+            d[i] = base64.b64encode(open(p, "rb").read()).decode()
+    return d
+voices = json.dumps({str(base): _voicefiles(base) for base in (0, 2, 4, 6, 8, 10)})
+# Pitch-keyed minor-scale voice (A-minor 2-octave take), files named by MIDI number.
+# Lets the minor "walk home" sing each number at the synth's exact pitch (no octave drift).
+def _minorvoice():
+    d = {}
+    if os.path.isdir("voice/mv0"):
+        d["0"] = {n[:-4]: base64.b64encode(open(f"voice/mv0/{n}", "rb").read()).decode()
+                  for n in os.listdir("voice/mv0") if n.endswith(".mp3")}
+    return d
+minor_voice = json.dumps(_minorvoice())
 icon_data = "data:image/png;base64," + base64.b64encode(open("icon.png","rb").read()).decode()
 logo_data = "data:image/png;base64," + base64.b64encode(open("wejam.png","rb").read()).decode()
 coda_data = "data:image/png;base64," + base64.b64encode(open("coda.png","rb").read()).decode()
@@ -81,7 +100,7 @@ tone_js      = inline_js("vendor/tone.js")
 # PWA manifest for Android/Chrome install (folder deploys); iOS uses the meta tags below.
 json.dump({
   "name": "Numbersong", "short_name": "Numbersong", "start_url": "./", "scope": "./",
-  "display": "standalone", "orientation": "portrait",
+  "display": "standalone", "orientation": "any",
   "background_color": "#383D3B", "theme_color": "#383D3B",
   "icons": [{"src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}],
 }, open("manifest.json", "w"))
@@ -161,6 +180,7 @@ html = f'''<!DOCTYPE html>
 </script>
 <script>
 window.SUNG_NUMBERS = {voices};
+window.MINOR_VOICE = {minor_voice};
 window.WEJAM_LOGO = "{logo_data}";
 window.CODA_SPRITE = "{coda_data}";
 window.CODA_SKINS = {coda_skins_data};
