@@ -706,7 +706,9 @@
 
 /* =====================  TUTORIAL (Verda) — Fable "JRPG Cutscene"  ============ */
 .retro .app.tutorial::after{ display:none; } /* tutorial draws its own scanlines/vignette */
-.app.tutorial{ position:relative; overflow:hidden; padding:0; gap:0; max-width:560px;
+/* Pinned to the viewport (like the map screen) so it never scrolls — including
+   in a home-screen/standalone PWA, where 100dvh + overscroll behave differently. */
+.app.tutorial{ position:fixed; inset:0; margin:0 auto; overflow:hidden; padding:0; gap:0; max-width:560px;
   background:linear-gradient(#6fa5c4 0%,#8cc0ac 26%,#d9c98b 42%,#8ab86b 48%,#5aa04f 66%,#3f7e3b 100%); }
 .tut-scene{ position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
 .tutorial .sun{ position:absolute; top:7%; right:12%; width:26px; height:26px; background:var(--gold);
@@ -730,7 +732,7 @@
   box-shadow:0 6px #35682f,3px 3px #4c9145,3px 6px #35682f,6px 0 #4c9145,6px 3px #58a850,6px 6px #35682f,9px 3px #4c9145,9px 6px #35682f,12px 6px #4c9145; }
 .tutorial .tuft.t1{ bottom:10%; left:9%; } .tutorial .tuft.t2{ bottom:20%; left:56%; animation-delay:-1.2s; } .tutorial .tuft.t3{ bottom:14%; right:14%; animation-delay:-2.1s; }
 @keyframes tut-sway{ 50%{ transform:skewX(8deg) } }
-.tut-inner{ position:relative; z-index:2; display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden;
+.tut-inner{ position:relative; z-index:2; display:flex; flex-direction:column; height:100%; overflow:hidden;
   padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(14px + env(safe-area-inset-bottom,0px)); gap:0; }
 .tutorial .hud{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px; }
 .tutorial .loc{ display:inline-flex; align-items:center; gap:6px; background:rgba(32,48,46,.62); color:var(--text);
@@ -746,6 +748,9 @@
 /* Compact the tutorial's tonal-map pads so map-heavy beats (esp. the half-step beat with piano/guitar diagrams) fit one screen. */
 .tutorial .ladder.explore .explore-pad{ min-height:56px; }
 .tutorial .ladder.explore.staircase .explore-pad{ min-height:40px; }
+/* The drill numpad sits in the centering .stage-fit, which would shrink-wrap it to content width
+   (tiny buttons). Make it fill the stage so the answer pads are full-size like a real session. */
+.tutorial .tut-drillpad{ width:100%; }
 .tutorial .stagetitle{ font-family:var(--pf); font-size:8px; letter-spacing:2px; text-transform:uppercase; color:var(--gold); text-align:center; margin-bottom:9px; }
 .tutorial .stagetitle::before{ content:"✦ " } .tutorial .stagetitle::after{ content:" ✦" }
 .tut-mid{ position:relative; flex:1 1 auto; min-height:110px; display:flex; align-items:center; justify-content:center; }
