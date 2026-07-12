@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import * as Tone from "tone";
 
 /* ─────────────────────────────  MUSIC DATA  ───────────────────────────── */
@@ -1941,7 +1941,10 @@ export default function NumberEarTrainer() {
   // First-time map tour: Verda walks a new player around once, right after the tutorial.
   const [mapTour, setMapTour] = useState(false);
   const [mapReady, setMapReady] = useState(false); // false while the map loads → NUMBERSONG splash covers the entry
-  useEffect(() => {
+  // useLayoutEffect (not useEffect) so mapReady resets to false BEFORE the browser
+  // paints the re-entry frame — otherwise the NUMBERSONG cover stays hidden (.out)
+  // from the previous visit for one frame, flashing the undrawn map underneath.
+  useLayoutEffect(() => {
     if (screen !== "adventure") return;
     setMapReady(false); // AdventureMap re-mounts on each entry and re-fires onReady
     if (loadPref("tut", "0") === "1" && loadPref("maptour", "0") !== "1") {
