@@ -3090,7 +3090,6 @@ export default function NumberEarTrainer() {
           {KEYS.map((k) => <option key={k} value={k}>{k} major</option>)}
         </select>
       </label>
-      <button className="ghost" onClick={hearKey} disabled={busy}>♪ Hear the key</button>
       <label className="key-label">
         Sound
         <select value={susVoice} onChange={(e) => { setSusVoice(e.target.value); e.target.blur(); }}>
@@ -4518,10 +4517,7 @@ export default function NumberEarTrainer() {
           </div>
         </div>
         </div>
-          <p className="hint center fp-help">
-            Play the loop, then solo — tap the pads or use the number row (<strong>` 1–7 8 9 0 - =</strong>). Hop to the nearest circled tone of each chord.
-          </p>
-          <footer className="foot fp-help">Solo over the changes. The circles are your safe landing notes.</footer>
+          <p className="hint center fp-help">Solo over the changes — land on the circled tones. <em>Try the number keys on a keyboard, or turn to landscape on mobile.</em></p>
         </>
       ) : (
       <>
@@ -4633,7 +4629,7 @@ export default function NumberEarTrainer() {
         {exStage === 0
           ? `World ${exWorld}: the blue pads are its chord tones (${worldChordTones(exWorld).join("·")}). Drone on, sing the numbers.`
           : "Numbers hidden. Sing each number as you press its pad."}
-        {" "}Or play the number row on your keyboard (<strong>` 1–7 8 9 0 - =</strong>).
+        {" "}<em>Try the number keys on a keyboard, or turn to landscape on mobile.</em>
       </p>
       </>
       )}
@@ -4706,7 +4702,7 @@ html, body { background: var(--bg); }
    media query at the bottom of this stylesheet. */
 .drill-stage, .prog-right, .fp-stage, .fp-side { display: contents; }
 .fp-opts-btn { display: none; } /* the landscape focus-mode ⚙ — shown only in the landscape media query */
-.fp-voice-bar { display: none; } /* landscape-bar voice toggle — portrait uses the key-row voice instead */
+.ghost.fp-voice-bar { display: none; } /* landscape-bar voice toggle — hidden in portrait (specific enough to beat .ghost's display) */
 button { touch-action: manipulation; }
 .path-note, .explore-pad, .pk, .num, .cu-note, .chip, .rung { touch-action: none; }
 /* installed web app: guarantee a top buffer that clears the iOS status bar,
@@ -5338,7 +5334,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
      tuck behind the ⚙. The bar carries a Voice toggle (fp-voice-bar) in place of Sing. */
   .app-wide .fp-opts-btn { display: inline-flex; width: 40px; height: 34px; margin-left: auto; flex: 0 0 auto; }
   .app-wide .fp-starton { display: none; }               /* niche "Start on" — drop it from the bar */
-  .app-wide .fp-voice-bar { display: inline-flex; }       /* show the bar's Voice toggle */
+  .app-wide .ghost.fp-voice-bar { display: inline-flex; }  /* show the bar's Voice toggle (beats the portrait hide) */
   .app-wide .fp-keyrow-voice { display: none; }  /* both tabs carry a bar Voice toggle now → never show the key-row one in landscape (avoids a duplicate when the ⚙ is open) */
   .app-wide .key-row { display: none; }                   /* Key/Hear/Sound/Voice/Coda → behind ⚙ */
   .app-wide .fp-sing { display: none; }                   /* Sing → behind ⚙ (settings) */
