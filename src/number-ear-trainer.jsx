@@ -3049,7 +3049,7 @@ export default function NumberEarTrainer() {
         const on = fpTab === "paths" ? pathVoice : voiceOn;
         const set = fpTab === "paths" ? setPathVoice : setVoiceOn;
         return (
-          <button className={"ghost voice" + (on ? " on" : "")} onClick={() => set(!on)} aria-pressed={on}>
+          <button className={"ghost voice fp-keyrow-voice" + (on ? " on" : "")} onClick={() => set(!on)} aria-pressed={on}>
             {on ? "Voice on" : "Voice off"}
           </button>
         );
@@ -4291,7 +4291,7 @@ export default function NumberEarTrainer() {
   // free explore screen
   const stageLabels = ["Numbers on", "Blank pads"];
   return (
-    <div className={"app app-wide" + (fpOptionsOpen ? " fp-opts-open" : "")}>
+    <div className={"app app-wide fp-" + fpTab + (fpOptionsOpen ? " fp-opts-open" : "")}>
       <style>{CSS}</style>
       <header className="top-slim">
         <button className="back" onClick={() => { setDroneOn(false); stopPath(); killSession(); setBusy(false); setScreen(auxReturn || (boringMode ? "home" : "menu")); }}>{auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"}</button>
@@ -4371,8 +4371,8 @@ export default function NumberEarTrainer() {
       {/* fp-stage/fp-side = display:contents in portrait (no change); two-column in phone-landscape (controls+tuner sidebar | wide map) */}
       <div className="fp-stage">
       <div className="fp-side">
-      <div className="explore-controls fp-secondary">
-        <label className="key-label">
+      <div className="explore-controls fp-selects">
+        <label className="key-label fp-starton">
           Start on
           <select value={exStart} onChange={(e) => { setExStart(Number(e.target.value)); e.target.blur(); }}>
             {[1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d}</option>)}
@@ -4420,7 +4420,12 @@ export default function NumberEarTrainer() {
         <button className="ghost" onClick={() => setExView(exView === "map" ? "piano" : "map")}>
           {exView === "map" ? "Piano view" : "Map view"}
         </button>
-        <button className={"ghost voice" + (micOn ? " on" : "")}
+        {/* landscape bar only: a Voice on/off toggle (replaces Sing here; Sing moves behind ⚙) */}
+        <button className={"ghost voice fp-voice-bar" + (voiceOn ? " on" : "")}
+          onClick={() => setVoiceOn((v) => !v)} aria-pressed={voiceOn}>
+          {voiceOn ? "Voice on" : "Voice off"}
+        </button>
+        <button className={"ghost voice fp-sing" + (micOn ? " on" : "")}
           onClick={toggleMic} aria-pressed={micOn}>
           {micOn ? "🎤 Sing on" : "🎤 Sing"}
         </button>
@@ -4544,6 +4549,7 @@ html, body { background: var(--bg); }
    media query at the bottom of this stylesheet. */
 .drill-stage, .prog-right, .fp-stage, .fp-side { display: contents; }
 .fp-opts-btn { display: none; } /* the landscape focus-mode ⚙ — shown only in the landscape media query */
+.fp-voice-bar { display: none; } /* landscape-bar voice toggle — portrait uses the key-row voice instead */
 button { touch-action: manipulation; }
 .path-note, .explore-pad, .pk, .num, .cu-note, .chip, .rung { touch-action: none; }
 /* installed web app: guarantee a top buffer that clears the iOS status bar,
@@ -5160,11 +5166,16 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .qcount { display: none; }                   /* "Question N of 3 · key" line */
   .app-wide .top-slim .back { min-height: 34px; padding: 5px 11px; }
   .app-wide .top-slim .screen-title { font-size: 1rem; }
-  /* Free Play: hide the key row + start-on/notes/world selects; the ⚙ reveals them */
+  /* Free Play landscape bar: Notes + World selects stay visible; Key/Sound/Sing + Start-on
+     tuck behind the ⚙. The bar carries a Voice toggle (fp-voice-bar) in place of Sing. */
   .app-wide .fp-opts-btn { display: inline-flex; width: 40px; height: 34px; margin-left: auto; flex: 0 0 auto; }
-  .app-wide .key-row, .app-wide .explore-controls.fp-secondary { display: none; }
+  .app-wide .fp-starton { display: none; }               /* niche "Start on" — drop it from the bar */
+  .app-wide .fp-voice-bar { display: inline-flex; }       /* show the bar's Voice toggle */
+  .app-wide.fp-notes .fp-keyrow-voice { display: none; }  /* avoid a duplicate voice (bar has it) in the notes tab */
+  .app-wide .key-row { display: none; }                   /* Key/Hear/Sound/Voice/Coda → behind ⚙ */
+  .app-wide .fp-sing { display: none; }                   /* Sing → behind ⚙ (settings) */
   .app-wide.fp-opts-open .key-row { display: flex; }
-  .app-wide.fp-opts-open .explore-controls.fp-secondary { display: flex; }
+  .app-wide.fp-opts-open .fp-sing { display: inline-flex; }
   .app-wide .panel { padding: 12px 14px; }
   .app-wide .num { min-height: 48px; }
   /* keep the feedback line on the SAME row as Repeat/♪/Voice (it otherwise wraps to its

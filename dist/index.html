@@ -4697,7 +4697,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     } }, /* @__PURE__ */ React.createElement("option", { value: "piano" }, "Piano"), /* @__PURE__ */ React.createElement("option", { value: "pad" }, "Pad"), /* @__PURE__ */ React.createElement("option", { value: "lead" }, "Lead"), /* @__PURE__ */ React.createElement("option", { value: "strings" }, "Strings"))), (() => {
       const on = fpTab === "paths" ? pathVoice : voiceOn;
       const set = fpTab === "paths" ? setPathVoice : setVoiceOn;
-      return /* @__PURE__ */ React.createElement("button", { className: "ghost voice" + (on ? " on" : ""), onClick: () => set(!on), "aria-pressed": on }, on ? "Voice on" : "Voice off");
+      return /* @__PURE__ */ React.createElement("button", { className: "ghost voice fp-keyrow-voice" + (on ? " on" : ""), onClick: () => set(!on), "aria-pressed": on }, on ? "Voice on" : "Voice off");
     })(), typeof window !== "undefined" && window.CODA_MEDITATE && /* @__PURE__ */ React.createElement("img", { className: "fp-coda", src: window.CODA_MEDITATE, alt: "Coda, meditating", "aria-hidden": "true" }));
     const brand = /* @__PURE__ */ React.createElement("div", { className: "brand" }, /* @__PURE__ */ React.createElement("div", { className: "brand-line" }, /* @__PURE__ */ React.createElement("h1", null, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG")), /* @__PURE__ */ React.createElement("img", { className: "wejam-logo", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" })), /* @__PURE__ */ React.createElement("p", null, "Learn to speak and understand the true language of music"));
     const advNodes = window.HARMONIA && window.HARMONIA.nodes || [];
@@ -5489,7 +5489,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       } }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "How music works")), /* @__PURE__ */ React.createElement("section", { className: "panel" }, pages[guidePage]), /* @__PURE__ */ React.createElement("div", { className: "pager" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", disabled: guidePage === 0, onClick: () => setGuidePage((p) => p - 1) }, "← Back"), /* @__PURE__ */ React.createElement("div", { className: "dots" }, pages.map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "dot" + (i === guidePage ? " on" : "") }))), guidePage < pages.length - 1 ? /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => setGuidePage((p) => p + 1) }, "Next →") : /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => startSession("melody", 0) }, "Start training →")));
     }
     const stageLabels = ["Numbers on", "Blank pads"];
-    return /* @__PURE__ */ React.createElement("div", { className: "app app-wide" + (fpOptionsOpen ? " fp-opts-open" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
+    return /* @__PURE__ */ React.createElement("div", { className: "app app-wide fp-" + fpTab + (fpOptionsOpen ? " fp-opts-open" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
       setDroneOn(false);
       stopPath();
       killSession();
@@ -5531,7 +5531,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         onClick: () => setProg(p)
       },
       p.map((r) => chordNumber(r, false)).join(" ")
-    ))), /* @__PURE__ */ React.createElement("div", { className: "path-grid" }, pathProg.map((r, col) => /* @__PURE__ */ React.createElement(PathColumn, { key: col, roman: r, col, current: pathIdx === col, lit: litPath, onDown: pathDown, onUp: pathUp, sevenths: pathSevenths }))), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, "Play the loop, then solo — tap the pads or use the number row (", /* @__PURE__ */ React.createElement("strong", null, "` 1–7 8 9 0 - ="), "). Hop to the nearest circled tone of each chord."), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Solo over the changes. The circles are your safe landing notes.")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "fp-stage" }, /* @__PURE__ */ React.createElement("div", { className: "fp-side" }, /* @__PURE__ */ React.createElement("div", { className: "explore-controls fp-secondary" }, /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Start on", /* @__PURE__ */ React.createElement("select", { value: exStart, onChange: (e) => {
+    ))), /* @__PURE__ */ React.createElement("div", { className: "path-grid" }, pathProg.map((r, col) => /* @__PURE__ */ React.createElement(PathColumn, { key: col, roman: r, col, current: pathIdx === col, lit: litPath, onDown: pathDown, onUp: pathUp, sevenths: pathSevenths }))), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, "Play the loop, then solo — tap the pads or use the number row (", /* @__PURE__ */ React.createElement("strong", null, "` 1–7 8 9 0 - ="), "). Hop to the nearest circled tone of each chord."), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Solo over the changes. The circles are your safe landing notes.")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "fp-stage" }, /* @__PURE__ */ React.createElement("div", { className: "fp-side" }, /* @__PURE__ */ React.createElement("div", { className: "explore-controls fp-selects" }, /* @__PURE__ */ React.createElement("label", { className: "key-label fp-starton" }, "Start on", /* @__PURE__ */ React.createElement("select", { value: exStart, onChange: (e) => {
       setExStart(Number(e.target.value));
       e.target.blur();
     } }, [1, 2, 3, 4, 5, 6, 7].map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: d }, d)))), /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Notes", /* @__PURE__ */ React.createElement("select", { value: exCount, onChange: (e) => {
@@ -5584,7 +5584,15 @@ window.SOUNDTRACK = SOUNDTRACK;
     ), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setExView(exView === "map" ? "piano" : "map") }, exView === "map" ? "Piano view" : "Map view"), /* @__PURE__ */ React.createElement(
       "button",
       {
-        className: "ghost voice" + (micOn ? " on" : ""),
+        className: "ghost voice fp-voice-bar" + (voiceOn ? " on" : ""),
+        onClick: () => setVoiceOn((v) => !v),
+        "aria-pressed": voiceOn
+      },
+      voiceOn ? "Voice on" : "Voice off"
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "ghost voice fp-sing" + (micOn ? " on" : ""),
         onClick: toggleMic,
         "aria-pressed": micOn
       },
@@ -5705,6 +5713,7 @@ html, body { background: var(--bg); }
    media query at the bottom of this stylesheet. */
 .drill-stage, .prog-right, .fp-stage, .fp-side { display: contents; }
 .fp-opts-btn { display: none; } /* the landscape focus-mode ⚙ — shown only in the landscape media query */
+.fp-voice-bar { display: none; } /* landscape-bar voice toggle — portrait uses the key-row voice instead */
 button { touch-action: manipulation; }
 .path-note, .explore-pad, .pk, .num, .cu-note, .chip, .rung { touch-action: none; }
 /* installed web app: guarantee a top buffer that clears the iOS status bar,
@@ -6321,11 +6330,16 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .qcount { display: none; }                   /* "Question N of 3 · key" line */
   .app-wide .top-slim .back { min-height: 34px; padding: 5px 11px; }
   .app-wide .top-slim .screen-title { font-size: 1rem; }
-  /* Free Play: hide the key row + start-on/notes/world selects; the ⚙ reveals them */
+  /* Free Play landscape bar: Notes + World selects stay visible; Key/Sound/Sing + Start-on
+     tuck behind the ⚙. The bar carries a Voice toggle (fp-voice-bar) in place of Sing. */
   .app-wide .fp-opts-btn { display: inline-flex; width: 40px; height: 34px; margin-left: auto; flex: 0 0 auto; }
-  .app-wide .key-row, .app-wide .explore-controls.fp-secondary { display: none; }
+  .app-wide .fp-starton { display: none; }               /* niche "Start on" — drop it from the bar */
+  .app-wide .fp-voice-bar { display: inline-flex; }       /* show the bar's Voice toggle */
+  .app-wide.fp-notes .fp-keyrow-voice { display: none; }  /* avoid a duplicate voice (bar has it) in the notes tab */
+  .app-wide .key-row { display: none; }                   /* Key/Hear/Sound/Voice/Coda → behind ⚙ */
+  .app-wide .fp-sing { display: none; }                   /* Sing → behind ⚙ (settings) */
   .app-wide.fp-opts-open .key-row { display: flex; }
-  .app-wide.fp-opts-open .explore-controls.fp-secondary { display: flex; }
+  .app-wide.fp-opts-open .fp-sing { display: inline-flex; }
   .app-wide .panel { padding: 12px 14px; }
   .app-wide .num { min-height: 48px; }
   /* keep the feedback line on the SAME row as Repeat/♪/Voice (it otherwise wraps to its
