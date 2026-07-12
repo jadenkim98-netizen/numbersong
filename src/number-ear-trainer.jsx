@@ -2021,6 +2021,20 @@ export default function NumberEarTrainer() {
   const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home")); // boot | menu | training | home | adventure | levels | session | results | learn | guide | settings
   // First-time map tour: Verda walks a new player around once, right after the tutorial.
   const [mapTour, setMapTour] = useState(false);
+  // Inject the base stylesheet ONCE into <head> so it's ALWAYS present. Every screen also
+  // renders its own <style>{CSS}</style>, which React removes+re-adds on each screen swap —
+  // and re-parsing that big block cost a one-frame flash of unstyled content (raw serif
+  // header, everything in document flow), most visibly on level → map. A persistent head
+  // copy keeps the styles applied continuously through the transition, so nothing flashes.
+  useLayoutEffect(() => {
+    if (typeof document === "undefined" || document.getElementById("ns-base-css")) return;
+    const s = document.createElement("style");
+    s.id = "ns-base-css";
+    s.textContent = CSS;
+    const retro = document.getElementById("retro-skin"); // keep base BEFORE retro so .retro still wins
+    if (retro && retro.parentNode) retro.parentNode.insertBefore(s, retro);
+    else document.head.appendChild(s);
+  }, []);
   const [mapReady, setMapReady] = useState(false); // false while the map loads → NUMBERSONG splash covers the entry
   // useLayoutEffect (not useEffect) so mapReady resets to false BEFORE the browser
   // paints the re-entry frame — otherwise the NUMBERSONG cover stays hidden (.out)

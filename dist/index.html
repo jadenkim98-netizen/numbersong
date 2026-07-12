@@ -3485,6 +3485,15 @@ window.SOUNDTRACK = SOUNDTRACK;
     const [boringMode, setBoringMode] = useState(() => loadPref("boring", "0") === "1");
     const [screen, setScreen] = useState(() => window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home");
     const [mapTour, setMapTour] = useState(false);
+    useLayoutEffect(() => {
+      if (typeof document === "undefined" || document.getElementById("ns-base-css")) return;
+      const s = document.createElement("style");
+      s.id = "ns-base-css";
+      s.textContent = CSS;
+      const retro = document.getElementById("retro-skin");
+      if (retro && retro.parentNode) retro.parentNode.insertBefore(s, retro);
+      else document.head.appendChild(s);
+    }, []);
     const [mapReady, setMapReady] = useState(false);
     useLayoutEffect(() => {
       if (screen !== "adventure") return;
