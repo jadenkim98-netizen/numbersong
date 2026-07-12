@@ -3775,7 +3775,7 @@ export default function NumberEarTrainer() {
                 </>
               ) : (
                 <>
-                  <span className="lead-kicker">✦ Free guitar PDF ✦</span>
+                  <span className="lead-kicker">✦ Save your progress + a free gift ✦</span>
                   <p className="lead-copy">Want to hear any guitar chord by ear? Pop in your email and I'll send you the free Chords-by-Numbers PDF — the method behind this whole game. Your progress saves, too.</p>
                   <input className="set-input lead-input" placeholder="first name" value={leadName} autoComplete="given-name" onChange={(e) => setLeadName(e.target.value)} />
                   <input className="set-input lead-input" type="email" name="email" placeholder="you@email.com" value={leadEmail}
