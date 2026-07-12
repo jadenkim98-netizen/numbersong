@@ -1356,7 +1356,7 @@ function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singI
       chordal.includes(lab) && "chordal",
       lab === world && "world-root",
     ].filter(Boolean).join(" ");
-    return <span className={cls}>{lab}{lab === 1 ? <span className="pk-star">✳</span> : null}</span>;
+    return <span className={cls}>{lab}{lab === 1 ? <span className="pk-star">★</span> : null}</span>;
   };
 
   return (
@@ -4619,7 +4619,7 @@ export default function NumberEarTrainer() {
               <div className="sing-center" />
               {singDeg != null && !micReq && (
                 <div className="sing-marker" style={{ left: `${50 + offset}%` }}>
-                  {singDeg === 1 ? "✳1" : singDeg}
+                  {singDeg === 1 ? "★1" : singDeg}
                 </div>
               )}
             </div>
@@ -4993,7 +4993,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .rung.tonic { box-shadow: inset 0 0 0 1.5px var(--teal); }
 .rung.tonic .rung-num { color: var(--teal); }
 .rung.tonic::before {
-  content: "✳"; position: absolute; top: 1px; right: 2px;
+  content: "★"; position: absolute; top: 1px; right: 2px;
   font-size: 0.5rem; color: var(--teal); line-height: 1;
 }
 .rung.active, .rung.correct {
