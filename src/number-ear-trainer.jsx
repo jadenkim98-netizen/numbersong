@@ -2001,7 +2001,17 @@ export default function NumberEarTrainer() {
     setLeadStatus(delivered ? "done" : "saved"); // "saved" = progress kept, but no email promise
   };
   const openUpsell = () => { try { sfx("wrong"); } catch (e) {} setUpsellOpen(true); };
-  const openOffer = () => { try { window.open(OFFER_URL, "_blank", "noopener"); } catch (e) {} };
+  const openOffer = () => {
+    // In a standalone/home-screen PWA, window.open(_blank) loads the URL INSIDE the
+    // app's own webview — trapping the user (no back button) and suspending audio.
+    // A real anchor click, fired synchronously in the tap gesture, escapes to the
+    // system browser (Safari) on iOS. Fall back to window.open if the DOM path fails.
+    try {
+      const a = document.createElement("a");
+      a.href = OFFER_URL; a.target = "_blank"; a.rel = "noopener noreferrer";
+      document.body.appendChild(a); a.click(); a.remove();
+    } catch (e) { try { window.open(OFFER_URL, "_blank", "noopener"); } catch (e2) {} }
+  };
   const tryUnlock = () => {
     if (codeInput.trim().toLowerCase() === UNLOCK_CODE.toLowerCase()) { grantUnlock(); try { sfx("select"); } catch (e) {} }
     else { try { sfx("wrong"); } catch (e) {} }
@@ -2139,6 +2149,23 @@ export default function NumberEarTrainer() {
     document.documentElement.setAttribute("data-theme", theme);
     savePref("theme", theme);
   }, [theme]);
+  // Keep audio alive across backgrounding. A standalone PWA (or any tab switch,
+  // incoming call, or opening the VSL) suspends the AudioContext, and nothing
+  // else resumes it — so ambient music goes silent. Resume it on return to front.
+  useEffect(() => {
+    const resume = () => {
+      if (document.visibilityState !== "visible") return;
+      try { if (Tone.context.state !== "running") Tone.context.resume(); } catch (e) {}
+    };
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("focus", resume);
+    window.addEventListener("pageshow", resume);
+    return () => {
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("focus", resume);
+      window.removeEventListener("pageshow", resume);
+    };
+  }, []);
   // Installed-to-home-screen? Reserve a top buffer for the status bar ourselves,
   // since some iOS versions don't resolve env(safe-area-inset-top) in a web app.
   useEffect(() => {
