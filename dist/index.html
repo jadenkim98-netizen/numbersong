@@ -2600,9 +2600,16 @@ window.SOUNDTRACK = SOUNDTRACK;
       return typeof window !== "undefined" && window.location.hostname === "localhost";
     }
   })();
-  const qCountOf = (lvl) => TEST_MODE ? 3 : lvl && lvl.qCount || SESSION_LEN;
+  let JOJO_MODE = (() => {
+    try {
+      return typeof window !== "undefined" && window.localStorage.getItem("numbersong-jojo") === "1";
+    } catch (e) {
+      return false;
+    }
+  })();
+  const qCountOf = (lvl) => TEST_MODE || JOJO_MODE ? 3 : lvl && lvl.qCount || SESSION_LEN;
   const passRateOf = (lvl) => TEST_MODE ? 0.6 : lvl && lvl.pass || PASS_RATE;
-  const passCountFor = (lvl) => Math.ceil(passRateOf(lvl) * qCountOf(lvl));
+  const passCountFor = (lvl) => JOJO_MODE ? 1 : Math.ceil(passRateOf(lvl) * qCountOf(lvl));
   const SHOP = [
     { id: "gold", type: "skin", name: "Gilded Coda", cost: 12, tint: "#D9B45B", desc: "A hero forged in gold." },
     { id: "shadow", type: "skin", name: "Shadow Coda", cost: 8, tint: "#2f3b45", desc: "Cloaked in dusk." },
@@ -4328,6 +4335,34 @@ window.SOUNDTRACK = SOUNDTRACK;
       setOnboarded(true);
       enableSaves();
     };
+    const grantJojo = () => {
+      grantUnlock();
+      try {
+        window.localStorage.setItem("numbersong-jojo", "1");
+      } catch (e) {
+      }
+      JOJO_MODE = true;
+      const lastStageId = ADV_STAGES.length;
+      const lastStage = ADV_STAGES[lastStageId - 1];
+      const lastLevels = advGroupOf(lastStage).levels;
+      const finaleIdx = lastLevels[lastLevels.length - 1].idx;
+      const filled = { melody: {}, chords: {}, progressions: {} };
+      ["melody", "chords", "progressions"].forEach((m) => {
+        levelsFor(m).forEach((_, i) => {
+          if (m === lastStage.mode && i === finaleIdx) return;
+          filled[m][i] = 999;
+        });
+      });
+      setProgress(filled);
+      saveProgress(filled);
+      setBoringMode(false);
+      savePref("boring", "0");
+      setFromAdventure(true);
+      setAdvStageId(lastStageId);
+      setMode(lastStage.mode);
+      setMelGroup(lastStage.gi);
+      setScreen("levels");
+    };
     const finishOnboarding = () => {
       savePref("onboarded", "1");
       setOnboarded(true);
@@ -4338,12 +4373,16 @@ window.SOUNDTRACK = SOUNDTRACK;
     const [leadName, setLeadName] = useState("");
     const [leadEmail, setLeadEmail] = useState("");
     const [leadStatus, setLeadStatus] = useState("idle");
+    const leadBusyRef = useRef(false);
+    const leadSavedRef = useRef(false);
     const submitLead = async () => {
+      if (leadBusyRef.current) return;
       const email = leadEmail.trim();
       if (!/.+@.+\..+/.test(email)) {
         setLeadStatus("error");
         return;
       }
+      leadBusyRef.current = true;
       setLeadStatus("sending");
       const first_name = leadName.trim();
       const saveLocal = () => {
@@ -4399,7 +4438,19 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
     };
     const tryUnlock = () => {
-      if (codeInput.trim().toLowerCase() === UNLOCK_CODE.toLowerCase()) {
+      const code = codeInput.trim().toLowerCase();
+      if (code === "jojomode") {
+        setCodeErr(false);
+        grantJojo();
+        try {
+          sfx("select");
+        } catch (e) {
+        }
+        try {
+          fanfare();
+        } catch (e) {
+        }
+      } else if (code === UNLOCK_CODE.toLowerCase()) {
         setCodeErr(false);
         grantUnlock();
         try {
@@ -4664,13 +4715,16 @@ window.SOUNDTRACK = SOUNDTRACK;
         const h = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
         const code = q.get("unlock") || h.get("unlock");
         if (code) {
-          if (code.trim().toLowerCase() === UNLOCK_CODE.toLowerCase()) grantUnlock();
+          const c = code.trim().toLowerCase();
+          if (c === "jojomode") grantJojo();
+          else if (c === UNLOCK_CODE.toLowerCase()) grantUnlock();
           window.history.replaceState(null, "", window.location.pathname);
         } else if (q.has("lock") || h.has("lock")) {
           try {
-            ["unlocked", "onboarded", "saveok", "progress", "tut"].forEach((k) => window.localStorage.removeItem("numbersong-" + k));
+            ["unlocked", "onboarded", "saveok", "progress", "tut", "jojo"].forEach((k) => window.localStorage.removeItem("numbersong-" + k));
           } catch (e) {
           }
+          JOJO_MODE = false;
           setUnlocked(false);
           setOnboarded(false);
           setProgress({ melody: {}, chords: {}, progressions: {} });

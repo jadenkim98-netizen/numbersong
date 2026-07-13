@@ -402,9 +402,17 @@ const TEST_MODE = (() => {
     return typeof window !== "undefined" && window.location.hostname === "localhost";
   }
 })();
-const qCountOf = (lvl) => TEST_MODE ? 3 : ((lvl && lvl.qCount) || SESSION_LEN);
+// "jojomode" — a dev/testing unlock (typed in Settings or ?unlock=jojomode). It fills
+// every level as complete except the FINAL adventure region, and shrinks any session to
+// 3 questions with a 1-answer pass bar, so the whole ending (Excalibar reforged) is one
+// short drill away. Module-level mirror of TEST_MODE; flipped by grantJojo() at runtime.
+let JOJO_MODE = (() => {
+  try { return typeof window !== "undefined" && window.localStorage.getItem("numbersong-jojo") === "1"; }
+  catch (e) { return false; }
+})();
+const qCountOf = (lvl) => (TEST_MODE || JOJO_MODE) ? 3 : ((lvl && lvl.qCount) || SESSION_LEN);
 const passRateOf = (lvl) => TEST_MODE ? 0.6 : ((lvl && lvl.pass) || PASS_RATE);
-const passCountFor = (lvl) => Math.ceil(passRateOf(lvl) * qCountOf(lvl));
+const passCountFor = (lvl) => JOJO_MODE ? 1 : Math.ceil(passRateOf(lvl) * qCountOf(lvl));
 
 // Shop: spend earned stars on Coda skins. "default" is free/always-equipped.
 const SHOP = [
@@ -2100,6 +2108,33 @@ export default function NumberEarTrainer() {
   const isMelodyFree = (idx) => unlocked || groupIndexOf(idx) < FREE.melodyGroups;
   const isRegionFree = (nodeIdx) => unlocked || nodeIdx < FREE.adventureRegions;
   const grantUnlock = () => { savePref("unlocked", "1"); savePref("onboarded", "1"); setUnlocked(true); setOnboarded(true); enableSaves(); };
+  // "jojomode" testing unlock: unlock the app, mark every level complete EXCEPT the final
+  // adventure region's capstone, and drop the player straight into that last region's level
+  // list — so the Excalibar-reforged ending is one short (3-question) drill away. The finale
+  // still fires because we enter with the adventure context set (fromAdventure + advStageId),
+  // exactly as tapping the node on the map would. See JOJO_MODE up top.
+  const grantJojo = () => {
+    grantUnlock();
+    try { window.localStorage.setItem("numbersong-jojo", "1"); } catch (e) {}
+    JOJO_MODE = true; // module flag → sessions run 3 questions, pass on 1
+    // the single level to leave unfinished = the capstone of the LAST adventure stage
+    const lastStageId = ADV_STAGES.length;                 // node id of the final region
+    const lastStage = ADV_STAGES[lastStageId - 1];
+    const lastLevels = advGroupOf(lastStage).levels;
+    const finaleIdx = lastLevels[lastLevels.length - 1].idx;
+    const filled = { melody: {}, chords: {}, progressions: {} };
+    ["melody", "chords", "progressions"].forEach((m) => {
+      levelsFor(m).forEach((_, i) => {
+        if (m === lastStage.mode && i === finaleIdx) return; // leave the finale region clearable
+        filled[m][i] = 999; // way past any pass bar → 3 stars everywhere else
+      });
+    });
+    setProgress(filled); saveProgress(filled);
+    setBoringMode(false); savePref("boring", "0"); // the finale screen only renders in game mode
+    // enter the final region's level list (mirrors enterStage for the last node)
+    setFromAdventure(true); setAdvStageId(lastStageId); setMode(lastStage.mode); setMelGroup(lastStage.gi);
+    setScreen("levels");
+  };
   const finishOnboarding = () => { savePref("onboarded", "1"); setOnboarded(true); };
   const [upsellOpen, setUpsellOpen] = useState(false);
   const [codeInput, setCodeInput] = useState("");
@@ -2108,9 +2143,13 @@ export default function NumberEarTrainer() {
   const [leadName, setLeadName] = useState("");
   const [leadEmail, setLeadEmail] = useState("");
   const [leadStatus, setLeadStatus] = useState("idle"); // idle | sending | done | saved | error
+  const leadBusyRef = useRef(false);  // in-flight guard: Enter can fire again before the "sending" state lands
+  const leadSavedRef = useRef(false); // saved-not-delivered → a resend keeps the saved card, not the entry form
   const submitLead = async () => {
+    if (leadBusyRef.current) return; // a POST is already in flight (repeat Enter / double-tap) — ignore
     const email = leadEmail.trim();
     if (!/.+@.+\..+/.test(email)) { setLeadStatus("error"); return; }
+    leadBusyRef.current = true;
     setLeadStatus("sending");
     const first_name = leadName.trim();
     const saveLocal = () => { try { window.localStorage.setItem("numbersong-lead", JSON.stringify({ email, first_name })); } catch (e) {} };
@@ -2129,9 +2168,12 @@ export default function NumberEarTrainer() {
       }
     } catch (e) {
       saveLocal(); // offline / network error: keep the lead rather than losing it
+    } finally {
+      leadBusyRef.current = false;
     }
     enableSaves(); // giving your email is what actually saves your progress
     savePref("onboarded", "1"); // persist so a reload never re-nags a converted lead (or double-subscribes) — the confirmation card still shows this session since onboarded STATE stays false
+    leadSavedRef.current = !delivered; // so a "sending" resend from the saved card keeps showing the saved card
     setLeadStatus(delivered ? "done" : "saved"); // "saved" = progress kept, but no email promise
   };
   const openUpsell = () => { try { sfx("select"); } catch (e) {} setUpsellOpen(true); };
@@ -2147,7 +2189,12 @@ export default function NumberEarTrainer() {
     } catch (e) { try { window.open(OFFER_URL, "_blank", "noopener"); } catch (e2) {} }
   };
   const tryUnlock = () => {
-    if (codeInput.trim().toLowerCase() === UNLOCK_CODE.toLowerCase()) {
+    const code = codeInput.trim().toLowerCase();
+    if (code === "jojomode") {
+      setCodeErr(false); grantJojo();
+      try { sfx("select"); } catch (e) {}
+      try { fanfare(); } catch (e) {}
+    } else if (code === UNLOCK_CODE.toLowerCase()) {
       setCodeErr(false); grantUnlock();
       try { sfx("select"); } catch (e) {}
       try { fanfare(); } catch (e) {}   // triumphant unlock chime
@@ -2337,13 +2384,20 @@ export default function NumberEarTrainer() {
       const q = new URLSearchParams(window.location.search);
       const h = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
       const code = q.get("unlock") || h.get("unlock");
-      if (code && code === UNLOCK_CODE) {
-        grantUnlock();
+      if (code) {
+        // Case-insensitive (matches the typed-in-Settings unlock), and strip the code
+        // from the URL EVEN ON A MISMATCH so a mistyped-case link doesn't leave the code
+        // sitting in the address bar.
+        const c = code.trim().toLowerCase();
+        if (c === "jojomode") grantJojo();       // dev/testing: jump to the ending
+        else if (c === UNLOCK_CODE.toLowerCase()) grantUnlock();
         window.history.replaceState(null, "", window.location.pathname);
       } else if (q.has("lock") || h.has("lock")) {
         // ?lock — reset this device to a FRESH PUBLIC visitor (gated + not onboarded),
-        // for testing the locked funnel. Inverse of the unlock magic link.
-        try { ["unlocked", "onboarded", "saveok", "progress", "tut"].forEach((k) => window.localStorage.removeItem("numbersong-" + k)); } catch (e) {}
+        // for testing the locked funnel. Inverse of the unlock magic link. Also clears
+        // jojomode so a jojo device can return to a normal locked funnel.
+        try { ["unlocked", "onboarded", "saveok", "progress", "tut", "jojo"].forEach((k) => window.localStorage.removeItem("numbersong-" + k)); } catch (e) {}
+        JOJO_MODE = false;
         setUnlocked(false); setOnboarded(false); setProgress({ melody: {}, chords: {}, progressions: {} });
         window.history.replaceState(null, "", window.location.pathname);
       }
