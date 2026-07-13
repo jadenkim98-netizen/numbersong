@@ -6,8 +6,16 @@ never as an interval from a chord root. "Home never moves."
 
 ## Project layout
 
-- `src/number-ear-trainer.jsx` — the app: one React component file (data, audio
+- `src/number-ear-trainer.jsx` — the app: the big React component file (audio
   engine, screens, CSS-in-JS = the "Boring mode" base skin). Most edits land here.
+  Funnel + tracking config and the base `const CSS` also live here — build.sh reads
+  them straight from this file, so keep them here.
+- `src/theory.mjs` — the pure music-theory model + level/session data: note/chord/
+  cadence tables, `resolutionSemis`, the melody/chord/progression level builders,
+  PATH data, `levelsFor`, … No React/Tone/window, so it's unit-tested directly.
+- `src/pitch.mjs` — the Sing-tuner pitch math: autocorrelation `detectPitch` +
+  `pitchToDegree`, also pure (Tone-free). Both `.mjs` modules are inlined into the
+  app by build.sh (esbuild `--bundle`) and imported straight by the node:test suite.
 - `retro/retro.css` — the retro/GBA skin, layered on the app's real class names and
   gated under a `.retro` root. `build.sh` inlines it into `<head>` as
   `<style id="retro-skin">`; the pixel font is embedded from `retro/pixelfont.b64`.
@@ -21,8 +29,9 @@ never as an interval from a chord root. "Home never moves."
   of the recorded key: 0 = C major, 4 = E major, 8 = Ab major. At runtime the app
   picks the set nearest the current key so the voice never shifts more than
   2 semitones.
-- `build.sh` — compiles the JSX with esbuild and assembles a fully standalone
-  `index.html` with the voice mp3s embedded as base64. Run it after every edit.
+- `build.sh` — compiles the JSX with esbuild (`--bundle`, so the `src/*.mjs`
+  modules inline into one script) and assembles a fully standalone `index.html`
+  with the voice mp3s embedded as base64. Run it after every edit.
 - `index.html` — the build output. This single file IS the deployable app.
 
 ## Build & preview
@@ -30,10 +39,13 @@ never as an interval from a chord root. "Home never moves."
 ```
 ./build.sh          # rebuild index.html
 open index.html     # view in browser
+./test.sh           # run the unit tests (pure theory + pitch modules)
 ```
 
 Requires node (npx fetches esbuild automatically) and python3. No npm install,
-no dev server, no package.json — deliberately.
+no dev server, no package.json — deliberately. Tests run on Node's built-in
+`node:test` runner (`test/*.test.mjs`, zero-install, same rule); they import
+`src/theory.mjs` / `src/pitch.mjs` directly and need no build step.
 
 ## Architecture notes
 
@@ -145,4 +157,5 @@ online session, otherwise it falls back to the synth.
   progress — would replace the current soft client-side unlock.
 
 (Done since first draft: level locking + freemium funnel; the intro/boot glow-up;
-minor keys, chromatic, chord tones, chord progressions.)
+minor keys, chromatic, chord tones, chord progressions; the source split into pure
+`theory.mjs`/`pitch.mjs` modules with a node:test unit-test suite.)
