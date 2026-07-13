@@ -987,9 +987,18 @@ function worldChordTones(w) {
   return [0, 2, 4, 6].map((k) => ((w - 1 + k) % 7) + 1);
 }
 
+// Keyboard press-and-hold for the pointer-held pads: Enter/Space mirror pointer
+// down/up so a pad is playable without a pointer. e.repeat guards key auto-repeat
+// (a held key must not retrigger down); preventDefault stops Space page-scroll and
+// the synthetic click. The pointer handlers are left untouched.
+const holdKeys = (down, up) => ({
+  onKeyDown: (e) => { if ((e.key === "Enter" || e.key === " ") && !e.repeat) { e.preventDefault(); down(); } },
+  onKeyUp: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); up(); } },
+});
+
 function ExploreMap({ start, count, stage, octaves, world, home, active, hi, litDeg, singDeg, singInTune, onPlay, onDown, onUp, staircase }) {
   const evts = (n, row) => onDown // guide taps (onPlay); Free Play holds (onDown/onUp)
-    ? { onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(n, row); }, onPointerUp: () => onUp(n, row) }
+    ? { onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(n, row); }, onPointerUp: () => onUp(n, row), ...holdKeys(() => onDown(n, row), () => onUp(n, row)) }
     : { onClick: () => onPlay(n, row) };
   const notes = exploreNotes(start, count);
   const s0 = notes[0].semi, s1 = notes[notes.length - 1].semi;
@@ -1130,7 +1139,7 @@ function HalfStepDiagrams() {
    both octaves. World chord tones show in blue, the tonic wears the star. */
 
 function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singInTune, onDown, onUp }) {
-  const evts = (k) => ({ onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(k); }, onPointerUp: () => onUp(k) });
+  const evts = (k) => ({ onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(k); }, onPointerUp: () => onUp(k), ...holdKeys(() => onDown(k), () => onUp(k)) });
   const baseMidi = Tone.Frequency(musicKey + "4").toMidi();
   const BLACK_PCS = [1, 3, 6, 8, 10];
 
@@ -1306,7 +1315,8 @@ function PathColumn({ roman, col, current, lit, onDown, onUp, sevenths }) {
         return (
           <button key={ri} className={cls}
             onPointerDown={(e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(col, ri); }}
-            onPointerUp={() => onUp(col, ri)}>
+            onPointerUp={() => onUp(col, ri)}
+            {...holdKeys(() => onDown(col, ri), () => onUp(col, ri))}>
             {row.d}
           </button>
         );
