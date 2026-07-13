@@ -229,6 +229,10 @@
 .retro .menu-item{ font-family:var(--pf); text-transform:uppercase; letter-spacing:1px; font-size:13px; border:0; clip-path:var(--notch); box-shadow:inset 2px 2px 0 var(--hl),inset -2px -2px 0 var(--sh); }
 .retro .menu-item:active{ box-shadow:inset -2px -2px 0 var(--hl),inset 2px 2px 0 var(--sh); transform:translateY(1px); }
 .menu-item .mi-icon{ font-size:1.3rem; flex:0 0 auto; }
+/* Tutorials library: two-line menu rows (lesson title + who taught it) */
+.menu-item .tut-lib-txt{ display:flex; flex-direction:column; align-items:flex-start; gap:3px; line-height:1.2; }
+.menu-item .tut-lib-sub{ font-size:.68rem; opacity:.68; text-transform:none; letter-spacing:.3px; }
+.retro .menu-item .tut-lib-sub{ font-size:8px; }
 
 /* ---- readability rescue: the session prompt + chord feedback use .hint,
    which the kit rendered as 9px UPPERCASE pixel — unreadable for sentences.

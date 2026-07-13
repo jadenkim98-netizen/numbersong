@@ -3154,7 +3154,7 @@ export default function NumberEarTrainer() {
           {item("🎯", "Basic Training", () => setScreen("training"))}
           {item("📖", "How music works", () => { setGuidePage(0); setScreen("guide"); })}
           {item("★", "Shop (" + starBalance() + ")", () => setScreen("shop"))}
-          {item("🎓", "Replay tutorial", replayTutorial)}
+          {item("🎓", "Tutorials", () => setScreen("tutorials"))}
           {item("⚙", "Settings", () => setScreen("settings"))}
         </div>
         {gated && (
@@ -3164,6 +3164,39 @@ export default function NumberEarTrainer() {
           </a>
         )}
         <footer className="foot">One map to rule them all.</footer>
+      </div>
+    );
+  }
+
+  if (screen === "tutorials") {
+    // A library of the keeper-taught tutorials the player has already been through
+    // (gated on each chapter's "seen" flag). Tap one to replay it start to finish.
+    const TUTS = [
+      { chapter: "major", flag: "tut",  icon: "🌱", title: "Staircase Meadows", sub: "Verda · the major map — home is 1" },
+      { chapter: "minor", flag: "tut2", icon: "🌙", title: "Lowmoor Fen", sub: "Old Rue · la-based minor — home is 6" },
+    ];
+    const passed = TUTS.filter((t) => loadPref(t.flag, "0") === "1");
+    return (
+      <div className="app menu-screen">
+        <style>{CSS}</style>
+        <header className="top-slim">
+          <button className="back" onClick={() => { sfx("back"); setScreen("menu"); }}>← Menu</button>
+          <h2 className="screen-title">Tutorials</h2>
+        </header>
+        <div className="menu-list">
+          {passed.length === 0
+            ? <p className="set-desc" style={{ textAlign: "center", padding: "20px 8px" }}>No lessons yet — a keeper teaches you the first time you reach a new kind of world.</p>
+            : passed.map((t) => (
+                <button key={t.chapter} className="menu-item" onClick={() => { sfx("select"); startTutorial(t.chapter); }} onMouseEnter={() => sfx("move")}>
+                  <span className="mi-icon">{t.icon}</span>
+                  <span className="tut-lib-txt">
+                    <b>{t.title}</b>
+                    <span className="tut-lib-sub">{t.sub}</span>
+                  </span>
+                </button>
+              ))}
+        </div>
+        <footer className="foot">Replay any lesson you've cleared.</footer>
       </div>
     );
   }
@@ -4269,7 +4302,7 @@ export default function NumberEarTrainer() {
             <div className="stage-fit">
               {done ? (isMinor ? tutMapMinor : tutMap) : drill ? (
                 <div className="numpad coach tut-drillpad">
-                  {[1, 2, 3, 4, 5, 6, 7].map((d) => {
+                  {(isMinor ? [6, 7, 1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, 6, 7]).map((d) => {
                     const pc = DEGREE_TO_PC[d];
                     const out = !tutCfg.pool.includes(pc);
                     return (
