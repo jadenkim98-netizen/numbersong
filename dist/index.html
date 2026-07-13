@@ -474,6 +474,9 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   border-radius: 10px; padding: 10px 18px; font-size: 0.95rem; font-weight: 700;
 }
 .primary.wide { width: 100%; margin-top: 14px; padding: 13px; }
+/* VSL/offer CTAs are real <a> anchors — strip the link look and box them like buttons */
+.offer-link { text-decoration: none; cursor: pointer; }
+.primary.offer-link { display: inline-block; text-align: center; }
 
 /* home cards */
 .cards { display: flex; flex-direction: column; gap: 12px; }
@@ -4424,22 +4427,6 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
       setUpsellOpen(true);
     };
-    const openOffer = () => {
-      try {
-        const a = document.createElement("a");
-        a.href = OFFER_URL;
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      } catch (e) {
-        try {
-          window.open(OFFER_URL, "_blank", "noopener");
-        } catch (e2) {
-        }
-      }
-    };
     const tryUnlock = () => {
       const code = codeInput.trim().toLowerCase();
       if (code === "jojomode") {
@@ -4699,17 +4686,22 @@ window.SOUNDTRACK = SOUNDTRACK;
       const resume = () => {
         if (document.visibilityState !== "visible") return;
         try {
-          if (Tone.context.state !== "running") Tone.context.resume();
+          if (Tone.context.state !== "running") {
+            Tone.context.resume();
+            Tone.start();
+          }
         } catch (e) {
         }
       };
       document.addEventListener("visibilitychange", resume);
       window.addEventListener("focus", resume);
       window.addEventListener("pageshow", resume);
+      window.addEventListener("pointerdown", resume);
       return () => {
         document.removeEventListener("visibilitychange", resume);
         window.removeEventListener("focus", resume);
         window.removeEventListener("pageshow", resume);
+        window.removeEventListener("pointerdown", resume);
       };
     }, []);
     useEffect(() => {
@@ -5411,11 +5403,13 @@ window.SOUNDTRACK = SOUNDTRACK;
           return next;
         });
       }
+      let bigClear = false;
       if (fromAdventure && advStageId != null && !sessWasClearedRef.current) {
         const lv = advGroupOf(ADV_STAGES[advStageId - 1]).levels;
         const lastIdx = lv[lv.length - 1].idx;
         const clears = TEST_MODE ? firstTries >= passCountFor(s.lvl) : s.levelIdx === lastIdx && firstTries >= passCountFor(s.lvl);
         if (clears) {
+          bigClear = true;
           setMapCelebrateNode(advStageId);
           const others = advNodes.filter((n) => n.id !== advStageId && stageClearedAdv(n.id)).length;
           if (others >= 7) {
@@ -5429,6 +5423,13 @@ window.SOUNDTRACK = SOUNDTRACK;
             const S = window.SOUNDTRACK;
             if (S) playTheme("victory", S.victory);
           }, 2500);
+        }
+      }
+      if (!bigClear && s.levelIdx != null && firstTries >= passCountFor(s.lvl)) {
+        try {
+          sfx("victory");
+          haptic(false);
+        } catch (e) {
         }
       }
       setPhase("idle");
@@ -5701,7 +5702,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         (c, i) => c.gap ? /* @__PURE__ */ React.createElement("div", { key: i, className: "bi-cl bi-gap" }, /* @__PURE__ */ React.createElement("i", { className: "bi-st" }), /* @__PURE__ */ React.createElement("span", { className: "bi-mid" }, /* @__PURE__ */ React.createElement("s", null)), /* @__PURE__ */ React.createElement("u", { className: "bi-sol" })) : /* @__PURE__ */ React.createElement("div", { key: i, className: "bi-cl " + c.d + (c.tonic ? " tonic" : "") }, /* @__PURE__ */ React.createElement("i", { className: "bi-st" }, c.tonic ? "✱" : ""), /* @__PURE__ */ React.createElement("b", { className: "bi-pad" }, c.n), /* @__PURE__ */ React.createElement("u", { className: "bi-sol" }, c.sol))
       ))), /* @__PURE__ */ React.createElement("div", { className: "bi-wave" }, Array.from({ length: 24 }).map((_, i) => /* @__PURE__ */ React.createElement("i", { key: i })))), /* @__PURE__ */ React.createElement("img", { className: "bi-coda", src: typeof window !== "undefined" ? window.CODA_VICTORY : "", alt: "", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("button", { className: "bi-cta", onClick: bootAdvance }, "START YOUR EAR QUEST"), /* @__PURE__ */ React.createElement("div", { className: "bi-foot" }, "EVERY NOTE IS ON THE MAP"));
     }
-    const upsellModal = upsellOpen ? /* @__PURE__ */ React.createElement("div", { className: "forge-modal upsell-modal", onClick: () => setUpsellOpen(false) }, /* @__PURE__ */ React.createElement("div", { className: "forge-panel upsell-panel", role: "dialog", "aria-modal": "true", "aria-label": "Keep going — the full program", tabIndex: -1, ref: upsellPanelRef, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("span", { className: "forge-kicker" }, "✦ Keep going ✦"), /* @__PURE__ */ React.createElement("h2", { className: "forge-title" }, "This is where it gets good"), /* @__PURE__ */ React.createElement("p", { className: "upsell-copy" }, "You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program."), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setUpsellOpen(false) }, "Maybe later"), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: openOffer }, "Show me how →")))) : null;
+    const upsellModal = upsellOpen ? /* @__PURE__ */ React.createElement("div", { className: "forge-modal upsell-modal", onClick: () => setUpsellOpen(false) }, /* @__PURE__ */ React.createElement("div", { className: "forge-panel upsell-panel", role: "dialog", "aria-modal": "true", "aria-label": "Keep going — the full program", tabIndex: -1, ref: upsellPanelRef, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("span", { className: "forge-kicker" }, "✦ Keep going ✦"), /* @__PURE__ */ React.createElement("h2", { className: "forge-title" }, "This is where it gets good"), /* @__PURE__ */ React.createElement("p", { className: "upsell-copy" }, "You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program."), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setUpsellOpen(false) }, "Maybe later"), /* @__PURE__ */ React.createElement("a", { className: "primary offer-link", href: OFFER_URL, target: "_blank", rel: "noopener noreferrer" }, "Show me how →")))) : null;
     if (screen === "menu") {
       const item = (icon, label, go) => /* @__PURE__ */ React.createElement("button", { className: "menu-item", onClick: () => {
         sfx("select");
@@ -5711,10 +5712,23 @@ window.SOUNDTRACK = SOUNDTRACK;
       return /* @__PURE__ */ React.createElement("div", { className: "app menu-screen" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("h1", { className: "menu-logo" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG")), /* @__PURE__ */ React.createElement("div", { className: "menu-list" }, item("⚔", "Adventure", () => setScreen("adventure")), item("🎯", "Basic Training", () => setScreen("training")), item("📖", "How music works", () => {
         setGuidePage(0);
         setScreen("guide");
-      }), item("★", "Shop (" + starBalance() + ")", () => setScreen("shop")), item("🎓", "Replay tutorial", replayTutorial), item("⚙", "Settings", () => setScreen("settings"))), gated && /* @__PURE__ */ React.createElement("button", { className: "cta-more", onClick: () => {
-        sfx("select");
-        openOffer();
-      } }, "Want more than the game?", /* @__PURE__ */ React.createElement("span", { className: "cta-sub" }, "See the 16-week roadmap →")), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "One map to rule them all."));
+      }), item("★", "Shop (" + starBalance() + ")", () => setScreen("shop")), item("🎓", "Replay tutorial", replayTutorial), item("⚙", "Settings", () => setScreen("settings"))), gated && /* @__PURE__ */ React.createElement(
+        "a",
+        {
+          className: "cta-more offer-link",
+          href: OFFER_URL,
+          target: "_blank",
+          rel: "noopener noreferrer",
+          onClick: () => {
+            try {
+              sfx("select");
+            } catch (e) {
+            }
+          }
+        },
+        "Want more than the game?",
+        /* @__PURE__ */ React.createElement("span", { className: "cta-sub" }, "See the 16-week roadmap →")
+      ), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "One map to rule them all."));
     }
     if (screen === "training") {
       const sec = (title, desc, go) => /* @__PURE__ */ React.createElement("button", { className: "card", onClick: () => {
@@ -6323,10 +6337,17 @@ window.SOUNDTRACK = SOUNDTRACK;
       } }, fromAdventure ? "← To the map" : "← Levels"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, resultName)), /* @__PURE__ */ React.createElement("div", { className: "results" }, justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "victory" }, /* @__PURE__ */ React.createElement("div", { className: "victory-rays", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", { className: "victory-glow", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Fragment forged ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, advNode.winTitle), /* @__PURE__ */ React.createElement("div", { className: "victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" }), /* @__PURE__ */ React.createElement("div", { className: "forge-sparks", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null))), /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), fragName, " — forged into Excalibar"), /* @__PURE__ */ React.createElement("span", { className: "victory-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("span", { className: "forge-count" }, advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments")), justCleared && !finale && /* @__PURE__ */ React.createElement("button", { className: "primary map-return", onClick: () => {
         setSwordBurst(true);
         setScreen("adventure");
-      } }, "← Return to the map"), /* @__PURE__ */ React.createElement("div", { className: "score-big" + (passed ? " pass" : "") }, pct, "%"), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, isCustom ? passed ? "Strong run. Custom sessions aren't scored toward stages." : "Custom sessions aren't scored toward stages — tweak the notes and go again." : passed ? hasNext ? "Passed! This level is checked off." : "Passed — that's the top level. Your ears are working." : `${Math.round(passRate * 100)}% on first tries earns the check. Every rep counts.`), /* @__PURE__ */ React.createElement("div", { className: "stat-row" }, /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, firstTries, "/", total), " first try"), /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, bestStreak >= 2 ? "🔥" : "", bestStreak), " best streak")), showBars && /* @__PURE__ */ React.createElement("div", { className: "bars" }, Object.entries(byTarget).map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, className: "bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "bar-label" }, k), /* @__PURE__ */ React.createElement("div", { className: "bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "bar-fill", style: { width: `${v.right / v.total * 100}%` } })), /* @__PURE__ */ React.createElement("span", { className: "bar-count" }, v.right, "/", v.total)))), !onboarded && (passed || justCleared) && /* @__PURE__ */ React.createElement("div", { className: "lead-card" }, leadStatus === "done" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✓ You're in"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Check your inbox to confirm — your Chords-by-Numbers PDF lands right after. Your progress is saved, too."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => {
-        finishOnboarding();
-        openOffer();
-      } }, "Show me how →"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Keep playing"))) : leadStatus === "saved" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✓ Progress saved"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Saved on this device. I couldn't send the PDF just now — give it another try, or keep playing and grab it later."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: submitLead, disabled: leadStatus === "sending" }, leadStatus === "sending" ? "Sending…" : "Try again"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Keep playing"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✦ Save your progress + a free gift ✦"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Want to hear any guitar chord by ear? Pop in your email and I'll send you the free Chords-by-Numbers PDF — the method behind this whole game. Your progress saves, too."), /* @__PURE__ */ React.createElement("input", { className: "set-input lead-input", placeholder: "first name", value: leadName, autoComplete: "given-name", onChange: (e) => setLeadName(e.target.value) }), /* @__PURE__ */ React.createElement(
+      } }, "← Return to the map"), /* @__PURE__ */ React.createElement("div", { className: "score-big" + (passed ? " pass" : "") }, pct, "%"), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, isCustom ? passed ? "Strong run. Custom sessions aren't scored toward stages." : "Custom sessions aren't scored toward stages — tweak the notes and go again." : passed ? hasNext ? "Passed! This level is checked off." : "Passed — that's the top level. Your ears are working." : `${Math.round(passRate * 100)}% on first tries earns the check. Every rep counts.`), /* @__PURE__ */ React.createElement("div", { className: "stat-row" }, /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, firstTries, "/", total), " first try"), /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, bestStreak >= 2 ? "🔥" : "", bestStreak), " best streak")), showBars && /* @__PURE__ */ React.createElement("div", { className: "bars" }, Object.entries(byTarget).map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, className: "bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "bar-label" }, k), /* @__PURE__ */ React.createElement("div", { className: "bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "bar-fill", style: { width: `${v.right / v.total * 100}%` } })), /* @__PURE__ */ React.createElement("span", { className: "bar-count" }, v.right, "/", v.total)))), !onboarded && (passed || justCleared) && /* @__PURE__ */ React.createElement("div", { className: "lead-card" }, leadStatus === "done" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✓ You're in"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Check your inbox to confirm — your Chords-by-Numbers PDF lands right after. Your progress is saved, too."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement(
+        "a",
+        {
+          className: "primary offer-link",
+          href: OFFER_URL,
+          target: "_blank",
+          rel: "noopener noreferrer",
+          onClick: () => finishOnboarding()
+        },
+        "Show me how →"
+      ), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Keep playing"))) : leadStatus === "saved" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✓ Progress saved"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Saved on this device. I couldn't send the PDF just now — give it another try, or keep playing and grab it later."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: submitLead, disabled: leadStatus === "sending" }, leadStatus === "sending" ? "Sending…" : "Try again"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Keep playing"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✦ Save your progress + a free gift ✦"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Want to hear any guitar chord by ear? Pop in your email and I'll send you the free Chords-by-Numbers PDF — the method behind this whole game. Your progress saves, too."), /* @__PURE__ */ React.createElement("input", { className: "set-input lead-input", placeholder: "first name", value: leadName, autoComplete: "given-name", onChange: (e) => setLeadName(e.target.value) }), /* @__PURE__ */ React.createElement(
         "input",
         {
           className: "set-input lead-input",
@@ -6838,6 +6859,9 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   border-radius: 10px; padding: 10px 18px; font-size: 0.95rem; font-weight: 700;
 }
 .primary.wide { width: 100%; margin-top: 14px; padding: 13px; }
+/* VSL/offer CTAs are real <a> anchors — strip the link look and box them like buttons */
+.offer-link { text-decoration: none; cursor: pointer; }
+.primary.offer-link { display: inline-block; text-align: center; }
 
 /* home cards */
 .cards { display: flex; flex-direction: column; gap: 12px; }

@@ -2185,17 +2185,10 @@ export default function NumberEarTrainer() {
     setLeadStatus(delivered ? "done" : "saved"); // "saved" = progress kept, but no email promise
   };
   const openUpsell = () => { try { sfx("select"); } catch (e) {} setUpsellOpen(true); };
-  const openOffer = () => {
-    // In a standalone/home-screen PWA, window.open(_blank) loads the URL INSIDE the
-    // app's own webview — trapping the user (no back button) and suspending audio.
-    // A real anchor click, fired synchronously in the tap gesture, escapes to the
-    // system browser (Safari) on iOS. Fall back to window.open if the DOM path fails.
-    try {
-      const a = document.createElement("a");
-      a.href = OFFER_URL; a.target = "_blank"; a.rel = "noopener noreferrer";
-      document.body.appendChild(a); a.click(); a.remove();
-    } catch (e) { try { window.open(OFFER_URL, "_blank", "noopener"); } catch (e2) {} }
-  };
+  // The VSL/offer CTAs are now real <a target="_blank"> anchors (class "offer-link")
+  // rendered inline — a genuine link tap opens a new tab / in-app browser without
+  // navigating the game away, so audio isn't torn down the way a programmatic
+  // window.open/anchor-click was in a standalone PWA webview.
   const tryUnlock = () => {
     const code = codeInput.trim().toLowerCase();
     if (code === "jojomode") {
@@ -2370,15 +2363,25 @@ export default function NumberEarTrainer() {
   useEffect(() => {
     const resume = () => {
       if (document.visibilityState !== "visible") return;
-      try { if (Tone.context.state !== "running") Tone.context.resume(); } catch (e) {}
+      try {
+        if (Tone.context.state !== "running") {
+          Tone.context.resume();
+          Tone.start(); // fuller unlock: iOS can leave the context "interrupted" after an
+                        // external browser sheet / call, where a bare resume() isn't enough
+        }
+      } catch (e) {}
     };
     document.addEventListener("visibilitychange", resume);
     window.addEventListener("focus", resume);
     window.addEventListener("pageshow", resume);
+    // A real user gesture back in the game is the surest way to re-unlock audio after an
+    // interruption — cheap no-op when the context is already running.
+    window.addEventListener("pointerdown", resume);
     return () => {
       document.removeEventListener("visibilitychange", resume);
       window.removeEventListener("focus", resume);
       window.removeEventListener("pageshow", resume);
+      window.removeEventListener("pointerdown", resume);
     };
   }, []);
   // Installed-to-home-screen? Reserve a top buffer for the status bar ourselves,
@@ -2997,17 +3000,24 @@ export default function NumberEarTrainer() {
     }
     // the moment a region is newly cleared: fanfare (or the GRAND finale on the 8th),
     // and flag the map so it plays a "region cleared" flourish when you return.
+    let bigClear = false;
     if (fromAdventure && advStageId != null && !sessWasClearedRef.current) {
       const lv = advGroupOf(ADV_STAGES[advStageId - 1]).levels;
       const lastIdx = lv[lv.length - 1].idx;
       const clears = TEST_MODE ? (firstTries >= passCountFor(s.lvl)) : (s.levelIdx === lastIdx && firstTries >= passCountFor(s.lvl));
       if (clears) {
+        bigClear = true;
         setMapCelebrateNode(advStageId);
         const others = advNodes.filter((n) => n.id !== advStageId && stageClearedAdv(n.id)).length;
         if (others >= 7) { grandFanfare(); haptic(true); }
         else { fanfare(); haptic(false); }
         sessTimer(() => { const S = window.SOUNDTRACK; if (S) playTheme("victory", S.victory); }, 2500);
       }
+    }
+    // a nice little "level complete" jingle whenever you PASS a level — unless the big
+    // region-clear fanfare already fired above (don't stack the two).
+    if (!bigClear && s.levelIdx != null && firstTries >= passCountFor(s.lvl)) {
+      try { sfx("victory"); haptic(false); } catch (e) {}
     }
     setPhase("idle");
     setScreen("results");
@@ -3342,7 +3352,7 @@ export default function NumberEarTrainer() {
         <p className="upsell-copy">You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program.</p>
         <div className="enc-actions">
           <button className="ghost" onClick={() => setUpsellOpen(false)}>Maybe later</button>
-          <button className="primary" onClick={openOffer}>Show me how →</button>
+          <a className="primary offer-link" href={OFFER_URL} target="_blank" rel="noopener noreferrer">Show me how →</a>
         </div>
       </div>
     </div>
@@ -3367,9 +3377,10 @@ export default function NumberEarTrainer() {
           {item("⚙", "Settings", () => setScreen("settings"))}
         </div>
         {gated && (
-          <button className="cta-more" onClick={() => { sfx("select"); openOffer(); }}>
+          <a className="cta-more offer-link" href={OFFER_URL} target="_blank" rel="noopener noreferrer"
+            onClick={() => { try { sfx("select"); } catch (e) {} }}>
             Want more than the game?<span className="cta-sub">See the 16-week roadmap →</span>
-          </button>
+          </a>
         )}
         <footer className="foot">One map to rule them all.</footer>
       </div>
@@ -4230,7 +4241,8 @@ export default function NumberEarTrainer() {
                   <span className="lead-kicker">✓ You're in</span>
                   <p className="lead-copy">Check your inbox to confirm — your Chords-by-Numbers PDF lands right after. Your progress is saved, too.</p>
                   <div className="lead-actions">
-                    <button className="primary" onClick={() => { finishOnboarding(); openOffer(); }}>Show me how →</button>
+                    <a className="primary offer-link" href={OFFER_URL} target="_blank" rel="noopener noreferrer"
+                      onClick={() => finishOnboarding()}>Show me how →</a>
                     <button className="ghost" onClick={finishOnboarding}>Keep playing</button>
                   </div>
                 </>
@@ -4914,6 +4926,9 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   border-radius: 10px; padding: 10px 18px; font-size: 0.95rem; font-weight: 700;
 }
 .primary.wide { width: 100%; margin-top: 14px; padding: 13px; }
+/* VSL/offer CTAs are real <a> anchors — strip the link look and box them like buttons */
+.offer-link { text-decoration: none; cursor: pointer; }
+.primary.offer-link { display: inline-block; text-align: center; }
 
 /* home cards */
 .cards { display: flex; flex-direction: column; gap: 12px; }
