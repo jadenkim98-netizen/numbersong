@@ -2361,27 +2361,47 @@ export default function NumberEarTrainer() {
   // incoming call, or opening the VSL) suspends the AudioContext, and nothing
   // else resumes it — so ambient music goes silent. Resume it on return to front.
   useEffect(() => {
-    const resume = () => {
-      if (document.visibilityState !== "visible") return;
+    // We DON'T guard on Tone.context.state here: iOS Safari has a bug where, after an
+    // interruption (opening a link, a call, another audio app), the context reports
+    // "running" while producing NO sound — so a state-guarded resume() skips it and the
+    // game stays silent forever. Always resume on return; and on the first user gesture
+    // after backgrounding, do the full Tone.start() unlock (plays a silent buffer, which
+    // re-establishes the audio output the "silent-but-running" state has lost).
+    let wasHidden = false;
+    const ctxResume = () => { try { Tone.context.resume(); } catch (e) {} };
+    // Play a 1-sample silent buffer on the raw context — the classic iOS unlock that
+    // re-establishes audio output even when the context wrongly reports "running".
+    // (Tone.start() skips its own silent buffer in that state, so do it explicitly.)
+    const kick = () => {
       try {
-        if (Tone.context.state !== "running") {
-          Tone.context.resume();
-          Tone.start(); // fuller unlock: iOS can leave the context "interrupted" after an
-                        // external browser sheet / call, where a bare resume() isn't enough
-        }
+        const raw = (Tone.getContext && Tone.getContext().rawContext) || Tone.context.rawContext;
+        if (!raw) return;
+        if (raw.state !== "running") raw.resume();
+        const b = raw.createBuffer(1, 1, 22050);
+        const s = raw.createBufferSource();
+        s.buffer = b; s.connect(raw.destination); s.start(0);
       } catch (e) {}
     };
-    document.addEventListener("visibilitychange", resume);
-    window.addEventListener("focus", resume);
-    window.addEventListener("pageshow", resume);
-    // A real user gesture back in the game is the surest way to re-unlock audio after an
-    // interruption — cheap no-op when the context is already running.
-    window.addEventListener("pointerdown", resume);
+    const onVis = () => {
+      if (document.visibilityState === "hidden") { wasHidden = true; return; }
+      ctxResume();
+    };
+    const onGesture = () => {
+      ctxResume();
+      if (wasHidden) { kick(); wasHidden = false; }
+    };
+    const onBlur = () => { wasHidden = true; }; // link/tab steal focus without a visibility flip
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", ctxResume);
+    window.addEventListener("pageshow", ctxResume);
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("pointerdown", onGesture, true);
     return () => {
-      document.removeEventListener("visibilitychange", resume);
-      window.removeEventListener("focus", resume);
-      window.removeEventListener("pageshow", resume);
-      window.removeEventListener("pointerdown", resume);
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", ctxResume);
+      window.removeEventListener("pageshow", ctxResume);
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("pointerdown", onGesture, true);
     };
   }, []);
   // Installed-to-home-screen? Reserve a top buffer for the status bar ourselves,

@@ -4683,25 +4683,54 @@ window.SOUNDTRACK = SOUNDTRACK;
       savePref("theme", theme);
     }, [theme]);
     useEffect(() => {
-      const resume = () => {
-        if (document.visibilityState !== "visible") return;
+      let wasHidden = false;
+      const ctxResume = () => {
         try {
-          if (Tone.context.state !== "running") {
-            Tone.context.resume();
-            Tone.start();
-          }
+          Tone.context.resume();
         } catch (e) {
         }
       };
-      document.addEventListener("visibilitychange", resume);
-      window.addEventListener("focus", resume);
-      window.addEventListener("pageshow", resume);
-      window.addEventListener("pointerdown", resume);
+      const kick = () => {
+        try {
+          const raw = Tone.getContext && Tone.getContext().rawContext || Tone.context.rawContext;
+          if (!raw) return;
+          if (raw.state !== "running") raw.resume();
+          const b = raw.createBuffer(1, 1, 22050);
+          const s = raw.createBufferSource();
+          s.buffer = b;
+          s.connect(raw.destination);
+          s.start(0);
+        } catch (e) {
+        }
+      };
+      const onVis = () => {
+        if (document.visibilityState === "hidden") {
+          wasHidden = true;
+          return;
+        }
+        ctxResume();
+      };
+      const onGesture = () => {
+        ctxResume();
+        if (wasHidden) {
+          kick();
+          wasHidden = false;
+        }
+      };
+      const onBlur = () => {
+        wasHidden = true;
+      };
+      document.addEventListener("visibilitychange", onVis);
+      window.addEventListener("focus", ctxResume);
+      window.addEventListener("pageshow", ctxResume);
+      window.addEventListener("blur", onBlur);
+      window.addEventListener("pointerdown", onGesture, true);
       return () => {
-        document.removeEventListener("visibilitychange", resume);
-        window.removeEventListener("focus", resume);
-        window.removeEventListener("pageshow", resume);
-        window.removeEventListener("pointerdown", resume);
+        document.removeEventListener("visibilitychange", onVis);
+        window.removeEventListener("focus", ctxResume);
+        window.removeEventListener("pageshow", ctxResume);
+        window.removeEventListener("blur", onBlur);
+        window.removeEventListener("pointerdown", onGesture, true);
       };
     }, []);
     useEffect(() => {
