@@ -2362,6 +2362,9 @@ window.SOUNDTRACK = SOUNDTRACK;
   const CONVERTKIT_FORM = "9671626";
   const CONVERTKIT_KEY = "6U4Fr68yjt_ESeBxKgXXpQ";
   const FREE = { melodyGroups: 1, adventureRegions: 4, freePlayPaths: 1, freePlayWorlds: 2 };
+  const SENTRY_DSN = "";
+  const POSTHOG_KEY = "";
+  const POSTHOG_HOST = "https://us.i.posthog.com";
   function buildGroup(group, mode, chromatic, intro) {
     const FULL = chromatic ? ALL12 : NAT_PCS;
     const tail = [
@@ -2676,6 +2679,56 @@ window.SOUNDTRACK = SOUNDTRACK;
   function savePref(key, val) {
     try {
       window.localStorage.setItem("numbersong-" + key, String(val));
+    } catch (e) {
+    }
+  }
+  const trackCid = (() => {
+    try {
+      let id = loadPref("cid", "");
+      if (!id) {
+        id = window.crypto && crypto.randomUUID ? crypto.randomUUID() : "c" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+        savePref("cid", id);
+      }
+      return id;
+    } catch (e) {
+      return "";
+    }
+  })();
+  let trackOn = false;
+  try {
+    if (SENTRY_DSN && window.Sentry) {
+      window.Sentry.init({
+        dsn: SENTRY_DSN,
+        tracesSampleRate: 0,
+        replaysSessionSampleRate: 0,
+        replaysOnErrorSampleRate: 0,
+        sendDefaultPii: false,
+        // no IP/cookies attached to error events
+        initialScope: { user: { id: trackCid } }
+      });
+    }
+    if (POSTHOG_KEY && window.posthog) {
+      window.posthog.init(POSTHOG_KEY, {
+        api_host: POSTHOG_HOST,
+        autocapture: false,
+        capture_pageview: false,
+        capture_pageleave: false,
+        disable_session_recording: true,
+        // light + private: explicit events only
+        persistence: "localStorage",
+        // cookieless
+        person_profiles: "identified_only",
+        // anonymous unless we ever identify() (we don't)
+        bootstrap: { distinctID: trackCid }
+      });
+      trackOn = true;
+    }
+  } catch (e) {
+    trackOn = false;
+  }
+  function track(event, props) {
+    try {
+      if (trackOn && window.posthog) window.posthog.capture(event, props || {});
     } catch (e) {
     }
   }
@@ -4357,6 +4410,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       setUnlocked(true);
       setOnboarded(true);
       enableSaves();
+      track("unlock");
     };
     const grantJojo = () => {
       grantUnlock();
@@ -4402,6 +4456,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       if (leadBusyRef.current) return;
       const email = leadEmail.trim();
       if (!/.+@.+\..+/.test(email)) {
+        track("lead_submit", { outcome: "invalid_email" });
         setLeadStatus("error");
         return;
       }
@@ -4435,6 +4490,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       enableSaves();
       savePref("onboarded", "1");
       leadSavedRef.current = !delivered;
+      track("lead_submit", { outcome: delivered ? "sent" : "saved" });
       setLeadStatus(delivered ? "done" : "saved");
     };
     const openUpsell = () => {
@@ -4443,6 +4499,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       } catch (e) {
       }
       setUpsellOpen(true);
+      track("upsell_open");
     };
     const tryUnlock = () => {
       const code = codeInput.trim().toLowerCase();
@@ -4488,7 +4545,9 @@ window.SOUNDTRACK = SOUNDTRACK;
         haptic(false);
       } catch (e) {
       }
-      if (!unlocked && loadPref("tut", "0") !== "1") {
+      const toTutorial = !unlocked && loadPref("tut", "0") !== "1";
+      track("boot_advance", { to: toTutorial ? "tutorial" : "adventure", unlocked });
+      if (toTutorial) {
         setTutStep(0);
         setScreen("tutorial");
       } else setScreen("adventure");
@@ -4502,6 +4561,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         sfx("select");
       } catch (e) {
       }
+      track("tutorial_skip", { step: tutStep });
       setScreen("adventure");
     };
     const graduateTutorial = () => {
@@ -4513,6 +4573,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         sfx("select");
       } catch (e) {
       }
+      track("tutorial_complete");
       setScreen("adventure");
     };
     const replayTutorial = () => {
@@ -4555,6 +4616,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         sfx("select");
       } catch (e) {
       }
+      track("tutorial_drills_start");
       setTutMode("drill");
       setTutDrillN(0);
       startTutDrill(0);
@@ -5331,6 +5393,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     };
     const startSession = (m, li, customLvl = null) => {
       killSession();
+      track("session_start", { mode: m, level: li, custom: !!customLvl });
       const baseLvl = customLvl || (m === "melody" ? MELODY_LEVELS[li] : m === "chords" ? CHORD_LEVELS[li] : PROG_LEVELS[li]);
       const lvl = m === "chords" ? { ...baseLvl, sevenths: chordSevenths } : baseLvl;
       setMode(m);
@@ -5446,6 +5509,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const finishSession = () => {
       const s = sess.current;
       const firstTries = s.results.filter((r) => r.firstTry).length;
+      track("session_finish", { mode: s.mode, level: s.levelIdx, first_tries: firstTries, questions: s.results.length, passed: firstTries >= passCountFor(s.lvl) });
       sessWasClearedRef.current = fromAdventure && advStageId != null ? stageClearedAdv(advStageId) : false;
       if (s.levelIdx != null) {
         setProgress((prev) => {
@@ -5755,7 +5819,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         (c, i) => c.gap ? /* @__PURE__ */ React.createElement("div", { key: i, className: "bi-cl bi-gap" }, /* @__PURE__ */ React.createElement("i", { className: "bi-st" }), /* @__PURE__ */ React.createElement("span", { className: "bi-mid" }, /* @__PURE__ */ React.createElement("s", null)), /* @__PURE__ */ React.createElement("u", { className: "bi-sol" })) : /* @__PURE__ */ React.createElement("div", { key: i, className: "bi-cl " + c.d + (c.tonic ? " tonic" : "") }, /* @__PURE__ */ React.createElement("i", { className: "bi-st" }, c.tonic ? "✱" : ""), /* @__PURE__ */ React.createElement("b", { className: "bi-pad" }, c.n), /* @__PURE__ */ React.createElement("u", { className: "bi-sol" }, c.sol))
       ))), /* @__PURE__ */ React.createElement("div", { className: "bi-wave" }, Array.from({ length: 24 }).map((_, i) => /* @__PURE__ */ React.createElement("i", { key: i })))), /* @__PURE__ */ React.createElement("img", { className: "bi-coda", src: typeof window !== "undefined" ? window.CODA_VICTORY : "", alt: "", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("button", { className: "bi-cta", onClick: bootAdvance }, "START YOUR EAR QUEST"), /* @__PURE__ */ React.createElement("div", { className: "bi-foot" }, "EVERY NOTE IS ON THE MAP"));
     }
-    const upsellModal = upsellOpen ? /* @__PURE__ */ React.createElement("div", { className: "forge-modal upsell-modal", onClick: () => setUpsellOpen(false) }, /* @__PURE__ */ React.createElement("div", { className: "forge-panel upsell-panel", role: "dialog", "aria-modal": "true", "aria-label": "Keep going — the full program", tabIndex: -1, ref: upsellPanelRef, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("span", { className: "forge-kicker" }, "✦ Keep going ✦"), /* @__PURE__ */ React.createElement("h2", { className: "forge-title" }, "This is where it gets good"), /* @__PURE__ */ React.createElement("p", { className: "upsell-copy" }, "You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program."), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setUpsellOpen(false) }, "Maybe later"), /* @__PURE__ */ React.createElement("a", { className: "primary offer-link", href: OFFER_URL, target: "_blank", rel: "noopener noreferrer" }, "Show me how →")))) : null;
+    const upsellModal = upsellOpen ? /* @__PURE__ */ React.createElement("div", { className: "forge-modal upsell-modal", onClick: () => setUpsellOpen(false) }, /* @__PURE__ */ React.createElement("div", { className: "forge-panel upsell-panel", role: "dialog", "aria-modal": "true", "aria-label": "Keep going — the full program", tabIndex: -1, ref: upsellPanelRef, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("span", { className: "forge-kicker" }, "✦ Keep going ✦"), /* @__PURE__ */ React.createElement("h2", { className: "forge-title" }, "This is where it gets good"), /* @__PURE__ */ React.createElement("p", { className: "upsell-copy" }, "You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program."), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setUpsellOpen(false) }, "Maybe later"), /* @__PURE__ */ React.createElement("a", { className: "primary offer-link", href: OFFER_URL, target: "_blank", rel: "noopener noreferrer", onClick: () => track("offer_click", { where: "upsell" }) }, "Show me how →")))) : null;
     if (screen === "menu") {
       const item = (icon, label, go) => /* @__PURE__ */ React.createElement("button", { className: "menu-item", onClick: () => {
         sfx("select");
@@ -5777,6 +5841,7 @@ window.SOUNDTRACK = SOUNDTRACK;
               sfx("select");
             } catch (e) {
             }
+            track("offer_click", { where: "cta_more" });
           }
         },
         "Want more than the game?",
@@ -5808,6 +5873,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     if (screen === "adventure") {
       const onTapNode = (n) => {
         if (gated && !isRegionFree(n.id - 1)) return openUpsell();
+        track("region_enter", { region: n.id });
         if (boringMode) {
           enterStage(n);
         } else {
@@ -6397,7 +6463,10 @@ window.SOUNDTRACK = SOUNDTRACK;
           href: OFFER_URL,
           target: "_blank",
           rel: "noopener noreferrer",
-          onClick: () => finishOnboarding()
+          onClick: () => {
+            track("offer_click", { where: "lead_done" });
+            finishOnboarding();
+          }
         },
         "Show me how →"
       ), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Keep playing"))) : leadStatus === "saved" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✓ Progress saved"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Saved on this device. I couldn't send the PDF just now — give it another try, or keep playing and grab it later."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: submitLead, disabled: leadStatus === "sending" }, leadStatus === "sending" ? "Sending…" : "Try again"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Keep playing"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✦ Save your progress + a free gift ✦"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Want to hear any guitar chord by ear? Pop in your email and I'll send you the free Chords-by-Numbers PDF — the method behind this whole game. Your progress saves, too."), /* @__PURE__ */ React.createElement("input", { className: "set-input lead-input", placeholder: "first name", value: leadName, autoComplete: "given-name", onChange: (e) => setLeadName(e.target.value) }), /* @__PURE__ */ React.createElement(
