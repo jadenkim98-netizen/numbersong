@@ -15,12 +15,14 @@ function name / symptom, not line.** Fix these on Opus; the Fable audit already 
 
 ---
 
-## 🟠 Open — Tier 2 (real correctness bugs / leaks)
-6. **`ensure()` has no in-flight guard** (in `useAudio`) · MED — concurrent callers (boot tap + the warm effect ~400ms later) both pass `!synthRef.current` during the multi-second Salamander sample fetch → 13 mp3s fetched twice, an orphan `Tone.Sampler` left connected forever (leak), and the SUNG_NUMBERS/MINOR_VOICE base64→decode pass runs twice.
-7. **`checkChordSession` / `checkProgression` register the `advance()` timer only after an `await`, with no `sessGenRef` staleness check** (unlike `nextQuestion`, which was hardened) · MED — answer correctly while the AudioContext is suspended (iOS call/Siri), then hit Quit → the answer chord plays post-quit and `advance()` fires into the dead session (teleport to results / corrupt a freshly restarted session).
-8. **Quit-during-load cadence escapes `stopAll`** · MED — `playCadence` schedules its chords before the gen-token check can run, and `stopAll` can't cancel because `synthRef.current` is still null at quit → cadence plays ~2.4s over the menu/map on a dead session.
-9. **Stale-`unlocked` boot listener** · MED — the boot `keydown`/`pointerdown` listeners capture the first-render `bootAdvance`, whose `unlocked` is stale (deps `[screen, sfx]` never change; `grantUnlock` never sets the `tut` pref). A student opening `?unlock=<CODE>` who taps the boot screen is routed into Verda's beginner tutorial instead of the map.
-10. **`stopMusic` dispose race** · LOW-MED — its 720ms delayed dispose doesn't check `nameRef`, so it can stop/dispose a theme that `playTheme` built in the meantime (build fires ~+520ms), leaving `nameRef` set so subsequent `playTheme("map")` calls early-return → map/levels music goes permanently silent after a fast screen double-tap, until some other `stopMusic` resets `nameRef`.
+## ✅ Fixed (Tier 2 — real correctness bugs / leaks) · 2026-07-13, Opus
+6. **`ensure()` has no in-flight guard** (in `useAudio`) → heavy one-time init (Salamander fetch + voice decode) memoised behind `initRef`; concurrent callers share one load. `Tone.start`/`resume` still run every call; a failed init resets the ref to allow retry.
+7. **`checkChordSession` / `checkProgression` register `advance()` after an `await` with no `sessGenRef` check** → capture `gen` at the top, bail after the await before scheduling `advance()` (mirrors `nextQuestion`).
+8. **Quit-during-load cadence escapes `stopAll`** → added `audioGenRef`, bumped by `stopAll`; `playCadence`/`playChord`/`playProgression` capture it before `await ensure()` and return `0` if it changed, so a quit during load can't play onto a dead session.
+9. **Stale-`unlocked` boot listener** → added `unlocked` to the boot effect deps so a `?unlock=<CODE>` student re-registers a fresh `bootAdvance` and routes to the map, not the tutorial.
+10. **`stopMusic` dispose race** → its delayed teardown now bails if `nameRef.current !== null` (a `playTheme` landed during the fade), so it can't dispose a freshly-built theme and strand `nameRef` → no more permanently-silent map music.
+
+_Committed to `main` on Opus; deploys on the next push + `docs/` rebuild._
 
 ---
 

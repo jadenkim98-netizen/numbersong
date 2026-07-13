@@ -552,79 +552,95 @@ function useAudio() {
   const minorVoiceRef = useRef(null); // pitch-keyed minor scale (Jojo's A-minor 2-octave take), base 0 = C
   const buffersRef = useRef(null);
   const voicePlayersRef = useRef([]);
+  const initRef = useRef(null); // memoised heavy one-time init promise (dedupes concurrent callers)
+  // Bumped by stopAll. Session play-primitives capture it before `await ensure()` and
+  // bail if it changed — so a quit DURING the multi-second first load (synthRef still
+  // null, nothing for stopAll to dispose) can't let the just-loaded cadence/chord play
+  // over the menu on a dead session.
+  const audioGenRef = useRef(0);
 
   const ensure = useCallback(async () => {
     await Tone.start();
     if (Tone.context.state !== "running") {
       await Tone.context.resume();
     }
-    if (!synthRef.current) {
-      // Sampled grand piano (Salamander). Buffers are cached so the instrument
-      // can be torn down and rebuilt instantly (that's how stopAll cancels
-      // notes that were already scheduled into the future).
-      const PIANO_URLS = {
-        C2: "C2.mp3", "F#2": "Fs2.mp3", A2: "A2.mp3",
-        C3: "C3.mp3", "F#3": "Fs3.mp3", A3: "A3.mp3",
-        C4: "C4.mp3", "F#4": "Fs4.mp3", A4: "A4.mp3",
-        C5: "C5.mp3", "F#5": "Fs5.mp3", A5: "A5.mp3",
-        C6: "C6.mp3",
-      };
-      const BASE = "https://tonejs.github.io/audio/salamander/";
-      const loaded = await Promise.race([
-        Promise.all(Object.entries(PIANO_URLS).map(([n, f]) =>
-          new Promise((res) => {
-            const b = new Tone.ToneAudioBuffer(BASE + f, () => res([n, b]), () => res(null));
-          })
-        )),
-        new Promise((res) => setTimeout(() => res(null), 8000)),
-      ]);
-      if (Array.isArray(loaded)) {
-        // Keep whatever loaded — one 404 shouldn't drop the whole piano to a synth;
-        // Tone.Sampler interpolates from a sparse map. Store native AudioBuffers so
-        // disposing a sampler can't destroy them (rebuilt instruments stay healthy).
-        const ok = loaded.filter(Boolean);
-        if (ok.length) buffersRef.current = Object.fromEntries(ok.map(([n, b]) => [n, b.get()]));
-        if (ok.length < loaded.length) console.warn("[numbersong] piano: only " + ok.length + "/" + loaded.length + " samples loaded — using a sparser sampler.");
-      } else {
-        console.warn("[numbersong] piano samples unavailable (offline or timed out) — using the synth fallback.");
-      }
-      synthRef.current = buildInstrument(buffersRef.current);
-      padRef.current = synthRef.current;
-    }
-    // Decode embedded sung numbers (Jojo's voice), once.
-    // Sets are keyed by semitone base: 0 = C major, 4 = E major, 8 = Ab major.
-    if (!voicesRef.current && window.SUNG_NUMBERS) {
-      try {
-        const out = {};
-        for (const [base, set] of Object.entries(window.SUNG_NUMBERS)) {
-          out[base] = {};
-          for (const [d, b64] of Object.entries(set)) {
-            const bin = atob(b64);
-            const arr = new Uint8Array(bin.length);
-            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-            out[base][d] = await Tone.getContext().rawContext.decodeAudioData(arr.buffer);
+    // The heavy one-time init (13 Salamander mp3s + the sung-number/minor-voice
+    // base64 decode) is memoised behind initRef so concurrent callers — e.g. the boot
+    // tap and the background warm effect ~400ms later, both arriving during the
+    // multi-second fetch — SHARE one load. Without this both pass the `!synthRef.current`
+    // check below and double-fetch, leaking an orphan Sampler and decoding twice.
+    if (!initRef.current) {
+      initRef.current = (async () => {
+        if (!synthRef.current) {
+          // Sampled grand piano (Salamander). Buffers are cached so the instrument
+          // can be torn down and rebuilt instantly (that's how stopAll cancels
+          // notes that were already scheduled into the future).
+          const PIANO_URLS = {
+            C2: "C2.mp3", "F#2": "Fs2.mp3", A2: "A2.mp3",
+            C3: "C3.mp3", "F#3": "Fs3.mp3", A3: "A3.mp3",
+            C4: "C4.mp3", "F#4": "Fs4.mp3", A4: "A4.mp3",
+            C5: "C5.mp3", "F#5": "Fs5.mp3", A5: "A5.mp3",
+            C6: "C6.mp3",
+          };
+          const BASE = "https://tonejs.github.io/audio/salamander/";
+          const loaded = await Promise.race([
+            Promise.all(Object.entries(PIANO_URLS).map(([n, f]) =>
+              new Promise((res) => {
+                const b = new Tone.ToneAudioBuffer(BASE + f, () => res([n, b]), () => res(null));
+              })
+            )),
+            new Promise((res) => setTimeout(() => res(null), 8000)),
+          ]);
+          if (Array.isArray(loaded)) {
+            // Keep whatever loaded — one 404 shouldn't drop the whole piano to a synth;
+            // Tone.Sampler interpolates from a sparse map. Store native AudioBuffers so
+            // disposing a sampler can't destroy them (rebuilt instruments stay healthy).
+            const ok = loaded.filter(Boolean);
+            if (ok.length) buffersRef.current = Object.fromEntries(ok.map(([n, b]) => [n, b.get()]));
+            if (ok.length < loaded.length) console.warn("[numbersong] piano: only " + ok.length + "/" + loaded.length + " samples loaded — using a sparser sampler.");
+          } else {
+            console.warn("[numbersong] piano samples unavailable (offline or timed out) — using the synth fallback.");
+          }
+          synthRef.current = buildInstrument(buffersRef.current);
+          padRef.current = synthRef.current;
+        }
+        // Decode embedded sung numbers (Jojo's voice), once.
+        // Sets are keyed by semitone base: 0 = C major, 4 = E major, 8 = Ab major.
+        if (!voicesRef.current && window.SUNG_NUMBERS) {
+          try {
+            const out = {};
+            for (const [base, set] of Object.entries(window.SUNG_NUMBERS)) {
+              out[base] = {};
+              for (const [d, b64] of Object.entries(set)) {
+                const bin = atob(b64);
+                const arr = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                out[base][d] = await Tone.getContext().rawContext.decodeAudioData(arr.buffer);
+              }
+            }
+            voicesRef.current = out;
+          } catch (e) {
+            voicesRef.current = null; // fall back to speech synthesis
           }
         }
-        voicesRef.current = out;
-      } catch (e) {
-        voicesRef.current = null; // fall back to speech synthesis
-      }
-    }
-    // Decode the pitch-keyed minor-scale voice (A-minor 2-octave take), keyed by MIDI.
-    if (!minorVoiceRef.current && window.MINOR_VOICE) {
-      try {
-        const out = {};
-        for (const [base, set] of Object.entries(window.MINOR_VOICE)) {
-          out[base] = {};
-          for (const [midi, b64] of Object.entries(set)) {
-            const bin = atob(b64); const arr = new Uint8Array(bin.length);
-            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-            out[base][midi] = await Tone.getContext().rawContext.decodeAudioData(arr.buffer);
-          }
+        // Decode the pitch-keyed minor-scale voice (A-minor 2-octave take), keyed by MIDI.
+        if (!minorVoiceRef.current && window.MINOR_VOICE) {
+          try {
+            const out = {};
+            for (const [base, set] of Object.entries(window.MINOR_VOICE)) {
+              out[base] = {};
+              for (const [midi, b64] of Object.entries(set)) {
+                const bin = atob(b64); const arr = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                out[base][midi] = await Tone.getContext().rawContext.decodeAudioData(arr.buffer);
+              }
+            }
+            minorVoiceRef.current = out;
+          } catch (e) { minorVoiceRef.current = null; }
         }
-        minorVoiceRef.current = out;
-      } catch (e) { minorVoiceRef.current = null; }
+      })().catch((e) => { initRef.current = null; throw e; }); // a failed one-time init can retry
     }
+    await initRef.current;
   }, []);
 
   // Cadence to anchor the ear in the key — major (I–IV–V–I) or minor (i–iv–V–i).
@@ -632,7 +648,9 @@ function useAudio() {
   const cadSpeedRef = useRef(1 / (parseFloat(loadPref("tempo", "1")) || 1));
   const setCadenceSpeed = useCallback((tempo) => { cadSpeedRef.current = tempo > 0 ? 1 / tempo : 1; }, []);
   const playCadence = useCallback(async (key, mode = "major") => {
+    const g = audioGenRef.current;
     await ensure();
+    if (g !== audioGenRef.current) return 0; // stopAll ran during load → don't play onto a dead session
     const now = Tone.now();
     const sp = cadSpeedRef.current;
     const base = Tone.Frequency(key + "4").toMidi();
@@ -654,7 +672,9 @@ function useAudio() {
   }, [ensure]);
 
   const playChord = useCallback(async (key, tones, delay = 0, arp = true) => {
+    const g = audioGenRef.current;
     await ensure();
+    if (g !== audioGenRef.current) return 0; // stopAll ran during load → don't play onto a dead session
     const now = Tone.now() + delay;
     // Voice ascending from degree order, wrapping up an octave when needed
     let lastMidi = -1;
@@ -805,7 +825,9 @@ function useAudio() {
 
   // Play a progression: each chord as a block, in tempo, with a bass root below.
   const playProgression = useCallback(async (key, chordsTones, delay = 0, beat = 1.0) => {
+    const g = audioGenRef.current;
     await ensure();
+    if (g !== audioGenRef.current) return 0; // stopAll ran during load → don't play onto a dead session
     const now = Tone.now() + delay;
     chordsTones.forEach((tones, i) => {
       let lastMidi = -1;
@@ -1011,6 +1033,7 @@ function useAudio() {
   }, []);
 
   const stopAll = useCallback(() => {
+    audioGenRef.current++; // cancel any play-primitive still awaiting ensure() (see audioGenRef)
     stopPathLoop();
     releaseAllNotes();
     voicePlayersRef.current.forEach((p) => { try { p.stop(); p.dispose(); } catch (e) {} });
@@ -1088,7 +1111,13 @@ function useMusic() {
   const stopMusic = useCallback((fast) => {
     nameRef.current = null;
     const g = busRef.current; if (g) try { g.gain.rampTo(0, fast ? 0.06 : 0.7); } catch (e) {}
-    setTimeout(() => { try { Tone.Transport.stop(); Tone.Transport.cancel(); } catch (e) {} disposeCur(); }, fast ? 320 : 720);
+    setTimeout(() => {
+      // If a playTheme landed during the fade it will have set nameRef to its theme —
+      // don't tear down the instrument it just built (that would strand nameRef set,
+      // making every later playTheme(name) early-return → music silent forever).
+      if (nameRef.current !== null) return;
+      try { Tone.Transport.stop(); Tone.Transport.cancel(); } catch (e) {} disposeCur();
+    }, fast ? 320 : 720);
   }, []);
   const setMusicOn = useCallback((on) => {
     onRef.current = on; savePref("music", on ? "1" : "0");
@@ -2348,7 +2377,10 @@ export default function NumberEarTrainer() {
     window.addEventListener("keydown", bootAdvance, { once: true });
     window.addEventListener("pointerdown", bootAdvance, { once: true });
     return () => { window.removeEventListener("keydown", bootAdvance); window.removeEventListener("pointerdown", bootAdvance); };
-  }, [screen, sfx]);
+    // `unlocked` is in the deps so a ?unlock=<CODE> student who flips to unlocked AFTER
+    // this effect first ran re-registers a fresh bootAdvance (whose closure sees the
+    // new value) → boot tap routes them to the map, not Verda's beginner tutorial.
+  }, [screen, sfx, unlocked]);
   // Warm the piano sampler in the background once the player is past boot (audio is unlocked),
   // so the FIRST drill doesn't stall while 13 samples download. Runs at most once.
   const warmedRef = useRef(false);
@@ -2991,6 +3023,7 @@ export default function NumberEarTrainer() {
 
   const checkChordSession = async () => {
     const s = sess.current;
+    const gen = sessGenRef.current; // quit/restart during the resolution await → bail (mirrors nextQuestion)
     const tones = chordTones(s.target, s.sevenths);
     if (phase !== "answer" || chPicked.length !== tones.length || busy) return;
     const t = new Set(tones.map((d) => (d === 8 ? 1 : d)));
@@ -3005,6 +3038,7 @@ export default function NumberEarTrainer() {
       setFeedback({ roman: s.target.roman, sym: chordSymbol(s.target.roman, s.sevenths), num: chordNumber(s.target.roman, s.sevenths), quality: chordQuality(s.target.roman, s.sevenths), tones });
       setBusy(true);
       const dur = await playChord(s.key, tones);
+      if (gen !== sessGenRef.current) return; // quit during the resolution → don't advance a dead session
       sessTimer(() => { setBusy(false); advance(); }, (dur + 1.4) * 1000);
     } else {
       s.attempted = true;
@@ -3029,6 +3063,7 @@ export default function NumberEarTrainer() {
 
   const checkProgression = async () => {
     const s = sess.current;
+    const gen = sessGenRef.current; // quit/restart during the resolution await → bail (mirrors nextQuestion)
     if (phase !== "answer" || busy || progAnswer.length !== s.target.length) return;
     const wrong = s.target.map((r, i) => (progAnswer[i] === r ? -1 : i)).filter((i) => i >= 0);
     if (wrong.length === 0) {
@@ -3040,6 +3075,7 @@ export default function NumberEarTrainer() {
       setFeedback({ prog: [...s.target] });
       setBusy(true);
       const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat);
+      if (gen !== sessGenRef.current) return; // quit during the resolution → don't advance a dead session
       s.target.forEach((_, i) => sessTimer(() => setProgActive(i), i * progBeat * 1000));
       sessTimer(() => setProgActive(-1), s.target.length * progBeat * 1000);
       sessTimer(() => { setBusy(false); advance(); }, (dur + 0.4) * 1000);
