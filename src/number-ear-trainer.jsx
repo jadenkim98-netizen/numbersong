@@ -136,7 +136,7 @@ const PASS_RATE = 0.8;
    ConvertKit lead capture is optional: leave the form id/key blank and the email
    step just stores the lead locally and skips the network (see the results screen). */
 const OFFER_URL = "https://wejamimprovisation.com/strategy?utm_source=numbersong";
-const UNLOCK_CODE = "wejam-full";   // students: ?unlock=wejam-full  OR type it in Settings
+const UNLOCK_CODE = "effortless1";   // students: ?unlock=effortless1  OR type it in Settings
 const CONVERTKIT_FORM = "9671626";                 // ConvertKit form id — delivers leads
 const CONVERTKIT_KEY = "6U4Fr68yjt_ESeBxKgXXpQ";   // ConvertKit PUBLIC api_key (safe client-side)
 const FREE = { melodyGroups: 1, adventureRegions: 4, freePlayPaths: 1, freePlayWorlds: 2 };
@@ -2103,6 +2103,7 @@ export default function NumberEarTrainer() {
   const finishOnboarding = () => { savePref("onboarded", "1"); setOnboarded(true); };
   const [upsellOpen, setUpsellOpen] = useState(false);
   const [codeInput, setCodeInput] = useState("");
+  const [codeErr, setCodeErr] = useState(false);
   // First-run lead capture (shown once on the first results screen for public players).
   const [leadName, setLeadName] = useState("");
   const [leadEmail, setLeadEmail] = useState("");
@@ -2146,8 +2147,14 @@ export default function NumberEarTrainer() {
     } catch (e) { try { window.open(OFFER_URL, "_blank", "noopener"); } catch (e2) {} }
   };
   const tryUnlock = () => {
-    if (codeInput.trim().toLowerCase() === UNLOCK_CODE.toLowerCase()) { grantUnlock(); try { sfx("select"); } catch (e) {} }
-    else { try { sfx("wrong"); } catch (e) {} }
+    if (codeInput.trim().toLowerCase() === UNLOCK_CODE.toLowerCase()) {
+      setCodeErr(false); grantUnlock();
+      try { sfx("select"); } catch (e) {}
+      try { fanfare(); } catch (e) {}   // triumphant unlock chime
+    } else {
+      setCodeErr(true);
+      try { sfx("wrong"); } catch (e) {}
+    }
   };
   // Leaving the boot/intro screen: unlock audio (iOS gesture), then first-run players
   // drop straight into Adventure for immersion; returning players go to the menu.
@@ -3560,10 +3567,13 @@ export default function NumberEarTrainer() {
                 <p className="set-desc">Have an access code from the Accelerator? Enter it to unlock every level and remove the prompts.</p>
                 <div className="set-row">
                   <input className="set-input" value={codeInput} placeholder="access code"
-                    onChange={(e) => setCodeInput(e.target.value)}
+                    onChange={(e) => { setCodeInput(e.target.value); if (codeErr) setCodeErr(false); }}
                     onKeyDown={(e) => { if (e.key === "Enter") tryUnlock(); }} />
                   <button className="primary" onClick={tryUnlock}>Unlock</button>
                 </div>
+                {codeErr && (
+                  <p className="set-desc" style={{ color: "#E07856" }}>✕ That code doesn't exist — check it and try again.</p>
+                )}
               </>
             )}
           </div>

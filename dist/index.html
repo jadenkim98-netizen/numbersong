@@ -2339,7 +2339,7 @@ window.SOUNDTRACK = SOUNDTRACK;
   const FINAL_LEN = 30;
   const PASS_RATE = 0.8;
   const OFFER_URL = "https://wejamimprovisation.com/strategy?utm_source=numbersong";
-  const UNLOCK_CODE = "wejam-full";
+  const UNLOCK_CODE = "effortless1";
   const CONVERTKIT_FORM = "9671626";
   const CONVERTKIT_KEY = "6U4Fr68yjt_ESeBxKgXXpQ";
   const FREE = { melodyGroups: 1, adventureRegions: 4, freePlayPaths: 1, freePlayWorlds: 2 };
@@ -2739,87 +2739,99 @@ window.SOUNDTRACK = SOUNDTRACK;
     const minorVoiceRef = useRef(null);
     const buffersRef = useRef(null);
     const voicePlayersRef = useRef([]);
+    const initRef = useRef(null);
+    const audioGenRef = useRef(0);
     const ensure = useCallback(async () => {
       await Tone.start();
       if (Tone.context.state !== "running") {
         await Tone.context.resume();
       }
-      if (!synthRef.current) {
-        const PIANO_URLS = {
-          C2: "C2.mp3",
-          "F#2": "Fs2.mp3",
-          A2: "A2.mp3",
-          C3: "C3.mp3",
-          "F#3": "Fs3.mp3",
-          A3: "A3.mp3",
-          C4: "C4.mp3",
-          "F#4": "Fs4.mp3",
-          A4: "A4.mp3",
-          C5: "C5.mp3",
-          "F#5": "Fs5.mp3",
-          A5: "A5.mp3",
-          C6: "C6.mp3"
-        };
-        const BASE = "https://tonejs.github.io/audio/salamander/";
-        const loaded = await Promise.race([
-          Promise.all(Object.entries(PIANO_URLS).map(
-            ([n, f]) => new Promise((res) => {
-              const b = new Tone.ToneAudioBuffer(BASE + f, () => res([n, b]), () => res(null));
-            })
-          )),
-          new Promise((res) => setTimeout(() => res(null), 8e3))
-        ]);
-        if (Array.isArray(loaded)) {
-          const ok = loaded.filter(Boolean);
-          if (ok.length) buffersRef.current = Object.fromEntries(ok.map(([n, b]) => [n, b.get()]));
-          if (ok.length < loaded.length) console.warn("[numbersong] piano: only " + ok.length + "/" + loaded.length + " samples loaded — using a sparser sampler.");
-        } else {
-          console.warn("[numbersong] piano samples unavailable (offline or timed out) — using the synth fallback.");
-        }
-        synthRef.current = buildInstrument(buffersRef.current);
-        padRef.current = synthRef.current;
-      }
-      if (!voicesRef.current && window.SUNG_NUMBERS) {
-        try {
-          const out = {};
-          for (const [base, set] of Object.entries(window.SUNG_NUMBERS)) {
-            out[base] = {};
-            for (const [d, b64] of Object.entries(set)) {
-              const bin = atob(b64);
-              const arr = new Uint8Array(bin.length);
-              for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-              out[base][d] = await Tone.getContext().rawContext.decodeAudioData(arr.buffer);
+      if (!initRef.current) {
+        initRef.current = (async () => {
+          if (!synthRef.current) {
+            const PIANO_URLS = {
+              C2: "C2.mp3",
+              "F#2": "Fs2.mp3",
+              A2: "A2.mp3",
+              C3: "C3.mp3",
+              "F#3": "Fs3.mp3",
+              A3: "A3.mp3",
+              C4: "C4.mp3",
+              "F#4": "Fs4.mp3",
+              A4: "A4.mp3",
+              C5: "C5.mp3",
+              "F#5": "Fs5.mp3",
+              A5: "A5.mp3",
+              C6: "C6.mp3"
+            };
+            const BASE = "https://tonejs.github.io/audio/salamander/";
+            const loaded = await Promise.race([
+              Promise.all(Object.entries(PIANO_URLS).map(
+                ([n, f]) => new Promise((res) => {
+                  const b = new Tone.ToneAudioBuffer(BASE + f, () => res([n, b]), () => res(null));
+                })
+              )),
+              new Promise((res) => setTimeout(() => res(null), 8e3))
+            ]);
+            if (Array.isArray(loaded)) {
+              const ok = loaded.filter(Boolean);
+              if (ok.length) buffersRef.current = Object.fromEntries(ok.map(([n, b]) => [n, b.get()]));
+              if (ok.length < loaded.length) console.warn("[numbersong] piano: only " + ok.length + "/" + loaded.length + " samples loaded — using a sparser sampler.");
+            } else {
+              console.warn("[numbersong] piano samples unavailable (offline or timed out) — using the synth fallback.");
+            }
+            synthRef.current = buildInstrument(buffersRef.current);
+            padRef.current = synthRef.current;
+          }
+          if (!voicesRef.current && window.SUNG_NUMBERS) {
+            try {
+              const out = {};
+              for (const [base, set] of Object.entries(window.SUNG_NUMBERS)) {
+                out[base] = {};
+                for (const [d, b64] of Object.entries(set)) {
+                  const bin = atob(b64);
+                  const arr = new Uint8Array(bin.length);
+                  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                  out[base][d] = await Tone.getContext().rawContext.decodeAudioData(arr.buffer);
+                }
+              }
+              voicesRef.current = out;
+            } catch (e) {
+              voicesRef.current = null;
             }
           }
-          voicesRef.current = out;
-        } catch (e) {
-          voicesRef.current = null;
-        }
-      }
-      if (!minorVoiceRef.current && window.MINOR_VOICE) {
-        try {
-          const out = {};
-          for (const [base, set] of Object.entries(window.MINOR_VOICE)) {
-            out[base] = {};
-            for (const [midi, b64] of Object.entries(set)) {
-              const bin = atob(b64);
-              const arr = new Uint8Array(bin.length);
-              for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-              out[base][midi] = await Tone.getContext().rawContext.decodeAudioData(arr.buffer);
+          if (!minorVoiceRef.current && window.MINOR_VOICE) {
+            try {
+              const out = {};
+              for (const [base, set] of Object.entries(window.MINOR_VOICE)) {
+                out[base] = {};
+                for (const [midi, b64] of Object.entries(set)) {
+                  const bin = atob(b64);
+                  const arr = new Uint8Array(bin.length);
+                  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                  out[base][midi] = await Tone.getContext().rawContext.decodeAudioData(arr.buffer);
+                }
+              }
+              minorVoiceRef.current = out;
+            } catch (e) {
+              minorVoiceRef.current = null;
             }
           }
-          minorVoiceRef.current = out;
-        } catch (e) {
-          minorVoiceRef.current = null;
-        }
+        })().catch((e) => {
+          initRef.current = null;
+          throw e;
+        });
       }
+      await initRef.current;
     }, []);
     const cadSpeedRef = useRef(1 / (parseFloat(loadPref("tempo", "1")) || 1));
     const setCadenceSpeed = useCallback((tempo) => {
       cadSpeedRef.current = tempo > 0 ? 1 / tempo : 1;
     }, []);
     const playCadence = useCallback(async (key, mode = "major") => {
+      const g = audioGenRef.current;
       await ensure();
+      if (g !== audioGenRef.current) return 0;
       const now = Tone.now();
       const sp = cadSpeedRef.current;
       const base = Tone.Frequency(key + "4").toMidi();
@@ -2840,7 +2852,9 @@ window.SOUNDTRACK = SOUNDTRACK;
       );
     }, [ensure]);
     const playChord = useCallback(async (key, tones, delay = 0, arp = true) => {
+      const g = audioGenRef.current;
       await ensure();
+      if (g !== audioGenRef.current) return 0;
       const now = Tone.now() + delay;
       let lastMidi = -1;
       const notes = tones.map((d) => {
@@ -3031,7 +3045,9 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
     }, []);
     const playProgression = useCallback(async (key, chordsTones, delay = 0, beat = 1) => {
+      const g = audioGenRef.current;
       await ensure();
+      if (g !== audioGenRef.current) return 0;
       const now = Tone.now() + delay;
       chordsTones.forEach((tones, i) => {
         let lastMidi = -1;
@@ -3257,6 +3273,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       }, 2e3);
     }, []);
     const stopAll = useCallback(() => {
+      audioGenRef.current++;
       stopPathLoop();
       releaseAllNotes();
       voicePlayersRef.current.forEach((p) => {
@@ -3385,6 +3402,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       } catch (e) {
       }
       setTimeout(() => {
+        if (nameRef.current !== null) return;
         try {
           Tone.Transport.stop();
           Tone.Transport.cancel();
@@ -4316,6 +4334,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     };
     const [upsellOpen, setUpsellOpen] = useState(false);
     const [codeInput, setCodeInput] = useState("");
+    const [codeErr, setCodeErr] = useState(false);
     const [leadName, setLeadName] = useState("");
     const [leadEmail, setLeadEmail] = useState("");
     const [leadStatus, setLeadStatus] = useState("idle");
@@ -4348,9 +4367,12 @@ window.SOUNDTRACK = SOUNDTRACK;
         }
       } catch (e) {
         saveLocal();
+      } finally {
+        leadBusyRef.current = false;
       }
       enableSaves();
       savePref("onboarded", "1");
+      leadSavedRef.current = !delivered;
       setLeadStatus(delivered ? "done" : "saved");
     };
     const openUpsell = () => {
@@ -4378,12 +4400,18 @@ window.SOUNDTRACK = SOUNDTRACK;
     };
     const tryUnlock = () => {
       if (codeInput.trim().toLowerCase() === UNLOCK_CODE.toLowerCase()) {
+        setCodeErr(false);
         grantUnlock();
         try {
           sfx("select");
         } catch (e) {
         }
+        try {
+          fanfare();
+        } catch (e) {
+        }
       } else {
+        setCodeErr(true);
         try {
           sfx("wrong");
         } catch (e) {
@@ -4635,8 +4663,8 @@ window.SOUNDTRACK = SOUNDTRACK;
         const q = new URLSearchParams(window.location.search);
         const h = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
         const code = q.get("unlock") || h.get("unlock");
-        if (code && code === UNLOCK_CODE) {
-          grantUnlock();
+        if (code) {
+          if (code.trim().toLowerCase() === UNLOCK_CODE.toLowerCase()) grantUnlock();
           window.history.replaceState(null, "", window.location.pathname);
         } else if (q.has("lock") || h.has("lock")) {
           try {
@@ -4703,7 +4731,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         window.removeEventListener("keydown", bootAdvance);
         window.removeEventListener("pointerdown", bootAdvance);
       };
-    }, [screen, sfx]);
+    }, [screen, sfx, unlocked]);
     const warmedRef = useRef(false);
     useEffect(() => {
       if (warmedRef.current || screen === "boot") return;
@@ -5426,6 +5454,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     };
     const checkChordSession = async () => {
       const s = sess.current;
+      const gen = sessGenRef.current;
       const tones = chordTones(s.target, s.sevenths);
       if (phase !== "answer" || chPicked.length !== tones.length || busy) return;
       const t = new Set(tones.map((d) => d === 8 ? 1 : d));
@@ -5444,6 +5473,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         setFeedback({ roman: s.target.roman, sym: chordSymbol(s.target.roman, s.sevenths), num: chordNumber(s.target.roman, s.sevenths), quality: chordQuality(s.target.roman, s.sevenths), tones });
         setBusy(true);
         const dur = await playChord(s.key, tones);
+        if (gen !== sessGenRef.current) return;
         sessTimer(() => {
           setBusy(false);
           advance();
@@ -5469,6 +5499,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     };
     const checkProgression = async () => {
       const s = sess.current;
+      const gen = sessGenRef.current;
       if (phase !== "answer" || busy || progAnswer.length !== s.target.length) return;
       const wrong = s.target.map((r, i) => progAnswer[i] === r ? -1 : i).filter((i) => i >= 0);
       if (wrong.length === 0) {
@@ -5483,6 +5514,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         setFeedback({ prog: [...s.target] });
         setBusy(true);
         const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat);
+        if (gen !== sessGenRef.current) return;
         s.target.forEach((_, i) => sessTimer(() => setProgActive(i), i * progBeat * 1e3));
         sessTimer(() => setProgActive(-1), s.target.length * progBeat * 1e3);
         sessTimer(() => {
@@ -5826,12 +5858,15 @@ window.SOUNDTRACK = SOUNDTRACK;
           className: "set-input",
           value: codeInput,
           placeholder: "access code",
-          onChange: (e) => setCodeInput(e.target.value),
+          onChange: (e) => {
+            setCodeInput(e.target.value);
+            if (codeErr) setCodeErr(false);
+          },
           onKeyDown: (e) => {
             if (e.key === "Enter") tryUnlock();
           }
         }
-      ), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: tryUnlock }, "Unlock"))))), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Preferences are saved on this device."));
+      ), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: tryUnlock }, "Unlock")), codeErr && /* @__PURE__ */ React.createElement("p", { className: "set-desc", style: { color: "#E07856" } }, "✕ That code doesn't exist — check it and try again.")))), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Preferences are saved on this device."));
     }
     if (screen === "levels") {
       if (mode === "melody" && melGroup === null) {
