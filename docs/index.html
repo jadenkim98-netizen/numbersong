@@ -2890,6 +2890,50 @@ window.SOUNDTRACK = SOUNDTRACK;
     if (lvl.keyMode === "random") return randKey2([]);
     return musicKey;
   }
+  function resolveSessionLevel({ mode, levelIdx, customLvl, levelsByMode, chordSevenths }) {
+    const base = customLvl || levelsByMode[mode][levelIdx];
+    return mode === "chords" ? { ...base, sevenths: chordSevenths } : base;
+  }
+  function buildSessionState({ mode, lvl, levelIdx, key, chordSevenths, qCount }) {
+    return {
+      mode,
+      lvl,
+      levelIdx,
+      key,
+      octave: 4,
+      qNum: 0,
+      qCount,
+      results: [],
+      attempted: false,
+      target: null,
+      sevenths: mode === "chords" && chordSevenths
+    };
+  }
+  function nextQuestionProgress(qNum, qCount) {
+    const nextQNum = qNum + 1;
+    return { nextQNum, isComplete: nextQNum >= qCount };
+  }
+  function nextRandomSessionKey({ lvl, isFirst, currentKey, randKey: randKey2 }) {
+    if (lvl.keyMode === "random" && !isFirst) return randKey2([currentKey]);
+    return currentKey;
+  }
+  function pickOctave(octaves, rng = Math.random) {
+    return octaves[Math.floor(rng() * octaves.length)];
+  }
+  function pickMelodyTarget(pool, prevTarget, rng = Math.random) {
+    let pc;
+    do {
+      pc = pool[Math.floor(rng() * pool.length)];
+    } while (pool.length > 1 && pc === prevTarget);
+    return pc;
+  }
+  function pickChordRoman(pool, prevRoman, rng = Math.random) {
+    let roman;
+    do {
+      roman = pool[Math.floor(rng() * pool.length)];
+    } while (pool.length > 1 && prevRoman && roman === prevRoman);
+    return roman;
+  }
   function shouldCelebrateStageClear(args) {
     const {
       fromAdventure,
@@ -5914,8 +5958,13 @@ window.SOUNDTRACK = SOUNDTRACK;
     const startSession = (m, li, customLvl = null) => {
       killSession();
       track("session_start", { mode: m, level: li, custom: !!customLvl });
-      const baseLvl = customLvl || (m === "melody" ? MELODY_LEVELS[li] : m === "chords" ? CHORD_LEVELS[li] : PROG_LEVELS[li]);
-      const lvl = m === "chords" ? { ...baseLvl, sevenths: chordSevenths } : baseLvl;
+      const lvl = resolveSessionLevel({
+        mode: m,
+        levelIdx: li,
+        customLvl,
+        chordSevenths,
+        levelsByMode: { melody: MELODY_LEVELS, chords: CHORD_LEVELS, progressions: PROG_LEVELS }
+      });
       setMode(m);
       setLevelIdx(li);
       setSessLvl(lvl);
@@ -5924,7 +5973,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       if (m === "progressions" && li != null) setProgChapter(progChapterIndexOf(li));
       const key = chooseSessionKey({ mode: m, lvl, musicKey, randKey });
       setSessKey(key);
-      sess.current = { mode: m, lvl, levelIdx: li, key, octave: 4, qNum: 0, qCount: qCountOf(lvl), results: [], attempted: false, target: null, sevenths: m === "chords" && chordSevenths };
+      sess.current = buildSessionState({ mode: m, lvl, levelIdx: li, key, chordSevenths, qCount: qCountOf(lvl) });
       setQNum(0);
       setScore(0);
       setStreak(0);
@@ -5954,8 +6003,9 @@ window.SOUNDTRACK = SOUNDTRACK;
       try {
         if (s.mode === "progressions") {
           const lvl = s.lvl;
-          if (lvl.keyMode === "random" && !isFirst) {
-            s.key = randKey([s.key]);
+          const key = nextRandomSessionKey({ lvl, isFirst, currentKey: s.key, randKey });
+          if (key !== s.key) {
+            s.key = key;
             setSessKey(s.key);
           }
           const prog = pickProgression(lvl, s.target);
@@ -5970,16 +6020,14 @@ window.SOUNDTRACK = SOUNDTRACK;
           }, (cad + dur + 0.2) * 1e3);
         } else if (s.mode === "melody") {
           const lvl = s.lvl;
-          if (lvl.keyMode === "random" && !isFirst) {
-            s.key = randKey([s.key]);
+          const key = nextRandomSessionKey({ lvl, isFirst, currentKey: s.key, randKey });
+          if (key !== s.key) {
+            s.key = key;
             setSessKey(s.key);
           }
-          const oct = lvl.octaves[Math.floor(Math.random() * lvl.octaves.length)];
+          const oct = pickOctave(lvl.octaves);
           s.octave = oct;
-          let pc;
-          do {
-            pc = lvl.pool[Math.floor(Math.random() * lvl.pool.length)];
-          } while (lvl.pool.length > 1 && pc === s.target);
+          const pc = pickMelodyTarget(lvl.pool, s.target);
           s.target = pc;
           const t = await playCadence(s.key, lvl.mode) + 0.25;
           if (gen !== sessGenRef.current) return;
@@ -5990,15 +6038,13 @@ window.SOUNDTRACK = SOUNDTRACK;
           }, (t + 0.2) * 1e3);
         } else {
           const lvl = s.lvl;
-          if (lvl.keyMode === "random" && !isFirst) {
-            s.key = randKey([s.key]);
+          const key = nextRandomSessionKey({ lvl, isFirst, currentKey: s.key, randKey });
+          if (key !== s.key) {
+            s.key = key;
             setSessKey(s.key);
           }
-          let c;
-          do {
-            const pick = lvl.pool[Math.floor(Math.random() * lvl.pool.length)];
-            c = CHORDS.find((x) => x.roman === pick);
-          } while (lvl.pool.length > 1 && s.target && c.roman === s.target.roman);
+          const pick = pickChordRoman(lvl.pool, s.target && s.target.roman);
+          const c = CHORDS.find((x) => x.roman === pick);
           s.target = c;
           const cad = await playCadence(s.key, lvl.mode) + 0.25;
           if (gen !== sessGenRef.current) return;
@@ -6019,8 +6065,9 @@ window.SOUNDTRACK = SOUNDTRACK;
     nextQuestionRef.current = nextQuestion;
     const advance = () => {
       const s = sess.current;
-      s.qNum += 1;
-      if (s.qNum >= s.qCount) {
+      const { nextQNum, isComplete } = nextQuestionProgress(s.qNum, s.qCount);
+      s.qNum = nextQNum;
+      if (isComplete) {
         finishSession();
       } else {
         setQNum(s.qNum);

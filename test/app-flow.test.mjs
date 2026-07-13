@@ -9,6 +9,13 @@ import {
   mergeBestProgress,
   countFirstTries,
   chooseSessionKey,
+  resolveSessionLevel,
+  buildSessionState,
+  nextQuestionProgress,
+  nextRandomSessionKey,
+  pickOctave,
+  pickMelodyTarget,
+  pickChordRoman,
   shouldCelebrateStageClear,
 } from "../src/app-flow.mjs";
 
@@ -93,4 +100,54 @@ test("stage-clear celebration logic matches adventure rules", () => {
   assert.equal(shouldCelebrateStageClear({ ...base, testMode: false, levelIdx: 12 }), true);
   assert.equal(shouldCelebrateStageClear({ ...base, testMode: true, alreadyCleared: true }), false);
   assert.equal(shouldCelebrateStageClear({ ...base, testMode: true, fromAdventure: false }), false);
+});
+
+test("resolveSessionLevel decorates chords with sevenths only", () => {
+  const levelsByMode = {
+    melody: [{ name: "m0" }],
+    chords: [{ name: "c0", pool: ["I", "V"] }],
+    progressions: [{ name: "p0" }],
+  };
+  const melody = resolveSessionLevel({ mode: "melody", levelIdx: 0, levelsByMode, chordSevenths: true });
+  const chord = resolveSessionLevel({ mode: "chords", levelIdx: 0, levelsByMode, chordSevenths: true });
+  assert.deepEqual(melody, { name: "m0" });
+  assert.deepEqual(chord, { name: "c0", pool: ["I", "V"], sevenths: true });
+});
+
+test("buildSessionState and nextQuestionProgress keep session counters stable", () => {
+  const s = buildSessionState({
+    mode: "chords",
+    lvl: { name: "lvl" },
+    levelIdx: 2,
+    key: "G",
+    chordSevenths: true,
+    qCount: 20,
+  });
+  assert.equal(s.mode, "chords");
+  assert.equal(s.sevenths, true);
+  assert.equal(s.qNum, 0);
+  assert.equal(s.qCount, 20);
+  assert.deepEqual(nextQuestionProgress(0, 3), { nextQNum: 1, isComplete: false });
+  assert.deepEqual(nextQuestionProgress(2, 3), { nextQNum: 3, isComplete: true });
+});
+
+test("nextRandomSessionKey only rotates on non-first random questions", () => {
+  const fakeRand = () => "Eb";
+  const lvlFixed = { keyMode: "fixed" };
+  const lvlRandom = { keyMode: "random" };
+  assert.equal(nextRandomSessionKey({ lvl: lvlFixed, isFirst: false, currentKey: "C", randKey: fakeRand }), "C");
+  assert.equal(nextRandomSessionKey({ lvl: lvlRandom, isFirst: true, currentKey: "C", randKey: fakeRand }), "C");
+  assert.equal(nextRandomSessionKey({ lvl: lvlRandom, isFirst: false, currentKey: "C", randKey: fakeRand }), "Eb");
+});
+
+test("pick helpers avoid immediate repeats when pool has alternatives", () => {
+  const seq = (...vals) => {
+    let i = 0;
+    return () => vals[Math.min(i++, vals.length - 1)];
+  };
+  assert.equal(pickOctave([3, 4, 5], () => 0.99), 5);
+  assert.equal(pickMelodyTarget([0, 2], 0, seq(0.0, 0.9)), 2); // first draw repeats, second draw changes
+  assert.equal(pickMelodyTarget([0], 0, () => 0.0), 0);     // single option is allowed
+  assert.equal(pickChordRoman(["I", "V"], "I", seq(0.0, 0.9)), "V");
+  assert.equal(pickChordRoman(["I"], "I", () => 0.0), "I");
 });

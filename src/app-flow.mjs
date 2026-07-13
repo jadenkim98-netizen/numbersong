@@ -68,6 +68,55 @@ export function chooseSessionKey({ mode, lvl, musicKey, randKey }) {
   return musicKey;
 }
 
+export function resolveSessionLevel({ mode, levelIdx, customLvl, levelsByMode, chordSevenths }) {
+  const base = customLvl || levelsByMode[mode][levelIdx];
+  return mode === "chords" ? { ...base, sevenths: chordSevenths } : base;
+}
+
+export function buildSessionState({ mode, lvl, levelIdx, key, chordSevenths, qCount }) {
+  return {
+    mode,
+    lvl,
+    levelIdx,
+    key,
+    octave: 4,
+    qNum: 0,
+    qCount,
+    results: [],
+    attempted: false,
+    target: null,
+    sevenths: mode === "chords" && chordSevenths,
+  };
+}
+
+export function nextQuestionProgress(qNum, qCount) {
+  const nextQNum = qNum + 1;
+  return { nextQNum, isComplete: nextQNum >= qCount };
+}
+
+export function nextRandomSessionKey({ lvl, isFirst, currentKey, randKey }) {
+  if (lvl.keyMode === "random" && !isFirst) return randKey([currentKey]);
+  return currentKey;
+}
+
+export function pickOctave(octaves, rng = Math.random) {
+  return octaves[Math.floor(rng() * octaves.length)];
+}
+
+export function pickMelodyTarget(pool, prevTarget, rng = Math.random) {
+  let pc;
+  do { pc = pool[Math.floor(rng() * pool.length)]; }
+  while (pool.length > 1 && pc === prevTarget);
+  return pc;
+}
+
+export function pickChordRoman(pool, prevRoman, rng = Math.random) {
+  let roman;
+  do { roman = pool[Math.floor(rng() * pool.length)]; }
+  while (pool.length > 1 && prevRoman && roman === prevRoman);
+  return roman;
+}
+
 export function shouldCelebrateStageClear(args) {
   const {
     fromAdventure,

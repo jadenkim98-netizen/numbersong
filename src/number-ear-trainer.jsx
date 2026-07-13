@@ -77,6 +77,13 @@ import {
   mergeBestProgress,
   countFirstTries,
   chooseSessionKey,
+  resolveSessionLevel,
+  buildSessionState,
+  nextQuestionProgress,
+  nextRandomSessionKey,
+  pickOctave,
+  pickMelodyTarget,
+  pickChordRoman,
   shouldCelebrateStageClear,
 } from "./app-flow.mjs";
 
@@ -2827,15 +2834,20 @@ export default function NumberEarTrainer() {
   const startSession = (m, li, customLvl = null) => {
     killSession();
     track("session_start", { mode: m, level: li, custom: !!customLvl });
-    const baseLvl = customLvl || (m === "melody" ? MELODY_LEVELS[li] : m === "chords" ? CHORD_LEVELS[li] : PROG_LEVELS[li]);
-    const lvl = m === "chords" ? { ...baseLvl, sevenths: chordSevenths } : baseLvl;
+    const lvl = resolveSessionLevel({
+      mode: m,
+      levelIdx: li,
+      customLvl,
+      chordSevenths,
+      levelsByMode: { melody: MELODY_LEVELS, chords: CHORD_LEVELS, progressions: PROG_LEVELS },
+    });
     setMode(m); setLevelIdx(li); setSessLvl(lvl);
     if (m === "melody" && li != null) setMelGroup(groupIndexOf(li));
     if (m === "chords" && li != null) setChordChapter(chordChapterIndexOf(li));
     if (m === "progressions" && li != null) setProgChapter(progChapterIndexOf(li));
     const key = chooseSessionKey({ mode: m, lvl, musicKey, randKey });
     setSessKey(key);
-    sess.current = { mode: m, lvl, levelIdx: li, key, octave: 4, qNum: 0, qCount: qCountOf(lvl), results: [], attempted: false, target: null, sevenths: m === "chords" && chordSevenths };
+    sess.current = buildSessionState({ mode: m, lvl, levelIdx: li, key, chordSevenths, qCount: qCountOf(lvl) });
     setQNum(0); setScore(0); setStreak(0); setSessionResults([]);
     setChPicked([]); setProgAnswer([]); setProgWrong([]);
     clearLadder(); setFeedback(null); setPhase("idle");
@@ -2853,10 +2865,8 @@ export default function NumberEarTrainer() {
     try {
     if (s.mode === "progressions") {
       const lvl = s.lvl;
-      if (lvl.keyMode === "random" && !isFirst) {
-        s.key = randKey([s.key]);
-        setSessKey(s.key);
-      }
+      const key = nextRandomSessionKey({ lvl, isFirst, currentKey: s.key, randKey });
+      if (key !== s.key) { s.key = key; setSessKey(s.key); }
       const prog = pickProgression(lvl, s.target);
       s.target = prog;
       const cad = (await playCadence(s.key, lvl.mode)) + 0.35;
@@ -2866,15 +2876,11 @@ export default function NumberEarTrainer() {
       sessTimer(() => { setPhase("answer"); setBusy(false); }, (cad + dur + 0.2) * 1000);
     } else if (s.mode === "melody") {
       const lvl = s.lvl;
-      if (lvl.keyMode === "random" && !isFirst) {
-        s.key = randKey([s.key]);
-        setSessKey(s.key);
-      }
-      const oct = lvl.octaves[Math.floor(Math.random() * lvl.octaves.length)];
+      const key = nextRandomSessionKey({ lvl, isFirst, currentKey: s.key, randKey });
+      if (key !== s.key) { s.key = key; setSessKey(s.key); }
+      const oct = pickOctave(lvl.octaves);
       s.octave = oct;
-      let pc;
-      do { pc = lvl.pool[Math.floor(Math.random() * lvl.pool.length)]; }
-      while (lvl.pool.length > 1 && pc === s.target);
+      const pc = pickMelodyTarget(lvl.pool, s.target);
       s.target = pc;
       const t = (await playCadence(s.key, lvl.mode)) + 0.25;
       if (gen !== sessGenRef.current) return; // quit during audio load → bail before the target note leaks
@@ -2884,15 +2890,10 @@ export default function NumberEarTrainer() {
       sessTimer(() => { setPhase("answer"); setBusy(false); }, (t + 0.2) * 1000);
     } else {
       const lvl = s.lvl;
-      if (lvl.keyMode === "random" && !isFirst) {
-        s.key = randKey([s.key]);
-        setSessKey(s.key);
-      }
-      let c;
-      do {
-        const pick = lvl.pool[Math.floor(Math.random() * lvl.pool.length)];
-        c = CHORDS.find((x) => x.roman === pick);
-      } while (lvl.pool.length > 1 && s.target && c.roman === s.target.roman);
+      const key = nextRandomSessionKey({ lvl, isFirst, currentKey: s.key, randKey });
+      if (key !== s.key) { s.key = key; setSessKey(s.key); }
+      const pick = pickChordRoman(lvl.pool, s.target && s.target.roman);
+      const c = CHORDS.find((x) => x.roman === pick);
       s.target = c;
       const cad = (await playCadence(s.key, lvl.mode)) + 0.25;
       if (gen !== sessGenRef.current) return; // quit during audio load → bail
@@ -2913,8 +2914,9 @@ export default function NumberEarTrainer() {
 
   const advance = () => {
     const s = sess.current;
-    s.qNum += 1;
-    if (s.qNum >= s.qCount) {
+    const { nextQNum, isComplete } = nextQuestionProgress(s.qNum, s.qCount);
+    s.qNum = nextQNum;
+    if (isComplete) {
       finishSession();
     } else {
       setQNum(s.qNum);
