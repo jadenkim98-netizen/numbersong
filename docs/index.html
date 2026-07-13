@@ -3061,11 +3061,11 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
       return 1.6;
     }, [ensure]);
-    const playChordWR = useCallback(async (key, tones, mode = "both") => {
+    const playChordWR = useCallback(async (key, tones, mode = "both", delay = 0) => {
       const g = audioGenRef.current;
       await ensure();
       if (g !== audioGenRef.current) return 0;
-      const now = Tone.now();
+      const now = Tone.now() + delay;
       let lastMidi = -1;
       const notes = tones.map((d) => {
         let midi = Tone.Frequency(key + 4).toMidi() + DEGREE_SEMITONES[d];
@@ -4533,8 +4533,6 @@ window.SOUNDTRACK = SOUNDTRACK;
     const [tutDrillTarget, setTutDrillTarget] = useState(null);
     const [tutDrillPhase, setTutDrillPhase] = useState("play");
     const [tutChordTones, setTutChordTones] = useState([]);
-    const [tutGoal, setTutGoal] = useState([]);
-    const [tutGiven, setTutGiven] = useState([]);
     const [tutPicks, setTutPicks] = useState([]);
     const tutTimerRef = useRef(null);
     const tutGenRef = useRef(0);
@@ -4782,11 +4780,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
       startTutorial(tutChapter, tutThenEnterRef.current);
     };
-    const CHORD_DRILLS = [
-      { pool: ["I", "IV", "V"], need: "root", play: "both" },
-      { pool: ["I", "IV", "V", "vi"], need: "upper", play: "both" },
-      { pool: ["I", "IV", "V", "vi"], need: "all", play: "ring" }
-    ];
+    const CHORD_DRILLS = [{ pool: ["I", "IV"] }, { pool: ["I", "IV", "V"] }, { pool: ["I", "IV", "V", "vi"] }];
     const startTutDrill = async (n) => {
       const gen = tutGenRef.current;
       if (tutCfg.kind === "chord") {
@@ -4797,19 +4791,14 @@ window.SOUNDTRACK = SOUNDTRACK;
         } while (roman === tutChordRomanRef.current && cfg.pool.length > 1);
         tutChordRomanRef.current = roman;
         const tones = chordTones(chordByRoman(roman));
-        const root = tones[0];
-        const goal = cfg.need === "root" ? [root] : cfg.need === "upper" ? tones.filter((d) => d !== root) : tones.slice();
-        const given = cfg.need === "upper" ? [root] : [];
         setTutChordTones(tones);
-        setTutGoal(goal);
-        setTutGiven(given);
         setTutPicks([]);
         setTutReveal(false);
         setTutDrillPhase("play");
         try {
-          const t = await playCadence("C", "major") + 0.2;
+          const t = await playCadence("C", "major") + 0.25;
           if (gen !== tutGenRef.current) return;
-          const dur = await playChordWR("C", tones, cfg.play);
+          const dur = await playChordWR("C", tones, "both", t);
           if (tutTimerRef.current) clearTimeout(tutTimerRef.current);
           tutTimerRef.current = setTimeout(() => {
             if (gen === tutGenRef.current) setTutDrillPhase("answer");
@@ -4855,16 +4844,10 @@ window.SOUNDTRACK = SOUNDTRACK;
     const replayTutNote = () => {
       try {
         if (tutCfg.kind === "chord") {
-          playChordWR("C", tutChordTones, tutDrillN === 2 ? "ring" : "both");
+          playChordWR("C", tutChordTones, "both");
           return;
         }
         playCadence(tutCfg.key, tutCfg.mode).then((t) => playSemi(tutCfg.key, tutDrillTarget, t + 0.2, 4));
-      } catch (e) {
-      }
-    };
-    const walkTutChord = () => {
-      try {
-        playChordWR("C", tutChordTones, "walk");
       } catch (e) {
       }
     };
@@ -4914,15 +4897,14 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
     };
     const toggleTutPick = (d) => {
-      if (tutDrillPhase !== "answer" || tutGiven.includes(d)) return;
-      const next = tutPicks.includes(d) ? tutPicks.filter((x) => x !== d) : tutPicks.length < tutGoal.length ? [...tutPicks, d] : tutPicks;
+      if (tutDrillPhase !== "answer") return;
       setTutReveal(false);
-      setTutPicks(next);
-      if (next.length === tutGoal.length) checkTutChord(next);
+      setTutPicks((p) => p.includes(d) ? p.filter((x) => x !== d) : p.length < tutChordTones.length ? [...p, d] : p);
     };
-    const checkTutChord = (picks) => {
+    const checkTutChord = () => {
+      if (tutDrillPhase !== "answer" || tutPicks.length !== tutChordTones.length || busy) return;
       const gen = tutGenRef.current;
-      const ok = picks.length === tutGoal.length && tutGoal.every((d) => picks.includes(d));
+      const ok = tutChordTones.every((d) => tutPicks.includes(d));
       if (ok) {
         setTutDrillPhase("win");
         setTutReveal(false);
@@ -7057,24 +7039,24 @@ window.SOUNDTRACK = SOUNDTRACK;
       const drill = tutMode === "drill";
       const done = tutMode === "done";
       const isChords = tutChapter === "chords";
-      const drillTitle = tutDrillPhase === "play" ? "Listen…" : tutDrillPhase === "win" ? isChords ? "Clear as glass!" : "You felt it!" : isChords ? tutDrillN === 0 ? "Which number?" : "Which numbers?" : "Which number?";
+      const drillTitle = tutDrillPhase === "play" ? "Listen…" : tutDrillPhase === "win" ? isChords ? "Clear as glass!" : "You felt it!" : isChords ? "Which numbers?" : "Which number?";
       const sylvaDrills = [
         {
-          listen: /* @__PURE__ */ React.createElement(React.Fragment, null, "Softly now. I'll ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "walk"), " it low to high, then let it ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "ring"), ". Fix on the ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "first voice"), " — the lowest one, the trunk the others grow from."),
-          prompt: /* @__PURE__ */ React.createElement(React.Fragment, null, "Which number sang ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "first and lowest"), "? That's the ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "root"), " — tap it on the stack."),
-          wrong: /* @__PURE__ */ React.createElement(React.Fragment, null, "Not that trunk — no shame; glass only asks you to look again. The first, lowest voice is glowing. Let your ear rest ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "down"), "."),
-          win: /* @__PURE__ */ React.createElement(React.Fragment, null, "You found the ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "ground"), " — and the ground is the chord's ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "name"), ". The rest is just looking up.")
+          listen: /* @__PURE__ */ React.createElement(React.Fragment, null, "Softly now. I'll ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "walk"), " it low to high, then let it ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "ring"), " — three voices, and you know each one already."),
+          prompt: /* @__PURE__ */ React.createElement(React.Fragment, null, "Which ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "three numbers"), " are ringing? Tap them on the stack, then ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "check"), "."),
+          wrong: /* @__PURE__ */ React.createElement(React.Fragment, null, "Not quite — no shame; glass only asks you to look again. The ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "three you need"), " are glowing. Hear the walk once more."),
+          win: /* @__PURE__ */ React.createElement(React.Fragment, null, "Three voices, clean — you looked straight ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "through"), " it. The wood gets easier from here.")
         },
         {
-          listen: /* @__PURE__ */ React.createElement(React.Fragment, null, "This time I give you the ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "ground"), " — see it, already circled. ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "Walk"), " with me, then find the ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "two voices above it"), "."),
-          prompt: /* @__PURE__ */ React.createElement(React.Fragment, null, "Two rungs are still dark. Which ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "two numbers"), " are ringing? Tap them both."),
-          wrong: /* @__PURE__ */ React.createElement(React.Fragment, null, "Close — one voice slipped behind another. The two you need are glowing; hear the walk once more."),
-          win: /* @__PURE__ */ React.createElement(React.Fragment, null, "Both, clean. You're not guessing — you're ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "standing inside the chord"), " and turning your head.")
+          listen: /* @__PURE__ */ React.createElement(React.Fragment, null, "Again — a ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "walk"), ", then the ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "ring"), ". Three trunks; take your time and hear each one stand."),
+          prompt: /* @__PURE__ */ React.createElement(React.Fragment, null, "Tap the ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "three numbers"), " you hear, then ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "check"), ". Take the walk again any time."),
+          wrong: /* @__PURE__ */ React.createElement(React.Fragment, null, "Close — one voice slipped behind another. The ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "true three"), " are glowing; listen again."),
+          win: /* @__PURE__ */ React.createElement(React.Fragment, null, "You're not hearing a blur anymore — you're hearing ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "through"), ". Every voice in its place.")
         },
         {
-          listen: /* @__PURE__ */ React.createElement(React.Fragment, null, "Last one — I'll ring it ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "all at once"), ", the way songs give it to you. If the blur comes, tap ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "Walk it"), " and I'll take you through."),
-          prompt: /* @__PURE__ */ React.createElement(React.Fragment, null, "Three voices, each in its place. Tap ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "all three numbers"), "."),
-          wrong: /* @__PURE__ */ React.createElement(React.Fragment, null, "Almost through — one pane's fogged. The three are glowing; watch me walk them once more."),
+          listen: /* @__PURE__ */ React.createElement(React.Fragment, null, "Last one — ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "walk"), ", then ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "ring"), ", the way songs will give it to you. Name all three."),
+          prompt: /* @__PURE__ */ React.createElement(React.Fragment, null, "Tap ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "all three numbers"), ", then ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "check"), "."),
+          wrong: /* @__PURE__ */ React.createElement(React.Fragment, null, "Almost through — one pane's fogged. Watch the ", /* @__PURE__ */ React.createElement("b", { className: "hl-t" }, "three"), " glow, and hear the walk once more."),
           win: /* @__PURE__ */ React.createElement(React.Fragment, null, "You heard every voice in the chord. ", /* @__PURE__ */ React.createElement("b", { className: "hl-g" }, "Clear as glass."))
         }
       ];
@@ -7091,31 +7073,44 @@ window.SOUNDTRACK = SOUNDTRACK;
           .tut-kin::after { content: "shared: 1 · 3"; position: absolute; left: 0; right: 0; bottom: -14px; text-align: center; font: 9px var(--pf, 'Courier New', monospace); letter-spacing: 1px; text-transform: uppercase; color: var(--teal, #57C6C4); }
           .stack-note.hi { box-shadow: inset 0 0 0 2px var(--teal, #57C6C4); color: var(--teal, #57C6C4); }
           .stack-note.home { background: var(--teal, #57C6C4); color: #12201d; border-color: var(--teal, #57C6C4); }
-          .chord-drill { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-          .tut-drillpad .num.given { opacity: .55; box-shadow: inset 0 0 0 2px var(--teal, #57C6C4); }
-          .tut-walk { align-self: center; }
-        `), isChords ? /* @__PURE__ */ React.createElement("div", { className: "tut-scene", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("div", { className: "gcanopy" }), /* @__PURE__ */ React.createElement("div", { className: "gshaft s1" }), /* @__PURE__ */ React.createElement("div", { className: "gshaft s2" }), /* @__PURE__ */ React.createElement("div", { className: "gshaft s3" }), /* @__PURE__ */ React.createElement("div", { className: "gtree gt1" }), /* @__PURE__ */ React.createElement("div", { className: "gtree gt2" }), /* @__PURE__ */ React.createElement("div", { className: "gtree gt3" }), /* @__PURE__ */ React.createElement("div", { className: "gtree gt4" }), /* @__PURE__ */ React.createElement("div", { className: "gtree gt5" }), /* @__PURE__ */ React.createElement("div", { className: "gfloor" }), /* @__PURE__ */ React.createElement("div", { className: "gglint gg1" }), /* @__PURE__ */ React.createElement("div", { className: "gglint gg2" }), /* @__PURE__ */ React.createElement("div", { className: "gglint gg3" })) : isMinor ? /* @__PURE__ */ React.createElement("div", { className: "tut-scene", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("div", { className: "moon" }), /* @__PURE__ */ React.createElement("div", { className: "hollow far" }), /* @__PURE__ */ React.createElement("div", { className: "hollow" }), /* @__PURE__ */ React.createElement("div", { className: "water" }), /* @__PURE__ */ React.createElement("div", { className: "mist m1" }), /* @__PURE__ */ React.createElement("div", { className: "mist m2" }), /* @__PURE__ */ React.createElement("div", { className: "mist m3" }), /* @__PURE__ */ React.createElement("div", { className: "bank" }), /* @__PURE__ */ React.createElement("div", { className: "reed r1" }), /* @__PURE__ */ React.createElement("div", { className: "reed r2" }), /* @__PURE__ */ React.createElement("div", { className: "reed r3" }), /* @__PURE__ */ React.createElement("div", { className: "wisp w1" }), /* @__PURE__ */ React.createElement("div", { className: "wisp w2" })) : /* @__PURE__ */ React.createElement("div", { className: "tut-scene", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("div", { className: "sun" }), /* @__PURE__ */ React.createElement("div", { className: "cloud c1" }), /* @__PURE__ */ React.createElement("div", { className: "cloud c2" }), /* @__PURE__ */ React.createElement("div", { className: "hills far" }), /* @__PURE__ */ React.createElement("div", { className: "hills" }), /* @__PURE__ */ React.createElement("div", { className: "steps1" }), /* @__PURE__ */ React.createElement("div", { className: "steps2" }), /* @__PURE__ */ React.createElement("div", { className: "ground" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t1" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t2" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t3" })), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement(Confetti, { show: tutCelebrate }), /* @__PURE__ */ React.createElement("div", { className: "tut-inner" }, /* @__PURE__ */ React.createElement("div", { className: "hud" }, /* @__PURE__ */ React.createElement("span", { className: "loc" }, /* @__PURE__ */ React.createElement("b", null, "✦"), " ", tutCfg.loc), !done && /* @__PURE__ */ React.createElement("button", { className: "skip", onClick: skipTutorial }, "Skip ▸")), /* @__PURE__ */ React.createElement("div", { className: "stagepanel" }, /* @__PURE__ */ React.createElement("div", { className: "stagetitle" }, done ? isChords ? "The Glasswood is yours" : isMinor ? "The fen is yours" : "The map is yours" : drill ? drillTitle : beat.title), /* @__PURE__ */ React.createElement("div", { className: "stage-fit" }, done ? isChords ? /* @__PURE__ */ React.createElement("div", { className: "stacks" }, /* @__PURE__ */ React.createElement(GuideStack, { label: "1", tones: TRI.I, onPlay: gsPlay, onNote: gsNote })) : isMinor ? tutMapMinor : tutMap : drill ? isChords ? /* @__PURE__ */ React.createElement("div", { className: "chord-drill" }, /* @__PURE__ */ React.createElement(
+          /* keep beat stacks + the chord drill inside the clipped stage panel on phones */
+          .tutorial .stacks { gap: 12px; padding: 0; flex-wrap: nowrap; }
+          .tutorial .stacks .stack { gap: 3px; padding: 0; }
+          .tutorial .stacks .stack-note { width: 26px; height: 26px; font-size: .82rem; }
+          .tutorial .stacks .stack-label { font-size: .9rem; padding-top: 4px; margin-top: 0; }
+          .tutorial .tut-kin { gap: 22px; }
+          .tutorial .chord-layout { gap: 12px; align-items: center; }
+          .tutorial .chord-layout .session-stack .stack-note { width: 26px; height: 26px; font-size: .82rem; }
+          .tutorial .chord-layout .chord-right { flex: 0 1 auto; }
+          .tutorial .chord-layout .numpad { gap: 5px; }
+          .tutorial .chord-layout .num { width: 34px; height: 34px; }
+        `), isChords ? /* @__PURE__ */ React.createElement("div", { className: "tut-scene", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("div", { className: "gcanopy" }), /* @__PURE__ */ React.createElement("div", { className: "gshaft s1" }), /* @__PURE__ */ React.createElement("div", { className: "gshaft s2" }), /* @__PURE__ */ React.createElement("div", { className: "gshaft s3" }), /* @__PURE__ */ React.createElement("div", { className: "gtree gt1" }), /* @__PURE__ */ React.createElement("div", { className: "gtree gt2" }), /* @__PURE__ */ React.createElement("div", { className: "gtree gt3" }), /* @__PURE__ */ React.createElement("div", { className: "gtree gt4" }), /* @__PURE__ */ React.createElement("div", { className: "gtree gt5" }), /* @__PURE__ */ React.createElement("div", { className: "gfloor" }), /* @__PURE__ */ React.createElement("div", { className: "gglint gg1" }), /* @__PURE__ */ React.createElement("div", { className: "gglint gg2" }), /* @__PURE__ */ React.createElement("div", { className: "gglint gg3" })) : isMinor ? /* @__PURE__ */ React.createElement("div", { className: "tut-scene", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("div", { className: "moon" }), /* @__PURE__ */ React.createElement("div", { className: "hollow far" }), /* @__PURE__ */ React.createElement("div", { className: "hollow" }), /* @__PURE__ */ React.createElement("div", { className: "water" }), /* @__PURE__ */ React.createElement("div", { className: "mist m1" }), /* @__PURE__ */ React.createElement("div", { className: "mist m2" }), /* @__PURE__ */ React.createElement("div", { className: "mist m3" }), /* @__PURE__ */ React.createElement("div", { className: "bank" }), /* @__PURE__ */ React.createElement("div", { className: "reed r1" }), /* @__PURE__ */ React.createElement("div", { className: "reed r2" }), /* @__PURE__ */ React.createElement("div", { className: "reed r3" }), /* @__PURE__ */ React.createElement("div", { className: "wisp w1" }), /* @__PURE__ */ React.createElement("div", { className: "wisp w2" })) : /* @__PURE__ */ React.createElement("div", { className: "tut-scene", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("div", { className: "sun" }), /* @__PURE__ */ React.createElement("div", { className: "cloud c1" }), /* @__PURE__ */ React.createElement("div", { className: "cloud c2" }), /* @__PURE__ */ React.createElement("div", { className: "hills far" }), /* @__PURE__ */ React.createElement("div", { className: "hills" }), /* @__PURE__ */ React.createElement("div", { className: "steps1" }), /* @__PURE__ */ React.createElement("div", { className: "steps2" }), /* @__PURE__ */ React.createElement("div", { className: "ground" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t1" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t2" }), /* @__PURE__ */ React.createElement("div", { className: "tuft t3" })), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement(Confetti, { show: tutCelebrate }), /* @__PURE__ */ React.createElement("div", { className: "tut-inner" }, /* @__PURE__ */ React.createElement("div", { className: "hud" }, /* @__PURE__ */ React.createElement("span", { className: "loc" }, /* @__PURE__ */ React.createElement("b", null, "✦"), " ", tutCfg.loc), !done && /* @__PURE__ */ React.createElement("button", { className: "skip", onClick: skipTutorial }, "Skip ▸")), /* @__PURE__ */ React.createElement("div", { className: "stagepanel" }, /* @__PURE__ */ React.createElement("div", { className: "stagetitle" }, done ? isChords ? "The Glasswood is yours" : isMinor ? "The fen is yours" : "The map is yours" : drill ? drillTitle : beat.title), /* @__PURE__ */ React.createElement("div", { className: "stage-fit" }, done ? isChords ? /* @__PURE__ */ React.createElement("div", { className: "stacks" }, /* @__PURE__ */ React.createElement(GuideStack, { label: "1", tones: TRI.I, onPlay: gsPlay, onNote: gsNote })) : isMinor ? tutMapMinor : tutMap : drill ? isChords ? /* @__PURE__ */ React.createElement("div", { className: "chord-layout" }, /* @__PURE__ */ React.createElement(
         SessionStack,
         {
-          picked: [...tutGiven, ...tutPicks],
-          correct: tutDrillPhase === "win" ? tutChordTones : tutReveal ? tutGoal : null,
-          wrong: tutReveal ? tutPicks.filter((d) => !tutGoal.includes(d)) : null,
+          picked: tutPicks,
+          correct: tutDrillPhase === "win" || tutReveal ? tutChordTones : null,
+          wrong: tutReveal ? tutPicks.filter((d) => !tutChordTones.includes(d)) : null,
           label: "?"
         }
-      ), /* @__PURE__ */ React.createElement("div", { className: "numpad coach tut-drillpad" }, [1, 2, 3, 4, 5, 6, 7].map((d) => {
-        const given = tutGiven.includes(d), picked = tutPicks.includes(d);
-        return /* @__PURE__ */ React.createElement(
-          "button",
-          {
-            key: d,
-            className: "num" + (given || picked ? " picked" : "") + (given ? " given" : "") + (tutReveal && tutGoal.includes(d) ? " coach-target" : ""),
-            onClick: () => toggleTutPick(d),
-            disabled: tutDrillPhase !== "answer" || given
-          },
-          d,
-          /* @__PURE__ */ React.createElement("span", { className: "num-sol" }, SOLFEGE[d])
-        );
-      })), tutDrillN === 2 && /* @__PURE__ */ React.createElement("button", { className: "btn go tut-walk", disabled: busy || tutDrillPhase !== "answer", onClick: walkTutChord }, "▶ Walk it")) : /* @__PURE__ */ React.createElement("div", { className: "numpad coach tut-drillpad" }, (isMinor ? [6, 7, 1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, 6, 7]).map((d) => {
+      ), /* @__PURE__ */ React.createElement("div", { className: "chord-right" }, /* @__PURE__ */ React.createElement("div", { className: "numpad" }, [1, 2, 3, 4, 5, 6, 7].map((d) => /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          key: d,
+          className: "num" + (tutPicks.includes(d) ? " picked" : "") + (tutReveal && tutChordTones.includes(d) ? " coach-target" : ""),
+          onClick: () => toggleTutPick(d),
+          disabled: tutDrillPhase !== "answer"
+        },
+        d,
+        /* @__PURE__ */ React.createElement("span", { className: "num-sol" }, SOLFEGE[d])
+      ))), /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          className: "primary wide",
+          onClick: checkTutChord,
+          disabled: tutDrillPhase !== "answer" || tutPicks.length !== tutChordTones.length || busy
+        },
+        "Check answer"
+      ))) : /* @__PURE__ */ React.createElement("div", { className: "numpad coach tut-drillpad" }, (isMinor ? [6, 7, 1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, 6, 7]).map((d) => {
         const pc = DEGREE_TO_PC[d];
         const out = !tutCfg.pool.includes(pc);
         return /* @__PURE__ */ React.createElement(

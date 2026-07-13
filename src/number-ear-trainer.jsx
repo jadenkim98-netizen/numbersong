@@ -412,11 +412,11 @@ function useAudio() {
 
   // Chord playback for the Sylva tutorial: "walk" (arpeggio low→high), "ring" (block), or
   // "both" (walk then ring). Voices ascending like playChord so the ROOT is the lowest note.
-  const playChordWR = useCallback(async (key, tones, mode = "both") => {
+  const playChordWR = useCallback(async (key, tones, mode = "both", delay = 0) => {
     const g = audioGenRef.current;
     await ensure();
     if (g !== audioGenRef.current) return 0;
-    const now = Tone.now();
+    const now = Tone.now() + delay; // delay lets the chord start AFTER the cadence, not on top of it
     let lastMidi = -1;
     const notes = tones.map((d) => {
       let midi = Tone.Frequency(key + 4).toMidi() + DEGREE_SEMITONES[d];
@@ -1852,9 +1852,7 @@ export default function NumberEarTrainer() {
   // Chord-chapter (Sylva) drill state: the target chord's degrees, the goal set the player
   // must tap (root only → the two upper voices → all three), any pre-given degree (drill 2's
   // root), and the player's current picks.
-  const [tutChordTones, setTutChordTones] = useState([]); // e.g. [4,6,1] for the 4 chord
-  const [tutGoal, setTutGoal] = useState([]);             // degrees the picks must equal
-  const [tutGiven, setTutGiven] = useState([]);           // pre-circled degrees (not counted as picks)
+  const [tutChordTones, setTutChordTones] = useState([]); // the target chord's degrees, e.g. [4,6,1]
   const [tutPicks, setTutPicks] = useState([]);           // degrees the player has tapped
   const tutTimerRef = useRef(null);
   const tutGenRef = useRef(0); // bumped when the tutorial is skipped/graduated — an in-flight startTutDrill await checks it and bails (no note/timer leaking onto the map)
@@ -2010,12 +2008,9 @@ export default function NumberEarTrainer() {
   };
   // Replay the current chapter's tutorial from the top (from the menu) — don't touch its flag.
   const replayTutorial = () => { try { sfx("select"); } catch (e) {} startTutorial(tutChapter, tutThenEnterRef.current); };
-  // Sylva's chord drills: ramp root → the two upper voices (root given) → all three (block first).
-  const CHORD_DRILLS = [
-    { pool: ["I", "IV", "V"],       need: "root",  play: "both" },
-    { pool: ["I", "IV", "V", "vi"], need: "upper", play: "both" },
-    { pool: ["I", "IV", "V", "vi"], need: "all",   play: "ring" },
-  ];
+  // Sylva's chord drills mirror the real chord level (hear a chord → tap its degrees → check).
+  // Same task each time (name all three); the ramp is the chord pool getting harder.
+  const CHORD_DRILLS = [{ pool: ["I", "IV"] }, { pool: ["I", "IV", "V"] }, { pool: ["I", "IV", "V", "vi"] }];
   const startTutDrill = async (n) => {
     const gen = tutGenRef.current;
     if (tutCfg.kind === "chord") {
@@ -2023,15 +2018,11 @@ export default function NumberEarTrainer() {
       let roman; do { roman = cfg.pool[Math.floor(Math.random() * cfg.pool.length)]; } while (roman === tutChordRomanRef.current && cfg.pool.length > 1);
       tutChordRomanRef.current = roman;
       const tones = chordTones(chordByRoman(roman)); // triad [root, third, fifth]
-      const root = tones[0];
-      const goal = cfg.need === "root" ? [root] : cfg.need === "upper" ? tones.filter((d) => d !== root) : tones.slice();
-      const given = cfg.need === "upper" ? [root] : [];
-      setTutChordTones(tones); setTutGoal(goal); setTutGiven(given); setTutPicks([]);
-      setTutReveal(false); setTutDrillPhase("play");
+      setTutChordTones(tones); setTutPicks([]); setTutReveal(false); setTutDrillPhase("play");
       try {
-        const t = (await playCadence("C", "major")) + 0.2; // establish home, then the chord
-        if (gen !== tutGenRef.current) return;
-        const dur = await playChordWR("C", tones, cfg.play);
+        const t = (await playCadence("C", "major")) + 0.25; // establish home, THEN the chord —
+        if (gen !== tutGenRef.current) return;                //   delayed by `t` so they don't overlap
+        const dur = await playChordWR("C", tones, "both", t);
         if (tutTimerRef.current) clearTimeout(tutTimerRef.current);
         tutTimerRef.current = setTimeout(() => { if (gen === tutGenRef.current) setTutDrillPhase("answer"); }, (t + dur + 0.1) * 1000);
       } catch (e) { if (gen === tutGenRef.current) setTutDrillPhase("answer"); }
@@ -2055,11 +2046,10 @@ export default function NumberEarTrainer() {
   const enterTutDrills = () => { try { sfx("select"); } catch (e) {} track("tutorial_drills_start", { chapter: tutChapter }); setTutMode("drill"); setTutDrillN(0); startTutDrill(0); };
   const replayTutNote = () => {
     try {
-      if (tutCfg.kind === "chord") { playChordWR("C", tutChordTones, tutDrillN === 2 ? "ring" : "both"); return; }
+      if (tutCfg.kind === "chord") { playChordWR("C", tutChordTones, "both"); return; } // walk, then ring — no cadence on replay
       playCadence(tutCfg.key, tutCfg.mode).then((t) => playSemi(tutCfg.key, tutDrillTarget, t + 0.2, 4));
     } catch (e) {}
   };
-  const walkTutChord = () => { try { playChordWR("C", tutChordTones, "walk"); } catch (e) {} }; // drill-3 "Walk it" helper
   const playTutCadenceMinor = () => { if (busy) return; try { playCadence("C", "minor"); } catch (e) {} }; // Rue's "hear home settle on 6"
   const answerTutDrill = (pc) => {
     if (tutDrillPhase !== "answer") return;
@@ -2088,19 +2078,16 @@ export default function NumberEarTrainer() {
       try { playSemi(tutCfg.key, pc, 0, 4); } catch (e) {}
     }
   };
-  // Sylva chord drill: tap a degree on the stack to toggle it as a pick. Auto-checks when the
-  // player has tapped as many as the goal needs (root only / two upper / all three).
+  // Sylva chord drill (matches the real chord level): tap degrees to build the answer, then Check.
   const toggleTutPick = (d) => {
-    if (tutDrillPhase !== "answer" || tutGiven.includes(d)) return;
-    const next = tutPicks.includes(d)
-      ? tutPicks.filter((x) => x !== d)
-      : (tutPicks.length < tutGoal.length ? [...tutPicks, d] : tutPicks);
-    setTutReveal(false); setTutPicks(next);
-    if (next.length === tutGoal.length) checkTutChord(next);
+    if (tutDrillPhase !== "answer") return;
+    setTutReveal(false);
+    setTutPicks((p) => p.includes(d) ? p.filter((x) => x !== d) : (p.length < tutChordTones.length ? [...p, d] : p));
   };
-  const checkTutChord = (picks) => {
+  const checkTutChord = () => {
+    if (tutDrillPhase !== "answer" || tutPicks.length !== tutChordTones.length || busy) return;
     const gen = tutGenRef.current;
-    const ok = picks.length === tutGoal.length && tutGoal.every((d) => picks.includes(d));
+    const ok = tutChordTones.every((d) => tutPicks.includes(d));
     if (ok) {
       setTutDrillPhase("win"); setTutReveal(false);
       try { haptic(false); } catch (e) {}
@@ -2114,7 +2101,7 @@ export default function NumberEarTrainer() {
         else { savePref(tutCfg.flag, "1"); setTutDrillN(0); setTutMode("done"); }
       }, 1900);
     } else {
-      // wrong → glow the notes they needed, re-walk the chord, then clear picks to retry
+      // wrong → glow the true tones, re-walk the chord, then clear picks to retry
       setTutReveal(true);
       try { playChordWR("C", tutChordTones, "walk"); } catch (e) {}
       if (tutTimerRef.current) clearTimeout(tutTimerRef.current);
@@ -4399,20 +4386,20 @@ export default function NumberEarTrainer() {
     const isChords = tutChapter === "chords";
     const drillTitle = tutDrillPhase === "play" ? "Listen…"
       : tutDrillPhase === "win" ? (isChords ? "Clear as glass!" : "You felt it!")
-      : isChords ? (tutDrillN === 0 ? "Which number?" : "Which numbers?") : "Which number?";
+      : isChords ? "Which numbers?" : "Which number?";
     // Sylva's per-drill coached lines (root → two upper → all three).
     const sylvaDrills = [
-      { listen: <>Softly now. I'll <b className="hl-g">walk</b> it low to high, then let it <b className="hl-g">ring</b>. Fix on the <b className="hl-t">first voice</b> — the lowest one, the trunk the others grow from.</>,
-        prompt: <>Which number sang <b className="hl-t">first and lowest</b>? That's the <b className="hl-g">root</b> — tap it on the stack.</>,
-        wrong: <>Not that trunk — no shame; glass only asks you to look again. The first, lowest voice is glowing. Let your ear rest <b className="hl-t">down</b>.</>,
-        win: <>You found the <b className="hl-g">ground</b> — and the ground is the chord's <b className="hl-g">name</b>. The rest is just looking up.</> },
-      { listen: <>This time I give you the <b className="hl-t">ground</b> — see it, already circled. <b className="hl-g">Walk</b> with me, then find the <b className="hl-g">two voices above it</b>.</>,
-        prompt: <>Two rungs are still dark. Which <b className="hl-g">two numbers</b> are ringing? Tap them both.</>,
-        wrong: <>Close — one voice slipped behind another. The two you need are glowing; hear the walk once more.</>,
-        win: <>Both, clean. You're not guessing — you're <b className="hl-g">standing inside the chord</b> and turning your head.</> },
-      { listen: <>Last one — I'll ring it <b className="hl-g">all at once</b>, the way songs give it to you. If the blur comes, tap <b className="hl-g">Walk it</b> and I'll take you through.</>,
-        prompt: <>Three voices, each in its place. Tap <b className="hl-g">all three numbers</b>.</>,
-        wrong: <>Almost through — one pane's fogged. The three are glowing; watch me walk them once more.</>,
+      { listen: <>Softly now. I'll <b className="hl-g">walk</b> it low to high, then let it <b className="hl-g">ring</b> — three voices, and you know each one already.</>,
+        prompt: <>Which <b className="hl-g">three numbers</b> are ringing? Tap them on the stack, then <b className="hl-g">check</b>.</>,
+        wrong: <>Not quite — no shame; glass only asks you to look again. The <b className="hl-t">three you need</b> are glowing. Hear the walk once more.</>,
+        win: <>Three voices, clean — you looked straight <b className="hl-g">through</b> it. The wood gets easier from here.</> },
+      { listen: <>Again — a <b className="hl-g">walk</b>, then the <b className="hl-g">ring</b>. Three trunks; take your time and hear each one stand.</>,
+        prompt: <>Tap the <b className="hl-g">three numbers</b> you hear, then <b className="hl-g">check</b>. Take the walk again any time.</>,
+        wrong: <>Close — one voice slipped behind another. The <b className="hl-t">true three</b> are glowing; listen again.</>,
+        win: <>You're not hearing a blur anymore — you're hearing <b className="hl-g">through</b>. Every voice in its place.</> },
+      { listen: <>Last one — <b className="hl-g">walk</b>, then <b className="hl-g">ring</b>, the way songs will give it to you. Name all three.</>,
+        prompt: <>Tap <b className="hl-g">all three numbers</b>, then <b className="hl-g">check</b>.</>,
+        wrong: <>Almost through — one pane's fogged. Watch the <b className="hl-t">three</b> glow, and hear the walk once more.</>,
         win: <>You heard every voice in the chord. <b className="hl-g">Clear as glass.</b></> },
     ];
     const chordDrillLine = (() => { const d = sylvaDrills[Math.min(tutDrillN, 2)]; return tutDrillPhase === "win" ? d.win : tutReveal ? d.wrong : tutDrillPhase === "play" ? d.listen : d.prompt; })();
@@ -4442,9 +4429,17 @@ export default function NumberEarTrainer() {
           .tut-kin::after { content: "shared: 1 · 3"; position: absolute; left: 0; right: 0; bottom: -14px; text-align: center; font: 9px var(--pf, 'Courier New', monospace); letter-spacing: 1px; text-transform: uppercase; color: var(--teal, #57C6C4); }
           .stack-note.hi { box-shadow: inset 0 0 0 2px var(--teal, #57C6C4); color: var(--teal, #57C6C4); }
           .stack-note.home { background: var(--teal, #57C6C4); color: #12201d; border-color: var(--teal, #57C6C4); }
-          .chord-drill { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-          .tut-drillpad .num.given { opacity: .55; box-shadow: inset 0 0 0 2px var(--teal, #57C6C4); }
-          .tut-walk { align-self: center; }
+          /* keep beat stacks + the chord drill inside the clipped stage panel on phones */
+          .tutorial .stacks { gap: 12px; padding: 0; flex-wrap: nowrap; }
+          .tutorial .stacks .stack { gap: 3px; padding: 0; }
+          .tutorial .stacks .stack-note { width: 26px; height: 26px; font-size: .82rem; }
+          .tutorial .stacks .stack-label { font-size: .9rem; padding-top: 4px; margin-top: 0; }
+          .tutorial .tut-kin { gap: 22px; }
+          .tutorial .chord-layout { gap: 12px; align-items: center; }
+          .tutorial .chord-layout .session-stack .stack-note { width: 26px; height: 26px; font-size: .82rem; }
+          .tutorial .chord-layout .chord-right { flex: 0 1 auto; }
+          .tutorial .chord-layout .numpad { gap: 5px; }
+          .tutorial .chord-layout .num { width: 34px; height: 34px; }
         `}</style>
         {isChords ? (
           <div className="tut-scene" aria-hidden="true">
@@ -4484,24 +4479,26 @@ export default function NumberEarTrainer() {
             <div className="stage-fit">
               {done ? (isChords ? <div className="stacks"><GuideStack label="1" tones={TRI.I} onPlay={gsPlay} onNote={gsNote} /></div> : isMinor ? tutMapMinor : tutMap)
               : drill ? (isChords ? (
-                <div className="chord-drill">
-                  <SessionStack picked={[...tutGiven, ...tutPicks]}
-                    correct={tutDrillPhase === "win" ? tutChordTones : tutReveal ? tutGoal : null}
-                    wrong={tutReveal ? tutPicks.filter((d) => !tutGoal.includes(d)) : null} label="?" />
-                  <div className="numpad coach tut-drillpad">
-                    {[1, 2, 3, 4, 5, 6, 7].map((d) => {
-                      const given = tutGiven.includes(d), picked = tutPicks.includes(d);
-                      return (
+                <div className="chord-layout">
+                  <SessionStack picked={tutPicks}
+                    correct={(tutDrillPhase === "win" || tutReveal) ? tutChordTones : null}
+                    wrong={tutReveal ? tutPicks.filter((d) => !tutChordTones.includes(d)) : null} label="?" />
+                  <div className="chord-right">
+                    <div className="numpad">
+                      {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                         <button key={d}
-                          className={"num" + (given || picked ? " picked" : "") + (given ? " given" : "") + (tutReveal && tutGoal.includes(d) ? " coach-target" : "")}
+                          className={"num" + (tutPicks.includes(d) ? " picked" : "") + (tutReveal && tutChordTones.includes(d) ? " coach-target" : "")}
                           onClick={() => toggleTutPick(d)}
-                          disabled={tutDrillPhase !== "answer" || given}>
+                          disabled={tutDrillPhase !== "answer"}>
                           {d}<span className="num-sol">{SOLFEGE[d]}</span>
                         </button>
-                      );
-                    })}
+                      ))}
+                    </div>
+                    <button className="primary wide" onClick={checkTutChord}
+                      disabled={tutDrillPhase !== "answer" || tutPicks.length !== tutChordTones.length || busy}>
+                      Check answer
+                    </button>
                   </div>
-                  {tutDrillN === 2 && <button className="btn go tut-walk" disabled={busy || tutDrillPhase !== "answer"} onClick={walkTutChord}>▶ Walk it</button>}
                 </div>
               ) : (
                 <div className="numpad coach tut-drillpad">
