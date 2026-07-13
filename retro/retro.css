@@ -823,6 +823,40 @@
 @media (prefers-reduced-motion:reduce){
   .tut-fen .moon,.tut-fen .mist,.tut-fen .reed,.tut-fen .wisp{ animation:none!important; }
 }
+/* =====================  TUTORIAL (Sylva) — Glasswood scene  ================= */
+/* A sunlit forest of glass: light shafts falling through translucent trunks, a mossy
+   floor, prism glints. Same layered idiom, scoped under .tut-glass. Back to front:
+   canopy glow → light shafts → glass trees → floor → glints. */
+.app.tutorial.tut-glass{
+  background:linear-gradient(#bfeae4 0%,#9fd8cf 22%,#8ecf9d 40%,#71bd76 52%,#4e9e55 70%,#3a7e42 100%);
+}
+.tut-glass .gcanopy{ position:absolute; left:0; right:0; top:0; height:36%;
+  background:radial-gradient(120% 80% at 50% -18%, rgba(237,242,238,.5), rgba(237,242,238,0) 62%); }
+.tut-glass .gshaft{ position:absolute; top:-6%; width:34px; height:80%; transform-origin:top center;
+  background:linear-gradient(rgba(237,242,238,.30), rgba(237,242,238,0) 82%);
+  transform:skewX(-14deg); animation:glass-shimmer 6s ease-in-out infinite; }
+.tut-glass .gshaft.s1{ left:13%; } .tut-glass .gshaft.s2{ left:46%; width:26px; animation-delay:-2s; opacity:.8; }
+.tut-glass .gshaft.s3{ right:15%; width:30px; animation-delay:-4s; opacity:.7; }
+@keyframes glass-shimmer{ 50%{ opacity:.55; } }
+.tut-glass .gtree{ position:absolute; bottom:16%; width:16px; border-radius:3px 3px 0 0;
+  background:linear-gradient(90deg, rgba(87,198,196,.10), rgba(237,242,238,.30) 45%, rgba(124,173,209,.16) 60%, rgba(87,198,196,.10));
+  box-shadow:inset -3px 0 0 rgba(18,32,29,.10), inset 3px 0 0 rgba(237,242,238,.22); }
+.tut-glass .gtree.gt1{ left:8%;  height:70%; } .tut-glass .gtree.gt2{ left:26%; height:58%; width:13px; opacity:.85; }
+.tut-glass .gtree.gt3{ left:50%; height:66%; } .tut-glass .gtree.gt4{ right:22%; height:54%; width:13px; opacity:.8; }
+.tut-glass .gtree.gt5{ right:7%; height:62%; }
+.tut-glass .gfloor{ position:absolute; left:0; right:0; bottom:0; height:20%;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(20,40,32,.14) 0 2px, transparent 2px 13px),
+    repeating-linear-gradient(90deg, rgba(20,40,32,.09) 0 2px, transparent 2px 13px),
+    linear-gradient(#4b9a58,#357045); }
+.tut-glass .gglint{ position:absolute; width:4px; height:4px; background:var(--teal,#57C6C4);
+  box-shadow:0 0 8px 2px rgba(87,198,196,.6); animation:glass-glint 5s ease-in-out infinite; }
+.tut-glass .gglint.gg1{ bottom:40%; left:20%; } .tut-glass .gglint.gg2{ bottom:52%; right:24%; animation-delay:-2.4s; }
+.tut-glass .gglint.gg3{ bottom:30%; left:60%; animation-delay:-3.6s; }
+@keyframes glass-glint{ 0%,100%{ transform:scale(.7); opacity:.4 } 50%{ transform:scale(1.1); opacity:.95 } }
+@media (prefers-reduced-motion:reduce){
+  .tut-glass .gshaft,.tut-glass .gglint{ animation:none!important; }
+}
 .tut-inner{ position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; overflow:hidden;
   padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(14px + env(safe-area-inset-bottom,0px)); gap:0; }
 .tutorial .hud{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px; }

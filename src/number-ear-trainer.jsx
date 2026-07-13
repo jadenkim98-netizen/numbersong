@@ -4446,7 +4446,15 @@ export default function NumberEarTrainer() {
           .tut-drillpad .num.given { opacity: .55; box-shadow: inset 0 0 0 2px var(--teal, #57C6C4); }
           .tut-walk { align-self: center; }
         `}</style>
-        {isMinor ? (
+        {isChords ? (
+          <div className="tut-scene" aria-hidden="true">
+            <div className="gcanopy" />
+            <div className="gshaft s1" /><div className="gshaft s2" /><div className="gshaft s3" />
+            <div className="gtree gt1" /><div className="gtree gt2" /><div className="gtree gt3" /><div className="gtree gt4" /><div className="gtree gt5" />
+            <div className="gfloor" />
+            <div className="gglint gg1" /><div className="gglint gg2" /><div className="gglint gg3" />
+          </div>
+        ) : isMinor ? (
           <div className="tut-scene" aria-hidden="true">
             <div className="moon" />
             <div className="hollow far" /><div className="hollow" />
