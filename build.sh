@@ -171,6 +171,10 @@ html = f'''<!DOCTYPE html>
     animation: ns-boot-spin .8s linear infinite;
   }}
   @keyframes ns-boot-spin {{ to {{ transform: rotate(360deg); }} }}
+  .skip-link {{ position: fixed; left: 8px; top: -60px; z-index: 1000; padding: 10px 14px;
+    background: #57C6C4; color: #0f1c1a; border-radius: 8px; font: 600 14px/1 system-ui, sans-serif;
+    text-decoration: none; transition: top .15s ease; }}
+  .skip-link:focus {{ top: 8px; outline: 3px solid #EDF2EE; outline-offset: 2px; }}
   #errbox {{
     display: none; position: fixed; inset: auto 12px 12px 12px; z-index: 999;
     background: #E07856; color: #3A241B; padding: 12px 16px; border-radius: 10px;
@@ -185,7 +189,8 @@ html = f'''<!DOCTYPE html>
 </style>
 </head>
 <body>
-<div id="root"></div>
+<a href="#root" class="skip-link">Skip to content</a>
+<div id="root" role="main" tabindex="-1"></div>
 <div id="errbox"></div>
 <script>
   // Raw error dumps show ON-SCREEN only in debug mode (localhost or ?debug in the URL);

@@ -1822,7 +1822,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
   return (
     <div className={"adv-screen" + (restored ? " restored" : "")}>
       <style>{CSS}</style>
-      <div className="adv-hud adv-hud-top">
+      <div className="adv-hud adv-hud-top" role="navigation" aria-label="Map controls">
         <img className="adv-logo" width="32" height="24" src={typeof window !== "undefined" ? window.WEJAM_LOGO : ""} alt="WeJam" />
         <span className="adv-title"><span className="w1">NUMBER</span><span className="w2">SONG</span>{restored && <em className="adv-restored-tag"> · restored</em>}</span>
         <button className="gear" onClick={onMenu} aria-label="Main menu">☰</button>
