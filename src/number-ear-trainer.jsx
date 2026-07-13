@@ -568,10 +568,14 @@ function useAudio() {
   const audioGenRef = useRef(0);
 
   const ensure = useCallback(async () => {
-    await Tone.start();
-    if (Tone.context.state !== "running") {
-      await Tone.context.resume();
-    }
+    // Swallow start/resume errors: some webviews (Instagram's in-app browser) reject
+    // resume() with "Failed to start the audio device" even when audio is actually fine
+    // — an unhandled rejection there trips the global error overlay. A retry lands on the
+    // next gesture, so proceeding is safe.
+    try {
+      await Tone.start();
+      if (Tone.context.state !== "running") await Tone.context.resume();
+    } catch (e) {}
     // The heavy one-time init (13 Salamander mp3s + the sung-number/minor-voice
     // base64 decode) is memoised behind initRef so concurrent callers — e.g. the boot
     // tap and the background warm effect ~400ms later, both arriving during the
@@ -2368,7 +2372,12 @@ export default function NumberEarTrainer() {
     // after backgrounding, do the full Tone.start() unlock (plays a silent buffer, which
     // re-establishes the audio output the "silent-but-running" state has lost).
     let wasHidden = false;
-    const ctxResume = () => { try { Tone.context.resume(); } catch (e) {} };
+    // resume()/suspend()/start() return PROMISES that can reject (e.g. Instagram's in-app
+    // browser rejects with "Failed to start the audio device" even when audio is fine).
+    // A bare call would leave that rejection unhandled → the global error overlay pops.
+    // quiet() swallows both the sync throw and the async rejection.
+    const quiet = (p) => { try { if (p && typeof p.catch === "function") p.catch(() => {}); } catch (e) {} };
+    const ctxResume = () => { try { quiet(Tone.context.resume()); } catch (e) {} };
     // Play a 1-sample silent buffer on the raw context — the classic iOS unlock that
     // re-establishes audio output even when the context wrongly reports "running".
     // (Tone.start() skips its own silent buffer in that state, so do it explicitly.)
@@ -2376,7 +2385,7 @@ export default function NumberEarTrainer() {
       try {
         const raw = (Tone.getContext && Tone.getContext().rawContext) || Tone.context.rawContext;
         if (!raw) return;
-        if (raw.state !== "running") raw.resume();
+        if (raw.state !== "running") quiet(raw.resume());
         const b = raw.createBuffer(1, 1, 22050);
         const s = raw.createBufferSource();
         s.buffer = b; s.connect(raw.destination); s.start(0);
@@ -2386,7 +2395,7 @@ export default function NumberEarTrainer() {
     // pause the audio so the game's music doesn't keep bleeding out. Desktop browsers
     // won't auto-suspend a tab that's actively playing, and even on mobile the pause
     // wasn't reliable — so we suspend it ourselves on every "we're going away" signal.
-    const pause = () => { wasHidden = true; try { Tone.context.rawContext.suspend(); } catch (e) {} };
+    const pause = () => { wasHidden = true; try { quiet(Tone.context.rawContext.suspend()); } catch (e) {} };
     const onVis = () => { document.visibilityState === "hidden" ? pause() : ctxResume(); };
     const onGesture = () => {
       ctxResume();
@@ -5308,7 +5317,11 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
    (never scrolls under a bar), so nothing obscures the terrain or Coda. */
 .adv-screen { position: fixed; inset: 0; z-index: 40; background: #1b1f1d; overflow: hidden; display: flex; flex-direction: column; }
 .adv-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; justify-content: center; }
-.adv-map { image-rendering: pixelated; width: 100%; max-width: 460px; height: auto; align-self: center; margin: 0 auto; cursor: pointer; }
+/* "safe center": vertically centered when the map fits, but top-aligned (so the top
+   stays scroll-reachable) when it's taller than the viewport — otherwise flex centering
+   pushes the top above the scroll origin and you can't reach node 8 / the top of the map,
+   most visibly in landscape where the viewport is short. */
+.adv-map { image-rendering: pixelated; width: 100%; max-width: 460px; height: auto; align-self: safe center; margin: 0 auto; cursor: pointer; }
 .adv-hud { flex: 0 0 auto; z-index: 2; display: flex; align-items: center; gap: 12px; }
 .adv-hud-top {
   padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;

@@ -835,7 +835,11 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
    (never scrolls under a bar), so nothing obscures the terrain or Coda. */
 .adv-screen { position: fixed; inset: 0; z-index: 40; background: #1b1f1d; overflow: hidden; display: flex; flex-direction: column; }
 .adv-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; justify-content: center; }
-.adv-map { image-rendering: pixelated; width: 100%; max-width: 460px; height: auto; align-self: center; margin: 0 auto; cursor: pointer; }
+/* "safe center": vertically centered when the map fits, but top-aligned (so the top
+   stays scroll-reachable) when it's taller than the viewport — otherwise flex centering
+   pushes the top above the scroll origin and you can't reach node 8 / the top of the map,
+   most visibly in landscape where the viewport is short. */
+.adv-map { image-rendering: pixelated; width: 100%; max-width: 460px; height: auto; align-self: safe center; margin: 0 auto; cursor: pointer; }
 .adv-hud { flex: 0 0 auto; z-index: 2; display: flex; align-items: center; gap: 12px; }
 .adv-hud-top {
   padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
@@ -2752,9 +2756,10 @@ window.SOUNDTRACK = SOUNDTRACK;
     const initRef = useRef(null);
     const audioGenRef = useRef(0);
     const ensure = useCallback(async () => {
-      await Tone.start();
-      if (Tone.context.state !== "running") {
-        await Tone.context.resume();
+      try {
+        await Tone.start();
+        if (Tone.context.state !== "running") await Tone.context.resume();
+      } catch (e) {
       }
       if (!initRef.current) {
         initRef.current = (async () => {
@@ -4684,9 +4689,16 @@ window.SOUNDTRACK = SOUNDTRACK;
     }, [theme]);
     useEffect(() => {
       let wasHidden = false;
+      const quiet = (p) => {
+        try {
+          if (p && typeof p.catch === "function") p.catch(() => {
+          });
+        } catch (e) {
+        }
+      };
       const ctxResume = () => {
         try {
-          Tone.context.resume();
+          quiet(Tone.context.resume());
         } catch (e) {
         }
       };
@@ -4694,7 +4706,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         try {
           const raw = Tone.getContext && Tone.getContext().rawContext || Tone.context.rawContext;
           if (!raw) return;
-          if (raw.state !== "running") raw.resume();
+          if (raw.state !== "running") quiet(raw.resume());
           const b = raw.createBuffer(1, 1, 22050);
           const s = raw.createBufferSource();
           s.buffer = b;
@@ -4706,7 +4718,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       const pause = () => {
         wasHidden = true;
         try {
-          Tone.context.rawContext.suspend();
+          quiet(Tone.context.rawContext.suspend());
         } catch (e) {
         }
       };
@@ -7249,7 +7261,11 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
    (never scrolls under a bar), so nothing obscures the terrain or Coda. */
 .adv-screen { position: fixed; inset: 0; z-index: 40; background: #1b1f1d; overflow: hidden; display: flex; flex-direction: column; }
 .adv-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; justify-content: center; }
-.adv-map { image-rendering: pixelated; width: 100%; max-width: 460px; height: auto; align-self: center; margin: 0 auto; cursor: pointer; }
+/* "safe center": vertically centered when the map fits, but top-aligned (so the top
+   stays scroll-reachable) when it's taller than the viewport — otherwise flex centering
+   pushes the top above the scroll origin and you can't reach node 8 / the top of the map,
+   most visibly in landscape where the viewport is short. */
+.adv-map { image-rendering: pixelated; width: 100%; max-width: 460px; height: auto; align-self: safe center; margin: 0 auto; cursor: pointer; }
 .adv-hud { flex: 0 0 auto; z-index: 2; display: flex; align-items: center; gap: 12px; }
 .adv-hud-top {
   padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
