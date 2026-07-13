@@ -3011,6 +3011,7 @@ export default function NumberEarTrainer() {
     s.attempted = false; s.misses = 0;
     setPhase("playing"); setBusy(true);
 
+    try {
     if (s.mode === "progressions") {
       const lvl = s.lvl;
       if (lvl.keyMode === "random" && !isFirst) {
@@ -3059,6 +3060,14 @@ export default function NumberEarTrainer() {
       await playChord(s.key, chordTones(c, s.sevenths), cad); // block + arpeggio
       if (gen !== sessGenRef.current) return;
       sessTimer(() => { setPhase("answer"); setBusy(false); }, (cad + 0.7) * 1000); // but answer as soon as it sounds
+    }
+    } catch (e) {
+      // Audio playback threw (e.g. a fully closed/interrupted AudioContext where
+      // triggerAttackRelease itself rejects — ensure() already swallows start/resume
+      // rejection, this covers the extreme case). The target is already chosen, so don't
+      // soft-lock the session on "Listen…" — open answering anyway, unless the session was
+      // quit mid-await. The player can still respond (silently) or quit cleanly.
+      if (gen === sessGenRef.current) sessTimer(() => { setPhase("answer"); setBusy(false); }, 400);
     }
   };
   nextQuestionRef.current = nextQuestion;

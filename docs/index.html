@@ -5437,62 +5437,69 @@ window.SOUNDTRACK = SOUNDTRACK;
       s.misses = 0;
       setPhase("playing");
       setBusy(true);
-      if (s.mode === "progressions") {
-        const lvl = s.lvl;
-        if (lvl.keyMode === "random" && !isFirst) {
-          s.key = randKey([s.key]);
-          setSessKey(s.key);
+      try {
+        if (s.mode === "progressions") {
+          const lvl = s.lvl;
+          if (lvl.keyMode === "random" && !isFirst) {
+            s.key = randKey([s.key]);
+            setSessKey(s.key);
+          }
+          const prog = pickProgression(lvl, s.target);
+          s.target = prog;
+          const cad = await playCadence(s.key, lvl.mode) + 0.35;
+          if (gen !== sessGenRef.current) return;
+          const dur = await playProgression(s.key, prog.map((r) => chordByRoman(r).tones), cad, progBeat);
+          if (gen !== sessGenRef.current) return;
+          sessTimer(() => {
+            setPhase("answer");
+            setBusy(false);
+          }, (cad + dur + 0.2) * 1e3);
+        } else if (s.mode === "melody") {
+          const lvl = s.lvl;
+          if (lvl.keyMode === "random" && !isFirst) {
+            s.key = randKey([s.key]);
+            setSessKey(s.key);
+          }
+          const oct = lvl.octaves[Math.floor(Math.random() * lvl.octaves.length)];
+          s.octave = oct;
+          let pc;
+          do {
+            pc = lvl.pool[Math.floor(Math.random() * lvl.pool.length)];
+          } while (lvl.pool.length > 1 && pc === s.target);
+          s.target = pc;
+          const t = await playCadence(s.key, lvl.mode) + 0.25;
+          if (gen !== sessGenRef.current) return;
+          playSemi(s.key, pc, t, oct);
+          sessTimer(() => {
+            setPhase("answer");
+            setBusy(false);
+          }, (t + 0.2) * 1e3);
+        } else {
+          const lvl = s.lvl;
+          if (lvl.keyMode === "random" && !isFirst) {
+            s.key = randKey([s.key]);
+            setSessKey(s.key);
+          }
+          let c;
+          do {
+            const pick = lvl.pool[Math.floor(Math.random() * lvl.pool.length)];
+            c = CHORDS.find((x) => x.roman === pick);
+          } while (lvl.pool.length > 1 && s.target && c.roman === s.target.roman);
+          s.target = c;
+          const cad = await playCadence(s.key, lvl.mode) + 0.25;
+          if (gen !== sessGenRef.current) return;
+          await playChord(s.key, chordTones(c, s.sevenths), cad);
+          if (gen !== sessGenRef.current) return;
+          sessTimer(() => {
+            setPhase("answer");
+            setBusy(false);
+          }, (cad + 0.7) * 1e3);
         }
-        const prog = pickProgression(lvl, s.target);
-        s.target = prog;
-        const cad = await playCadence(s.key, lvl.mode) + 0.35;
-        if (gen !== sessGenRef.current) return;
-        const dur = await playProgression(s.key, prog.map((r) => chordByRoman(r).tones), cad, progBeat);
-        if (gen !== sessGenRef.current) return;
-        sessTimer(() => {
+      } catch (e) {
+        if (gen === sessGenRef.current) sessTimer(() => {
           setPhase("answer");
           setBusy(false);
-        }, (cad + dur + 0.2) * 1e3);
-      } else if (s.mode === "melody") {
-        const lvl = s.lvl;
-        if (lvl.keyMode === "random" && !isFirst) {
-          s.key = randKey([s.key]);
-          setSessKey(s.key);
-        }
-        const oct = lvl.octaves[Math.floor(Math.random() * lvl.octaves.length)];
-        s.octave = oct;
-        let pc;
-        do {
-          pc = lvl.pool[Math.floor(Math.random() * lvl.pool.length)];
-        } while (lvl.pool.length > 1 && pc === s.target);
-        s.target = pc;
-        const t = await playCadence(s.key, lvl.mode) + 0.25;
-        if (gen !== sessGenRef.current) return;
-        playSemi(s.key, pc, t, oct);
-        sessTimer(() => {
-          setPhase("answer");
-          setBusy(false);
-        }, (t + 0.2) * 1e3);
-      } else {
-        const lvl = s.lvl;
-        if (lvl.keyMode === "random" && !isFirst) {
-          s.key = randKey([s.key]);
-          setSessKey(s.key);
-        }
-        let c;
-        do {
-          const pick = lvl.pool[Math.floor(Math.random() * lvl.pool.length)];
-          c = CHORDS.find((x) => x.roman === pick);
-        } while (lvl.pool.length > 1 && s.target && c.roman === s.target.roman);
-        s.target = c;
-        const cad = await playCadence(s.key, lvl.mode) + 0.25;
-        if (gen !== sessGenRef.current) return;
-        await playChord(s.key, chordTones(c, s.sevenths), cad);
-        if (gen !== sessGenRef.current) return;
-        sessTimer(() => {
-          setPhase("answer");
-          setBusy(false);
-        }, (cad + 0.7) * 1e3);
+        }, 400);
       }
     };
     nextQuestionRef.current = nextQuestion;
