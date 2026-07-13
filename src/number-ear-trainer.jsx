@@ -996,6 +996,9 @@ const holdKeys = (down, up) => ({
   onKeyUp: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); up(); } },
 });
 
+// Spoken form of a note label for screen readers: "♭2" -> "flat 2", "♯4" -> "sharp 4".
+const spokenNote = (pc) => NOTE_LABELS[pc].replace("♭", "flat ").replace("♯", "sharp ");
+
 function ExploreMap({ start, count, stage, octaves, world, home, active, hi, litDeg, singDeg, singInTune, onPlay, onDown, onUp, staircase }) {
   const evts = (n, row) => onDown // guide taps (onPlay); Free Play holds (onDown/onUp)
     ? { onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(n, row); }, onPointerUp: () => onUp(n, row), ...holdKeys(() => onDown(n, row), () => onUp(n, row)) }
@@ -2402,6 +2405,7 @@ export default function NumberEarTrainer() {
   const phaseRef = useRef(phase); const busyRef = useRef(busy);
   useEffect(() => { phaseRef.current = phase; busyRef.current = busy; }, [phase, busy]);
   const [feedback, setFeedback] = useState(null); // string or {roman}
+  const [srMsg, setSrMsg] = useState(""); // visually-hidden live region: explicit "Correct / Not quite" for screen readers
   const [chPicked, setChPicked] = useState([]);
   const [progAnswer, setProgAnswer] = useState([]); // romans tapped so far
   const [progWrong, setProgWrong] = useState([]);   // wrong slot indices
@@ -2998,6 +3002,7 @@ export default function NumberEarTrainer() {
       setLitWrong([]); setRevealPc(null);
       setHitPad(pc);
       setPhase("resolving");
+      setSrMsg("Correct — that was " + spokenNote(pc) + ".");
       const deg = PC_TO_DEGREE[pc];
       if (tutorialActive) {
         // Verda's first win — cheer + celebrate, then coaching fades (Q2+ is a normal
@@ -3020,6 +3025,7 @@ export default function NumberEarTrainer() {
       s.misses = (s.misses || 0) + 1;
       setStreak(0);
       setLitWrong([pc]);
+      setSrMsg("Not quite — that was a " + spokenNote(pc) + ".");
       playSemi(s.key, pc, 0, s.octave); // echo the note they actually pressed
       if (tutorialActive) { setTutReveal(true); setFeedback("Almost — hear it again, then tap the glowing number."); }
       else if (s.misses >= 2) {
@@ -3061,6 +3067,7 @@ export default function NumberEarTrainer() {
       if (first) { setScore((sc) => sc + 1); setStreak((x) => x + 1); }
       setLitCorrect(tones); setLitWrong([]);
       setPhase("resolving");
+      setSrMsg("Correct.");
       setFeedback({ roman: s.target.roman, sym: chordSymbol(s.target.roman, s.sevenths), num: chordNumber(s.target.roman, s.sevenths), quality: chordQuality(s.target.roman, s.sevenths), tones });
       setBusy(true);
       const dur = await playChord(s.key, tones);
@@ -3070,6 +3077,7 @@ export default function NumberEarTrainer() {
       s.attempted = true;
       setStreak(0);
       setLitWrong(chPicked.filter((d) => !t.has(d)));
+      setSrMsg("Not quite.");
       setFeedback("Close — the marked degrees aren't in it. Adjust and check again.");
     }
   };
@@ -3098,6 +3106,7 @@ export default function NumberEarTrainer() {
       setSessionResults([...s.results]);
       if (first) { setScore((sc) => sc + 1); setStreak((x) => x + 1); }
       setPhase("resolving");
+      setSrMsg("Correct.");
       setFeedback({ prog: [...s.target] });
       setBusy(true);
       const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat);
@@ -3109,6 +3118,7 @@ export default function NumberEarTrainer() {
       s.attempted = true;
       setStreak(0);
       setProgWrong(wrong);
+      setSrMsg("Not quite.");
       setFeedback("Not quite — the marked chords are off. Fix them and check again.");
     }
   };
@@ -3988,6 +3998,7 @@ export default function NumberEarTrainer() {
                 : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.`
                 : "Tap the chords you heard, in order."}
             </p>
+            <div className="sr-only" role="status" aria-live="polite">{srMsg}</div>
           </div>
           {mode === "melody" ? (
             lvl.chromatic ? (
@@ -3998,6 +4009,7 @@ export default function NumberEarTrainer() {
                     <button key={pc}
                       className={"num chrom" + (pc === tonicPc ? " tonic" : "") + (ALTERED_PCS.includes(pc) ? " alt" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "") + (litWrong.includes(pc) ? " wrong" : "") + (revealPc === pc ? " coach-target" : "")}
                       onClick={() => answerMelodySession(pc)}
+                      aria-label={"answer " + spokenNote(pc) + " " + NOTE_SOLFEGE[pc]}
                       disabled={phase !== "answer" || out}>
                       {NOTE_LABELS[pc]}<span className="num-sol">{NOTE_SOLFEGE[pc]}</span>
                       {hitPad === pc && <span className="num-mark" aria-hidden="true">✓</span>}
@@ -5107,6 +5119,7 @@ button { font-family: inherit; cursor: pointer; transition: transform 0.06s, bac
 button:active { transform: scale(0.97); }
 button:disabled { opacity: 0.4; cursor: default; }
 button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 .ghost {
   background: transparent; color: var(--text); border: 1.5px solid var(--line);
   border-radius: 10px; padding: 8px 14px; font-size: 0.9rem; font-weight: 500;
