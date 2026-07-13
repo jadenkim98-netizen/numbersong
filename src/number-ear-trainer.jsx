@@ -140,6 +140,16 @@ const UNLOCK_CODE = "effortless1";   // students: ?unlock=effortless1  OR type i
 const CONVERTKIT_FORM = "9671626";                 // ConvertKit form id — delivers leads
 const CONVERTKIT_KEY = "6U4Fr68yjt_ESeBxKgXXpQ";   // ConvertKit PUBLIC api_key (safe client-side)
 const FREE = { melodyGroups: 1, adventureRegions: 4, freePlayPaths: 1, freePlayWorlds: 2 };
+/* Tracking (optional, like ConvertKit above): error reporting via Sentry + light usage
+   via PostHog, both bundled offline by build.sh. All three are PUBLIC client-side tokens
+   (safe to inline). LEAVE BLANK and tracking silently no-ops — no network, no errors — so
+   the app ships fine before the projects exist. Fill them in to turn tracking on:
+     SENTRY_DSN   — from Sentry → Project → Client Keys (DSN). Errors only when set.
+     POSTHOG_KEY  — from PostHog → Project Settings → Project API Key (starts "phc_").
+     POSTHOG_HOST — PostHog API host: "https://us.i.posthog.com" or "https://eu.i.posthog.com". */
+const SENTRY_DSN = "";
+const POSTHOG_KEY = "";
+const POSTHOG_HOST = "https://us.i.posthog.com";
 
 // Each of the four worlds (diatonic/chromatic × major/minor) follows the same
 // FET-style ramp: three intro levels in C, then octaves, then away from C, then
@@ -461,6 +471,52 @@ function loadPref(key, fallback) {
 }
 function savePref(key, val) {
   try { window.localStorage.setItem("numbersong-" + key, String(val)); } catch (e) {}
+}
+
+/* ── Tracking: error reporting (Sentry) + light usage (PostHog) ──────────────
+   The SDKs are inlined by build.sh as window.Sentry / window.posthog (ONLY when the
+   config keys above are set — blank keys = not inlined = these globals are undefined and
+   everything below no-ops). We init here so config + init live in one file. A stable
+   anonymous client id (random, no PII) is shared by both so a crash can be lined up with
+   what the player did. Never throws; tracking failures must never surface in #errbox or
+   break audio. NEVER pass email / free-text PII as an event property. */
+const trackCid = (() => {
+  try {
+    let id = loadPref("cid", "");
+    if (!id) {
+      id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+         : "c" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      savePref("cid", id);
+    }
+    return id;
+  } catch (e) { return ""; }
+})();
+let trackOn = false;
+try {
+  if (SENTRY_DSN && window.Sentry) {
+    window.Sentry.init({
+      dsn: SENTRY_DSN,
+      tracesSampleRate: 0, replaysSessionSampleRate: 0, replaysOnErrorSampleRate: 0,
+      sendDefaultPii: false,               // no IP/cookies attached to error events
+      initialScope: { user: { id: trackCid } },
+    });
+  }
+  if (POSTHOG_KEY && window.posthog) {
+    window.posthog.init(POSTHOG_KEY, {
+      api_host: POSTHOG_HOST,
+      autocapture: false, capture_pageview: false, capture_pageleave: false,
+      disable_session_recording: true,     // light + private: explicit events only
+      persistence: "localStorage",         // cookieless
+      person_profiles: "identified_only",  // anonymous unless we ever identify() (we don't)
+      bootstrap: { distinctID: trackCid },
+    });
+    trackOn = true;
+  }
+} catch (e) { trackOn = false; }
+
+// Fire a light usage event. Silent no-op until PostHog is configured; never throws.
+function track(event, props) {
+  try { if (trackOn && window.posthog) window.posthog.capture(event, props || {}); } catch (e) {}
 }
 
 /* ─────────────────────────────  AUDIO ENGINE  ───────────────────────────── */
@@ -2119,7 +2175,7 @@ export default function NumberEarTrainer() {
   const gated = !unlocked;
   const isMelodyFree = (idx) => unlocked || groupIndexOf(idx) < FREE.melodyGroups;
   const isRegionFree = (nodeIdx) => unlocked || nodeIdx < FREE.adventureRegions;
-  const grantUnlock = () => { savePref("unlocked", "1"); savePref("onboarded", "1"); setUnlocked(true); setOnboarded(true); enableSaves(); };
+  const grantUnlock = () => { savePref("unlocked", "1"); savePref("onboarded", "1"); setUnlocked(true); setOnboarded(true); enableSaves(); track("unlock"); };
   // "jojomode" testing unlock: unlock the app, mark every level complete EXCEPT the final
   // adventure region's capstone, and drop the player straight into that last region's level
   // list — so the Excalibar-reforged ending is one short (3-question) drill away. The finale
@@ -2160,7 +2216,7 @@ export default function NumberEarTrainer() {
   const submitLead = async () => {
     if (leadBusyRef.current) return; // a POST is already in flight (repeat Enter / double-tap) — ignore
     const email = leadEmail.trim();
-    if (!/.+@.+\..+/.test(email)) { setLeadStatus("error"); return; }
+    if (!/.+@.+\..+/.test(email)) { track("lead_submit", { outcome: "invalid_email" }); setLeadStatus("error"); return; }
     leadBusyRef.current = true;
     setLeadStatus("sending");
     const first_name = leadName.trim();
@@ -2186,9 +2242,10 @@ export default function NumberEarTrainer() {
     enableSaves(); // giving your email is what actually saves your progress
     savePref("onboarded", "1"); // persist so a reload never re-nags a converted lead (or double-subscribes) — the confirmation card still shows this session since onboarded STATE stays false
     leadSavedRef.current = !delivered; // so a "sending" resend from the saved card keeps showing the saved card
+    track("lead_submit", { outcome: delivered ? "sent" : "saved" }); // outcome only — never the email (PII)
     setLeadStatus(delivered ? "done" : "saved"); // "saved" = progress kept, but no email promise
   };
-  const openUpsell = () => { try { sfx("select"); } catch (e) {} setUpsellOpen(true); };
+  const openUpsell = () => { try { sfx("select"); } catch (e) {} setUpsellOpen(true); track("upsell_open"); };
   // The VSL/offer CTAs are now real <a target="_blank"> anchors (class "offer-link")
   // rendered inline — a genuine link tap opens a new tab / in-app browser without
   // navigating the game away, so audio isn't torn down the way a programmatic
@@ -2219,15 +2276,17 @@ export default function NumberEarTrainer() {
     try { haptic(false); } catch (e) {}
     // First-run public players get Verda's guided tutorial; unlocked students &
     // returning players (tut seen) go straight to the Adventure map.
-    if (!unlocked && loadPref("tut", "0") !== "1") { setTutStep(0); setScreen("tutorial"); }
+    const toTutorial = !unlocked && loadPref("tut", "0") !== "1";
+    track("boot_advance", { to: toTutorial ? "tutorial" : "adventure", unlocked });
+    if (toTutorial) { setTutStep(0); setScreen("tutorial"); }
     else setScreen("adventure");
   };
   // Verda's tutorial. Skip jumps to the map. After the teaching beats she runs 3 coached
   // in-cutscene drills (play a note → feel it → tap the number), then hands into the REAL
   // Region-1 First Steps session (the "actual" ear training; no more coaching).
   const TUT_DRILLS = 3;
-  const skipTutorial = () => { tutGenRef.current++; savePref("tut", "1"); if (tutTimerRef.current) clearTimeout(tutTimerRef.current); try { sfx("select"); } catch (e) {} setScreen("adventure"); };
-  const graduateTutorial = () => { tutGenRef.current++; savePref("tut", "1"); setTutMode("teach"); if (tutTimerRef.current) clearTimeout(tutTimerRef.current); try { sfx("select"); } catch (e) {} setScreen("adventure"); };
+  const skipTutorial = () => { tutGenRef.current++; savePref("tut", "1"); if (tutTimerRef.current) clearTimeout(tutTimerRef.current); try { sfx("select"); } catch (e) {} track("tutorial_skip", { step: tutStep }); setScreen("adventure"); };
+  const graduateTutorial = () => { tutGenRef.current++; savePref("tut", "1"); setTutMode("teach"); if (tutTimerRef.current) clearTimeout(tutTimerRef.current); try { sfx("select"); } catch (e) {} track("tutorial_complete"); setScreen("adventure"); };
   // Replay Verda's tutorial from the top (from the menu) — reset its state, don't touch the tut flag.
   const replayTutorial = () => {
     setTutStep(0); setTutMode("teach"); setTutDrillN(0);
@@ -2248,7 +2307,7 @@ export default function NumberEarTrainer() {
       tutTimerRef.current = setTimeout(() => { if (gen === tutGenRef.current) setTutDrillPhase("answer"); }, (t + 0.25) * 1000);
     } catch (e) { if (gen === tutGenRef.current) setTutDrillPhase("answer"); }
   };
-  const enterTutDrills = () => { try { sfx("select"); } catch (e) {} setTutMode("drill"); setTutDrillN(0); startTutDrill(0); };
+  const enterTutDrills = () => { try { sfx("select"); } catch (e) {} track("tutorial_drills_start"); setTutMode("drill"); setTutDrillN(0); startTutDrill(0); };
   const replayTutNote = () => { try { playCadence("C", "major").then((t) => playSemi("C", tutDrillTarget, t + 0.2, 4)); } catch (e) {} };
   const answerTutDrill = (pc) => {
     if (tutDrillPhase !== "answer") return;
@@ -2922,6 +2981,7 @@ export default function NumberEarTrainer() {
 
   const startSession = (m, li, customLvl = null) => {
     killSession();
+    track("session_start", { mode: m, level: li, custom: !!customLvl });
     const baseLvl = customLvl || (m === "melody" ? MELODY_LEVELS[li] : m === "chords" ? CHORD_LEVELS[li] : PROG_LEVELS[li]);
     const lvl = m === "chords" ? { ...baseLvl, sevenths: chordSevenths } : baseLvl;
     setMode(m); setLevelIdx(li); setSessLvl(lvl);
@@ -3017,6 +3077,7 @@ export default function NumberEarTrainer() {
   const finishSession = () => {
     const s = sess.current;
     const firstTries = s.results.filter((r) => r.firstTry).length;
+    track("session_finish", { mode: s.mode, level: s.levelIdx, first_tries: firstTries, questions: s.results.length, passed: firstTries >= passCountFor(s.lvl) });
     // snapshot region-clear state BEFORE saving this session's progress (for the victory flourish)
     sessWasClearedRef.current = (fromAdventure && advStageId != null) ? stageClearedAdv(advStageId) : false;
     if (s.levelIdx != null) { // custom sessions aren't recorded
@@ -3382,7 +3443,7 @@ export default function NumberEarTrainer() {
         <p className="upsell-copy">You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program.</p>
         <div className="enc-actions">
           <button className="ghost" onClick={() => setUpsellOpen(false)}>Maybe later</button>
-          <a className="primary offer-link" href={OFFER_URL} target="_blank" rel="noopener noreferrer">Show me how →</a>
+          <a className="primary offer-link" href={OFFER_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("offer_click", { where: "upsell" })}>Show me how →</a>
         </div>
       </div>
     </div>
@@ -3408,7 +3469,7 @@ export default function NumberEarTrainer() {
         </div>
         {gated && (
           <a className="cta-more offer-link" href={OFFER_URL} target="_blank" rel="noopener noreferrer"
-            onClick={() => { try { sfx("select"); } catch (e) {} }}>
+            onClick={() => { try { sfx("select"); } catch (e) {} track("offer_click", { where: "cta_more" }); }}>
             Want more than the game?<span className="cta-sub">See the 16-week roadmap →</span>
           </a>
         )}
@@ -3445,6 +3506,7 @@ export default function NumberEarTrainer() {
     // in game mode a tap opens the Keeper encounter modal; boring mode goes straight in
     const onTapNode = (n) => {
       if (gated && !isRegionFree(n.id - 1)) return openUpsell();
+      track("region_enter", { region: n.id });
       if (boringMode) { enterStage(n); } else { sfx("select"); setEncounterNode(n.id); }
     };
     const en = encounterNode && window.HARMONIA ? window.HARMONIA.nodes[encounterNode - 1] : null;
@@ -4272,7 +4334,7 @@ export default function NumberEarTrainer() {
                   <p className="lead-copy">Check your inbox to confirm — your Chords-by-Numbers PDF lands right after. Your progress is saved, too.</p>
                   <div className="lead-actions">
                     <a className="primary offer-link" href={OFFER_URL} target="_blank" rel="noopener noreferrer"
-                      onClick={() => finishOnboarding()}>Show me how →</a>
+                      onClick={() => { track("offer_click", { where: "lead_done" }); finishOnboarding(); }}>Show me how →</a>
                     <button className="ghost" onClick={finishOnboarding}>Keep playing</button>
                   </div>
                 </>

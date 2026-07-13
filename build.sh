@@ -26,6 +26,10 @@ vend() { [ -s "vendor/$2" ] || curl -fsSL "$1" -o "vendor/$2"; }
 vend https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js react.js
 vend https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js react-dom.js
 vend https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js tone.js
+# Tracking SDKs (Sentry errors + PostHog usage) — vendored like the libs above, but the
+# assembler inlines them ONLY when the config keys are set (blank keys = not inlined).
+vend https://browser.sentry-cdn.com/10.65.0/bundle.min.js sentry.js
+vend https://us-assets.i.posthog.com/static/array.full.js posthog.js
 
 # 3) Assemble the standalone index.html with embedded voice recordings
 python3 - << 'EOF'
@@ -104,6 +108,15 @@ def inline_js(path):
 react_js     = inline_js("vendor/react.js")
 react_dom_js = inline_js("vendor/react-dom.js")
 tone_js      = inline_js("vendor/tone.js")
+# Inline the tracking SDKs ONLY when configured (SENTRY_DSN / POSTHOG_KEY non-blank in the
+# source config block) — a build with tracking off carries zero extra weight, and the JSX
+# init no-ops because window.Sentry / window.posthog are then undefined.
+import re
+def _const_str(name):
+    m = re.search(r'const ' + name + r' = "([^"]*)"', _srcfile)
+    return m.group(1) if m else ""
+sentry_tag  = ("<script>" + inline_js("vendor/sentry.js")  + "</script>\n") if _const_str("SENTRY_DSN")  else ""
+posthog_tag = ("<script>" + inline_js("vendor/posthog.js") + "</script>\n") if _const_str("POSTHOG_KEY") else ""
 # PWA manifest for Android/Chrome install (folder deploys); iOS uses the meta tags below.
 json.dump({
   "name": "Numbersong", "short_name": "Numbersong", "start_url": "./", "scope": "./",
@@ -140,7 +153,7 @@ html = f'''<!DOCTYPE html>
 <script>{react_js}</script>
 <script>{react_dom_js}</script>
 <script>{tone_js}</script>
-<style>
+{sentry_tag}{posthog_tag}<style>
   html, body {{ margin: 0; background: #383D3B; overscroll-behavior: none; }}
   /* Critical pre-mount layout: clamp the app column to the SAME 560px the mounted
      .app uses, so the first painted frame already matches — no width reflow. */
