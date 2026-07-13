@@ -11,11 +11,14 @@ src = src.replace('import * as Tone from "tone";\n', '')
 src = src.replace('export default function NumberEarTrainer()', 'function NumberEarTrainer()')
 prefix = 'const { useState, useRef, useEffect, useLayoutEffect, useCallback } = React;\n\n'
 suffix = '\n\nReactDOM.createRoot(document.getElementById("root")).render(React.createElement(NumberEarTrainer));\n'
-open(".app.jsx", "w").write(prefix + src + suffix)
+open("src/.app.jsx", "w").write(prefix + src + suffix)
 EOF
 
-# 2) Compile JSX -> plain JS (esbuild fetched automatically the first time)
-npx --yes esbuild .app.jsx --jsx=transform --format=iife --outfile=.app.compiled.js --charset=utf8
+# 2) Compile JSX -> plain JS (esbuild fetched automatically the first time).
+#    --bundle: the source is split into ES modules (src/theory.mjs, src/pitch.mjs, …)
+#    that esbuild inlines into one script. The temp entry lives in src/ so those
+#    relative imports resolve; React/ReactDOM/Tone stay globals (imports stripped above).
+npx --yes esbuild src/.app.jsx --bundle --jsx=transform --format=iife --outfile=.app.compiled.js --charset=utf8
 node --check .app.compiled.js
 
 # 2b) Vendor the runtime libraries locally so the app needs no CDN — it then
@@ -252,7 +255,7 @@ window.SOUNDTRACK = SOUNDTRACK;
 open("index.html", "w").write(html)
 print("index.html built — open it in a browser or deploy it")
 EOF
-rm -f .app.jsx .app.compiled.js
+rm -f src/.app.jsx .app.compiled.js
 
 # 4) Emit the service worker with a unique version so each deploy refreshes
 #    clients (the timestamped cache name invalidates the old shell on next launch).
