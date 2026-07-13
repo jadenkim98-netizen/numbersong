@@ -999,6 +999,11 @@ const holdKeys = (down, up) => ({
 // Spoken form of a note label for screen readers: "♭2" -> "flat 2", "♯4" -> "sharp 4".
 const spokenNote = (pc) => NOTE_LABELS[pc].replace("♭", "flat ").replace("♯", "sharp ");
 
+// Purely decorative motion honors the OS "reduce motion" setting.
+const prefersReducedMotion = () => {
+  try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; }
+};
+
 function ExploreMap({ start, count, stage, octaves, world, home, active, hi, litDeg, singDeg, singInTune, onPlay, onDown, onUp, staircase }) {
   const evts = (n, row) => onDown // guide taps (onPlay); Free Play holds (onDown/onUp)
     ? { onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(n, row); }, onPointerUp: () => onUp(n, row), ...holdKeys(() => onDown(n, row), () => onUp(n, row)) }
@@ -1391,7 +1396,9 @@ function Confetti({ show }) {
     const t = setTimeout(() => setRender(false), 650);
     return () => clearTimeout(t);
   }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!render) return null;
+  // Decorative only — skip entirely under reduce-motion. Also covers Boring mode,
+  // where retro.css's `.retro .confetti { display:none }` reduce-motion rule can't reach.
+  if (!render || prefersReducedMotion()) return null;
   return (
     <div className={"confetti" + (out ? " out" : "")} aria-hidden="true">
       {CONFETTI.map((cf, i) => (
