@@ -2382,25 +2382,26 @@ export default function NumberEarTrainer() {
         s.buffer = b; s.connect(raw.destination); s.start(0);
       } catch (e) {}
     };
-    const onVis = () => {
-      if (document.visibilityState === "hidden") { wasHidden = true; return; }
-      ctxResume();
-    };
+    // Leaving the game (opening the VSL, switching tabs, home screen, another app):
+    // pause the audio so the game's music doesn't keep bleeding out. Desktop browsers
+    // won't auto-suspend a tab that's actively playing, and even on mobile the pause
+    // wasn't reliable — so we suspend it ourselves on every "we're going away" signal.
+    const pause = () => { wasHidden = true; try { Tone.context.rawContext.suspend(); } catch (e) {} };
+    const onVis = () => { document.visibilityState === "hidden" ? pause() : ctxResume(); };
     const onGesture = () => {
       ctxResume();
       if (wasHidden) { kick(); wasHidden = false; }
     };
-    const onBlur = () => { wasHidden = true; }; // link/tab steal focus without a visibility flip
     document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", pause);
     window.addEventListener("focus", ctxResume);
     window.addEventListener("pageshow", ctxResume);
-    window.addEventListener("blur", onBlur);
     window.addEventListener("pointerdown", onGesture, true);
     return () => {
       document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pagehide", pause);
       window.removeEventListener("focus", ctxResume);
       window.removeEventListener("pageshow", ctxResume);
-      window.removeEventListener("blur", onBlur);
       window.removeEventListener("pointerdown", onGesture, true);
     };
   }, []);

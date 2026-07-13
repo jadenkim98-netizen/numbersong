@@ -4703,12 +4703,15 @@ window.SOUNDTRACK = SOUNDTRACK;
         } catch (e) {
         }
       };
-      const onVis = () => {
-        if (document.visibilityState === "hidden") {
-          wasHidden = true;
-          return;
+      const pause = () => {
+        wasHidden = true;
+        try {
+          Tone.context.rawContext.suspend();
+        } catch (e) {
         }
-        ctxResume();
+      };
+      const onVis = () => {
+        document.visibilityState === "hidden" ? pause() : ctxResume();
       };
       const onGesture = () => {
         ctxResume();
@@ -4717,19 +4720,16 @@ window.SOUNDTRACK = SOUNDTRACK;
           wasHidden = false;
         }
       };
-      const onBlur = () => {
-        wasHidden = true;
-      };
       document.addEventListener("visibilitychange", onVis);
+      window.addEventListener("pagehide", pause);
       window.addEventListener("focus", ctxResume);
       window.addEventListener("pageshow", ctxResume);
-      window.addEventListener("blur", onBlur);
       window.addEventListener("pointerdown", onGesture, true);
       return () => {
         document.removeEventListener("visibilitychange", onVis);
+        window.removeEventListener("pagehide", pause);
         window.removeEventListener("focus", ctxResume);
         window.removeEventListener("pageshow", ctxResume);
-        window.removeEventListener("blur", onBlur);
         window.removeEventListener("pointerdown", onGesture, true);
       };
     }, []);
