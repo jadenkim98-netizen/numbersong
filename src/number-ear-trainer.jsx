@@ -410,6 +410,33 @@ function useAudio() {
     return 1.6;
   }, [ensure]);
 
+  // Chord playback for the Sylva tutorial: "walk" (arpeggio low→high), "ring" (block), or
+  // "both" (walk then ring). Voices ascending like playChord so the ROOT is the lowest note.
+  const playChordWR = useCallback(async (key, tones, mode = "both") => {
+    const g = audioGenRef.current;
+    await ensure();
+    if (g !== audioGenRef.current) return 0;
+    const now = Tone.now();
+    let lastMidi = -1;
+    const notes = tones.map((d) => {
+      let midi = Tone.Frequency(key + 4).toMidi() + DEGREE_SEMITONES[d];
+      while (midi <= lastMidi) midi += 12;
+      lastMidi = midi;
+      return Tone.Frequency(midi, "midi").toNote();
+    });
+    const step = 0.5;
+    let t = now;
+    if (mode === "walk" || mode === "both") {
+      notes.forEach((n, i) => synthRef.current.triggerAttackRelease(n, 0.42, now + i * step));
+      t = now + notes.length * step + 0.12;
+    }
+    if (mode === "ring" || mode === "both") {
+      synthRef.current.triggerAttackRelease(notes, 1.5, t);
+      t += 1.5;
+    }
+    return t - now; // total seconds
+  }, [ensure]);
+
   const playSemi = useCallback(async (key, semi, delay = 0, octave = 4) => {
     await ensure();
     const midi = Tone.Frequency(key + octave).toMidi() + semi;
@@ -768,7 +795,7 @@ function useAudio() {
     }
   }, []);
 
-  return { playCadence, setCadenceSpeed, playDegree, playChord, playProgression, playSemi, sing, singMinor, minorShift, minorVoiceRef, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm: ensure };
+  return { playCadence, setCadenceSpeed, playDegree, playChord, playChordWR, playProgression, playSemi, sing, singMinor, minorShift, minorVoiceRef, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm: ensure };
 }
 
 // Background music engine (Fable's soundtrack). Owns Tone.Transport; routes
@@ -1140,18 +1167,21 @@ function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singI
 /* ────────────────────  GUIDE CHORD STACK  ────────────────────
    His slide notation: the seven degrees stacked, the chord's tones circled. */
 
-function GuideStack({ label, world, onPlay, onNote }) {
-  const tones = worldChordTones(world);
+function GuideStack({ label, world, tones: tonesProp, hi, home, onPlay, onNote }) {
+  // Default = the world's 7th-chord skeleton; pass `tones` to show an exact chord (e.g. a
+  // triad). `hi` glows specific degrees (shared voices), `home` stars one (the tonic).
+  const tones = tonesProp || worldChordTones(world);
   return (
     <div className="stack">
       {[7, 6, 5, 4, 3, 2, 1].map((d) => {
-        const cls = "stack-note" + (tones.includes(d) ? " on" : "");
+        const cls = "stack-note" + (tones.includes(d) ? " on" : "")
+          + (hi?.includes(d) ? " hi" : "") + (home === d ? " home" : "");
         return onNote
           ? <button key={d} type="button" className={cls + " sn-play"} onClick={() => onNote(d)} aria-label={"Play note " + d}>{d}</button>
           : <span key={d} className={cls}>{d}</span>;
       })}
       {onPlay
-        ? <button type="button" className="stack-label sl-play" onClick={() => onPlay(world)} aria-label={"Play the " + label + " chord"}>{label}</button>
+        ? <button type="button" className="stack-label sl-play" onClick={() => onPlay(world, tones)} aria-label={"Play the " + label + " chord"}>{label}</button>
         : <span className="stack-label">{label}</span>}
     </div>
   );
@@ -1775,7 +1805,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
 /* ─────────────────────────────  APP  ───────────────────────────── */
 
 export default function NumberEarTrainer() {
-  const { playCadence, setCadenceSpeed, playDegree, playChord, playProgression, playSemi, sing, singMinor, minorShift, minorVoiceRef, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm } = useAudio();
+  const { playCadence, setCadenceSpeed, playDegree, playChord, playChordWR, playProgression, playSemi, sing, singMinor, minorShift, minorVoiceRef, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm } = useAudio();
   const { playTheme, stopMusic, setMusicOn } = useMusic();
   const [musicPref, setMusicPref] = useState(() => loadPref("music", "1") === "1");
 
@@ -1817,10 +1847,18 @@ export default function NumberEarTrainer() {
   const tutThenEnterRef = useRef(null);               // node id to enter after a mid-game tutorial (Rue → Lowmoor Fen); null = go to the map
   const [tutMode, setTutMode] = useState("teach");    // "teach" (dialogue beats) | "drill" (3 coached in-cutscene drills)
   const [tutDrillN, setTutDrillN] = useState(0);      // which of the 3 cutscene drills (0..2)
-  const [tutDrillTarget, setTutDrillTarget] = useState(null); // pitch-class being tested
+  const [tutDrillTarget, setTutDrillTarget] = useState(null); // pitch-class being tested (note chapters)
   const [tutDrillPhase, setTutDrillPhase] = useState("play"); // play | answer | win
+  // Chord-chapter (Sylva) drill state: the target chord's degrees, the goal set the player
+  // must tap (root only → the two upper voices → all three), any pre-given degree (drill 2's
+  // root), and the player's current picks.
+  const [tutChordTones, setTutChordTones] = useState([]); // e.g. [4,6,1] for the 4 chord
+  const [tutGoal, setTutGoal] = useState([]);             // degrees the picks must equal
+  const [tutGiven, setTutGiven] = useState([]);           // pre-circled degrees (not counted as picks)
+  const [tutPicks, setTutPicks] = useState([]);           // degrees the player has tapped
   const tutTimerRef = useRef(null);
   const tutGenRef = useRef(0); // bumped when the tutorial is skipped/graduated — an in-flight startTutDrill await checks it and bails (no note/timer leaking onto the map)
+  const tutChordRomanRef = useRef(null); // last chord drilled (avoid an immediate repeat)
   const [tutorialActive, setTutorialActive] = useState(false); // (legacy) session Q1 coaching — unused now
   const [tutReveal, setTutReveal] = useState(false);  // reveal the target pad after a wrong tap
   const [revealPc, setRevealPc] = useState(null);     // real-drill: pc of the target, revealed after repeated misses so a stuck learner isn't left guessing
@@ -1927,9 +1965,10 @@ export default function NumberEarTrainer() {
     bootAdvancedRef.current = true;
     try { bootChime(); } catch (e) {}
     try { haptic(false); } catch (e) {}
-    // First-run public players get Verda's guided tutorial; unlocked students &
-    // returning players (tut seen) go straight to the Adventure map.
-    const toTutorial = !unlocked && loadPref("tut", "0") !== "1";
+    // Everyone sees Verda's first-run tutorial once (gated only on the "tut" flag, like
+    // the mid-game keeper tutorials) — so paid students meet Verda too, and Rue/Sylva/
+    // Bassil's callbacks to her never dangle. Returning players (tut seen) skip to the map.
+    const toTutorial = loadPref("tut", "0") !== "1";
     track("boot_advance", { to: toTutorial ? "tutorial" : "adventure", unlocked });
     if (toTutorial) startTutorial("major");
     else setScreen("adventure");
@@ -1943,10 +1982,14 @@ export default function NumberEarTrainer() {
   // the coached drills quiz (major 1·2·3; minor 6·7·1 — home + its neighbours). flag = the localStorage
   // "seen it" pref so each tutorial only auto-shows once.
   const TUT_CFG = {
-    major: { key: "C", mode: "major", homePc: 0, pool: [0, 2, 4], flag: "tut",
+    major: { key: "C", mode: "major", homePc: 0, pool: [0, 2, 4], flag: "tut", kind: "note",
       spriteAlt: "Verda", sceneClass: "", nameTab: "Verda, the Meadow Keeper", loc: "Staircase Meadows" },
-    minor: { key: "C", mode: "minor", homePc: 9, pool: [9, 11, 0], flag: "tut2",
+    minor: { key: "C", mode: "minor", homePc: 9, pool: [9, 11, 0], flag: "tut2", kind: "note",
       spriteAlt: "Rue", sceneClass: "tut-fen", nameTab: "Old Rue of the Fen", loc: "Lowmoor Fen" },
+    // Sylva / chords (Glasswood, node 3). pool = the workhorse triads by roman; the coached
+    // drills quiz these as chords (hear → tap the degrees on the stack), not single notes.
+    chords: { key: "C", mode: "major", homePc: 0, pool: ["I", "IV", "V", "vi"], flag: "tut3", kind: "chord",
+      spriteAlt: "Sylva", sceneClass: "tut-glass", nameTab: "Sylva of the Glasswood", loc: "the Glasswood" },
   };
   const tutCfg = TUT_CFG[tutChapter];
   // Where to go when a tutorial ends: a mid-game tutorial (Rue) drops you INTO its region;
@@ -1967,8 +2010,33 @@ export default function NumberEarTrainer() {
   };
   // Replay the current chapter's tutorial from the top (from the menu) — don't touch its flag.
   const replayTutorial = () => { try { sfx("select"); } catch (e) {} startTutorial(tutChapter, tutThenEnterRef.current); };
+  // Sylva's chord drills: ramp root → the two upper voices (root given) → all three (block first).
+  const CHORD_DRILLS = [
+    { pool: ["I", "IV", "V"],       need: "root",  play: "both" },
+    { pool: ["I", "IV", "V", "vi"], need: "upper", play: "both" },
+    { pool: ["I", "IV", "V", "vi"], need: "all",   play: "ring" },
+  ];
   const startTutDrill = async (n) => {
     const gen = tutGenRef.current;
+    if (tutCfg.kind === "chord") {
+      const cfg = CHORD_DRILLS[n];
+      let roman; do { roman = cfg.pool[Math.floor(Math.random() * cfg.pool.length)]; } while (roman === tutChordRomanRef.current && cfg.pool.length > 1);
+      tutChordRomanRef.current = roman;
+      const tones = chordTones(chordByRoman(roman)); // triad [root, third, fifth]
+      const root = tones[0];
+      const goal = cfg.need === "root" ? [root] : cfg.need === "upper" ? tones.filter((d) => d !== root) : tones.slice();
+      const given = cfg.need === "upper" ? [root] : [];
+      setTutChordTones(tones); setTutGoal(goal); setTutGiven(given); setTutPicks([]);
+      setTutReveal(false); setTutDrillPhase("play");
+      try {
+        const t = (await playCadence("C", "major")) + 0.2; // establish home, then the chord
+        if (gen !== tutGenRef.current) return;
+        const dur = await playChordWR("C", tones, cfg.play);
+        if (tutTimerRef.current) clearTimeout(tutTimerRef.current);
+        tutTimerRef.current = setTimeout(() => { if (gen === tutGenRef.current) setTutDrillPhase("answer"); }, (t + dur + 0.1) * 1000);
+      } catch (e) { if (gen === tutGenRef.current) setTutDrillPhase("answer"); }
+      return;
+    }
     const pool = tutCfg.pool; // major 1·2·3, minor 6·7·1
     // The minor test opens on 6 (home) so the first note the player names is the fen's
     // resting place; the rest of the drills stay random from the pool.
@@ -1985,7 +2053,13 @@ export default function NumberEarTrainer() {
     } catch (e) { if (gen === tutGenRef.current) setTutDrillPhase("answer"); }
   };
   const enterTutDrills = () => { try { sfx("select"); } catch (e) {} track("tutorial_drills_start", { chapter: tutChapter }); setTutMode("drill"); setTutDrillN(0); startTutDrill(0); };
-  const replayTutNote = () => { try { playCadence(tutCfg.key, tutCfg.mode).then((t) => playSemi(tutCfg.key, tutDrillTarget, t + 0.2, 4)); } catch (e) {} };
+  const replayTutNote = () => {
+    try {
+      if (tutCfg.kind === "chord") { playChordWR("C", tutChordTones, tutDrillN === 2 ? "ring" : "both"); return; }
+      playCadence(tutCfg.key, tutCfg.mode).then((t) => playSemi(tutCfg.key, tutDrillTarget, t + 0.2, 4));
+    } catch (e) {}
+  };
+  const walkTutChord = () => { try { playChordWR("C", tutChordTones, "walk"); } catch (e) {} }; // drill-3 "Walk it" helper
   const playTutCadenceMinor = () => { if (busy) return; try { playCadence("C", "minor"); } catch (e) {} }; // Rue's "hear home settle on 6"
   const answerTutDrill = (pc) => {
     if (tutDrillPhase !== "answer") return;
@@ -2012,6 +2086,39 @@ export default function NumberEarTrainer() {
     } else {
       setTutReveal(true); // reveal the target — "feel it again, it's the glowing one"
       try { playSemi(tutCfg.key, pc, 0, 4); } catch (e) {}
+    }
+  };
+  // Sylva chord drill: tap a degree on the stack to toggle it as a pick. Auto-checks when the
+  // player has tapped as many as the goal needs (root only / two upper / all three).
+  const toggleTutPick = (d) => {
+    if (tutDrillPhase !== "answer" || tutGiven.includes(d)) return;
+    const next = tutPicks.includes(d)
+      ? tutPicks.filter((x) => x !== d)
+      : (tutPicks.length < tutGoal.length ? [...tutPicks, d] : tutPicks);
+    setTutReveal(false); setTutPicks(next);
+    if (next.length === tutGoal.length) checkTutChord(next);
+  };
+  const checkTutChord = (picks) => {
+    const gen = tutGenRef.current;
+    const ok = picks.length === tutGoal.length && tutGoal.every((d) => picks.includes(d));
+    if (ok) {
+      setTutDrillPhase("win"); setTutReveal(false);
+      try { haptic(false); } catch (e) {}
+      setTutCelebrate(true);
+      try { playChordWR("C", tutChordTones, "ring"); } catch (e) {} // triumphant ring of the whole chord
+      if (tutTimerRef.current) clearTimeout(tutTimerRef.current);
+      tutTimerRef.current = setTimeout(() => {
+        if (gen !== tutGenRef.current) return; // skipped/graduated during the celebration
+        setTutCelebrate(false);
+        if (tutDrillN + 1 < TUT_DRILLS) { setTutDrillN((k) => k + 1); startTutDrill(tutDrillN + 1); }
+        else { savePref(tutCfg.flag, "1"); setTutDrillN(0); setTutMode("done"); }
+      }, 1900);
+    } else {
+      // wrong → glow the notes they needed, re-walk the chord, then clear picks to retry
+      setTutReveal(true);
+      try { playChordWR("C", tutChordTones, "walk"); } catch (e) {}
+      if (tutTimerRef.current) clearTimeout(tutTimerRef.current);
+      tutTimerRef.current = setTimeout(() => { if (gen === tutGenRef.current) { setTutPicks([]); setTutReveal(false); } }, (tutChordTones.length * 0.5 + 0.6) * 1000);
     }
   };
   const [mode, setMode] = useState("melody");     // melody | chords
@@ -3069,6 +3176,8 @@ export default function NumberEarTrainer() {
     // Before the FIRST minor region (Lowmoor Fen, node 2): Rue's la-based-minor tutorial,
     // once. graduate/skip sets the tut2 flag and re-enters this stage via tutThenEnterRef.
     if (n.id === 2 && loadPref("tut2", "0") !== "1") { startTutorial("minor", 2); return; }
+    // Before the FIRST chord region (Glasswood, node 3): Sylva's chord tutorial, once.
+    if (n.id === 3 && loadPref("tut3", "0") !== "1") { startTutorial("chords", 3); return; }
     setFromAdventure(true);
     setAdvStageId(n.id);
     setMode(s.mode);
@@ -3174,6 +3283,7 @@ export default function NumberEarTrainer() {
     const TUTS = [
       { chapter: "major", flag: "tut",  icon: "🌱", title: "Staircase Meadows", sub: "Verda · the major map — home is 1" },
       { chapter: "minor", flag: "tut2", icon: "🌙", title: "Lowmoor Fen", sub: "Old Rue · la-based minor — home is 6" },
+      { chapter: "chords", flag: "tut3", icon: "🌲", title: "The Glasswood", sub: "Sylva · chords — 1 · 4 · 5 · 6" },
     ];
     const passed = TUTS.filter((t) => loadPref(t.flag, "0") === "1");
     return (
@@ -4144,7 +4254,7 @@ export default function NumberEarTrainer() {
     // (Staircase Meadows) and Rue/minor (Lowmoor Fen). tutCfg + tutChapter drive the swap;
     // Rue's beats reuse the same widgets with the minor map (home = 6) + a fen backdrop.
     const isMinor = tutChapter === "minor";
-    const keeperSrc = typeof window !== "undefined" ? (isMinor ? window.RUE_SPRITE : window.VERDA_SPRITE) : "";
+    const keeperSrc = typeof window !== "undefined" ? (tutChapter === "chords" ? window.SYLVA_SPRITE : isMinor ? window.RUE_SPRITE : window.VERDA_SPRITE) : "";
     // The teaching maps are interactive — tap any pad to hear that degree (reuse the
     // guide's ExploreMap + playExplore). One shared element for every map beat.
     const tutMap = <ExploreMap start={1} count={8} stage={0} octaves={1} world={null} active={litActive} onPlay={playExplore} />;
@@ -4247,13 +4357,65 @@ export default function NumberEarTrainer() {
         lines: <>Enough of my talk — the reeds teach better than I do. I'll hum a note into the mist. <b className="hl-t">Listen deeply</b>, feel how far it sits from <b className="hl-t">6</b>, then name its number. Sing it back soft if you like; the fen won't laugh. Three tries, right here beside me.</>,
         stage: tutMapMinor },
     ];
-    const beats = isMinor ? rueBeats : verdaBeats;
+    // ── Sylva / Glasswood (chords). Reading chords on the one tonal ladder + hearing each
+    //    voice (walk → ring). Triads shown via GuideStack's explicit `tones`. Copy by Fable. ──
+    const TRI = { I: [1, 3, 5], IV: [4, 6, 1], V: [5, 7, 2], vi: [6, 1, 3] };
+    const gsPlay = (w, tones) => { if (!busy) playChordWR("C", tones, "ring"); };
+    const gsNote = (d) => { try { playDegree("C", d, 0); } catch (e) {} };
+    const hearCh = (tones, mode) => () => { if (!busy) playChordWR("C", tones, mode); };
+    const hearProg = (seq) => () => { if (!busy) playProgression("C", seq, 0, 0.72); };
+    const sylvaBeats = [
+      { title: "The Forest That Rings", cue: null, hear: { label: "▶ Hear it", act: hearCh(TRI.I, "ring") },
+        lines: <>Hush, traveler — step lightly. You've reached the <b className="hl-g">Glasswood</b>, and I'm <b className="hl-t">Sylva</b>. Three notes at once, and you can hear every one. Look through the chord like glass.</>,
+        stage: <div className="stacks"><GuideStack label="1" tones={TRI.I} onPlay={gsPlay} onNote={gsNote} /></div> },
+      { title: "Nothing New Grows Here", cue: null, hear: { label: "▶ Hear the 1 chord", act: hearCh(TRI.I, "both") },
+        lines: <>Remember what Verda told you? <b className="hl-g">Chords are just numbers, stacked</b> — nothing here you haven't met. Only <b className="hl-t">1</b>, <b className="hl-g">3</b>, and <b className="hl-g">5</b>, ringing at once. Old friends, standing close. Tap a circled number to hear that voice.</>,
+        stage: <div className="stacks"><GuideStack label="1" tones={TRI.I} onPlay={gsPlay} onNote={gsNote} /></div> },
+      { title: "One Ladder, Every Chord", cue: null,
+        lines: <>Here's why I write them <b className="hl-g">stacked</b>. This ladder holds all <b className="hl-g">seven numbers</b> of the octave — the very ones Verda gave you. Every chord in the world lands right here; a chord is only <b className="hl-g">which rungs light up</b>. Tap each — you never learn a "new chord," you just read the ladder.</>,
+        stage: <div className="stacks"><GuideStack label="1" tones={TRI.I} onPlay={gsPlay} onNote={gsNote} /><GuideStack label="4" tones={TRI.IV} onPlay={gsPlay} onNote={gsNote} /><GuideStack label="5" tones={TRI.V} onPlay={gsPlay} onNote={gsNote} /><GuideStack label="6" tones={TRI.vi} onPlay={gsPlay} onNote={gsNote} /></div> },
+      { title: "The Note That's Really Home", cue: null, hear: { label: "▶ Hear the 4 chord", act: hearCh(TRI.IV, "both") },
+        lines: <>Some folk name a chord's voices <em>root, third, fifth</em> — counted from the chord, never the key. That hides where they live. Look at the <b className="hl-g">4 chord</b>: <b className="hl-g">4, 6, and 1</b>. Count the old way and that last note is just "the <b className="hl-g">fifth</b>" — a stranger. The ladder names it true: it's <b className="hl-t">1</b>. <b className="hl-t">Home</b>, ringing right inside the 4.</>,
+        stage: <div className="stacks tut-glass-stage"><GuideStack label="4" tones={TRI.IV} home={1} onPlay={gsPlay} onNote={gsNote} /><div className="tut-cap">that <b className="hl-t">1</b> is <b className="hl-t">home</b> — not just "the 5th"</div></div> },
+      { title: "Walk It, Then Ring It", cue: null,
+        lines: <>Never meet a chord head-on. <b className="hl-g">Walk</b> it first — one trunk at a time, low to high — then let it <b className="hl-g">ring</b>, all together. Nothing changed between the two; you simply stopped walking.</>,
+        stage: <div className="stacks tut-glass-stage"><GuideStack label="1" tones={TRI.I} onPlay={gsPlay} onNote={gsNote} /><div className="tut-wr"><button className="btn go" disabled={busy} onClick={hearCh(TRI.I, "walk")}>▶ Walk it</button><button className="btn go" disabled={busy} onClick={hearCh(TRI.I, "ring")}>▶ Ring it</button></div></div> },
+      { title: "Chords Are Kin", cue: null,
+        lines: <>Now the ladder's finest gift: you can see a chord's <b className="hl-g">family</b>. Set the <b className="hl-t">1</b> beside the <b className="hl-g">6</b> — look close. Two of their three rungs land on the same numbers: <b className="hl-t">1 and 3</b>. They share most of their <b className="hl-g">DNA</b> — change one voice of home and you <em>have</em> the 6. It's home's own blood, wearing shadow.</>,
+        stage: <div className="stacks tut-kin"><GuideStack label="1" tones={TRI.I} hi={[1, 3]} onPlay={gsPlay} onNote={gsNote} /><GuideStack label="6" tones={TRI.vi} hi={[1, 3]} onPlay={gsPlay} onNote={gsNote} /></div> },
+      { title: "The Four Groves, and How They Lean", cue: null, hear: { label: "▶ 5 → 1", act: hearProg([TRI.V, TRI.I]) },
+        lines: <>Four groves do most of the singing: <b className="hl-t">1</b>, <b className="hl-g">4</b>, <b className="hl-g">5</b>, <b className="hl-g">6</b>. The <b className="hl-t">1</b> rests — <b className="hl-t">home</b>, at ease. <b className="hl-g">4</b> and <b className="hl-g">5</b> are the bright roads away; <b className="hl-g">5</b> leans hard for home. And <b className="hl-g">6</b> — the <b className="hl-g">tender cousin</b>; Old Rue would nod. Home lives inside it, its <b className="hl-t">1</b> and <b className="hl-g">3</b>.</>,
+        stage: <div className="stacks"><GuideStack label="1" tones={TRI.I} onPlay={gsPlay} onNote={gsNote} /><GuideStack label="4" tones={TRI.IV} onPlay={gsPlay} onNote={gsNote} /><GuideStack label="5" tones={TRI.V} onPlay={gsPlay} onNote={gsNote} /><GuideStack label="6" tones={TRI.vi} home={1} onPlay={gsPlay} onNote={gsNote} /></div> },
+      { title: "Read the Grove", cue: null, hear: { label: "▶ Walk it, then ring it", act: hearCh(TRI.I, "both") },
+        lines: <>Enough talk — glass is for looking <em>through</em>. I'll <b className="hl-g">walk</b> a chord, then <b className="hl-g">ring</b> it, and you'll answer on the <b className="hl-g">stack</b>: tap the numbers you hear. Wrong trunks cost nothing; glass forgives. Three tries with me, and we start low.</>,
+        stage: <div className="stacks"><GuideStack label="1" tones={TRI.I} onPlay={gsPlay} onNote={gsNote} /></div> },
+    ];
+    const beats = tutChapter === "chords" ? sylvaBeats : isMinor ? rueBeats : verdaBeats;
     const step = Math.min(tutStep, beats.length - 1); // clamp: never index past the array
     const beat = beats[step];
     const last = step === beats.length - 1;
     const drill = tutMode === "drill";
     const done = tutMode === "done"; // graduation send-off after the 3 drills
-    const drillTitle = tutDrillPhase === "play" ? "Listen…" : tutDrillPhase === "win" ? "You felt it!" : "Which number?";
+    const isChords = tutChapter === "chords";
+    const drillTitle = tutDrillPhase === "play" ? "Listen…"
+      : tutDrillPhase === "win" ? (isChords ? "Clear as glass!" : "You felt it!")
+      : isChords ? (tutDrillN === 0 ? "Which number?" : "Which numbers?") : "Which number?";
+    // Sylva's per-drill coached lines (root → two upper → all three).
+    const sylvaDrills = [
+      { listen: <>Softly now. I'll <b className="hl-g">walk</b> it low to high, then let it <b className="hl-g">ring</b>. Fix on the <b className="hl-t">first voice</b> — the lowest one, the trunk the others grow from.</>,
+        prompt: <>Which number sang <b className="hl-t">first and lowest</b>? That's the <b className="hl-g">root</b> — tap it on the stack.</>,
+        wrong: <>Not that trunk — no shame; glass only asks you to look again. The first, lowest voice is glowing. Let your ear rest <b className="hl-t">down</b>.</>,
+        win: <>You found the <b className="hl-g">ground</b> — and the ground is the chord's <b className="hl-g">name</b>. The rest is just looking up.</> },
+      { listen: <>This time I give you the <b className="hl-t">ground</b> — see it, already circled. <b className="hl-g">Walk</b> with me, then find the <b className="hl-g">two voices above it</b>.</>,
+        prompt: <>Two rungs are still dark. Which <b className="hl-g">two numbers</b> are ringing? Tap them both.</>,
+        wrong: <>Close — one voice slipped behind another. The two you need are glowing; hear the walk once more.</>,
+        win: <>Both, clean. You're not guessing — you're <b className="hl-g">standing inside the chord</b> and turning your head.</> },
+      { listen: <>Last one — I'll ring it <b className="hl-g">all at once</b>, the way songs give it to you. If the blur comes, tap <b className="hl-g">Walk it</b> and I'll take you through.</>,
+        prompt: <>Three voices, each in its place. Tap <b className="hl-g">all three numbers</b>.</>,
+        wrong: <>Almost through — one pane's fogged. The three are glowing; watch me walk them once more.</>,
+        win: <>You heard every voice in the chord. <b className="hl-g">Clear as glass.</b></> },
+    ];
+    const chordDrillLine = (() => { const d = sylvaDrills[Math.min(tutDrillN, 2)]; return tutDrillPhase === "win" ? d.win : tutReveal ? d.wrong : tutDrillPhase === "play" ? d.listen : d.prompt; })();
     const drillLine = isMinor
       ? (tutDrillPhase === "win"
           ? <>There it is. Even in the low light, you're <b className="hl-g">naming what you hear</b>.</>
@@ -4272,6 +4434,18 @@ export default function NumberEarTrainer() {
     return (
       <div className={"app tutorial" + (tutCfg.sceneClass ? " " + tutCfg.sceneClass : "")}>
         <style>{CSS}</style>
+        <style>{`
+          .tut-glass-stage { flex-direction: column; align-items: center; gap: 8px; }
+          .tut-cap { font: 12px var(--sans, Archivo, sans-serif); color: var(--text, #EDF2EE); opacity: .85; text-align: center; }
+          .tut-wr { display: flex; gap: 8px; justify-content: center; }
+          .tut-kin { gap: 26px; position: relative; }
+          .tut-kin::after { content: "shared: 1 · 3"; position: absolute; left: 0; right: 0; bottom: -14px; text-align: center; font: 9px var(--pf, 'Courier New', monospace); letter-spacing: 1px; text-transform: uppercase; color: var(--teal, #57C6C4); }
+          .stack-note.hi { box-shadow: inset 0 0 0 2px var(--teal, #57C6C4); color: var(--teal, #57C6C4); }
+          .stack-note.home { background: var(--teal, #57C6C4); color: #12201d; border-color: var(--teal, #57C6C4); }
+          .chord-drill { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+          .tut-drillpad .num.given { opacity: .55; box-shadow: inset 0 0 0 2px var(--teal, #57C6C4); }
+          .tut-walk { align-self: center; }
+        `}</style>
         {isMinor ? (
           <div className="tut-scene" aria-hidden="true">
             <div className="moon" />
@@ -4298,9 +4472,30 @@ export default function NumberEarTrainer() {
             {!done && <button className="skip" onClick={skipTutorial}>Skip ▸</button>}
           </div>
           <div className="stagepanel">
-            <div className="stagetitle">{done ? (isMinor ? "The fen is yours" : "The map is yours") : drill ? drillTitle : beat.title}</div>
+            <div className="stagetitle">{done ? (isChords ? "The Glasswood is yours" : isMinor ? "The fen is yours" : "The map is yours") : drill ? drillTitle : beat.title}</div>
             <div className="stage-fit">
-              {done ? (isMinor ? tutMapMinor : tutMap) : drill ? (
+              {done ? (isChords ? <div className="stacks"><GuideStack label="1" tones={TRI.I} onPlay={gsPlay} onNote={gsNote} /></div> : isMinor ? tutMapMinor : tutMap)
+              : drill ? (isChords ? (
+                <div className="chord-drill">
+                  <SessionStack picked={[...tutGiven, ...tutPicks]}
+                    correct={tutDrillPhase === "win" ? tutChordTones : tutReveal ? tutGoal : null}
+                    wrong={tutReveal ? tutPicks.filter((d) => !tutGoal.includes(d)) : null} label="?" />
+                  <div className="numpad coach tut-drillpad">
+                    {[1, 2, 3, 4, 5, 6, 7].map((d) => {
+                      const given = tutGiven.includes(d), picked = tutPicks.includes(d);
+                      return (
+                        <button key={d}
+                          className={"num" + (given || picked ? " picked" : "") + (given ? " given" : "") + (tutReveal && tutGoal.includes(d) ? " coach-target" : "")}
+                          onClick={() => toggleTutPick(d)}
+                          disabled={tutDrillPhase !== "answer" || given}>
+                          {d}<span className="num-sol">{SOLFEGE[d]}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {tutDrillN === 2 && <button className="btn go tut-walk" disabled={busy || tutDrillPhase !== "answer"} onClick={walkTutChord}>▶ Walk it</button>}
+                </div>
+              ) : (
                 <div className="numpad coach tut-drillpad">
                   {(isMinor ? [6, 7, 1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, 6, 7]).map((d) => {
                     const pc = DEGREE_TO_PC[d];
@@ -4315,9 +4510,9 @@ export default function NumberEarTrainer() {
                     );
                   })}
                 </div>
-              ) : beat.stage}
+              )) : beat.stage}
             </div>
-            {(done || (!drill && (beat.stage === tutMap || beat.stage === tutMapStair || beat.stage === tutTwelve || beat.stage === tutHalfStage || beat.stage === tutMapMinor || beat.stage === tutMapMinorStair || beat.stage === tutMapMinorHalf))) && <div className="tut-explore">↯ Tap the map — hear any note, explore freely</div>}
+            {((done && !isChords) || (!drill && (beat.stage === tutMap || beat.stage === tutMapStair || beat.stage === tutTwelve || beat.stage === tutHalfStage || beat.stage === tutMapMinor || beat.stage === tutMapMinorStair || beat.stage === tutMapMinorHalf))) && <div className="tut-explore">↯ Tap the map — hear any note, explore freely</div>}
           </div>
           <div className="tut-mid">
             <div className="tut-midstack">
@@ -4345,14 +4540,16 @@ export default function NumberEarTrainer() {
           <div className="dwrap">
             <span className="ntab">{tutCfg.nameTab}</span>
             <div className="dbox">{done
-              ? (isMinor
+              ? (isChords
+                  ? <>You heard every voice in the chord — <b className="hl-g">clear as glass</b>. The Glasswood is yours to wander now. <b className="hl-g">Walk</b> a chord when it blurs, <b className="hl-g">ring</b> it when you're sure — and remember, every chord you'll ever meet is only numbers, <b className="hl-t">standing close</b>.</>
+                  : isMinor
                   ? <>You found <b className="hl-t">6</b> in the dark — that's the whole trick. Nothing down here ever moved; you just learned where <b className="hl-t">home</b> sleeps. Same seven numbers, same map, a darker porch light. And when the fen sounds sad to you now… smile. You know its secret.</>
                   : <>You did it — you just named notes by <b className="hl-g">ear</b>, the very skill most players are missing. The meadow is yours now: wander it, tap anything, and remember — everything is relative to <b className="hl-t">1</b>.</>)
-              : drill ? drillLine : beat.lines}</div>
+              : drill ? (isChords ? chordDrillLine : drillLine) : beat.lines}</div>
           </div>
           {done ? (
             <div className="btnrow">
-              <button className="btn next tut-grad" onClick={graduateTutorial}>{isMinor ? "Into the fen ▸" : "Begin the journey ▸"}</button>
+              <button className="btn next tut-grad" onClick={graduateTutorial}>{isChords ? "Into the Glasswood ▸" : isMinor ? "Into the fen ▸" : "Begin the journey ▸"}</button>
             </div>
           ) : !drill && (
             <div className="btnrow">
