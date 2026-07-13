@@ -148,7 +148,7 @@ const FREE = { melodyGroups: 1, adventureRegions: 4, freePlayPaths: 1, freePlayW
      POSTHOG_KEY  — from PostHog → Project Settings → Project API Key (starts "phc_").
      POSTHOG_HOST — PostHog API host: "https://us.i.posthog.com" or "https://eu.i.posthog.com". */
 const SENTRY_DSN = "";
-const POSTHOG_KEY = "";
+const POSTHOG_KEY = "phc_ky5DGTUrbsY3FfiqV6bgk7w9BJcXg9UENafMJzaXepSb";
 const POSTHOG_HOST = "https://us.i.posthog.com";
 
 // Each of the four worlds (diatonic/chromatic × major/minor) follows the same
@@ -508,6 +508,8 @@ try {
       disable_session_recording: true,     // light + private: explicit events only
       persistence: "localStorage",         // cookieless
       person_profiles: "identified_only",  // anonymous unless we ever identify() (we don't)
+      advanced_disable_decide: true,       // no feature-flag/remote-config fetch — we hardcode config, keeps it offline-clean
+      disable_surveys: true,
       bootstrap: { distinctID: trackCid },
     });
     trackOn = true;
