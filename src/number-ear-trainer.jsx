@@ -4779,7 +4779,7 @@ export default function NumberEarTrainer() {
           </div>
         </div>
         </div>
-          <p className="hint center fp-help">Solo over the changes — land on the circled tones. <em>Try the number keys on a keyboard, or turn to landscape on mobile.</em></p>
+          <p className="hint center fp-help">Solo over the changes — the circled notes are the chord playing right now, so land on them. <em>Try the number keys on a keyboard, or turn to landscape on mobile.</em></p>
         </>
       ) : (
       <>
