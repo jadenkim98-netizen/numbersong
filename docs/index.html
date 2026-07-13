@@ -2254,22 +2254,22 @@ window.SOUNDTRACK = SOUNDTRACK;
 </script>
 <script>
 (() => {
-  const { useState, useRef, useEffect, useLayoutEffect, useCallback } = React;
-  const KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
-  const DEGREE_SEMITONES = { 1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9, 7: 11, 8: 12, 9: 14 };
-  const SOLFEGE = { 1: "do", 2: "re", 3: "mi", 4: "fa", 5: "sol", 6: "la", 7: "ti", 8: "do" };
-  const NUMBER_WORDS = { 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "one" };
-  const degreeLabel = (d) => d === 8 ? "1" : String(d);
-  const NOTE_LABELS = ["1", "♭2", "2", "♭3", "3", "4", "♯4", "5", "♭6", "6", "♭7", "7"];
-  const NOTE_SOLFEGE = ["do", "ra", "re", "me", "mi", "fa", "fi", "sol", "le", "la", "te", "ti"];
-  const ALTERED_PCS = [1, 3, 6, 8, 10];
-  const NAT_PCS = [0, 2, 4, 5, 7, 9, 11];
-  const ALL12 = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-  const PC_TO_DEGREE = { 0: 1, 2: 2, 4: 3, 5: 4, 7: 5, 9: 6, 11: 7 };
-  const DEGREE_TO_PC = { 1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9, 7: 11 };
-  const mod12 = (n) => (n % 12 + 12) % 12;
-  const tonicPcOf = (mode) => mode === "minor" ? 9 : 0;
-  const CADENCES = {
+  // src/theory.mjs
+  var KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+  var DEGREE_SEMITONES = { 1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9, 7: 11, 8: 12, 9: 14 };
+  var SOLFEGE = { 1: "do", 2: "re", 3: "mi", 4: "fa", 5: "sol", 6: "la", 7: "ti", 8: "do" };
+  var NUMBER_WORDS = { 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "one" };
+  var degreeLabel = (d) => d === 8 ? "1" : String(d);
+  var NOTE_LABELS = ["1", "♭2", "2", "♭3", "3", "4", "♯4", "5", "♭6", "6", "♭7", "7"];
+  var NOTE_SOLFEGE = ["do", "ra", "re", "me", "mi", "fa", "fi", "sol", "le", "la", "te", "ti"];
+  var ALTERED_PCS = [1, 3, 6, 8, 10];
+  var NAT_PCS = [0, 2, 4, 5, 7, 9, 11];
+  var ALL12 = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+  var PC_TO_DEGREE = { 0: 1, 2: 2, 4: 3, 5: 4, 7: 5, 9: 6, 11: 7 };
+  var DEGREE_TO_PC = { 1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9, 7: 11 };
+  var mod12 = (n) => (n % 12 + 12) % 12;
+  var tonicPcOf = (mode) => mode === "minor" ? 9 : 0;
+  var CADENCES = {
     major: [
       { semis: [0, 4, 7], bass: 0 },
       // I
@@ -2291,7 +2291,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       // i
     ]
   };
-  const CHORDS = [
+  var CHORDS = [
     { roman: "I", name: "tonic", tones: [1, 3, 5] },
     { roman: "ii", name: "supertonic", tones: [2, 4, 6] },
     { roman: "iii", name: "mediant", tones: [3, 5, 7] },
@@ -2300,7 +2300,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     { roman: "vi", name: "submediant", tones: [6, 1, 3] },
     { roman: "vii°", name: "leading", tones: [7, 2, 4] }
   ];
-  const DEGREE_QUIPS = {
+  var DEGREE_QUIPS = {
     1: "Like we never left home.",
     2: "Close to home.",
     3: "Mary had...",
@@ -2309,8 +2309,8 @@ window.SOUNDTRACK = SOUNDTRACK;
     6: "Laaa tii do!",
     7: "Barely below home."
   };
-  const RES_MAJOR = { 1: [0], 2: [2, 0], 3: [4, 2, 0], 4: [5, 4, 2, 0], 5: [7, 9, 11, 12], 6: [9, 11, 12], 7: [11, 12] };
-  const RES_MINOR = { 1: [0, -1, -3], 2: [2, 0, -1, -3], 3: [4, 2, 0, -1, -3], 4: [5, 7, 9], 5: [7, 9], 6: [9], 7: [11, 9] };
+  var RES_MAJOR = { 1: [0], 2: [2, 0], 3: [4, 2, 0], 4: [5, 4, 2, 0], 5: [7, 9, 11, 12], 6: [9, 11, 12], 7: [11, 12] };
+  var RES_MINOR = { 1: [0, -1, -3], 2: [2, 0, -1, -3], 3: [4, 2, 0, -1, -3], 4: [5, 7, 9], 5: [7, 9], 6: [9], 7: [11, 9] };
   function resolutionSemis(pc, mode) {
     const deg = PC_TO_DEGREE[pc];
     if (deg != null) return (mode === "minor" ? RES_MINOR : RES_MAJOR)[deg];
@@ -2329,14 +2329,14 @@ window.SOUNDTRACK = SOUNDTRACK;
     const dia = H > pc ? DIA.find((d) => d > pc) : [...DIA].reverse().find((d) => d < pc);
     return [pc, ...(mode === "minor" ? RES_MINOR : RES_MAJOR)[PC_TO_DEGREE[dia]]];
   }
-  const ALT_QUIPS = {
+  var ALT_QUIPS = {
     1: "♭2 — right above home.",
     3: "♭3 — the blue third.",
     6: "♯4 — the tritone's edge.",
     8: "♭6 — a soft shadow.",
     10: "♭7 — bluesy, leans down."
   };
-  const DEGREE_QUIPS_MINOR = {
+  var DEGREE_QUIPS_MINOR = {
     6: "Home — la, where minor rests.",
     7: "One step above home.",
     1: "Bright — but not home down here.",
@@ -2345,14 +2345,14 @@ window.SOUNDTRACK = SOUNDTRACK;
     4: "Half-step above 3 — a bit of ache.",
     5: "5 — a bit mellow."
   };
-  const ALT_QUIPS_MINOR = {
+  var ALT_QUIPS_MINOR = {
     1: "♭2 — a dark half-step.",
     3: "♭3 — the minor's blue note.",
     6: "♯4 — the tritone's edge.",
     8: "♭6 — also ♯5, points home.",
     10: "♭7 — close to home, maybe too close."
   };
-  const CHORD_INSIGHTS = {
+  var CHORD_INSIGHTS = {
     I: "Home itself — 1, 3 and 5 all at rest.",
     ii: "All three tones lean toward home: 2→1, 4→3, 6→5.",
     iii: "Shares 3 and 5 with home, but 7 keeps it restless.",
@@ -2361,17 +2361,9 @@ window.SOUNDTRACK = SOUNDTRACK;
     vi: "Contains the tonic (1) and mediant (3) — home's shadow.",
     "vii°": "No rest anywhere: 7, 2 and 4 all demand resolution."
   };
-  const SESSION_LEN = 20;
-  const FINAL_LEN = 30;
-  const PASS_RATE = 0.8;
-  const OFFER_URL = "https://wejamimprovisation.com/strategy?utm_source=numbersong";
-  const UNLOCK_CODE = "effortless1";
-  const CONVERTKIT_FORM = "9671626";
-  const CONVERTKIT_KEY = "6U4Fr68yjt_ESeBxKgXXpQ";
-  const FREE = { melodyGroups: 1, adventureRegions: 4, freePlayPaths: 1, freePlayWorlds: 2 };
-  const SENTRY_DSN = "https://48feaac72c065e5df74a5fdea19d08fe@o4511726387134464.ingest.us.sentry.io/4511726390870016";
-  const POSTHOG_KEY = "phc_ky5DGTUrbsY3FfiqV6bgk7w9BJcXg9UENafMJzaXepSb";
-  const POSTHOG_HOST = "https://us.i.posthog.com";
+  var SESSION_LEN = 20;
+  var FINAL_LEN = 30;
+  var PASS_RATE = 0.8;
   function buildGroup(group, mode, chromatic, intro) {
     const FULL = chromatic ? ALL12 : NAT_PCS;
     const tail = [
@@ -2387,7 +2379,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       ...tail.map(([name, desc, keyMode, octaves], i) => ({ ...base, name, desc, pool: FULL, keyMode, octaves, ...i === tail.length - 1 ? { qCount: FINAL_LEN } : {} }))
     ];
   }
-  const MELODY_LEVELS = [
+  var MELODY_LEVELS = [
     ...buildGroup("Diatonic · major", "major", false, [
       ["First steps", "degrees 1 · 2 · 3", [0, 2, 4]],
       ["Half the ladder", "degrees 1 – 5", [0, 2, 4, 5, 7]],
@@ -2409,7 +2401,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       ["Every color", "all twelve notes", ALL12]
     ])
   ];
-  const MELODY_GROUPS = MELODY_LEVELS.reduce((groups, lvl, idx) => {
+  var MELODY_GROUPS = MELODY_LEVELS.reduce((groups, lvl, idx) => {
     let g = groups.find((x) => x.name === lvl.group);
     if (!g) {
       g = { name: lvl.group, start: idx, levels: [] };
@@ -2418,7 +2410,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     g.levels.push({ ...lvl, idx });
     return groups;
   }, []);
-  const groupIndexOf = (li) => MELODY_GROUPS.findIndex((g) => li >= g.start && li < g.start + g.levels.length);
+  var groupIndexOf = (li) => MELODY_GROUPS.findIndex((g) => li >= g.start && li < g.start + g.levels.length);
   function levelTags(lvl) {
     const key = lvl.keyMode === "c" ? lvl.mode === "minor" ? "A minor" : "C major" : lvl.keyMode === "not-c" ? "New key" : "Every key";
     return [key, lvl.octaves.length > 1 ? "Many octaves" : "1 octave"];
@@ -2430,8 +2422,8 @@ window.SOUNDTRACK = SOUNDTRACK;
     } while (exclude.includes(k));
     return k;
   }
-  const chordTones = (chord, sevenths) => sevenths ? [...chord.tones, (chord.tones[0] - 1 + 6) % 7 + 1] : chord.tones;
-  const CHORD_QUALITY = {
+  var chordTones = (chord, sevenths) => sevenths ? [...chord.tones, (chord.tones[0] - 1 + 6) % 7 + 1] : chord.tones;
+  var CHORD_QUALITY = {
     I: { tri: "major", sev: "major 7th" },
     ii: { tri: "minor", sev: "minor 7th" },
     iii: { tri: "minor", sev: "minor 7th" },
@@ -2440,16 +2432,16 @@ window.SOUNDTRACK = SOUNDTRACK;
     vi: { tri: "minor", sev: "minor 7th" },
     "vii°": { tri: "diminished", sev: "half-diminished 7th" }
   };
-  const SEVENTH_SYMBOL = { I: "Imaj7", ii: "ii7", iii: "iii7", IV: "IVmaj7", V: "V7", vi: "vi7", "vii°": "viiø7" };
-  const chordSymbol = (roman, sevenths) => sevenths ? SEVENTH_SYMBOL[roman] : roman;
-  const chordQuality = (roman, sevenths) => CHORD_QUALITY[roman][sevenths ? "sev" : "tri"];
-  const CHORD_NUMBER = { I: "1", ii: "2-", iii: "3-", IV: "4", V: "5D", vi: "6-", "vii°": "7dim" };
-  const CHORD_NUMBER_7 = { I: "1maj7", ii: "2-7", iii: "3-7", IV: "4maj7", V: "5D7", vi: "6-7", "vii°": "7-7b5" };
-  const chordNumber = (roman, sevenths) => (sevenths ? CHORD_NUMBER_7 : CHORD_NUMBER)[roman];
-  const ALL_CHORDS = CHORDS.map((c) => c.roman);
-  const chordByRoman = (r) => CHORDS.find((c) => c.roman === r);
-  const FOUR = ["I", "IV", "V", "vi"];
-  const FOUR_MINOR = ["vi", "ii", "iii", "IV"];
+  var SEVENTH_SYMBOL = { I: "Imaj7", ii: "ii7", iii: "iii7", IV: "IVmaj7", V: "V7", vi: "vi7", "vii°": "viiø7" };
+  var chordSymbol = (roman, sevenths) => sevenths ? SEVENTH_SYMBOL[roman] : roman;
+  var chordQuality = (roman, sevenths) => CHORD_QUALITY[roman][sevenths ? "sev" : "tri"];
+  var CHORD_NUMBER = { I: "1", ii: "2-", iii: "3-", IV: "4", V: "5D", vi: "6-", "vii°": "7dim" };
+  var CHORD_NUMBER_7 = { I: "1maj7", ii: "2-7", iii: "3-7", IV: "4maj7", V: "5D7", vi: "6-7", "vii°": "7-7b5" };
+  var chordNumber = (roman, sevenths) => (sevenths ? CHORD_NUMBER_7 : CHORD_NUMBER)[roman];
+  var ALL_CHORDS = CHORDS.map((c) => c.roman);
+  var chordByRoman = (r) => CHORDS.find((c) => c.roman === r);
+  var FOUR = ["I", "IV", "V", "vi"];
+  var FOUR_MINOR = ["vi", "ii", "iii", "IV"];
   function chordRamp(chapter, mode, intro, four) {
     const cap = { chapter, mode };
     return [
@@ -2460,7 +2452,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       { ...cap, name: "Advanced · all seven", desc: "every diatonic triad · mastery", pool: ALL_CHORDS, keyMode: "fixed", qCount: FINAL_LEN }
     ];
   }
-  const CHORD_LEVELS = [
+  var CHORD_LEVELS = [
     ...chordRamp("Major · 1 4 5 6", "major", [
       ["Home & away", "1 · 5D", ["I", "V"]],
       ["The three pillars", "1 · 4 · 5D", ["I", "IV", "V"]],
@@ -2472,7 +2464,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       ["Meet the four", "6- · 4  (the major one)", ["vi", "IV"]]
     ], FOUR_MINOR)
   ];
-  const CHORD_CHAPTERS = CHORD_LEVELS.reduce((chs, lvl, idx) => {
+  var CHORD_CHAPTERS = CHORD_LEVELS.reduce((chs, lvl, idx) => {
     let c = chs.find((x) => x.name === lvl.chapter);
     if (!c) {
       c = { name: lvl.chapter, start: idx, levels: [] };
@@ -2481,13 +2473,13 @@ window.SOUNDTRACK = SOUNDTRACK;
     c.levels.push({ ...lvl, idx });
     return chs;
   }, []);
-  const chordChapterIndexOf = (li) => CHORD_CHAPTERS.findIndex((c) => li >= c.start && li < c.start + c.levels.length);
-  const CURATED_4 = {
+  var chordChapterIndexOf = (li) => CHORD_CHAPTERS.findIndex((c) => li >= c.start && li < c.start + c.levels.length);
+  var CURATED_4 = {
     2: [["I", "V"], ["I", "IV"], ["I", "vi"], ["vi", "IV"], ["V", "vi"], ["IV", "V"]],
     3: [["I", "IV", "V"], ["I", "V", "vi"], ["I", "vi", "IV"], ["vi", "IV", "V"], ["IV", "V", "I"], ["I", "vi", "V"]],
     4: [["I", "V", "vi", "IV"], ["vi", "IV", "I", "V"], ["I", "vi", "IV", "V"], ["IV", "V", "I", "vi"], ["I", "IV", "V", "vi"], ["vi", "V", "IV", "I"]]
   };
-  const CURATED_4_MINOR = {
+  var CURATED_4_MINOR = {
     2: [["vi", "ii"], ["vi", "iii"], ["vi", "IV"], ["IV", "iii"], ["ii", "iii"], ["IV", "ii"]],
     3: [["vi", "ii", "iii"], ["vi", "IV", "ii"], ["vi", "ii", "IV"], ["vi", "IV", "iii"], ["ii", "iii", "vi"], ["vi", "iii", "ii"]],
     4: [["vi", "ii", "iii", "vi"], ["vi", "IV", "ii", "iii"], ["vi", "ii", "IV", "iii"], ["IV", "ii", "vi", "iii"], ["vi", "iii", "IV", "ii"], ["vi", "IV", "iii", "ii"]]
@@ -2525,11 +2517,11 @@ window.SOUNDTRACK = SOUNDTRACK;
       { ...cap, name: "Advanced · all seven", desc: "every triad · random 4 · mastery", len: 4, gen: "random", pool: ALL_CHORDS, keyMode: "fixed", qCount: FINAL_LEN }
     ];
   }
-  const PROG_LEVELS = [
+  var PROG_LEVELS = [
     ...progRamp("Major · 1 4 5 6", "major", FOUR, "I"),
     ...progRamp("Minor · 6 2 3 4", "minor", FOUR_MINOR, "vi")
   ];
-  const PROG_CHAPTERS = PROG_LEVELS.reduce((chs, lvl, idx) => {
+  var PROG_CHAPTERS = PROG_LEVELS.reduce((chs, lvl, idx) => {
     let c = chs.find((x) => x.name === lvl.chapter);
     if (!c) {
       c = { name: lvl.chapter, start: idx, levels: [] };
@@ -2538,8 +2530,8 @@ window.SOUNDTRACK = SOUNDTRACK;
     c.levels.push({ ...lvl, idx });
     return chs;
   }, []);
-  const progChapterIndexOf = (li) => PROG_CHAPTERS.findIndex((c) => li >= c.start && li < c.start + c.levels.length);
-  const ADV_STAGES = [
+  var progChapterIndexOf = (li) => PROG_CHAPTERS.findIndex((c) => li >= c.start && li < c.start + c.levels.length);
+  var ADV_STAGES = [
     { mode: "melody", gi: 0 },
     // 1  diatonic major — single notes
     { mode: "melody", gi: 1 },
@@ -2557,7 +2549,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     { mode: "melody", gi: 3 }
     // 8  chromatic minor — single notes
   ];
-  const advGroupOf = (s) => s.mode === "melody" ? MELODY_GROUPS[s.gi] : s.mode === "chords" ? CHORD_CHAPTERS[s.gi] : PROG_CHAPTERS[s.gi];
+  var advGroupOf = (s) => s.mode === "melody" ? MELODY_GROUPS[s.gi] : s.mode === "chords" ? CHORD_CHAPTERS[s.gi] : PROG_CHAPTERS[s.gi];
   function stageGoal(mode, name) {
     if (mode === "melody") return {
       "Diatonic · major": "Hear any of the seven degrees (1–7) in a major key and name it by number — building from 1·2·3 up to the full key, then any octave, then any key.",
@@ -2568,7 +2560,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     if (mode === "chords") return name.startsWith("Major") ? "Hear a chord and pick out its notes as numbers. Master the four workhorse chords of a major key: 1, 4, 5D and 6-." : "Pick out chord notes centered on a minor home — the four chords 6-, 2-, 3- and 4.";
     return name.startsWith("Major") ? "Hear two-to-four chords in a row and name each in order — the 1-4-5-6 family behind most songs." : "Follow minor progressions from the 6-2-3-4 family and name each chord in order.";
   }
-  const PATH_PRESETS = [
+  var PATH_PRESETS = [
     ["I", "V", "vi", "IV"],
     // 1 5 6 4
     ["vi", "IV", "I", "V"],
@@ -2580,7 +2572,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     ["IV", "ii", "iii", "vi"]
     // 4 2 3 6
   ];
-  const PATH_ROWS = [
+  var PATH_ROWS = [
     { d: 7, oct: 4 },
     { d: 6, oct: 4 },
     { d: 5, oct: 4 },
@@ -2589,13 +2581,13 @@ window.SOUNDTRACK = SOUNDTRACK;
     { d: 2, oct: 4 },
     { d: 1, oct: 4 }
   ];
-  const PATH_SPEEDS = [
+  var PATH_SPEEDS = [
     { label: "Slow", beat: 2.2 },
     { label: "Medium", beat: 1.6 },
     { label: "Fast", beat: 1.1 },
     { label: "Faster", beat: 0.8 }
   ];
-  const KEY_MAP = {
+  var KEY_MAP = {
     "`": { d: 7, oct: 3 },
     "1": { d: 1, oct: 4 },
     "2": { d: 2, oct: 4 },
@@ -2610,8 +2602,75 @@ window.SOUNDTRACK = SOUNDTRACK;
     "-": { d: 4, oct: 5 },
     "=": { d: 5, oct: 5 }
   };
-  const levelsFor = (m) => m === "melody" ? MELODY_LEVELS : m === "chords" ? CHORD_LEVELS : PROG_LEVELS;
-  const TEST_MODE = (() => {
+  var levelsFor = (m) => m === "melody" ? MELODY_LEVELS : m === "chords" ? CHORD_LEVELS : PROG_LEVELS;
+
+  // src/pitch.mjs
+  function detectPitch(buf, sampleRate) {
+    const SIZE = buf.length;
+    let rms = 0;
+    for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
+    rms = Math.sqrt(rms / SIZE);
+    if (rms < 6e-3) return -1;
+    let r1 = 0, r2 = SIZE - 1;
+    const thres = 0.2;
+    for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) {
+      r1 = i;
+      break;
+    }
+    for (let i = 1; i < SIZE / 2; i++) if (Math.abs(buf[SIZE - i]) < thres) {
+      r2 = SIZE - i;
+      break;
+    }
+    const b = buf.slice(r1, r2);
+    const n = b.length;
+    if (n < 128) return -1;
+    const c = new Array(n).fill(0);
+    for (let lag = 0; lag < n; lag++)
+      for (let i = 0; i < n - lag; i++) c[lag] += b[i] * b[i + lag];
+    let d = 0;
+    while (d < n - 1 && c[d] > c[d + 1]) d++;
+    let maxval = -1, maxpos = -1;
+    for (let i = d; i < n; i++) if (c[i] > maxval) {
+      maxval = c[i];
+      maxpos = i;
+    }
+    if (maxpos <= 0) return -1;
+    let T0 = maxpos;
+    const x1 = c[T0 - 1] || 0, x2 = c[T0], x3 = c[T0 + 1] || 0;
+    const a = (x1 + x3 - 2 * x2) / 2, bb = (x3 - x1) / 2;
+    if (a) T0 = T0 - bb / (2 * a);
+    const freq = sampleRate / T0;
+    if (freq < 70 || freq > 1100) return -1;
+    return freq;
+  }
+  function pitchToDegree(freq, key) {
+    const midi = 69 + 12 * Math.log2(freq / 440);
+    const tonicMidi = 60 + KEYS.indexOf(key);
+    const rel = ((midi - tonicMidi) % 12 + 12) % 12;
+    let best = 1, bestDiff = 99;
+    for (const deg of [1, 2, 3, 4, 5, 6, 7]) {
+      let diff = rel - DEGREE_SEMITONES[deg];
+      if (diff > 6) diff -= 12;
+      if (diff < -6) diff += 12;
+      if (Math.abs(diff) < Math.abs(bestDiff)) {
+        bestDiff = diff;
+        best = deg;
+      }
+    }
+    return { deg: best, cents: Math.round(bestDiff * 100) };
+  }
+
+  // src/.app.jsx
+  var { useState, useRef, useEffect, useLayoutEffect, useCallback } = React;
+  var OFFER_URL = "https://wejamimprovisation.com/strategy?utm_source=numbersong";
+  var UNLOCK_CODE = "effortless1";
+  var CONVERTKIT_FORM = "9671626";
+  var CONVERTKIT_KEY = "6U4Fr68yjt_ESeBxKgXXpQ";
+  var FREE = { melodyGroups: 1, adventureRegions: 4, freePlayPaths: 1, freePlayWorlds: 2 };
+  var SENTRY_DSN = "https://48feaac72c065e5df74a5fdea19d08fe@o4511726387134464.ingest.us.sentry.io/4511726390870016";
+  var POSTHOG_KEY = "phc_ky5DGTUrbsY3FfiqV6bgk7w9BJcXg9UENafMJzaXepSb";
+  var POSTHOG_HOST = "https://us.i.posthog.com";
+  var TEST_MODE = (() => {
     if (typeof window === "undefined") return false;
     try {
       const s = window.location.search + " " + (window.location.hash || "");
@@ -2629,17 +2688,17 @@ window.SOUNDTRACK = SOUNDTRACK;
       return typeof window !== "undefined" && window.location.hostname === "localhost";
     }
   })();
-  let JOJO_MODE = (() => {
+  var JOJO_MODE = (() => {
     try {
       return typeof window !== "undefined" && window.localStorage.getItem("numbersong-jojo") === "1";
     } catch (e) {
       return false;
     }
   })();
-  const qCountOf = (lvl) => TEST_MODE || JOJO_MODE ? 3 : lvl && lvl.qCount || SESSION_LEN;
-  const passRateOf = (lvl) => TEST_MODE ? 0.6 : lvl && lvl.pass || PASS_RATE;
-  const passCountFor = (lvl) => JOJO_MODE ? 1 : Math.ceil(passRateOf(lvl) * qCountOf(lvl));
-  const SHOP = [
+  var qCountOf = (lvl) => TEST_MODE || JOJO_MODE ? 3 : lvl && lvl.qCount || SESSION_LEN;
+  var passRateOf = (lvl) => TEST_MODE ? 0.6 : lvl && lvl.pass || PASS_RATE;
+  var passCountFor = (lvl) => JOJO_MODE ? 1 : Math.ceil(passRateOf(lvl) * qCountOf(lvl));
+  var SHOP = [
     { id: "gold", type: "skin", name: "Gilded Coda", cost: 12, tint: "#D9B45B", desc: "A hero forged in gold." },
     { id: "shadow", type: "skin", name: "Shadow Coda", cost: 8, tint: "#2f3b45", desc: "Cloaked in dusk." },
     { id: "crimson", type: "skin", name: "Crimson Coda", cost: 8, tint: "#E07856", desc: "Ember-touched." },
@@ -2661,20 +2720,20 @@ window.SOUNDTRACK = SOUNDTRACK;
     } catch (e) {
     }
   }
-  const RES_SPEEDS = [
+  var RES_SPEEDS = [
     { label: "Slow", step: 1 },
     { label: "Normal", step: 0.8 },
     { label: "Fast", step: 0.55 },
     { label: "Fastest", step: 0.38 }
   ];
-  const PROG_SPEEDS = [
+  var PROG_SPEEDS = [
     { label: "Slow", beat: 1.3 },
     { label: "Normal", beat: 1 },
     { label: "Fast", beat: 0.72 },
     { label: "Fastest", beat: 0.5 }
   ];
-  const TEMPO_MIN = 0.6;
-  const TEMPO_MAX = 2;
+  var TEMPO_MIN = 0.6;
+  var TEMPO_MAX = 2;
   function loadPref(key, fallback) {
     try {
       const v = window.localStorage.getItem("numbersong-" + key);
@@ -2689,7 +2748,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     } catch (e) {
     }
   }
-  const trackCid = (() => {
+  var trackCid = (() => {
     try {
       let id = loadPref("cid", "");
       if (!id) {
@@ -2701,7 +2760,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       return "";
     }
   })();
-  let trackOn = false;
+  var trackOn = false;
   try {
     if (SENTRY_DSN && window.Sentry) {
       window.Sentry.init({
@@ -2745,60 +2804,6 @@ window.SOUNDTRACK = SOUNDTRACK;
   function degreeToNote(key, degree, octave = 4) {
     const base = Tone.Frequency(key + octave).toMidi();
     return Tone.Frequency(base + DEGREE_SEMITONES[degree], "midi").toNote();
-  }
-  function detectPitch(buf, sampleRate) {
-    const SIZE = buf.length;
-    let rms = 0;
-    for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
-    rms = Math.sqrt(rms / SIZE);
-    if (rms < 6e-3) return -1;
-    let r1 = 0, r2 = SIZE - 1;
-    const thres = 0.2;
-    for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) {
-      r1 = i;
-      break;
-    }
-    for (let i = 1; i < SIZE / 2; i++) if (Math.abs(buf[SIZE - i]) < thres) {
-      r2 = SIZE - i;
-      break;
-    }
-    const b = buf.slice(r1, r2);
-    const n = b.length;
-    if (n < 128) return -1;
-    const c = new Array(n).fill(0);
-    for (let lag = 0; lag < n; lag++)
-      for (let i = 0; i < n - lag; i++) c[lag] += b[i] * b[i + lag];
-    let d = 0;
-    while (d < n - 1 && c[d] > c[d + 1]) d++;
-    let maxval = -1, maxpos = -1;
-    for (let i = d; i < n; i++) if (c[i] > maxval) {
-      maxval = c[i];
-      maxpos = i;
-    }
-    if (maxpos <= 0) return -1;
-    let T0 = maxpos;
-    const x1 = c[T0 - 1] || 0, x2 = c[T0], x3 = c[T0 + 1] || 0;
-    const a = (x1 + x3 - 2 * x2) / 2, bb = (x3 - x1) / 2;
-    if (a) T0 = T0 - bb / (2 * a);
-    const freq = sampleRate / T0;
-    if (freq < 70 || freq > 1100) return -1;
-    return freq;
-  }
-  function pitchToDegree(freq, key) {
-    const midi = 69 + 12 * Math.log2(freq / 440);
-    const tonicMidi = Tone.Frequency(key + "4").toMidi();
-    const rel = ((midi - tonicMidi) % 12 + 12) % 12;
-    let best = 1, bestDiff = 99;
-    for (const deg of [1, 2, 3, 4, 5, 6, 7]) {
-      let diff = rel - DEGREE_SEMITONES[deg];
-      if (diff > 6) diff -= 12;
-      if (diff < -6) diff += 12;
-      if (Math.abs(diff) < Math.abs(bestDiff)) {
-        bestDiff = diff;
-        best = deg;
-      }
-    }
-    return { deg: best, cents: Math.round(bestDiff * 100) };
   }
   function buildInstrument(buffers) {
     if (buffers) {
@@ -3518,8 +3523,8 @@ window.SOUNDTRACK = SOUNDTRACK;
     u.rate = 0.9;
     window.speechSynthesis.speak(u);
   }
-  const MINOR_SCALE_STEPS = [0, 2, 3, 5, 7, 8, 10, 12];
-  const MAJOR_SCALE_STEPS = [0, 2, 4, 5, 7, 9, 11, 12];
+  var MINOR_SCALE_STEPS = [0, 2, 3, 5, 7, 8, 10, 12];
+  var MAJOR_SCALE_STEPS = [0, 2, 4, 5, 7, 9, 11, 12];
   function DegreeLadder({ active, correct, wrong, tonicPc = 0, pool, showChrom }) {
     const inPool = (pc) => !pool || pool.includes(pc);
     const steps = tonicPc === 9 ? MINOR_SCALE_STEPS : MAJOR_SCALE_STEPS;
@@ -3632,7 +3637,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       cells
     );
   }
-  const SOLAR_CSS = `
+  var SOLAR_CSS = `
 .solar { position: relative; width: 260px; height: 260px; margin: 6px auto 2px; }
 .solar-ring { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
   border:1px dashed rgba(159,178,168,.30); border-radius:50%; }
@@ -3669,7 +3674,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       p.d
     )), /* @__PURE__ */ React.createElement("div", { className: "solar-sun" }, "1"));
   }
-  const HALFSTEP_CSS = `
+  var HALFSTEP_CSS = `
 .hs-diagrams { display:flex; flex-wrap:nowrap; gap:10px; justify-content:center; align-items:flex-end; margin-top:8px; }
 .hs-fig { display:flex; flex-direction:column; align-items:center; gap:3px; flex:1 1 0; min-width:0; max-width:150px; }
 .hs-fig svg { display:block; width:100%; height:auto; }
@@ -3873,7 +3878,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     ctx.fillRect(cx - 1.5, y - 1.5, 2, 2);
     ctx.restore();
   }
-  const CONFETTI = Array.from({ length: 140 }, (_, i) => ({
+  var CONFETTI = Array.from({ length: 140 }, (_, i) => ({
     left: i * 41 % 100,
     delay: i * 7 % 24 / 10,
     // 0 – 2.3s staggered (rains for several seconds)
@@ -3952,7 +3957,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     }, [img, collected]);
     return /* @__PURE__ */ React.createElement("canvas", { ref, className, "aria-label": "Excalibar" });
   }
-  const DOJO = { c: 2, r: 20, name: "The Dojo" };
+  var DOJO = { c: 2, r: 20, name: "The Dojo" };
   function drawDojo(ctx, cx, cy, img) {
     if (img) {
       ctx.save();
@@ -3988,7 +3993,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     ctx.fillStyle = "#EDF2EE";
     ctx.fillText("DOJO", cx, cy + 13);
   }
-  const MAP_TOUR = [
+  var MAP_TOUR = [
     { sel: null, title: "Welcome to Harmonia", text: "This whole world is your training ground. Every glowing marker is a place to sharpen your ear." },
     { sel: "dojo", title: "The Dojo", text: "That little pagoda is the Dojo. Apps and tests alone can't truly train your ears — you have to improvise and create with these sounds too. Drop in any time to play freely, and feel free to follow along on your own instrument." },
     { sel: ".adv-map", markers: true, title: "Your journey", text: "Tap a marker to meet its Keeper and take on their challenge. Clear it and you earn a piece of the blade." },
@@ -3998,7 +4003,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     { sel: null, title: "Little and often", text: "One more thing — just 5 to 10 minutes a day is enough. Short, steady practice is what turns these numbers into real ears; little and often beats long and rare." },
     { sel: null, title: "Off you go", text: "That's the whole game. Follow your ears — I'll be right beside you. 💛" }
   ];
-  const MAPTOUR_CSS = `
+  var MAPTOUR_CSS = `
 .maptour { position: fixed; inset: 0; z-index: 60; }
 .maptour-scrim { position: absolute; inset: 0; background: rgba(15,20,18,.7); animation: maptour-fade .2s steps(3) both; }
 .maptour-ring { position: absolute; border: 3px solid var(--teal,#57C6C4); box-shadow: 0 0 0 2px var(--ink,#12201d); clip-path: var(--notch); pointer-events: none;
@@ -6871,7 +6876,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
     ))), /* @__PURE__ */ React.createElement("p", { className: "hint center fp-help" }, exStage === 0 ? `World ${exWorld}: the blue pads are its chord tones (${worldChordTones(exWorld).join("·")}). Drone on, sing the numbers.` : "Numbers hidden. Sing each number as you press its pad.", " ", /* @__PURE__ */ React.createElement("em", null, "Try the number keys on a keyboard, or turn to landscape on mobile."))), upsellModal);
   }
-  const CSS = `
+  var CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700&display=swap');
 
 :root {
