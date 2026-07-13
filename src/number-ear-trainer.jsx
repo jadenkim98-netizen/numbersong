@@ -147,7 +147,7 @@ const FREE = { melodyGroups: 1, adventureRegions: 4, freePlayPaths: 1, freePlayW
      SENTRY_DSN   — from Sentry → Project → Client Keys (DSN). Errors only when set.
      POSTHOG_KEY  — from PostHog → Project Settings → Project API Key (starts "phc_").
      POSTHOG_HOST — PostHog API host: "https://us.i.posthog.com" or "https://eu.i.posthog.com". */
-const SENTRY_DSN = "";
+const SENTRY_DSN = "https://48feaac72c065e5df74a5fdea19d08fe@o4511726387134464.ingest.us.sentry.io/4511726390870016";
 const POSTHOG_KEY = "phc_ky5DGTUrbsY3FfiqV6bgk7w9BJcXg9UENafMJzaXepSb";
 const POSTHOG_HOST = "https://us.i.posthog.com";
 
