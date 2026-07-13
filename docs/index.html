@@ -2835,6 +2835,77 @@ window.SOUNDTRACK = SOUNDTRACK;
     return { deg: best, cents: Math.round(bestDiff * 100) };
   }
 
+  // src/app-flow.mjs
+  function qCountForLevel(lvl, opts = {}) {
+    const { testMode = false, jojoMode = false, defaultSessionLen = 20 } = opts;
+    if (testMode || jojoMode) return 3;
+    return lvl && lvl.qCount || defaultSessionLen;
+  }
+  function passRateForLevel(lvl, opts = {}) {
+    const { testMode = false, defaultPassRate = 0.8 } = opts;
+    if (testMode) return 0.6;
+    return lvl && lvl.pass || defaultPassRate;
+  }
+  function passCountForLevel(lvl, opts = {}) {
+    const { jojoMode = false } = opts;
+    if (jojoMode) return 1;
+    return Math.ceil(passRateForLevel(lvl, opts) * qCountForLevel(lvl, opts));
+  }
+  function starsForLevelBest(best, lvl, opts = {}) {
+    const pass = passCountForLevel(lvl, opts);
+    const qCount = qCountForLevel(lvl, opts);
+    if (best < pass) return 0;
+    if (best >= qCount) return 3;
+    if (best >= qCount - 1) return 2;
+    return 1;
+  }
+  function totalStarsForProgress(progress, levelsByMode, opts = {}) {
+    let total = 0;
+    for (const [mode, levels] of Object.entries(levelsByMode || {})) {
+      const modeProgress = progress && progress[mode] || {};
+      for (let i = 0; i < levels.length; i++) {
+        const best = modeProgress[i] || 0;
+        total += starsForLevelBest(best, levels[i], opts);
+      }
+    }
+    return total;
+  }
+  function mergeBestProgress(prev, mode, levelIdx, firstTries) {
+    if (levelIdx == null) return prev;
+    const cur = prev[mode] && prev[mode][levelIdx] || 0;
+    if (firstTries <= cur) return prev;
+    return { ...prev, [mode]: { ...prev[mode], [levelIdx]: firstTries } };
+  }
+  function countFirstTries(results) {
+    return (results || []).filter((r) => r && r.firstTry).length;
+  }
+  function chooseSessionKey({ mode, lvl, musicKey, randKey: randKey2 }) {
+    if (mode === "melody") {
+      const km = lvl.keyMode;
+      if (km === "c") return "C";
+      if (km === "not-c") return randKey2(["C"]);
+      return randKey2([]);
+    }
+    if (lvl.keyMode === "not-c") return randKey2([musicKey]);
+    if (lvl.keyMode === "random") return randKey2([]);
+    return musicKey;
+  }
+  function shouldCelebrateStageClear(args) {
+    const {
+      fromAdventure,
+      advStageId,
+      alreadyCleared,
+      testMode,
+      firstTries,
+      passCount,
+      levelIdx,
+      lastIdx
+    } = args;
+    if (!(fromAdventure && advStageId != null) || alreadyCleared) return false;
+    if (testMode) return firstTries >= passCount;
+    return levelIdx === lastIdx && firstTries >= passCount;
+  }
+
   // src/.app.jsx
   var { useState, useRef, useEffect, useLayoutEffect, useCallback } = React;
   var OFFER_URL = "https://wejamimprovisation.com/strategy?utm_source=numbersong";
@@ -2870,9 +2941,10 @@ window.SOUNDTRACK = SOUNDTRACK;
       return false;
     }
   })();
-  var qCountOf = (lvl) => TEST_MODE || JOJO_MODE ? 3 : lvl && lvl.qCount || SESSION_LEN;
-  var passRateOf = (lvl) => TEST_MODE ? 0.6 : lvl && lvl.pass || PASS_RATE;
-  var passCountFor = (lvl) => JOJO_MODE ? 1 : Math.ceil(passRateOf(lvl) * qCountOf(lvl));
+  var flowOpts = () => ({ testMode: TEST_MODE, jojoMode: JOJO_MODE, defaultSessionLen: SESSION_LEN, defaultPassRate: PASS_RATE });
+  var qCountOf = (lvl) => qCountForLevel(lvl, flowOpts());
+  var passRateOf = (lvl) => passRateForLevel(lvl, flowOpts());
+  var passCountFor = (lvl) => passCountForLevel(lvl, flowOpts());
   var SHOP = [
     { id: "gold", type: "skin", name: "Gilded Coda", cost: 12, tint: "#D9B45B", desc: "A hero forged in gold." },
     { id: "shadow", type: "skin", name: "Shadow Coda", cost: 8, tint: "#2f3b45", desc: "Cloaked in dusk." },
@@ -5149,21 +5221,14 @@ window.SOUNDTRACK = SOUNDTRACK;
     const starsFor = (m, idx) => {
       const lv = levelsFor(m)[idx];
       if (!lv) return 0;
-      const best = bestOf(m, idx), q = qCountOf(lv), pass = passCountFor(lv);
-      if (best < pass) return 0;
-      if (best >= q) return 3;
-      if (best >= q - 1) return 2;
-      return 1;
+      const best = bestOf(m, idx);
+      return starsForLevelBest(best, lv, flowOpts());
     };
-    const totalStars = () => {
-      let t = 0;
-      ["melody", "chords", "progressions"].forEach((m) => {
-        levelsFor(m).forEach((_, i) => {
-          t += starsFor(m, i);
-        });
-      });
-      return t;
-    };
+    const totalStars = () => totalStarsForProgress(progress, {
+      melody: MELODY_LEVELS,
+      chords: CHORD_LEVELS,
+      progressions: PROG_LEVELS
+    }, flowOpts());
     const [shop, setShop] = useState(() => {
       try {
         const v = JSON.parse(loadPref("shop", ""));
@@ -5857,13 +5922,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       if (m === "melody" && li != null) setMelGroup(groupIndexOf(li));
       if (m === "chords" && li != null) setChordChapter(chordChapterIndexOf(li));
       if (m === "progressions" && li != null) setProgChapter(progChapterIndexOf(li));
-      let key = musicKey;
-      if (m === "melody") {
-        const km = lvl.keyMode;
-        key = km === "c" ? "C" : km === "not-c" ? randKey(["C"]) : randKey([]);
-      } else {
-        key = lvl.keyMode === "not-c" ? randKey([musicKey]) : lvl.keyMode === "random" ? randKey([]) : musicKey;
-      }
+      const key = chooseSessionKey({ mode: m, lvl, musicKey, randKey });
       setSessKey(key);
       sess.current = { mode: m, lvl, levelIdx: li, key, octave: 4, qNum: 0, qCount: qCountOf(lvl), results: [], attempted: false, target: null, sevenths: m === "chords" && chordSevenths };
       setQNum(0);
@@ -5970,14 +6029,13 @@ window.SOUNDTRACK = SOUNDTRACK;
     };
     const finishSession = () => {
       const s = sess.current;
-      const firstTries = s.results.filter((r) => r.firstTry).length;
+      const firstTries = countFirstTries(s.results);
       track("session_finish", { mode: s.mode, level: s.levelIdx, first_tries: firstTries, questions: s.results.length, passed: firstTries >= passCountFor(s.lvl) });
       sessWasClearedRef.current = fromAdventure && advStageId != null ? stageClearedAdv(advStageId) : false;
       if (s.levelIdx != null) {
         setProgress((prev) => {
-          const cur = prev[s.mode] && prev[s.mode][s.levelIdx] || 0;
-          if (firstTries <= cur) return prev;
-          const next = { ...prev, [s.mode]: { ...prev[s.mode], [s.levelIdx]: firstTries } };
+          const next = mergeBestProgress(prev, s.mode, s.levelIdx, firstTries);
+          if (next === prev) return prev;
           if (canSave()) saveProgress(next);
           return next;
         });
@@ -5986,7 +6044,16 @@ window.SOUNDTRACK = SOUNDTRACK;
       if (fromAdventure && advStageId != null && !sessWasClearedRef.current) {
         const lv = advGroupOf(ADV_STAGES[advStageId - 1]).levels;
         const lastIdx = lv[lv.length - 1].idx;
-        const clears = TEST_MODE ? firstTries >= passCountFor(s.lvl) : s.levelIdx === lastIdx && firstTries >= passCountFor(s.lvl);
+        const clears = shouldCelebrateStageClear({
+          fromAdventure,
+          advStageId,
+          alreadyCleared: sessWasClearedRef.current,
+          testMode: TEST_MODE,
+          firstTries,
+          passCount: passCountFor(s.lvl),
+          levelIdx: s.levelIdx,
+          lastIdx
+        });
         if (clears) {
           bigClear = true;
           setMapCelebrateNode(advStageId);

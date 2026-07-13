@@ -68,6 +68,17 @@ import {
   levelsFor,
 } from "./theory.mjs";
 import { detectPitch, pitchToDegree } from "./pitch.mjs";
+import {
+  qCountForLevel,
+  passRateForLevel,
+  passCountForLevel,
+  starsForLevelBest,
+  totalStarsForProgress,
+  mergeBestProgress,
+  countFirstTries,
+  chooseSessionKey,
+  shouldCelebrateStageClear,
+} from "./app-flow.mjs";
 
 
 
@@ -122,9 +133,10 @@ let JOJO_MODE = (() => {
   try { return typeof window !== "undefined" && window.localStorage.getItem("numbersong-jojo") === "1"; }
   catch (e) { return false; }
 })();
-const qCountOf = (lvl) => (TEST_MODE || JOJO_MODE) ? 3 : ((lvl && lvl.qCount) || SESSION_LEN);
-const passRateOf = (lvl) => TEST_MODE ? 0.6 : ((lvl && lvl.pass) || PASS_RATE);
-const passCountFor = (lvl) => JOJO_MODE ? 1 : Math.ceil(passRateOf(lvl) * qCountOf(lvl));
+const flowOpts = () => ({ testMode: TEST_MODE, jojoMode: JOJO_MODE, defaultSessionLen: SESSION_LEN, defaultPassRate: PASS_RATE });
+const qCountOf = (lvl) => qCountForLevel(lvl, flowOpts());
+const passRateOf = (lvl) => passRateForLevel(lvl, flowOpts());
+const passCountFor = (lvl) => passCountForLevel(lvl, flowOpts());
 
 // Shop: spend earned stars on Coda skins. "default" is free/always-equipped.
 const SHOP = [
@@ -2204,17 +2216,15 @@ export default function NumberEarTrainer() {
   // 3-star rating per level: passed = 1, one miss = 2, perfect = 3.
   const starsFor = (m, idx) => {
     const lv = levelsFor(m)[idx]; if (!lv) return 0;
-    const best = bestOf(m, idx), q = qCountOf(lv), pass = passCountFor(lv);
-    if (best < pass) return 0;
-    if (best >= q) return 3;
-    if (best >= q - 1) return 2;
-    return 1;
+    const best = bestOf(m, idx);
+    return starsForLevelBest(best, lv, flowOpts());
   };
-  const totalStars = () => {
-    let t = 0;
-    ["melody", "chords", "progressions"].forEach((m) => { levelsFor(m).forEach((_, i) => { t += starsFor(m, i); }); });
-    return t;
-  };
+  const totalStars = () =>
+    totalStarsForProgress(progress, {
+      melody: MELODY_LEVELS,
+      chords: CHORD_LEVELS,
+      progressions: PROG_LEVELS,
+    }, flowOpts());
   const [shop, setShop] = useState(() => {
     try { const v = JSON.parse(loadPref("shop", "")); return (v && v.owned) ? v : { owned: [], skin: "default" }; }
     catch (e) { return { owned: [], skin: "default" }; }
@@ -2823,13 +2833,7 @@ export default function NumberEarTrainer() {
     if (m === "melody" && li != null) setMelGroup(groupIndexOf(li));
     if (m === "chords" && li != null) setChordChapter(chordChapterIndexOf(li));
     if (m === "progressions" && li != null) setProgChapter(progChapterIndexOf(li));
-    let key = musicKey;
-    if (m === "melody") {
-      const km = lvl.keyMode;
-      key = km === "c" ? "C" : km === "not-c" ? randKey(["C"]) : randKey([]);
-    } else {
-      key = lvl.keyMode === "not-c" ? randKey([musicKey]) : lvl.keyMode === "random" ? randKey([]) : musicKey;
-    }
+    const key = chooseSessionKey({ mode: m, lvl, musicKey, randKey });
     setSessKey(key);
     sess.current = { mode: m, lvl, levelIdx: li, key, octave: 4, qNum: 0, qCount: qCountOf(lvl), results: [], attempted: false, target: null, sevenths: m === "chords" && chordSevenths };
     setQNum(0); setScore(0); setStreak(0); setSessionResults([]);
@@ -2920,15 +2924,14 @@ export default function NumberEarTrainer() {
 
   const finishSession = () => {
     const s = sess.current;
-    const firstTries = s.results.filter((r) => r.firstTry).length;
+    const firstTries = countFirstTries(s.results);
     track("session_finish", { mode: s.mode, level: s.levelIdx, first_tries: firstTries, questions: s.results.length, passed: firstTries >= passCountFor(s.lvl) });
     // snapshot region-clear state BEFORE saving this session's progress (for the victory flourish)
     sessWasClearedRef.current = (fromAdventure && advStageId != null) ? stageClearedAdv(advStageId) : false;
     if (s.levelIdx != null) { // custom sessions aren't recorded
       setProgress((prev) => {
-        const cur = (prev[s.mode] && prev[s.mode][s.levelIdx]) || 0;
-        if (firstTries <= cur) return prev;
-        const next = { ...prev, [s.mode]: { ...prev[s.mode], [s.levelIdx]: firstTries } };
+        const next = mergeBestProgress(prev, s.mode, s.levelIdx, firstTries);
+        if (next === prev) return prev;
         if (canSave()) saveProgress(next); // only persist once saving is unlocked (email/paid)
         return next;
       });
@@ -2939,7 +2942,16 @@ export default function NumberEarTrainer() {
     if (fromAdventure && advStageId != null && !sessWasClearedRef.current) {
       const lv = advGroupOf(ADV_STAGES[advStageId - 1]).levels;
       const lastIdx = lv[lv.length - 1].idx;
-      const clears = TEST_MODE ? (firstTries >= passCountFor(s.lvl)) : (s.levelIdx === lastIdx && firstTries >= passCountFor(s.lvl));
+      const clears = shouldCelebrateStageClear({
+        fromAdventure,
+        advStageId,
+        alreadyCleared: sessWasClearedRef.current,
+        testMode: TEST_MODE,
+        firstTries,
+        passCount: passCountFor(s.lvl),
+        levelIdx: s.levelIdx,
+        lastIdx,
+      });
       if (clears) {
         bigClear = true;
         setMapCelebrateNode(advStageId);
