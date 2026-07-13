@@ -1940,12 +1940,12 @@ export default function NumberEarTrainer() {
   const TUT_DRILLS = 3;
   // Per-chapter config. Both tutorials teach in C's note-set: major home = 1 (C), minor
   // home = 6 (A, the relative minor) — "same notes, home moved". pool = the pitch-classes
-  // the coached drills quiz (major 1·2·3; minor triad 6·1·3). flag = the localStorage
+  // the coached drills quiz (major 1·2·3; minor 6·7·1 — home + its neighbours). flag = the localStorage
   // "seen it" pref so each tutorial only auto-shows once.
   const TUT_CFG = {
     major: { key: "C", mode: "major", homePc: 0, pool: [0, 2, 4], flag: "tut",
       spriteAlt: "Verda", sceneClass: "", nameTab: "Verda, the Meadow Keeper", loc: "Staircase Meadows" },
-    minor: { key: "C", mode: "minor", homePc: 9, pool: [9, 0, 4], flag: "tut2",
+    minor: { key: "C", mode: "minor", homePc: 9, pool: [9, 11, 0], flag: "tut2",
       spriteAlt: "Rue", sceneClass: "tut-fen", nameTab: "Old Rue of the Fen", loc: "Lowmoor Fen" },
   };
   const tutCfg = TUT_CFG[tutChapter];
@@ -1969,7 +1969,7 @@ export default function NumberEarTrainer() {
   const replayTutorial = () => { try { sfx("select"); } catch (e) {} startTutorial(tutChapter, tutThenEnterRef.current); };
   const startTutDrill = async (n) => {
     const gen = tutGenRef.current;
-    const pool = tutCfg.pool; // major 1·2·3, minor 6·1·3
+    const pool = tutCfg.pool; // major 1·2·3, minor 6·7·1
     // The minor test opens on 6 (home) so the first note the player names is the fen's
     // resting place; the rest of the drills stay random from the pool.
     let pc;
@@ -4230,10 +4230,10 @@ export default function NumberEarTrainer() {
     const rueBeats = [
       { title: "Lowmoor Fen", cue: null,
         lines: <>Mind the mud, traveler — welcome to <b className="hl-g">Lowmoor Fen</b>. I'm <b className="hl-t">Old Rue</b>. Folk up the meadow say the fen sounds <b className="hl-t">sadder</b>. Rumor. Nothing down here ever moved — come, I'll show you.</>,
-        stage: tutMap },
-      { title: "The same seven", cue: null, hear: { label: "▶ Hear the meadow's scale", act: () => playTutPhrase([1, 2, 3, 4, 5, 6, 7, 8]) },
-        lines: <>Look what I keep by the water: <b className="hl-g">Verda's map</b> — the very one. Same <b className="hl-t">seven numbers</b>, same shape, same two <b className="hl-g">half steps</b> hiding at <b className="hl-g">3→4</b> and <b className="hl-g">7→1</b>. I didn't touch a single note. Go on, tap it — still sounds like the meadow, doesn't it?</>,
-        stage: tutMap },
+        stage: tutMapMinor },
+      { title: "The same seven", cue: null,
+        lines: <>Look what I keep by the water: <b className="hl-g">Verda's map</b> — the very one. Same <b className="hl-t">seven numbers</b>, same shape, same two <b className="hl-g">half steps</b> hiding at <b className="hl-g">3→4</b> and <b className="hl-g">7→1</b>. I didn't touch a single note. Go on, tap it — every note's right where you left it.</>,
+        stage: tutMapMinor },
       { title: "Home moved to 6", cue: null, hear: { label: "▶ Hear the new home", act: playTutCadenceMinor },
         lines: <>Here's the fen's one secret — and it's a small one. Down here your ear stops resting on 1 and settles on <b className="hl-t">6</b>. That's all that happened. <b className="hl-t">Home moved</b>; the notes stayed put. Same map, read from a different porch.</>,
         stage: tutMapMinorStair },
