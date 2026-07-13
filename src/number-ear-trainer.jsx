@@ -928,16 +928,16 @@ function worldChordTones(w) {
   return [0, 2, 4, 6].map((k) => ((w - 1 + k) % 7) + 1);
 }
 
-function ExploreMap({ start, count, stage, octaves, world, active, hi, litDeg, singDeg, singInTune, onPlay, onDown, onUp, staircase }) {
+function ExploreMap({ start, count, stage, octaves, world, home, active, hi, litDeg, singDeg, singInTune, onPlay, onDown, onUp, staircase }) {
   const evts = (n, row) => onDown // guide taps (onPlay); Free Play holds (onDown/onUp)
     ? { onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(n, row); }, onPointerUp: () => onUp(n, row) }
     : { onClick: () => onPlay(n, row) };
   const notes = exploreNotes(start, count);
   const s0 = notes[0].semi, s1 = notes[notes.length - 1].semi;
   const chordal = world ? worldChordTones(world) : [];
-  // The starred "home" pad follows the selected world; 1 is only special in world 1
-  // (or when no world is selected, e.g. the guide's tonal map, where world is null).
-  const homeDeg = world || 1;
+  // The starred "home" pad: an explicit `home` wins (Rue's minor map passes home=6 so the
+  // same 1–8 map reads with 6 as home); else it follows the selected world; else 1.
+  const homeDeg = home || world || 1;
   const cells = [];
   for (let row = 0; row < octaves; row++) {
     notes.forEach((n, i) => {
@@ -1000,22 +1000,25 @@ const SOLAR_CSS = `
 @keyframes solar-orbit { to { offset-distance: 100%; } }
 @media (prefers-reduced-motion: reduce) { .solar-planet { animation-play-state: paused; } }
 `;
-function SolarSystem() {
+function SolarSystem({ home = 1 }) {
   const C = 130; // container center
-  const planets = [
+  // Major (home=1) keeps Verda's exact arrangement. Minor (home=6) puts 6 at the center
+  // and swaps the former "6" planet for "1" — same orbits, gravity re-centered on 6.
+  const major = [
     { d: 5, r: 52, dur: 9, delay: 0 }, { d: 7, r: 52, dur: 9, delay: -4.5 },
     { d: 3, r: 86, dur: 15, delay: -2 }, { d: 6, r: 86, dur: 15, delay: -9.5 },
     { d: 2, r: 118, dur: 22, delay: -3 }, { d: 4, r: 118, dur: 22, delay: -14 },
   ];
+  const planets = home === 6 ? major.map((p) => (p.d === 6 ? { ...p, d: 1 } : p)) : major;
   return (
-    <div className="solar" role="img" aria-label="The seven degrees orbiting home, 1">
+    <div className="solar" role="img" aria-label={"The seven degrees orbiting home, " + home}>
       <style>{SOLAR_CSS}</style>
       {[104, 172, 236].map((d) => <div key={d} className="solar-ring" style={{ width: d, height: d }} />)}
       {planets.map((p, i) => (
         <div key={i} className="solar-planet"
           style={{ offsetPath: `circle(${p.r}px at ${C}px ${C}px)`, "--dur": p.dur + "s", "--delay": p.delay + "s" }}>{p.d}</div>
       ))}
-      <div className="solar-sun">1</div>
+      <div className="solar-sun">{home}</div>
     </div>
   );
 }
@@ -1809,7 +1812,9 @@ export default function NumberEarTrainer() {
   // marks a player who has been through the first-run funnel (or unlocked past it).
   const [unlocked, setUnlocked] = useState(() => loadPref("unlocked", "0") === "1");
   const [onboarded, setOnboarded] = useState(() => loadPref("onboarded", "0") === "1");
-  const [tutStep, setTutStep] = useState(0);          // current beat of Verda's tutorial
+  const [tutStep, setTutStep] = useState(0);          // current beat of the tutorial
+  const [tutChapter, setTutChapter] = useState("major"); // "major" (Verda / Staircase Meadows) | "minor" (Rue / Lowmoor Fen)
+  const tutThenEnterRef = useRef(null);               // node id to enter after a mid-game tutorial (Rue → Lowmoor Fen); null = go to the map
   const [tutMode, setTutMode] = useState("teach");    // "teach" (dialogue beats) | "drill" (3 coached in-cutscene drills)
   const [tutDrillN, setTutDrillN] = useState(0);      // which of the 3 cutscene drills (0..2)
   const [tutDrillTarget, setTutDrillTarget] = useState(null); // pitch-class being tested
@@ -1926,37 +1931,58 @@ export default function NumberEarTrainer() {
     // returning players (tut seen) go straight to the Adventure map.
     const toTutorial = !unlocked && loadPref("tut", "0") !== "1";
     track("boot_advance", { to: toTutorial ? "tutorial" : "adventure", unlocked });
-    if (toTutorial) { setTutStep(0); setScreen("tutorial"); }
+    if (toTutorial) startTutorial("major");
     else setScreen("adventure");
   };
   // Verda's tutorial. Skip jumps to the map. After the teaching beats she runs 3 coached
   // in-cutscene drills (play a note → feel it → tap the number), then hands into the REAL
   // Region-1 First Steps session (the "actual" ear training; no more coaching).
   const TUT_DRILLS = 3;
-  const skipTutorial = () => { tutGenRef.current++; savePref("tut", "1"); if (tutTimerRef.current) clearTimeout(tutTimerRef.current); try { sfx("select"); } catch (e) {} track("tutorial_skip", { step: tutStep }); setScreen("adventure"); };
-  const graduateTutorial = () => { tutGenRef.current++; savePref("tut", "1"); setTutMode("teach"); if (tutTimerRef.current) clearTimeout(tutTimerRef.current); try { sfx("select"); } catch (e) {} track("tutorial_complete"); setScreen("adventure"); };
-  // Replay Verda's tutorial from the top (from the menu) — reset its state, don't touch the tut flag.
-  const replayTutorial = () => {
+  // Per-chapter config. Both tutorials teach in C's note-set: major home = 1 (C), minor
+  // home = 6 (A, the relative minor) — "same notes, home moved". pool = the pitch-classes
+  // the coached drills quiz (major 1·2·3; minor triad 6·1·3). flag = the localStorage
+  // "seen it" pref so each tutorial only auto-shows once.
+  const TUT_CFG = {
+    major: { key: "C", mode: "major", homePc: 0, pool: [0, 2, 4], flag: "tut",
+      spriteAlt: "Verda", sceneClass: "", nameTab: "Verda, the Meadow Keeper", loc: "Staircase Meadows" },
+    minor: { key: "C", mode: "minor", homePc: 9, pool: [9, 0, 4], flag: "tut2",
+      spriteAlt: "Rue", sceneClass: "tut-fen", nameTab: "Old Rue of the Fen", loc: "Lowmoor Fen" },
+  };
+  const tutCfg = TUT_CFG[tutChapter];
+  // Where to go when a tutorial ends: a mid-game tutorial (Rue) drops you INTO its region;
+  // the first-run tutorial (Verda) just opens the map.
+  const finishTut = () => {
+    const node = tutThenEnterRef.current; tutThenEnterRef.current = null;
+    if (node != null) enterStage({ id: node }); else setScreen("adventure");
+  };
+  const skipTutorial = () => { tutGenRef.current++; savePref(tutCfg.flag, "1"); if (tutTimerRef.current) clearTimeout(tutTimerRef.current); try { sfx("select"); } catch (e) {} track("tutorial_skip", { chapter: tutChapter, step: tutStep }); finishTut(); };
+  const graduateTutorial = () => { tutGenRef.current++; savePref(tutCfg.flag, "1"); setTutMode("teach"); if (tutTimerRef.current) clearTimeout(tutTimerRef.current); try { sfx("select"); } catch (e) {} track("tutorial_complete", { chapter: tutChapter }); finishTut(); };
+  // Enter a tutorial fresh (resets its cutscene state). thenEnter = node id to open after it (Rue), or null (Verda → map).
+  const startTutorial = (chapter, thenEnter = null) => {
+    tutGenRef.current++;
+    setTutChapter(chapter); tutThenEnterRef.current = thenEnter;
     setTutStep(0); setTutMode("teach"); setTutDrillN(0);
     setTutDrillTarget(null); setTutDrillPhase("play"); setTutReveal(false);
-    try { sfx("select"); } catch (e) {}
     setScreen("tutorial");
   };
+  // Replay the current chapter's tutorial from the top (from the menu) — don't touch its flag.
+  const replayTutorial = () => { try { sfx("select"); } catch (e) {} startTutorial(tutChapter, tutThenEnterRef.current); };
   const startTutDrill = async (n) => {
     const gen = tutGenRef.current;
-    const pool = [0, 2, 4]; // degrees 1·2·3 (First Steps range)
+    const pool = tutCfg.pool; // major 1·2·3, minor 6·1·3
     let pc; do { pc = pool[Math.floor(Math.random() * pool.length)]; } while (pc === tutDrillTarget && pool.length > 1);
     setTutDrillTarget(pc); setTutReveal(false); setTutDrillPhase("play");
     try {
-      const t = (await playCadence("C", "major")) + 0.25; // establish "home", then the note
+      const t = (await playCadence(tutCfg.key, tutCfg.mode)) + 0.25; // establish "home", then the note
       if (gen !== tutGenRef.current) return; // Skip/graduate landed during the cadence → don't play the note or re-arm the timer
-      playSemi("C", pc, t, 4);
+      playSemi(tutCfg.key, pc, t, 4);
       if (tutTimerRef.current) clearTimeout(tutTimerRef.current);
       tutTimerRef.current = setTimeout(() => { if (gen === tutGenRef.current) setTutDrillPhase("answer"); }, (t + 0.25) * 1000);
     } catch (e) { if (gen === tutGenRef.current) setTutDrillPhase("answer"); }
   };
-  const enterTutDrills = () => { try { sfx("select"); } catch (e) {} track("tutorial_drills_start"); setTutMode("drill"); setTutDrillN(0); startTutDrill(0); };
-  const replayTutNote = () => { try { playCadence("C", "major").then((t) => playSemi("C", tutDrillTarget, t + 0.2, 4)); } catch (e) {} };
+  const enterTutDrills = () => { try { sfx("select"); } catch (e) {} track("tutorial_drills_start", { chapter: tutChapter }); setTutMode("drill"); setTutDrillN(0); startTutDrill(0); };
+  const replayTutNote = () => { try { playCadence(tutCfg.key, tutCfg.mode).then((t) => playSemi(tutCfg.key, tutDrillTarget, t + 0.2, 4)); } catch (e) {} };
+  const playTutCadenceMinor = () => { if (busy) return; try { playCadence("C", "minor"); } catch (e) {} }; // Rue's "hear home settle on 6"
   const answerTutDrill = (pc) => {
     if (tutDrillPhase !== "answer") return;
     if (pc === tutDrillTarget) {
@@ -1964,24 +1990,24 @@ export default function NumberEarTrainer() {
       setTutDrillPhase("win"); setTutReveal(false);
       try { haptic(false); } catch (e) {}
       setTutCelebrate(true);
-      try { playResolution("C", 4, tutDrillTarget, "major", false, () => {}); } catch (e) {}
+      try { playResolution(tutCfg.key, 4, tutDrillTarget, tutCfg.mode, false, () => {}); } catch (e) {}
       // Wait for the walk-home resolution to actually finish before advancing. The old
       // fixed 2900ms was shorter than a degree-3 resolution (3×resStep+0.7s ≥ 3.1s, more
       // at Slow speed), so the next cadence started over its tail. Derive from resStep.
-      const resMs = (resolutionSemis(tutDrillTarget, "major").length * resStep + 0.7) * 1000;
+      const resMs = (resolutionSemis(tutDrillTarget, tutCfg.mode).length * resStep + 0.7) * 1000;
       if (tutTimerRef.current) clearTimeout(tutTimerRef.current);
       tutTimerRef.current = setTimeout(() => {
         if (gen !== tutGenRef.current) return; // skipped/graduated during the celebration
         setTutCelebrate(false);
         if (tutDrillN + 1 < TUT_DRILLS) { setTutDrillN((k) => k + 1); startTutDrill(tutDrillN + 1); }
         else {
-          // done — a short graduation beat (meadow music returns) before the map
-          savePref("tut", "1"); setTutDrillN(0); setTutMode("done");
+          // done — a short graduation beat (the keeper's send-off) before entering
+          savePref(tutCfg.flag, "1"); setTutDrillN(0); setTutMode("done");
         }
       }, resMs + (tutDrillN + 1 < TUT_DRILLS ? 500 : 200));
     } else {
       setTutReveal(true); // reveal the target — "feel it again, it's the glowing one"
-      try { playSemi("C", pc, 0, 4); } catch (e) {}
+      try { playSemi(tutCfg.key, pc, 0, 4); } catch (e) {}
     }
   };
   const [mode, setMode] = useState("melody");     // melody | chords
@@ -3036,6 +3062,9 @@ export default function NumberEarTrainer() {
   const advCurrentId = (advNodes.find((n) => !stageClearedAdv(n.id)) || advNodes[advNodes.length - 1] || {}).id;
   const enterStage = (n) => {
     const s = ADV_STAGES[n.id - 1]; if (!s) return;
+    // Before the FIRST minor region (Lowmoor Fen, node 2): Rue's la-based-minor tutorial,
+    // once. graduate/skip sets the tut2 flag and re-enters this stage via tutThenEnterRef.
+    if (n.id === 2 && loadPref("tut2", "0") !== "1") { startTutorial("minor", 2); return; }
     setFromAdventure(true);
     setAdvStageId(n.id);
     setMode(s.mode);
@@ -4074,9 +4103,11 @@ export default function NumberEarTrainer() {
   }
 
   if (screen === "tutorial") {
-    // Verda's cinematic first-run tutorial (Fable "JRPG Cutscene" look). Reuses the
-    // guide's teaching widgets (DegreeLadder / GuideStack / playPhrase / playTwoFiveOne).
-    const verdaSrc = typeof window !== "undefined" ? window.VERDA_SPRITE : "";
+    // Cinematic tutorial (Fable "JRPG Cutscene" look), now two chapters: Verda/major
+    // (Staircase Meadows) and Rue/minor (Lowmoor Fen). tutCfg + tutChapter drive the swap;
+    // Rue's beats reuse the same widgets with the minor map (home = 6) + a fen backdrop.
+    const isMinor = tutChapter === "minor";
+    const keeperSrc = typeof window !== "undefined" ? (isMinor ? window.RUE_SPRITE : window.VERDA_SPRITE) : "";
     // The teaching maps are interactive — tap any pad to hear that degree (reuse the
     // guide's ExploreMap + playExplore). One shared element for every map beat.
     const tutMap = <ExploreMap start={1} count={8} stage={0} octaves={1} world={null} active={litActive} onPlay={playExplore} />;
@@ -4085,6 +4116,11 @@ export default function NumberEarTrainer() {
     // The half-step beat keeps 3·4 and 7·1 persistently lit so the two half-step pairs
     // are visible right on the map (taps still light via litActive).
     const tutMapHalf = <ExploreMap start={1} count={8} stage={0} octaves={1} world={null} hi={[3, 4, 7, 8]} active={litActive} onPlay={playExplore} />;
+    // Rue's minor variants: SAME 1–8 map, but home=6 wears the star (the whole lesson —
+    // nothing moved, only home). Half-steps still light at 3·4 and 7·1.
+    const tutMapMinor = <ExploreMap start={1} count={8} stage={0} octaves={1} world={null} home={6} active={litActive} onPlay={playExplore} />;
+    const tutMapMinorStair = <ExploreMap key="mstair" start={1} count={8} stage={0} octaves={1} world={null} home={6} active={litActive} onPlay={playExplore} staircase />;
+    const tutMapMinorHalf = <ExploreMap start={1} count={8} stage={0} octaves={1} world={null} home={6} hi={[3, 4, 7, 8]} active={litActive} onPlay={playExplore} />;
     // Half-step beat stage: the lit map + piano/guitar diagrams that show a half step as two next-door keys/frets.
     const tutHalfStage = <div className="tut-halfstage">{tutMapHalf}<HalfStepDiagrams /></div>;
     // "Mary had a little lamb" as number-notation: degree, note length (beats), lyric.
@@ -4121,7 +4157,7 @@ export default function NumberEarTrainer() {
         <span className="tt-cap b">…is built from just these 12</span>
       </div>
     );
-    const beats = [
+    const verdaBeats = [
       { title: "Staircase Meadows", cue: null,
         lines: <>Welcome to <b className="hl-g">Staircase Meadows</b>, traveler. I'm <b className="hl-t">Verda</b> — I'll be right beside you. Let me show you how every song you've ever heard is built.</>,
         stage: tutMap },
@@ -4150,46 +4186,90 @@ export default function NumberEarTrainer() {
         lines: <>Now let's listen together. I'll play a note — <b className="hl-t">listen deeply</b>, feel where it lies, then name its number. Three tries here with me.</>,
         stage: tutMap },
     ];
+    // Rue's minor chapter (Lowmoor Fen). Beats 1–2 show Verda's UNCHANGED major map
+    // (proof "nothing moved"); beat 3 swaps to the minor map so "home slid to 6" is a
+    // visual moment. Copy by Fable, in Rue's earthy voice.
+    const rueBeats = [
+      { title: "Lowmoor Fen", cue: null,
+        lines: <>Mind the mud, traveler — welcome to <b className="hl-g">Lowmoor Fen</b>. I'm <b className="hl-t">Old Rue</b>. Folk up the meadow say the fen sounds <b className="hl-t">sadder</b>. Rumor. Nothing down here ever moved — come, I'll show you.</>,
+        stage: tutMap },
+      { title: "The same seven", cue: null, hear: { label: "▶ Hear the meadow's scale", act: () => playTutPhrase([1, 2, 3, 4, 5, 6, 7, 8]) },
+        lines: <>Look what I keep by the water: <b className="hl-g">Verda's map</b> — the very one. Same <b className="hl-t">seven numbers</b>, same shape, same two <b className="hl-g">half steps</b> hiding at <b className="hl-g">3→4</b> and <b className="hl-g">7→1</b>. I didn't touch a single note. Go on, tap it — still sounds like the meadow, doesn't it?</>,
+        stage: tutMap },
+      { title: "Home moved to 6", cue: null, hear: { label: "▶ Hear the new home", act: playTutCadenceMinor },
+        lines: <>Here's the fen's one secret — and it's a small one. Down here your ear stops resting on 1 and settles on <b className="hl-t">6</b>. That's all that happened. <b className="hl-t">Home moved</b>; the notes stayed put. Same map, read from a different porch.</>,
+        stage: tutMapMinorStair },
+      { title: "Darker — same bones", cue: null,
+        lines: <>Hear that ache? That's not a new note — it's an old view. The <b className="hl-g">half steps</b> still live at <b className="hl-g">3→4</b> and <b className="hl-g">7→1</b>, exactly where Verda showed you. The bones never changed. The world just looks <b className="hl-t">longing</b> when you watch it from 6 — and that's all folk mean by a <b className="hl-g">minor key</b>.</>,
+        stage: tutMapMinorHalf },
+      { title: "The pull of 6", cue: null, hear: { label: "▶ Hear it settle on 6", act: playTutCadenceMinor },
+        lines: <>Remember Verda's little sun? The sky went dusk down here, but the <b className="hl-g">gravity</b> never quit. Every note still falls toward <b className="hl-t">home</b> — only now the whole fen orbits <b className="hl-t">6</b>. Listen for the lean: when the music sighs and settles, that's 6 catching it.</>,
+        stage: <SolarSystem home={6} /> },
+      { title: "Feel it together", cue: null,
+        lines: <>Enough of my talk — the reeds teach better than I do. I'll hum a note into the mist. <b className="hl-t">Listen deeply</b>, feel how far it sits from <b className="hl-t">6</b>, then name its number. Sing it back soft if you like; the fen won't laugh. Three tries, right here beside me.</>,
+        stage: tutMapMinor },
+    ];
+    const beats = isMinor ? rueBeats : verdaBeats;
     const step = Math.min(tutStep, beats.length - 1); // clamp: never index past the array
     const beat = beats[step];
     const last = step === beats.length - 1;
     const drill = tutMode === "drill";
     const done = tutMode === "done"; // graduation send-off after the 3 drills
     const drillTitle = tutDrillPhase === "play" ? "Listen…" : tutDrillPhase === "win" ? "You felt it!" : "Which number?";
-    const drillLine = tutDrillPhase === "win"
-      ? <>Yes — that's the one. You're <b className="hl-g">naming what you hear</b>.</>
-      : tutReveal
-        ? <>Not quite. Listen again and feel where it <b className="hl-t">lies</b> — it's the glowing number.</>
-        : tutDrillPhase === "play"
-          ? <>Understanding begins with <b className="hl-t">listening</b>. Listen deeply — feel where the note lies.</>
-          : <>Now <b className="hl-g">name it</b> — which number does it feel like?</>;
+    const drillLine = isMinor
+      ? (tutDrillPhase === "win"
+          ? <>There it is. Even in the low light, you're <b className="hl-g">naming what you hear</b>.</>
+          : tutReveal
+            ? <>Not quite — no shame in the dark. Listen again and feel its <b className="hl-t">lean toward 6</b> — it's the glowing number.</>
+            : tutDrillPhase === "play"
+              ? <>Hush, now. Let the note land on the water and <b className="hl-t">listen</b> — feel how far it sits from <b className="hl-t">6</b>.</>
+              : <>Now <b className="hl-g">name it</b> — which number does it feel like from down here?</>)
+      : (tutDrillPhase === "win"
+          ? <>Yes — that's the one. You're <b className="hl-g">naming what you hear</b>.</>
+          : tutReveal
+            ? <>Not quite. Listen again and feel where it <b className="hl-t">lies</b> — it's the glowing number.</>
+            : tutDrillPhase === "play"
+              ? <>Understanding begins with <b className="hl-t">listening</b>. Listen deeply — feel where the note lies.</>
+              : <>Now <b className="hl-g">name it</b> — which number does it feel like?</>);
     return (
-      <div className="app tutorial">
+      <div className={"app tutorial" + (tutCfg.sceneClass ? " " + tutCfg.sceneClass : "")}>
         <style>{CSS}</style>
-        <div className="tut-scene" aria-hidden="true">
-          <div className="sun" /><div className="cloud c1" /><div className="cloud c2" />
-          <div className="hills far" /><div className="hills" />
-          <div className="steps1" /><div className="steps2" /><div className="ground" />
-          <div className="tuft t1" /><div className="tuft t2" /><div className="tuft t3" />
-        </div>
+        {isMinor ? (
+          <div className="tut-scene" aria-hidden="true">
+            <div className="moon" />
+            <div className="hollow far" /><div className="hollow" />
+            <div className="water" />
+            <div className="mist m1" /><div className="mist m2" /><div className="mist m3" />
+            <div className="bank" />
+            <div className="reed r1" /><div className="reed r2" /><div className="reed r3" />
+            <div className="wisp w1" /><div className="wisp w2" />
+          </div>
+        ) : (
+          <div className="tut-scene" aria-hidden="true">
+            <div className="sun" /><div className="cloud c1" /><div className="cloud c2" />
+            <div className="hills far" /><div className="hills" />
+            <div className="steps1" /><div className="steps2" /><div className="ground" />
+            <div className="tuft t1" /><div className="tuft t2" /><div className="tuft t3" />
+          </div>
+        )}
         {tutCelebrate && <div className="fx-flash" aria-hidden="true" />}
         <Confetti show={tutCelebrate} />
         <div className="tut-inner">
           <div className="hud">
-            <span className="loc"><b>✦</b> Staircase Meadows</span>
+            <span className="loc"><b>✦</b> {tutCfg.loc}</span>
             {!done && <button className="skip" onClick={skipTutorial}>Skip ▸</button>}
           </div>
           <div className="stagepanel">
-            <div className="stagetitle">{done ? "The map is yours" : drill ? drillTitle : beat.title}</div>
+            <div className="stagetitle">{done ? (isMinor ? "The fen is yours" : "The map is yours") : drill ? drillTitle : beat.title}</div>
             <div className="stage-fit">
-              {done ? tutMap : drill ? (
+              {done ? (isMinor ? tutMapMinor : tutMap) : drill ? (
                 <div className="numpad coach tut-drillpad">
                   {[1, 2, 3, 4, 5, 6, 7].map((d) => {
                     const pc = DEGREE_TO_PC[d];
-                    const out = ![0, 2, 4].includes(pc);
+                    const out = !tutCfg.pool.includes(pc);
                     return (
                       <button key={d}
-                        className={"num" + (pc === 0 ? " tonic" : "") + (out ? " dim" : "") + (tutReveal && pc === tutDrillTarget ? " coach-target" : "") + (tutDrillPhase === "win" && pc === tutDrillTarget ? " just" : "")}
+                        className={"num" + (pc === tutCfg.homePc ? " tonic" : "") + (out ? " dim" : "") + (tutReveal && pc === tutDrillTarget ? " coach-target" : "") + (tutDrillPhase === "win" && pc === tutDrillTarget ? " just" : "")}
                         onClick={() => answerTutDrill(pc)}
                         disabled={tutDrillPhase !== "answer" || out}>
                         {d}<span className="num-sol">{SOLFEGE[d]}</span>
@@ -4199,7 +4279,7 @@ export default function NumberEarTrainer() {
                 </div>
               ) : beat.stage}
             </div>
-            {(done || (!drill && (beat.stage === tutMap || beat.stage === tutMapStair || beat.stage === tutTwelve || beat.stage === tutHalfStage))) && <div className="tut-explore">↯ Tap the map — hear any note, explore freely</div>}
+            {(done || (!drill && (beat.stage === tutMap || beat.stage === tutMapStair || beat.stage === tutTwelve || beat.stage === tutHalfStage || beat.stage === tutMapMinor || beat.stage === tutMapMinorStair || beat.stage === tutMapMinorHalf))) && <div className="tut-explore">↯ Tap the map — hear any note, explore freely</div>}
           </div>
           <div className="tut-mid">
             <div className="tut-midstack">
@@ -4213,7 +4293,7 @@ export default function NumberEarTrainer() {
                 </div>
               )}
             </div>
-            <img className="verda" src={verdaSrc} alt="Verda" />
+            <img className="verda" src={keeperSrc} alt={tutCfg.spriteAlt} />
             <div className="vshadow" />
           </div>
           {!done && (
@@ -4225,14 +4305,16 @@ export default function NumberEarTrainer() {
             </div>
           )}
           <div className="dwrap">
-            <span className="ntab">Verda, the Meadow Keeper</span>
+            <span className="ntab">{tutCfg.nameTab}</span>
             <div className="dbox">{done
-              ? <>You did it — you just named notes by <b className="hl-g">ear</b>, the very skill most players are missing. The meadow is yours now: wander it, tap anything, and remember — everything is relative to <b className="hl-t">1</b>.</>
+              ? (isMinor
+                  ? <>You found <b className="hl-t">6</b> in the dark — that's the whole trick. Nothing down here ever moved; you just learned where <b className="hl-t">home</b> sleeps. Same seven numbers, same map, a darker porch light. And when the fen sounds sad to you now… smile. You know its secret.</>
+                  : <>You did it — you just named notes by <b className="hl-g">ear</b>, the very skill most players are missing. The meadow is yours now: wander it, tap anything, and remember — everything is relative to <b className="hl-t">1</b>.</>)
               : drill ? drillLine : beat.lines}</div>
           </div>
           {done ? (
             <div className="btnrow">
-              <button className="btn next tut-grad" onClick={graduateTutorial}>Begin the journey ▸</button>
+              <button className="btn next tut-grad" onClick={graduateTutorial}>{isMinor ? "Into the fen ▸" : "Begin the journey ▸"}</button>
             </div>
           ) : !drill && (
             <div className="btnrow">

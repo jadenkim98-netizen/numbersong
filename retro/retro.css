@@ -765,6 +765,60 @@
   box-shadow:0 6px #35682f,3px 3px #4c9145,3px 6px #35682f,6px 0 #4c9145,6px 3px #58a850,6px 6px #35682f,9px 3px #4c9145,9px 6px #35682f,12px 6px #4c9145; }
 .tutorial .tuft.t1{ bottom:10%; left:9%; } .tutorial .tuft.t2{ bottom:20%; left:56%; animation-delay:-1.2s; } .tutorial .tuft.t3{ bottom:14%; right:14%; animation-delay:-2.1s; }
 @keyframes tut-sway{ 50%{ transform:skewX(8deg) } }
+/* =====================  TUTORIAL (Rue) — Lowmoor Fen scene  ================= */
+/* Same layered approach as Verda's meadow (.tut-scene + absolute pixel layers),
+   scoped under the .tut-fen modifier on the tutorial root. Back to front:
+   moon → hollows → water → mist → bank → reeds → wisps. Dusk palette. */
+.app.tutorial.tut-fen{
+  background:linear-gradient(#39435C 0%,#46566B 22%,#54666E 38%,#4A5C59 46%,#33403F 58%,#232D2C 100%);
+}
+.tut-fen .moon{ position:absolute; top:8%; right:14%; width:22px; height:22px; background:#D8DEE9;
+  box-shadow:0 0 22px 7px rgba(216,222,233,.35), inset -5px -4px 0 #AEB9C6;
+  animation:fen-glow 7s ease-in-out infinite; }
+@keyframes fen-glow{ 50%{ box-shadow:0 0 30px 10px rgba(216,222,233,.5), inset -5px -4px 0 #AEB9C6; } }
+.tut-fen .hollow{ position:absolute; left:-12%; right:-8%; bottom:52%; height:11%;
+  background:#3A4A4E; border-radius:50% 50% 0 0; opacity:.8; }
+.tut-fen .hollow.far{ bottom:56%; height:8%; left:18%; right:-25%; background:#465866; opacity:.55; }
+.tut-fen .water{ position:absolute; left:0; right:0; bottom:18%; height:34%;
+  background:
+    repeating-linear-gradient(0deg, rgba(124,173,209,.10) 0 2px, transparent 2px 12px),
+    linear-gradient(#3E5254,#2C3A3B 70%,#243030); }
+.tut-fen .water::after{ content:""; position:absolute; top:12%; right:15%; width:24px; height:46%;
+  background:repeating-linear-gradient(0deg, rgba(216,222,233,.26) 0 2px, transparent 2px 8px); }
+.tut-fen .mist{ position:absolute; height:12px; width:120px; border-radius:6px;
+  background:linear-gradient(90deg, transparent, rgba(237,242,238,.14) 18%, rgba(237,242,238,.20) 50%, rgba(237,242,238,.14) 82%, transparent);
+  animation:fen-drift linear infinite; }
+.tut-fen .mist.m1{ bottom:44%; left:-20%; animation-duration:52s; }
+.tut-fen .mist.m2{ bottom:30%; left:30%; animation-duration:70s; animation-delay:-30s; opacity:.7; }
+.tut-fen .mist.m3{ bottom:21%; left:10%; animation-duration:88s; animation-delay:-55s; opacity:.5; }
+@keyframes fen-drift{ from{ transform:translateX(-140px) } to{ transform:translateX(580px) } }
+.tut-fen .bank{ position:absolute; left:0; right:0; bottom:0; height:20%;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(18,26,25,.22) 0 2px, transparent 2px 13px),
+    repeating-linear-gradient(90deg, rgba(18,26,25,.14) 0 2px, transparent 2px 13px),
+    linear-gradient(#33403C,#232D2A); }
+.tut-fen .bank::before{ content:""; position:absolute; left:0; right:0; top:-4px; height:4px;
+  background:repeating-linear-gradient(90deg,#2C3A3B 0 10px,#243030 10px 22px); }
+.tut-fen .reed{ position:absolute; width:3px; height:3px; transform-origin:bottom center;
+  animation:fen-sway 4.6s ease-in-out infinite;
+  box-shadow:
+    0 -21px #4E5D50, 0 -18px #4E5D50, 0 -15px #56655B, 0 -12px #56655B,
+    0 -9px #4E5D50, 0 -6px #56655B, 0 -3px #4E5D50, 0 0 #3A473F,
+    0 -27px #8A7648, 0 -24px #8A7648,
+    4px -12px #4E5D50, 5px -9px #56655B, 6px -6px #4E5D50, 7px -3px #3A473F,
+    -3px -6px #56655B, -4px -3px #4E5D50; }
+.tut-fen .reed.r1{ bottom:8%; left:9%; }
+.tut-fen .reed.r2{ bottom:16%; left:57%; animation-delay:-1.8s; }
+.tut-fen .reed.r3{ bottom:11%; right:12%; animation-delay:-3.2s; }
+@keyframes fen-sway{ 50%{ transform:skewX(5deg) } }
+.tut-fen .wisp{ position:absolute; width:4px; height:4px; background:var(--teal,#57C6C4);
+  box-shadow:0 0 8px 2px rgba(87,198,196,.55); animation:fen-wisp 6s ease-in-out infinite; }
+.tut-fen .wisp.w1{ bottom:36%; left:22%; }
+.tut-fen .wisp.w2{ bottom:28%; right:26%; animation-delay:-2.8s; }
+@keyframes fen-wisp{ 0%,100%{ transform:translateY(0); opacity:.55 } 50%{ transform:translateY(-7px); opacity:.95 } }
+@media (prefers-reduced-motion:reduce){
+  .tut-fen .moon,.tut-fen .mist,.tut-fen .reed,.tut-fen .wisp{ animation:none!important; }
+}
 .tut-inner{ position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; overflow:hidden;
   padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(14px + env(safe-area-inset-bottom,0px)); gap:0; }
 .tutorial .hud{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px; }
