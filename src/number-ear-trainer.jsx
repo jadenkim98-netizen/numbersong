@@ -2100,6 +2100,7 @@ export default function NumberEarTrainer() {
   const [tutDrillTarget, setTutDrillTarget] = useState(null); // pitch-class being tested
   const [tutDrillPhase, setTutDrillPhase] = useState("play"); // play | answer | win
   const tutTimerRef = useRef(null);
+  const tutGenRef = useRef(0); // bumped when the tutorial is skipped/graduated — an in-flight startTutDrill await checks it and bails (no note/timer leaking onto the map)
   const [tutorialActive, setTutorialActive] = useState(false); // (legacy) session Q1 coaching — unused now
   const [tutReveal, setTutReveal] = useState(false);  // reveal the target pad after a wrong tap
   const [revealPc, setRevealPc] = useState(null);     // real-drill: pc of the target, revealed after repeated misses so a stuck learner isn't left guessing
@@ -2221,8 +2222,8 @@ export default function NumberEarTrainer() {
   // in-cutscene drills (play a note → feel it → tap the number), then hands into the REAL
   // Region-1 First Steps session (the "actual" ear training; no more coaching).
   const TUT_DRILLS = 3;
-  const skipTutorial = () => { savePref("tut", "1"); if (tutTimerRef.current) clearTimeout(tutTimerRef.current); try { sfx("select"); } catch (e) {} setScreen("adventure"); };
-  const graduateTutorial = () => { savePref("tut", "1"); setTutMode("teach"); try { sfx("select"); } catch (e) {} setScreen("adventure"); };
+  const skipTutorial = () => { tutGenRef.current++; savePref("tut", "1"); if (tutTimerRef.current) clearTimeout(tutTimerRef.current); try { sfx("select"); } catch (e) {} setScreen("adventure"); };
+  const graduateTutorial = () => { tutGenRef.current++; savePref("tut", "1"); setTutMode("teach"); if (tutTimerRef.current) clearTimeout(tutTimerRef.current); try { sfx("select"); } catch (e) {} setScreen("adventure"); };
   // Replay Verda's tutorial from the top (from the menu) — reset its state, don't touch the tut flag.
   const replayTutorial = () => {
     setTutStep(0); setTutMode("teach"); setTutDrillN(0);
@@ -2231,34 +2232,42 @@ export default function NumberEarTrainer() {
     setScreen("tutorial");
   };
   const startTutDrill = async (n) => {
+    const gen = tutGenRef.current;
     const pool = [0, 2, 4]; // degrees 1·2·3 (First Steps range)
     let pc; do { pc = pool[Math.floor(Math.random() * pool.length)]; } while (pc === tutDrillTarget && pool.length > 1);
     setTutDrillTarget(pc); setTutReveal(false); setTutDrillPhase("play");
     try {
       const t = (await playCadence("C", "major")) + 0.25; // establish "home", then the note
+      if (gen !== tutGenRef.current) return; // Skip/graduate landed during the cadence → don't play the note or re-arm the timer
       playSemi("C", pc, t, 4);
       if (tutTimerRef.current) clearTimeout(tutTimerRef.current);
-      tutTimerRef.current = setTimeout(() => setTutDrillPhase("answer"), (t + 0.25) * 1000);
-    } catch (e) { setTutDrillPhase("answer"); }
+      tutTimerRef.current = setTimeout(() => { if (gen === tutGenRef.current) setTutDrillPhase("answer"); }, (t + 0.25) * 1000);
+    } catch (e) { if (gen === tutGenRef.current) setTutDrillPhase("answer"); }
   };
   const enterTutDrills = () => { try { sfx("select"); } catch (e) {} setTutMode("drill"); setTutDrillN(0); startTutDrill(0); };
   const replayTutNote = () => { try { playCadence("C", "major").then((t) => playSemi("C", tutDrillTarget, t + 0.2, 4)); } catch (e) {} };
   const answerTutDrill = (pc) => {
     if (tutDrillPhase !== "answer") return;
     if (pc === tutDrillTarget) {
+      const gen = tutGenRef.current;
       setTutDrillPhase("win"); setTutReveal(false);
       try { haptic(false); } catch (e) {}
       setTutCelebrate(true);
       try { playResolution("C", 4, tutDrillTarget, "major", false, () => {}); } catch (e) {}
+      // Wait for the walk-home resolution to actually finish before advancing. The old
+      // fixed 2900ms was shorter than a degree-3 resolution (3×resStep+0.7s ≥ 3.1s, more
+      // at Slow speed), so the next cadence started over its tail. Derive from resStep.
+      const resMs = (resolutionSemis(tutDrillTarget, "major").length * resStep + 0.7) * 1000;
       if (tutTimerRef.current) clearTimeout(tutTimerRef.current);
       tutTimerRef.current = setTimeout(() => {
+        if (gen !== tutGenRef.current) return; // skipped/graduated during the celebration
         setTutCelebrate(false);
         if (tutDrillN + 1 < TUT_DRILLS) { setTutDrillN((k) => k + 1); startTutDrill(tutDrillN + 1); }
         else {
           // done — a short graduation beat (meadow music returns) before the map
           savePref("tut", "1"); setTutDrillN(0); setTutMode("done");
         }
-      }, tutDrillN + 1 < TUT_DRILLS ? 2900 : 2200);
+      }, resMs + (tutDrillN + 1 < TUT_DRILLS ? 500 : 200));
     } else {
       setTutReveal(true); // reveal the target — "feel it again, it's the glowing one"
       try { playSemi("C", pc, 0, 4); } catch (e) {}
@@ -2464,6 +2473,11 @@ export default function NumberEarTrainer() {
   const [qNum, setQNum] = useState(0);
   const [score, setScore] = useState(0);
   const [phase, setPhase] = useState("idle");     // idle | playing | answer | resolving
+  // Live mirrors of phase/busy so a DELAYED callback (e.g. the miss path's 650ms
+  // replayTarget) tests the CURRENT phase, not the stale closure it captured — a
+  // correct answer landing first must cancel the pending replay, not play over it.
+  const phaseRef = useRef(phase); const busyRef = useRef(busy);
+  useEffect(() => { phaseRef.current = phase; busyRef.current = busy; }, [phase, busy]);
   const [feedback, setFeedback] = useState(null); // string or {roman}
   const [chPicked, setChPicked] = useState([]);
   const [progAnswer, setProgAnswer] = useState([]); // romans tapped so far
@@ -2987,7 +3001,7 @@ export default function NumberEarTrainer() {
 
   // ♪ — replay just the sound to identify
   const replayTarget = async () => {
-    if (phase !== "answer" || busy) return;
+    if (phaseRef.current !== "answer" || busyRef.current) return; // live phase/busy — a scheduled miss-replay must not fire once a correct answer moved us to "resolving"
     const s = sess.current;
     setBusy(true);
     if (s.mode === "progressions") {
