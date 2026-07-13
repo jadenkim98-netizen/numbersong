@@ -4321,6 +4321,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const [tutDrillTarget, setTutDrillTarget] = useState(null);
     const [tutDrillPhase, setTutDrillPhase] = useState("play");
     const tutTimerRef = useRef(null);
+    const tutGenRef = useRef(0);
     const [tutorialActive, setTutorialActive] = useState(false);
     const [tutReveal, setTutReveal] = useState(false);
     const [revealPc, setRevealPc] = useState(null);
@@ -4488,6 +4489,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     };
     const TUT_DRILLS = 3;
     const skipTutorial = () => {
+      tutGenRef.current++;
       savePref("tut", "1");
       if (tutTimerRef.current) clearTimeout(tutTimerRef.current);
       try {
@@ -4497,8 +4499,10 @@ window.SOUNDTRACK = SOUNDTRACK;
       setScreen("adventure");
     };
     const graduateTutorial = () => {
+      tutGenRef.current++;
       savePref("tut", "1");
       setTutMode("teach");
+      if (tutTimerRef.current) clearTimeout(tutTimerRef.current);
       try {
         sfx("select");
       } catch (e) {
@@ -4519,6 +4523,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       setScreen("tutorial");
     };
     const startTutDrill = async (n) => {
+      const gen = tutGenRef.current;
       const pool = [0, 2, 4];
       let pc;
       do {
@@ -4529,11 +4534,14 @@ window.SOUNDTRACK = SOUNDTRACK;
       setTutDrillPhase("play");
       try {
         const t = await playCadence("C", "major") + 0.25;
+        if (gen !== tutGenRef.current) return;
         playSemi("C", pc, t, 4);
         if (tutTimerRef.current) clearTimeout(tutTimerRef.current);
-        tutTimerRef.current = setTimeout(() => setTutDrillPhase("answer"), (t + 0.25) * 1e3);
+        tutTimerRef.current = setTimeout(() => {
+          if (gen === tutGenRef.current) setTutDrillPhase("answer");
+        }, (t + 0.25) * 1e3);
       } catch (e) {
-        setTutDrillPhase("answer");
+        if (gen === tutGenRef.current) setTutDrillPhase("answer");
       }
     };
     const enterTutDrills = () => {
@@ -4554,6 +4562,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const answerTutDrill = (pc) => {
       if (tutDrillPhase !== "answer") return;
       if (pc === tutDrillTarget) {
+        const gen = tutGenRef.current;
         setTutDrillPhase("win");
         setTutReveal(false);
         try {
@@ -4566,8 +4575,10 @@ window.SOUNDTRACK = SOUNDTRACK;
           });
         } catch (e) {
         }
+        const resMs = (resolutionSemis(tutDrillTarget, "major").length * resStep + 0.7) * 1e3;
         if (tutTimerRef.current) clearTimeout(tutTimerRef.current);
         tutTimerRef.current = setTimeout(() => {
+          if (gen !== tutGenRef.current) return;
           setTutCelebrate(false);
           if (tutDrillN + 1 < TUT_DRILLS) {
             setTutDrillN((k) => k + 1);
@@ -4577,7 +4588,7 @@ window.SOUNDTRACK = SOUNDTRACK;
             setTutDrillN(0);
             setTutMode("done");
           }
-        }, tutDrillN + 1 < TUT_DRILLS ? 2900 : 2200);
+        }, resMs + (tutDrillN + 1 < TUT_DRILLS ? 500 : 200));
       } else {
         setTutReveal(true);
         try {
@@ -4807,6 +4818,12 @@ window.SOUNDTRACK = SOUNDTRACK;
     const [qNum, setQNum] = useState(0);
     const [score, setScore] = useState(0);
     const [phase, setPhase] = useState("idle");
+    const phaseRef = useRef(phase);
+    const busyRef = useRef(busy);
+    useEffect(() => {
+      phaseRef.current = phase;
+      busyRef.current = busy;
+    }, [phase, busy]);
     const [feedback, setFeedback] = useState(null);
     const [chPicked, setChPicked] = useState([]);
     const [progAnswer, setProgAnswer] = useState([]);
@@ -5412,7 +5429,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       setScreen("results");
     };
     const replayTarget = async () => {
-      if (phase !== "answer" || busy) return;
+      if (phaseRef.current !== "answer" || busyRef.current) return;
       const s = sess.current;
       setBusy(true);
       if (s.mode === "progressions") {

@@ -26,12 +26,16 @@ _Committed to `main` on Opus; deploys on the next push + `docs/` rebuild._
 
 ---
 
-## 🟡 Open — Tier 3 (minor / polish)
-11. Magic-link unlock is **case-sensitive** (`code === UNLOCK_CODE`) and leaves the code in the URL on mismatch, while the typed-in-Settings unlock is case-insensitive.
-12. **Enter-key double-submit** on the lead email input — only the button is disabled, so Enter (no `leadStatus === "sending"` guard) can fire two ConvertKit POSTs.
-13. Lead **"sending" state** during a resend from the "saved" card matches neither the done nor saved branch → the card flips back to the entry form mid-retry.
-14. **Quick correct-after-miss replays the target over the resolution** — the miss path schedules `replayTarget()` at 650ms with a stale `phase`/`busy` closure; a correct answer within 0.65s replays the note over the walk-home and unsets `busy` mid-resolution.
-15. **Tutorial-drill timer/audio leak** — no abort check across the `playCadence` await, and a fixed 2900ms advance vs the `3×resStep+0.7s` (≥3.1s) resolution → Skip during "Listen…" still plays and re-arms `tutTimerRef`; a correct degree-3 drill starts the next cadence ~200ms before the resolution finishes (worse at Slow speed).
-16. **`stopAll` doesn't dispose `sfx`/`fanfare`/`boot` synths** — their future-scheduled notes survive teardown (fanfare plays over the next screen). Possibly intended so celebrations finish — product call.
+## ✅ Fixed (Tier 3 — minor / polish) · 2026-07-13, Opus
+11. **Magic-link unlock case-sensitive + code left in URL on mismatch** → `?unlock=` now compares case-insensitively (matches the Settings unlock) and strips the code from the URL even on a mismatch.
+12. **Enter-key double-submit on the lead email** → `submitLead` guards on a `leadBusyRef` in-flight flag, so repeat Enter / double-tap can't fire two ConvertKit POSTs. _(landed on `main` via the parallel unlock/UX work)_
+13. **Lead "sending" resend flipped the saved card back to the entry form** → the saved card persists during a resend (`leadSavedRef`), instead of falling through to the form mid-retry. _(landed with #12)_
+14. **Quick correct-after-miss replayed the target over the resolution** → `replayTarget` now tests live `phaseRef`/`busyRef`, so a correct answer within 0.65s cancels the pending miss-replay instead of playing the note over the walk-home.
+15. **Tutorial-drill timer/audio leak** → added `tutGenRef` (bumped on skip/graduate) so an in-flight `startTutDrill` bails after the cadence await (no note/timer leaking onto the map); the post-win advance is derived from the real resolution length (`resolutionSemis…×resStep+0.7`) instead of a too-short fixed 2900ms.
+
+_#11/#14/#15 fixed on Opus via the `tier3` worktree (merged clean); #12/#13 via the parallel unlock/UX branch. Deploys on the next push + `docs/` rebuild._
+
+## 🚫 Won't-fix
+16. **`stopAll` doesn't dispose `sfx`/`fanfare`/`boot` synths** — their future-scheduled notes survive teardown. **Intended** (product call, 2026-07-13): these are short one-shot celebration sounds; the brief bleed reads as the celebration finishing, and disposing them would cut a fanfare off mid-cheer. The session-audio bleed that *did* matter is handled by the piano rebuild + the Tier 2 `audioGenRef` guard.
 
 **Dropped (won't-fix):** a `retro` `classList.toggle(undefined)` when `window.HARMONIA` is absent — unreachable in shipped builds (`build.sh` always inlines HARMONIA).
