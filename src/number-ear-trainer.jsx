@@ -1756,6 +1756,7 @@ const MAP_TOUR = [
   { sel: ".adv-sword-mini", title: "The blade", text: "Eight Keepers, eight pieces. Reforge Excalibar and all of Harmonia sings again." },
   { sel: ".adv-hud-actions", title: "Need a refresher?", text: "Tap 📖 down here any time to review how the numbers work. It's always there when you want it." },
   { sel: ".gear-settings", title: "Settings", text: "And ⚙ up here for sound, themes, and anything else you need." },
+  { sel: null, title: "Little and often", text: "One more thing — just 5 to 10 minutes a day is enough. Short, steady practice is what turns these numbers into real ears; little and often beats long and rare." },
   { sel: null, title: "Off you go", text: "That's the whole game. Follow your ears — I'll be right beside you. 💛" },
 ];
 
