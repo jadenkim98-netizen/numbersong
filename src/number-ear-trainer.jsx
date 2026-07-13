@@ -1970,7 +1970,11 @@ export default function NumberEarTrainer() {
   const startTutDrill = async (n) => {
     const gen = tutGenRef.current;
     const pool = tutCfg.pool; // major 1·2·3, minor 6·1·3
-    let pc; do { pc = pool[Math.floor(Math.random() * pool.length)]; } while (pc === tutDrillTarget && pool.length > 1);
+    // The minor test opens on 6 (home) so the first note the player names is the fen's
+    // resting place; the rest of the drills stay random from the pool.
+    let pc;
+    if (tutChapter === "minor" && n === 0) pc = tutCfg.homePc;
+    else { do { pc = pool[Math.floor(Math.random() * pool.length)]; } while (pc === tutDrillTarget && pool.length > 1); }
     setTutDrillTarget(pc); setTutReveal(false); setTutDrillPhase("play");
     try {
       const t = (await playCadence(tutCfg.key, tutCfg.mode)) + 0.25; // establish "home", then the note
@@ -4118,9 +4122,10 @@ export default function NumberEarTrainer() {
     const tutMapHalf = <ExploreMap start={1} count={8} stage={0} octaves={1} world={null} hi={[3, 4, 7, 8]} active={litActive} onPlay={playExplore} />;
     // Rue's minor variants: SAME 1–8 map, but home=6 wears the star (the whole lesson —
     // nothing moved, only home). Half-steps still light at 3·4 and 7·1.
-    const tutMapMinor = <ExploreMap start={1} count={8} stage={0} octaves={1} world={null} home={6} active={litActive} onPlay={playExplore} />;
-    const tutMapMinorStair = <ExploreMap key="mstair" start={1} count={8} stage={0} octaves={1} world={null} home={6} active={litActive} onPlay={playExplore} staircase />;
-    const tutMapMinorHalf = <ExploreMap start={1} count={8} stage={0} octaves={1} world={null} home={6} hi={[3, 4, 7, 8]} active={litActive} onPlay={playExplore} />;
+    const tutMapMinor = <ExploreMap start={6} count={8} stage={0} octaves={1} world={null} home={6} active={litActive} onPlay={playExplore} />;
+    const tutMapMinorStair = <ExploreMap key="mstair" start={6} count={8} stage={0} octaves={1} world={null} home={6} active={litActive} onPlay={playExplore} staircase />;
+    // starts on 6, so the half-step pairs land at raw 7·8 (7→1) and 10·11 (3→4).
+    const tutMapMinorHalf = <ExploreMap start={6} count={8} stage={0} octaves={1} world={null} home={6} hi={[7, 8, 10, 11]} active={litActive} onPlay={playExplore} />;
     // Half-step beat stage: the lit map + piano/guitar diagrams that show a half step as two next-door keys/frets.
     const tutHalfStage = <div className="tut-halfstage">{tutMapHalf}<HalfStepDiagrams /></div>;
     // "Mary had a little lamb" as number-notation: degree, note length (beats), lyric.

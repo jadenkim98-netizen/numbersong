@@ -4702,9 +4702,12 @@ window.SOUNDTRACK = SOUNDTRACK;
       const gen = tutGenRef.current;
       const pool = tutCfg.pool;
       let pc;
-      do {
-        pc = pool[Math.floor(Math.random() * pool.length)];
-      } while (pc === tutDrillTarget && pool.length > 1);
+      if (tutChapter === "minor" && n === 0) pc = tutCfg.homePc;
+      else {
+        do {
+          pc = pool[Math.floor(Math.random() * pool.length)];
+        } while (pc === tutDrillTarget && pool.length > 1);
+      }
       setTutDrillTarget(pc);
       setTutReveal(false);
       setTutDrillPhase("play");
@@ -6637,9 +6640,9 @@ window.SOUNDTRACK = SOUNDTRACK;
       const tutMap = /* @__PURE__ */ React.createElement(ExploreMap, { start: 1, count: 8, stage: 0, octaves: 1, world: null, active: litActive, onPlay: playExplore });
       const tutMapStair = /* @__PURE__ */ React.createElement(ExploreMap, { key: "stair", start: 1, count: 8, stage: 0, octaves: 1, world: null, active: litActive, onPlay: playExplore, staircase: true });
       const tutMapHalf = /* @__PURE__ */ React.createElement(ExploreMap, { start: 1, count: 8, stage: 0, octaves: 1, world: null, hi: [3, 4, 7, 8], active: litActive, onPlay: playExplore });
-      const tutMapMinor = /* @__PURE__ */ React.createElement(ExploreMap, { start: 1, count: 8, stage: 0, octaves: 1, world: null, home: 6, active: litActive, onPlay: playExplore });
-      const tutMapMinorStair = /* @__PURE__ */ React.createElement(ExploreMap, { key: "mstair", start: 1, count: 8, stage: 0, octaves: 1, world: null, home: 6, active: litActive, onPlay: playExplore, staircase: true });
-      const tutMapMinorHalf = /* @__PURE__ */ React.createElement(ExploreMap, { start: 1, count: 8, stage: 0, octaves: 1, world: null, home: 6, hi: [3, 4, 7, 8], active: litActive, onPlay: playExplore });
+      const tutMapMinor = /* @__PURE__ */ React.createElement(ExploreMap, { start: 6, count: 8, stage: 0, octaves: 1, world: null, home: 6, active: litActive, onPlay: playExplore });
+      const tutMapMinorStair = /* @__PURE__ */ React.createElement(ExploreMap, { key: "mstair", start: 6, count: 8, stage: 0, octaves: 1, world: null, home: 6, active: litActive, onPlay: playExplore, staircase: true });
+      const tutMapMinorHalf = /* @__PURE__ */ React.createElement(ExploreMap, { start: 6, count: 8, stage: 0, octaves: 1, world: null, home: 6, hi: [7, 8, 10, 11], active: litActive, onPlay: playExplore });
       const tutHalfStage = /* @__PURE__ */ React.createElement("div", { className: "tut-halfstage" }, tutMapHalf, /* @__PURE__ */ React.createElement(HalfStepDiagrams, null));
       const MARY = [
         { deg: 3, dur: 1, lyric: "Ma-" },
