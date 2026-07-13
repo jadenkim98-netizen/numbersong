@@ -935,7 +935,10 @@ function useAudio() {
   // Sing a number: three recorded sets (C, E, Ab major). Pick the set nearest
   // the current key, so the voice is never repitched more than 2 semitones.
   const lastVoiceRef = useRef(null);
-  const sing = useCallback(async (key, degree, enabled, delay = 0, cutAfter = null) => {
+  // octShift lifts the sung clip by whole octaves — the recorded voice only covers one
+  // octave (plus a high "1" = clip "8"), so an upper-octave degree with no high take is
+  // repitched up instead of singing an octave below the note it's naming.
+  const sing = useCallback(async (key, degree, enabled, delay = 0, cutAfter = null, octShift = 0) => {
     if (!enabled) return;
     await ensure();
     if (!voicesRef.current) { speak(NUMBER_WORDS[parseInt(degree, 10)], enabled); return; }
@@ -949,7 +952,7 @@ function useAudio() {
     const pick = cands.find((c) => voicesRef.current[c.base][degree]);
     if (!pick) { speak(NUMBER_WORDS[parseInt(degree, 10)], enabled); return; }
     const player = new Tone.Player(voicesRef.current[pick.base][degree]).toDestination();
-    player.playbackRate = Math.pow(2, pick.s / 12);
+    player.playbackRate = Math.pow(2, pick.s / 12 + octShift);
     player.fadeOut = 0.12; // gentle release when cut short
     const t = Tone.now() + delay;
     // one voice at a time: the previous number stops the moment this one starts
@@ -1225,10 +1228,13 @@ function ExploreMap({ start, count, stage, octaves, world, active, hi, litDeg, s
   const notes = exploreNotes(start, count);
   const s0 = notes[0].semi, s1 = notes[notes.length - 1].semi;
   const chordal = world ? worldChordTones(world) : [];
+  // The starred "home" pad follows the selected world; 1 is only special in world 1
+  // (or when no world is selected, e.g. the guide's tonal map, where world is null).
+  const homeDeg = world || 1;
   const cells = [];
   for (let row = 0; row < octaves; row++) {
     notes.forEach((n, i) => {
-      const isTonic = n.label === 1;
+      const isTonic = n.label === homeDeg;
       const isChordal = chordal.includes(n.label);
       const isRoot = n.label === world;
       const cls = [
@@ -1385,15 +1391,16 @@ function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singI
   const singCls = (s) => labels[s] != null && labels[s] === singDeg
     ? (singInTune ? " singing in" : " singing off") : "";
 
+  const homeDeg = world || 1; // starred home follows the selected world (1 only in world 1)
   const keyLabel = (s) => {
     const lab = labels[s];
     if (lab == null || stage === 1) return null;
     const cls = ["pk-label",
-      lab === 1 && "tonic",
+      lab === homeDeg && "tonic",
       chordal.includes(lab) && "chordal",
       lab === world && "world-root",
     ].filter(Boolean).join(" ");
-    return <span className={cls}>{lab}{lab === 1 ? <span className="pk-star">★</span> : null}</span>;
+    return <span className={cls}>{lab}{lab === homeDeg ? <span className="pk-star">★</span> : null}</span>;
   };
 
   return (
@@ -2779,7 +2786,7 @@ export default function NumberEarTrainer() {
       e.preventDefault();
       const note = noteOf(m.d, m.oct);
       holdNote(note);
-      sing(musicKey, m.oct === 5 && m.d === 1 ? 8 : m.d, fpTab === "paths" ? pathVoice : voiceOn);
+      singOct(m.d, m.oct - 4, fpTab === "paths" ? pathVoice : voiceOn);
       let litId = null, litSet = null;
       if (fpTab === "paths" && m.oct === 4) {
         const col = pathIdxRef.current >= 0 ? pathIdxRef.current : 0;
@@ -2821,12 +2828,19 @@ export default function NumberEarTrainer() {
   const setTempo = (b) => { setPathBeat(b); pathBeatRef.current = b; };
   const toggleDrums = () => { const v = !pathDrums; setPathDrums(v); pathDrumsRef.current = v; };
   const noteOf = (d, oct) => Tone.Frequency(Tone.Frequency(musicKey + oct).toMidi() + DEGREE_SEMITONES[d], "midi").toNote();
+  // Sing a degree `up` whole octaves above the recorded base. Only "1" has a high take
+  // (clip 8); every other degree gets repitched up so an upper-octave note is sung at
+  // its real pitch instead of an octave below (keeps each world a consistent rising scale).
+  const singOct = (label, up, on, delay = 0, cut = null) => {
+    const useHigh = label === 1 && up >= 1;
+    sing(musicKey, useHigh ? 8 : label, on, delay, cut, useHigh ? up - 1 : up);
+  };
   const pathDown = (col, ri) => {
     const row = PATH_ROWS[ri];
     const id = col + "-" + ri;
     setLitPath((a) => (a.includes(id) ? a : [...a, id]));
     holdNote(noteOf(row.d, row.oct));
-    sing(musicKey, row.d, pathVoice);
+    singOct(row.d, row.oct - 4, pathVoice);
   };
   const pathUp = (col, ri) => {
     const row = PATH_ROWS[ri];
@@ -3063,7 +3077,10 @@ export default function NumberEarTrainer() {
         const aq = lvl.mode === "minor" ? ALT_QUIPS_MINOR : ALT_QUIPS;
         setFeedback(deg != null ? dq[deg] : aq[pc]);
       }
-      playResolution(s.key, s.octave, s.target, lvl.mode, !lvl.chromatic, advance);
+      // Sing the resolution even in chromatic levels: playResolution skips any note
+      // with no scale degree (the chromatic ones) per-note, so diatonic notes get the
+      // voice and chromatic notes just play with no voice.
+      playResolution(s.key, s.octave, s.target, lvl.mode, true, advance);
     } else {
       s.attempted = true;
       s.misses = (s.misses || 0) + 1;
@@ -3178,7 +3195,7 @@ export default function NumberEarTrainer() {
     setLitActive((a) => (a.includes(id) ? a : [...a, id]));
     holdNote(pianoNote(k));
     const label = pianoLabelOf(k);
-    if (label != null) sing(musicKey, k.s >= 12 && label === 1 ? 8 : label, voiceOn);
+    if (label != null) singOct(label, Math.floor(k.s / 12), voiceOn);
   };
   const pianoUp = (k) => {
     setLitActive((a) => a.filter((x) => x !== "p" + k.s));
@@ -3190,7 +3207,7 @@ export default function NumberEarTrainer() {
     const id = n.raw + row * 100;
     setLitActive((a) => [...a, id]);
     playDegree(musicKey, n.label, 0, 4 + (n.upper ? 1 : 0) + row);
-    sing(musicKey, (n.upper || row > 0) && n.label === 1 ? 8 : n.label, voiceOn);
+    singOct(n.label, (n.upper ? 1 : 0) + row, voiceOn);
     setTimeout(() => setLitActive((a) => a.filter((x) => x !== id)), 550);
   };
   const exploreDown = (n, row = 0) => {
@@ -3198,7 +3215,7 @@ export default function NumberEarTrainer() {
     setLitActive((a) => (a.includes(id) ? a : [...a, id]));
     holdNote(noteOf(n.label, oct));
     // sing the number when Voice is on — Paths uses its own pathVoice toggle, others voiceOn
-    sing(musicKey, (n.upper || row > 0) && n.label === 1 ? 8 : n.label, fpTab === "paths" ? pathVoice : voiceOn);
+    singOct(n.label, (n.upper ? 1 : 0) + row, fpTab === "paths" ? pathVoice : voiceOn);
   };
   const exploreUp = (n, row = 0) => {
     const id = n.raw + row * 100, oct = 4 + (n.upper ? 1 : 0) + row;
