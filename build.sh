@@ -169,22 +169,34 @@ html = f'''<!DOCTYPE html>
 <div id="root"></div>
 <div id="errbox"></div>
 <script>
-  window.onerror = function (msg, srcUrl, line, col, err) {{
+  // Raw error dumps show ON-SCREEN only in debug mode (localhost or ?debug in the URL);
+  // real users never see them. Everything is still logged to the console either way, so
+  // nothing is lost. (The library-load failure below IS shown to everyone — it's an
+  // actionable "check your connection & refresh" message, not a scary stack trace.)
+  var NS_DEBUG = false;
+  try {{
+    NS_DEBUG = new URLSearchParams(location.search).has("debug") ||
+      ["localhost", "127.0.0.1", "0.0.0.0"].indexOf(location.hostname) !== -1;
+  }} catch (e) {{}}
+  function nsReport(kind, text) {{
+    try {{ console.error("[numbersong] " + kind + ": " + text); }} catch (e) {{}}
+    if (!NS_DEBUG) return;
     var b = document.getElementById("errbox");
+    if (!b) return;
     b.style.display = "block";
-    b.textContent = "Something went wrong:\\n" + msg + "\\n" + (srcUrl || "") + ":" + line + ":" + col +
-      (err && err.stack ? "\\n\\n" + err.stack : "");
+    b.textContent = kind + ":\\n" + text;
+  }}
+  window.onerror = function (msg, srcUrl, line, col, err) {{
+    nsReport("Something went wrong", msg + "\\n" + (srcUrl || "") + ":" + line + ":" + col +
+      (err && err.stack ? "\\n\\n" + err.stack : ""));
   }};
   window.addEventListener("unhandledrejection", function (ev) {{
-    var b = document.getElementById("errbox");
-    b.style.display = "block";
-    b.textContent = "Something went wrong (async):\\n" + (ev.reason && ev.reason.message ? ev.reason.message : String(ev.reason));
+    nsReport("Something went wrong (async)", (ev.reason && ev.reason.message ? ev.reason.message : String(ev.reason)));
   }});
   window.addEventListener("load", function () {{
     if (!window.React || !window.ReactDOM || !window.Tone) {{
       var b = document.getElementById("errbox");
-      b.style.display = "block";
-      b.textContent = "Couldn't load the app libraries. Check your internet connection and refresh.";
+      if (b) {{ b.style.display = "block"; b.textContent = "Couldn't load the app libraries. Check your internet connection and refresh."; }}
     }}
   }});
 </script>
