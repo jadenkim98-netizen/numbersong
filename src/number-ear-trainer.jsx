@@ -4363,10 +4363,10 @@ export default function NumberEarTrainer() {
         stage: <div className="stacks"><GuideStack label="1" tones={TRI.I} onPlay={gsPlay} onNote={gsNote} /><GuideStack label="4" tones={TRI.IV} onPlay={gsPlay} onNote={gsNote} /><GuideStack label="5" tones={TRI.V} onPlay={gsPlay} onNote={gsNote} /><GuideStack label="6" tones={TRI.vi} onPlay={gsPlay} onNote={gsNote} /></div> },
       { title: "The Note That's Really Home", cue: null, hear: { label: "▶ Hear the 4 chord", act: hearCh(TRI.IV, "both") },
         lines: <>Some folk name a chord's voices <em>root, third, fifth</em> — counted from the chord, never the key. That hides where they live. Look at the <b className="hl-g">4 chord</b>: <b className="hl-g">4, 6, and 1</b>. Count the old way and that last note is just "the <b className="hl-g">fifth</b>" — a stranger. The ladder names it true: it's <b className="hl-t">1</b>. <b className="hl-t">Home</b>, ringing right inside the 4.</>,
-        stage: <div className="stacks tut-glass-stage"><GuideStack label="4" tones={TRI.IV} home={1} onPlay={gsPlay} onNote={gsNote} /><div className="tut-cap">that <b className="hl-t">1</b> is <b className="hl-t">home</b> — not just "the 5th"</div></div> },
+        stage: <div className="stacks tut-annote"><GuideStack label="4" tones={TRI.IV} home={1} onPlay={gsPlay} onNote={gsNote} /><div className="tut-note"><span className="tut-note-sp">4 · 6 · 1</span><span className="tut-note-pt">↙ the <b className="hl-t">1</b> on the bottom is <b className="hl-t">home</b> — not just "the 5th"</span></div></div> },
       { title: "Walk It, Then Ring It", cue: null,
         lines: <>Never meet a chord head-on. <b className="hl-g">Walk</b> it first — one trunk at a time, low to high — then let it <b className="hl-g">ring</b>, all together. Nothing changed between the two; you simply stopped walking.</>,
-        stage: <div className="stacks tut-glass-stage"><GuideStack label="1" tones={TRI.I} onPlay={gsPlay} onNote={gsNote} /><div className="tut-wr"><button className="btn go" disabled={busy} onClick={hearCh(TRI.I, "walk")}>▶ Walk it</button><button className="btn go" disabled={busy} onClick={hearCh(TRI.I, "ring")}>▶ Ring it</button></div></div> },
+        stage: <div className="stacks tut-annote"><GuideStack label="1" tones={TRI.I} onPlay={gsPlay} onNote={gsNote} /><div className="tut-wr"><button className="btn go" disabled={busy} onClick={hearCh(TRI.I, "walk")}>▶ Walk it</button><button className="btn go" disabled={busy} onClick={hearCh(TRI.I, "ring")}>▶ Ring it</button></div></div> },
       { title: "Chords Are Kin", cue: null,
         lines: <>Now the ladder's finest gift: you can see a chord's <b className="hl-g">family</b>. Set the <b className="hl-t">1</b> beside the <b className="hl-g">6</b> — look close. Two of their three rungs land on the same numbers: <b className="hl-t">1 and 3</b>. They share most of their <b className="hl-g">DNA</b> — change one voice of home and you <em>have</em> the 6. It's home's own blood, wearing shadow.</>,
         stage: <div className="stacks tut-kin"><GuideStack label="1" tones={TRI.I} hi={[1, 3]} onPlay={gsPlay} onNote={gsNote} /><GuideStack label="6" tones={TRI.vi} hi={[1, 3]} onPlay={gsPlay} onNote={gsNote} /></div> },
@@ -4386,19 +4386,19 @@ export default function NumberEarTrainer() {
     const isChords = tutChapter === "chords";
     const drillTitle = tutDrillPhase === "play" ? "Listen…"
       : tutDrillPhase === "win" ? (isChords ? "Clear as glass!" : "You felt it!")
-      : isChords ? "Which numbers?" : "Which number?";
-    // Sylva's per-drill coached lines (root → two upper → all three).
+      : isChords ? "Which chord tones?" : "Which number?";
+    // Sylva's per-drill coached lines. Each drill = name ALL the chord's tones (not just the root).
     const sylvaDrills = [
       { listen: <>Softly now. I'll <b className="hl-g">walk</b> it low to high, then let it <b className="hl-g">ring</b> — three voices, and you know each one already.</>,
-        prompt: <>Which <b className="hl-g">three numbers</b> are ringing? Tap them on the stack, then <b className="hl-g">check</b>.</>,
-        wrong: <>Not quite — no shame; glass only asks you to look again. The <b className="hl-t">three you need</b> are glowing. Hear the walk once more.</>,
-        win: <>Three voices, clean — you looked straight <b className="hl-g">through</b> it. The wood gets easier from here.</> },
+        prompt: <>Tap all <b className="hl-g">three notes that make up the chord</b> — not just the bottom one — then <b className="hl-g">check</b>.</>,
+        wrong: <>Not quite — no shame; glass only asks you to look again. All <b className="hl-t">three chord tones</b> are glowing. Hear the walk once more.</>,
+        win: <>Every voice named, clean — you looked straight <b className="hl-g">through</b> it. The wood gets easier from here.</> },
       { listen: <>Again — a <b className="hl-g">walk</b>, then the <b className="hl-g">ring</b>. Three trunks; take your time and hear each one stand.</>,
-        prompt: <>Tap the <b className="hl-g">three numbers</b> you hear, then <b className="hl-g">check</b>. Take the walk again any time.</>,
+        prompt: <>Tap the <b className="hl-g">three chord tones</b> you hear — all of them — then <b className="hl-g">check</b>. Take the walk again any time.</>,
         wrong: <>Close — one voice slipped behind another. The <b className="hl-t">true three</b> are glowing; listen again.</>,
         win: <>You're not hearing a blur anymore — you're hearing <b className="hl-g">through</b>. Every voice in its place.</> },
-      { listen: <>Last one — <b className="hl-g">walk</b>, then <b className="hl-g">ring</b>, the way songs will give it to you. Name all three.</>,
-        prompt: <>Tap <b className="hl-g">all three numbers</b>, then <b className="hl-g">check</b>.</>,
+      { listen: <>Last one — <b className="hl-g">walk</b>, then <b className="hl-g">ring</b>, the way songs will give it to you. Name the whole chord.</>,
+        prompt: <>Tap <b className="hl-g">all three of the chord's notes</b>, then <b className="hl-g">check</b>.</>,
         wrong: <>Almost through — one pane's fogged. Watch the <b className="hl-t">three</b> glow, and hear the walk once more.</>,
         win: <>You heard every voice in the chord. <b className="hl-g">Clear as glass.</b></> },
     ];
@@ -4425,8 +4425,7 @@ export default function NumberEarTrainer() {
           .tut-glass-stage { flex-direction: column; align-items: center; gap: 8px; }
           .tut-cap { font: 12px var(--sans, Archivo, sans-serif); color: var(--text, #EDF2EE); opacity: .85; text-align: center; }
           .tut-wr { display: flex; gap: 8px; justify-content: center; }
-          .tut-kin { gap: 26px; position: relative; }
-          .tut-kin::after { content: "shared: 1 · 3"; position: absolute; left: 0; right: 0; bottom: -14px; text-align: center; font: 9px var(--pf, 'Courier New', monospace); letter-spacing: 1px; text-transform: uppercase; color: var(--teal, #57C6C4); }
+          .tut-kin { gap: 26px; }
           .stack-note.hi { box-shadow: inset 0 0 0 2px var(--teal, #57C6C4); color: var(--teal, #57C6C4); }
           .stack-note.home { background: var(--teal, #57C6C4); color: #12201d; border-color: var(--teal, #57C6C4); }
           /* keep beat stacks + the chord drill inside the clipped stage panel on phones */
@@ -4440,6 +4439,12 @@ export default function NumberEarTrainer() {
           .tutorial .chord-layout .chord-right { flex: 0 1 auto; }
           .tutorial .chord-layout .numpad { gap: 5px; }
           .tutorial .chord-layout .num { width: 34px; height: 34px; }
+          /* annotation/buttons BESIDE the stack (row) so nothing overflows the panel bottom */
+          .tutorial .tut-annote { flex-direction: row; align-items: center; gap: 16px; justify-content: center; }
+          .tutorial .tut-annote .tut-wr { flex-direction: column; }
+          .tut-note { display: flex; flex-direction: column; gap: 6px; max-width: 168px; text-align: left; }
+          .tut-note-sp { font: 700 20px var(--pf, 'Courier New', monospace); letter-spacing: 3px; color: var(--text, #EDF2EE); }
+          .tut-note-pt { font: 12px var(--sans, Archivo, sans-serif); color: var(--text, #EDF2EE); opacity: .88; line-height: 1.45; }
         `}</style>
         {isChords ? (
           <div className="tut-scene" aria-hidden="true">
