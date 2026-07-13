@@ -346,6 +346,10 @@ var Sentry=function(t){t=window.Sentry||{};const n=globalThis,e="10.65.0";functi
     animation: ns-boot-spin .8s linear infinite;
   }
   @keyframes ns-boot-spin { to { transform: rotate(360deg); } }
+  .skip-link { position: fixed; left: 8px; top: -60px; z-index: 1000; padding: 10px 14px;
+    background: #57C6C4; color: #0f1c1a; border-radius: 8px; font: 600 14px/1 system-ui, sans-serif;
+    text-decoration: none; transition: top .15s ease; }
+  .skip-link:focus { top: 8px; outline: 3px solid #EDF2EE; outline-offset: 2px; }
   #errbox {
     display: none; position: fixed; inset: auto 12px 12px 12px; z-index: 999;
     background: #E07856; color: #3A241B; padding: 12px 16px; border-radius: 10px;
@@ -470,6 +474,7 @@ button { font-family: inherit; cursor: pointer; transition: transform 0.06s, bac
 button:active { transform: scale(0.97); }
 button:disabled { opacity: 0.4; cursor: default; }
 button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 .ghost {
   background: transparent; color: var(--text); border: 1.5px solid var(--line);
   border-radius: 10px; padding: 8px 14px; font-size: 0.9rem; font-weight: 500;
@@ -2198,7 +2203,8 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 </style>
 </head>
 <body>
-<div id="root"></div>
+<a href="#root" class="skip-link">Skip to content</a>
+<div id="root" role="main" tabindex="-1"></div>
 <div id="errbox"></div>
 <script>
   // Raw error dumps show ON-SCREEN only in debug mode (localhost or ?debug in the URL);
@@ -3814,6 +3820,28 @@ window.SOUNDTRACK = SOUNDTRACK;
   function worldChordTones(w) {
     return [0, 2, 4, 6].map((k) => (w - 1 + k) % 7 + 1);
   }
+  var holdKeys = (down, up) => ({
+    onKeyDown: (e) => {
+      if ((e.key === "Enter" || e.key === " ") && !e.repeat) {
+        e.preventDefault();
+        down();
+      }
+    },
+    onKeyUp: (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        up();
+      }
+    }
+  });
+  var spokenNote = (pc) => NOTE_LABELS[pc].replace("♭", "flat ").replace("♯", "sharp ");
+  var prefersReducedMotion = () => {
+    try {
+      return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch (e) {
+      return false;
+    }
+  };
   function ExploreMap({ start, count, stage, octaves, world, home, active, hi, litDeg, singDeg, singInTune, onPlay, onDown, onUp, staircase }) {
     const evts = (n, row) => onDown ? { onPointerDown: (e) => {
       try {
@@ -3821,7 +3849,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       } catch (_) {
       }
       onDown(n, row);
-    }, onPointerUp: () => onUp(n, row) } : { onClick: () => onPlay(n, row) };
+    }, onPointerUp: () => onUp(n, row), ...holdKeys(() => onDown(n, row), () => onUp(n, row)) } : { onClick: () => onPlay(n, row) };
     const notes = exploreNotes(start, count);
     const s0 = notes[0].semi, s1 = notes[notes.length - 1].semi;
     const chordal = world ? worldChordTones(world) : [];
@@ -3952,7 +3980,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       } catch (_) {
       }
       onDown(k);
-    }, onPointerUp: () => onUp(k) });
+    }, onPointerUp: () => onUp(k), ...holdKeys(() => onDown(k), () => onUp(k)) });
     const baseMidi = Tone.Frequency(musicKey + "4").toMidi();
     const BLACK_PCS = [1, 3, 6, 8, 10];
     const labels = {};
@@ -4085,7 +4113,8 @@ window.SOUNDTRACK = SOUNDTRACK;
             }
             onDown(col, ri);
           },
-          onPointerUp: () => onUp(col, ri)
+          onPointerUp: () => onUp(col, ri),
+          ...holdKeys(() => onDown(col, ri), () => onUp(col, ri))
         },
         row.d
       );
@@ -4147,7 +4176,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       const t = setTimeout(() => setRender(false), 650);
       return () => clearTimeout(t);
     }, [show]);
-    if (!render) return null;
+    if (!render || prefersReducedMotion()) return null;
     return /* @__PURE__ */ React.createElement("div", { className: "confetti" + (out ? " out" : ""), "aria-hidden": "true" }, CONFETTI.map((cf, i) => /* @__PURE__ */ React.createElement("i", { key: i, style: { left: cf.left + "%", background: cf.color, "--drift": cf.drift + "px", "--dur": cf.dur + "s", "--delay": cf.delay + "s" } })));
   }
   function AdvSplash({ ready }) {
@@ -4623,7 +4652,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const have = collected.size;
     const restored = have >= 8;
     const next = nodes.find((n) => !collected.has(H.stageFrag[n.id]));
-    return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" + (restored ? " restored" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", width: "32", height: "24", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG"), restored && /* @__PURE__ */ React.createElement("em", { className: "adv-restored-tag" }, " · restored")), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear gear-settings", onClick: onSettings, "aria-label": "Settings" }, "⚙")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), celebrateNode && H.nodes[celebrateNode - 1] && /* @__PURE__ */ React.createElement("div", { className: "map-cleared", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "map-cleared-star" }, "★"), /* @__PURE__ */ React.createElement("span", { className: "map-cleared-text" }, H.nodes[celebrateNode - 1].name, /* @__PURE__ */ React.createElement("em", null, "region cleared"))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("div", { className: "adv-forge-chip" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost shop-btn", onClick: onShop, "aria-label": "Shop" }, "★"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"))));
+    return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" + (restored ? " restored" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top", role: "navigation", "aria-label": "Map controls" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", width: "32", height: "24", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG"), restored && /* @__PURE__ */ React.createElement("em", { className: "adv-restored-tag" }, " · restored")), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear gear-settings", onClick: onSettings, "aria-label": "Settings" }, "⚙")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), celebrateNode && H.nodes[celebrateNode - 1] && /* @__PURE__ */ React.createElement("div", { className: "map-cleared", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "map-cleared-star" }, "★"), /* @__PURE__ */ React.createElement("span", { className: "map-cleared-text" }, H.nodes[celebrateNode - 1].name, /* @__PURE__ */ React.createElement("em", null, "region cleared"))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("div", { className: "adv-forge-chip" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost shop-btn", onClick: onShop, "aria-label": "Shop" }, "★"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"))));
   }
   function NumberEarTrainer() {
     const { playCadence, setCadenceSpeed, playDegree, playChord, playChordWR, playProgression, playSemi, sing, singMinor, minorShift, minorVoiceRef, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm } = useAudio();
@@ -5359,6 +5388,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       busyRef.current = busy;
     }, [phase, busy]);
     const [feedback, setFeedback] = useState(null);
+    const [srMsg, setSrMsg] = useState("");
     const [chPicked, setChPicked] = useState([]);
     const [progAnswer, setProgAnswer] = useState([]);
     const [progWrong, setProgWrong] = useState([]);
@@ -6033,6 +6063,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         setRevealPc(null);
         setHitPad(pc);
         setPhase("resolving");
+        setSrMsg("Correct — that was " + spokenNote(pc) + ".");
         const deg = PC_TO_DEGREE[pc];
         if (tutorialActive) {
           setFeedback("That's it — you're hearing in numbers!");
@@ -6055,6 +6086,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         s.misses = (s.misses || 0) + 1;
         setStreak(0);
         setLitWrong([pc]);
+        setSrMsg("Not quite — that was a " + spokenNote(pc) + ".");
         playSemi(s.key, pc, 0, s.octave);
         if (tutorialActive) {
           setTutReveal(true);
@@ -6097,6 +6129,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         setLitCorrect(tones);
         setLitWrong([]);
         setPhase("resolving");
+        setSrMsg("Correct.");
         setFeedback({ roman: s.target.roman, sym: chordSymbol(s.target.roman, s.sevenths), num: chordNumber(s.target.roman, s.sevenths), quality: chordQuality(s.target.roman, s.sevenths), tones });
         setBusy(true);
         const dur = await playChord(s.key, tones);
@@ -6109,6 +6142,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         s.attempted = true;
         setStreak(0);
         setLitWrong(chPicked.filter((d) => !t.has(d)));
+        setSrMsg("Not quite.");
         setFeedback("Close — the marked degrees aren't in it. Adjust and check again.");
       }
     };
@@ -6138,6 +6172,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           setStreak((x) => x + 1);
         }
         setPhase("resolving");
+        setSrMsg("Correct.");
         setFeedback({ prog: [...s.target] });
         setBusy(true);
         const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat);
@@ -6152,6 +6187,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         s.attempted = true;
         setStreak(0);
         setProgWrong(wrong);
+        setSrMsg("Not quite.");
         setFeedback("Not quite — the marked chords are off. Fix them and check again.");
       }
     };
@@ -6769,7 +6805,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           "aria-pressed": showRef
         },
         "Chord chart"
-      ), /* @__PURE__ */ React.createElement("p", { className: "hint grow" + (tutCoach ? " tut-coach-line" : ""), role: "status", "aria-live": "polite" }, phase === "playing" ? tutCoach ? "Verda plays a number… listen." : "Listen…" : feedback && feedback.roman ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.sym), " ", /* @__PURE__ */ React.createElement("em", { className: "numlabel" }, feedback.num), " · ", feedback.quality, ". ", CHORD_INSIGHTS[feedback.roman]) : feedback && feedback.prog ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.prog.join("–")), " — nailed the changes.") : feedback ? feedback : mode === "melody" ? tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?" : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.` : "Tap the chords you heard, in order.")), mode === "melody" ? lvl.chromatic ? /* @__PURE__ */ React.createElement("div", { className: "numpad chromatic" }, chromOrder.map((pc) => {
+      ), /* @__PURE__ */ React.createElement("p", { className: "hint grow" + (tutCoach ? " tut-coach-line" : ""), role: "status", "aria-live": "polite" }, phase === "playing" ? tutCoach ? "Verda plays a number… listen." : "Listen…" : feedback && feedback.roman ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.sym), " ", /* @__PURE__ */ React.createElement("em", { className: "numlabel" }, feedback.num), " · ", feedback.quality, ". ", CHORD_INSIGHTS[feedback.roman]) : feedback && feedback.prog ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.prog.join("–")), " — nailed the changes.") : feedback ? feedback : mode === "melody" ? tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?" : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.` : "Tap the chords you heard, in order."), /* @__PURE__ */ React.createElement("div", { className: "sr-only", role: "status", "aria-live": "polite" }, srMsg)), mode === "melody" ? lvl.chromatic ? /* @__PURE__ */ React.createElement("div", { className: "numpad chromatic" }, chromOrder.map((pc) => {
         const out = !pool.includes(pc);
         return /* @__PURE__ */ React.createElement(
           "button",
@@ -6777,6 +6813,7 @@ window.SOUNDTRACK = SOUNDTRACK;
             key: pc,
             className: "num chrom" + (pc === tonicPc ? " tonic" : "") + (ALTERED_PCS.includes(pc) ? " alt" : "") + (out ? " dim" : "") + (hitPad === pc ? " just" : "") + (litWrong.includes(pc) ? " wrong" : "") + (revealPc === pc ? " coach-target" : ""),
             onClick: () => answerMelodySession(pc),
+            "aria-label": "answer " + spokenNote(pc) + " " + NOTE_SOLFEGE[pc],
             disabled: phase !== "answer" || out
           },
           NOTE_LABELS[pc],
@@ -7700,6 +7737,7 @@ button { font-family: inherit; cursor: pointer; transition: transform 0.06s, bac
 button:active { transform: scale(0.97); }
 button:disabled { opacity: 0.4; cursor: default; }
 button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 .ghost {
   background: transparent; color: var(--text); border: 1.5px solid var(--line);
   border-radius: 10px; padding: 8px 14px; font-size: 0.9rem; font-weight: 500;
