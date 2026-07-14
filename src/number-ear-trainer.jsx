@@ -2948,7 +2948,9 @@ export default function NumberEarTrainer() {
     const s = sess.current;
     if (!s.boss) return;
     setBossState(evalBoss(s.results, s.bossMisses, s.boss));
-    setDuelSay(s.boss.taunts.hurt); // she reacts to being struck — stays up until the next question
+    // she reacts to being struck — cycle the variants so it varies each hit (no back-to-back repeat)
+    const hits = s.boss.taunts.hits || [];
+    if (hits.length) setDuelSay(hits[(s.results.length - 1) % hits.length]);
     flashBoss("hit");
   };
 

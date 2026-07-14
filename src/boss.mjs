@@ -39,8 +39,16 @@ export const BOSS = {
     // these are the in-fight beats).
     taunts: {
       intro: "Up the steps, friend — I love you too much to go easy.",
-      hurt: "Oh! Well heard — you took that step like you built it.",
-      low: "You've nearly climbed me… the last steps are the sweetest.",
+      // `hits` — she reacts to being struck; picked in turn so it varies each correct answer.
+      hits: [
+        "Oh! Well heard — you took that step like you built it.",
+        "That's the one — clean as a bell.",
+        "Ha! Right underfoot, just like home.",
+        "Yes — the meadow's singing your name now.",
+        "Mm! That step rang true.",
+        "There — you didn't even look down.",
+      ],
+      low: "Almost home now — I can hear it ringing under your feet.",
       playerHurt: "Just a stumble. Home hasn't moved — listen for it.",
       win: "There it is. Take my mark — you climbed all the way home.",
       lose: "The steps will keep, dear. Rest your ears, then climb again.",
@@ -60,7 +68,7 @@ export const DEFAULT_BOSS = {
   title: "",
   taunts: {
     intro: "Show me your ears.",
-    hurt: "A clean hit.",
+    hits: ["A clean hit.", "Well struck.", "You heard that true.", "Sharp — again."],
     low: "You're nearly through my guard…",
     playerHurt: "You faltered. Listen again.",
     win: "Well heard.",
