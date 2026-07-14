@@ -87,7 +87,7 @@ import {
   pickChordRoman,
   shouldCelebrateStageClear,
 } from "./app-flow.mjs";
-import { positionBox, answerBox, STANDARD_TUNING } from "./fretboard.mjs";
+import { positionBox, answerBox, STANDARD_TUNING, INLAYS, DOUBLE_INLAYS, FRET_COUNT } from "./fretboard.mjs";
 
 
 
@@ -1100,6 +1100,30 @@ const prefersReducedMotion = () => {
   try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; }
 };
 
+// True when the viewport is a phone held sideways — mirrors the ONE landscape CSS query
+// (`(orientation: landscape) and (max-height: 600px)`) so JS and CSS agree on when the big
+// horizontal Guitar Mode neck kicks in. Re-renders on rotate via a matchMedia change listener.
+const LANDSCAPE_Q = "(orientation: landscape) and (max-height: 600px)";
+function useLandscape() {
+  const [land, setLand] = useState(() => {
+    try { return window.matchMedia(LANDSCAPE_Q).matches; } catch (e) { return false; }
+  });
+  useEffect(() => {
+    let mq;
+    try { mq = window.matchMedia(LANDSCAPE_Q); } catch (e) { return; }
+    const on = () => setLand(mq.matches);
+    on();
+    // addEventListener is the modern API; older Safari only has addListener.
+    if (mq.addEventListener) mq.addEventListener("change", on);
+    else if (mq.addListener) mq.addListener(on);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener("change", on);
+      else if (mq.removeListener) mq.removeListener(on);
+    };
+  }, []);
+  return land;
+}
+
 function ExploreMap({ start, count, stage, octaves, world, home, active, hi, litDeg, singDeg, singInTune, onPlay, onDown, onUp, staircase }) {
   const evts = (n, row) => onDown // guide taps (onPlay); Free Play holds (onDown/onUp)
     ? { onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(n, row); }, onPointerUp: () => onUp(n, row), ...holdKeys(() => onDown(n, row), () => onUp(n, row)) }
@@ -1967,16 +1991,23 @@ const FRETBOARD_CSS = `
 .fretboard { display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; }
 .fretboard svg { display:block; margin:0 auto; max-width:100%; height:auto; touch-action:none; }
 .fb-hit { cursor:pointer; }
+/* landscape: the neck fills its column instead of scrolling — wide fret spacing gives the
+   viewBox a landscape aspect so it spreads across a wide screen (see the landscape prop). */
+.fretboard.fb-land { overflow:hidden; width:100%; height:100%; min-height:0; display:flex; }
+.fretboard.fb-land svg { margin:auto; width:100%; height:100%; max-width:100%; }
 `;
-function Fretboard({ musicKey, mode = "major", boxKind = "position", active = [], fb, disabled = false, onDown, onUp, onAnswer }) {
+function Fretboard({ musicKey, mode = "major", boxKind = "position", active = [], fb, disabled = false, landscape = false, onDown, onUp, onAnswer }) {
   // Box-driven: "position" = the ~5-fret Free Play window (6 strings); "answer" = the compact
   // 3-string × 4-fret test box (big finger targets). Play mode (onDown/onUp + `active` ids) vs
   // answer mode (onAnswer + pc-based `fb` feedback {hit, wrong[], reveal[]}).
   const answer = boxKind === "answer";
+  const land = landscape && !answer;   // wide horizontal neck for phone-landscape Free Play
   const box = answer ? answerBox(musicKey, mode) : positionBox(musicKey, mode, { minFret: 2 });
   const strings = box.strings, frets = box.frets, startFret = box.startFret;
   const nS = strings.length, nWin = frets.length;
-  const fw = answer ? 84 : 76, sh = answer ? 54 : 36, padX = 24, padTop = 22, padBot = 48;
+  // Landscape stretches the fret spacing (fw) well past the string spacing (sh) so a 5-fret ×
+  // 6-string neck reads WIDE and fills the screen — not a tall neck pillarboxed with margins.
+  const fw = land ? 150 : answer ? 84 : 76, sh = land ? 50 : answer ? 54 : 36, padX = land ? 30 : 24, padTop = land ? 26 : 22, padBot = land ? 42 : 48;
   const W = padX * 2 + nWin * fw, H = padTop + padBot + (nS - 1) * sh;
   const rowOf = (s) => nS - 1 - strings.indexOf(s);       // lowest string index → bottom row
   const wireX = (i) => padX + i * fw;                     // i: 0..nWin
@@ -1987,7 +2018,7 @@ function Fretboard({ musicKey, mode = "major", boxKind = "position", active = []
   const hit = fb && fb.hit != null ? fb.hit : null;
   const wrong = new Set((fb && fb.wrong) || []);
   const reveal = new Set((fb && fb.reveal) || []);
-  const dot = answer ? 21 : 17;
+  const dot = land ? 25 : answer ? 21 : 17;
   const els = [];
   els.push(<rect key="bd" x={padX - 14} y={padTop - 14} width={W - padX * 2 + 28} height={(nS - 1) * sh + 28} rx="9" fill="#26302c" stroke="#121815" strokeWidth="2" />);
   [3, 5, 7, 9, 12].filter((f) => frets.includes(f)).forEach((f) => {
@@ -1997,7 +2028,7 @@ function Fretboard({ musicKey, mode = "major", boxKind = "position", active = []
   });
   strings.forEach((s, r) => els.push(<line key={"s" + s} x1={wireX(0)} y1={strY(s)} x2={wireX(nWin)} y2={strY(s)} stroke="#b3bcb4" strokeWidth={1.2 + (nS - 1 - r) * 0.5} />));
   for (let i = 0; i <= nWin; i++) { const nut = startFret - 1 + i === 0; els.push(<line key={"f" + i} x1={wireX(i)} y1={strY(strings[0])} x2={wireX(i)} y2={strY(strings[nS - 1])} stroke={nut ? "#cdd3cb" : "#59635c"} strokeWidth={nut ? 6 : 2.5} />); }
-  frets.forEach((f) => els.push(<text key={"l" + f} x={spaceX(f)} y={H - 11} textAnchor="middle" fontSize="13" fontWeight="700" fill="#8b958c" fontFamily="ui-monospace,monospace">{f}</text>));
+  frets.forEach((f) => els.push(<text key={"l" + f} x={spaceX(f)} y={H - 11} textAnchor="middle" fontSize={land ? 17 : 13} fontWeight="700" fill="#8b958c" fontFamily="ui-monospace,monospace">{f}</text>));
   box.cells.forEach((c) => {
     const id = c.string + ":" + c.fret, x = spaceX(c.fret), y = strY(c.string);
     let fill = c.isTonic ? "#57C6C4" : "#f2f5f1", mark = null;
@@ -2007,9 +2038,9 @@ function Fretboard({ musicKey, mode = "major", boxKind = "position", active = []
     else if (!answer && held.has(id)) { fill = "#6ABF5E"; }
     if (c.inKey) {
       els.push(<circle key={"n" + id} cx={x} cy={y} r={dot} fill={fill} stroke="#121815" strokeWidth="1.5" />);
-      els.push(<text key={"t" + id} x={x} y={y + 5} textAnchor="middle" fontSize={answer ? 19 : 15} fontWeight="800" fill="#16201f" fontFamily="'Archivo Black',sans-serif" style={{ pointerEvents: "none" }}>{c.degree}</text>);
+      els.push(<text key={"t" + id} x={x} y={y + (land ? 7 : 5)} textAnchor="middle" fontSize={land ? 22 : answer ? 19 : 15} fontWeight="800" fill="#16201f" fontFamily="'Archivo Black',sans-serif" style={{ pointerEvents: "none" }}>{c.degree}</text>);
       if (mark) els.push(<text key={"m" + id} x={x} y={y - dot - 3} textAnchor="middle" fontSize="14" fontWeight="800" fill={mark === "✓" ? "#6ABF5E" : "#E07856"} style={{ pointerEvents: "none" }}>{mark}</text>);
-      else if (c.isTonic) els.push(<text key={"st" + id} x={x} y={y - dot - 3} textAnchor="middle" fontSize="13" fill="#57C6C4" style={{ pointerEvents: "none" }}>★</text>);
+      else if (c.isTonic) els.push(<text key={"st" + id} x={x} y={y - dot - 3} textAnchor="middle" fontSize={land ? 16 : 13} fill="#57C6C4" style={{ pointerEvents: "none" }}>★</text>);
     } else {
       const dfill = (answer && wrong.has(c.pc)) ? "#E07856" : (answer && reveal.has(c.pc)) ? "#57C6C4" : (!answer && held.has(id)) ? "#6ABF5E" : "#8b958c";
       els.push(<circle key={"c" + id} cx={x} cy={y} r={answer ? 6 : 4} fill={dfill} />);
@@ -2023,7 +2054,31 @@ function Fretboard({ musicKey, mode = "major", boxKind = "position", active = []
     } : {};
     els.push(<rect key={"h" + id} className="fb-hit" x={x - fw / 2} y={y - sh / 2} width={fw} height={sh} fill="transparent" {...evts} />);
   });
-  return <div className="fretboard"><style>{FRETBOARD_CSS}</style><svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={"Guitar fretboard, " + musicKey + " " + mode}>{els}</svg></div>;
+  return <div className={"fretboard" + (land ? " fb-land" : "")}><style>{FRETBOARD_CSS}</style><svg viewBox={`0 0 ${W} ${H}`} width={land ? "100%" : W} height={land ? "100%" : H} preserveAspectRatio="xMidYMid meet" role="img" aria-label={"Guitar fretboard, " + musicKey + " " + mode}>{els}</svg></div>;
+}
+
+/* ── MiniNeck: a slim full-length position indicator (Chet-style) shown above the big
+   landscape neck. Schematic — the whole neck 0→15 with inlay dots, and a teal box over the
+   active [startFret,endFret] window so you can see where on the neck you're playing. Display
+   only for now (movable-position is a later follow-on: it'd take an onMove/drag handler). ── */
+const MININECK_CSS = `
+.mini-neck { width:100%; height:100%; display:flex; }
+.mini-neck svg { margin:auto; width:100%; height:100%; max-width:100%; display:block; }
+`;
+function MiniNeck({ startFret, endFret, maxFret = 15 }) {
+  const W = 720, H = 82, padX = 18, padTop = 12, padBot = 14;
+  const strTop = padTop, strBot = H - padBot, midY = (strTop + strBot) / 2;
+  const usableW = W - padX * 2;
+  const fx = (f) => padX + (f / maxFret) * usableW;   // f=0 = nut, linear schematic spacing
+  const els = [];
+  els.push(<rect key="bg" x={padX - 8} y={strTop - 7} width={usableW + 16} height={strBot - strTop + 14} rx="6" fill="#26302c" stroke="#121815" strokeWidth="1.5" />);
+  INLAYS.filter((f) => f <= maxFret).forEach((f) => els.push(<circle key={"i" + f} cx={(fx(f - 1) + fx(f)) / 2} cy={midY} r="3.5" fill="#46524a" />));
+  DOUBLE_INLAYS.filter((f) => f <= maxFret).forEach((f) => { const cx = (fx(f - 1) + fx(f)) / 2; els.push(<circle key={"d" + f + "a"} cx={cx} cy={strTop + (strBot - strTop) * 0.28} r="3.5" fill="#46524a" />, <circle key={"d" + f + "b"} cx={cx} cy={strTop + (strBot - strTop) * 0.72} r="3.5" fill="#46524a" />); });
+  for (let s = 0; s < 6; s++) { const y = strTop + s * (strBot - strTop) / 5; els.push(<line key={"s" + s} x1={fx(0)} y1={y} x2={fx(maxFret)} y2={y} stroke="#8b958c" strokeWidth={0.7 + s * 0.22} />); }
+  for (let f = 0; f <= maxFret; f++) { const x = fx(f); els.push(<line key={"f" + f} x1={x} y1={strTop} x2={x} y2={strBot} stroke={f === 0 ? "#cdd3cb" : "#59635c"} strokeWidth={f === 0 ? 4 : 1.4} />); }
+  const bx1 = fx(Math.max(0, startFret - 1)), bx2 = fx(Math.min(maxFret, endFret));
+  els.push(<rect key="box" x={bx1} y={strTop - 5} width={bx2 - bx1} height={strBot - strTop + 10} rx="5" fill="rgba(87,198,196,0.16)" stroke="#57C6C4" strokeWidth="2.5" />);
+  return <div className="mini-neck"><style>{MININECK_CSS}</style><svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-label={"Neck position, frets " + startFret + " to " + endFret}>{els}</svg></div>;
 }
 
 /* Top-level error boundary: if a render throws — most likely a browser auto-translate
@@ -3591,6 +3646,7 @@ export default function NumberEarTrainer() {
   // Guitar fretboard (Free Play): tapping a fret plucks its REAL pitch and, when Voice is on,
   // sings its number. Lit via fretActive ("<string>:<fret>" ids).
   const [fretActive, setFretActive] = useState([]);
+  const landscape = useLandscape();   // phone held sideways → big horizontal Guitar Mode neck
   const fretNote = (c) => Tone.Frequency(STANDARD_TUNING[c.string].midi + c.fret, "midi").toNote();
   const fretDown = (c) => {
     const id = c.string + ":" + c.fret;
@@ -5600,9 +5656,16 @@ export default function NumberEarTrainer() {
         );
       })()}
       </div>
-      <div className="fp-main">
+      <div className={"fp-main" + (exView === "guitar" && landscape ? " fp-guitar-land" : "")}>
       {exView === "guitar"
-        ? <Fretboard musicKey={musicKey} mode="major" active={fretActive} onDown={fretDown} onUp={fretUp} />
+        ? (landscape
+            ? (() => { const gb = positionBox(musicKey, "major", { minFret: 2 }); return (
+                <>
+                  <MiniNeck startFret={gb.startFret} endFret={gb.endFret} />
+                  <Fretboard landscape musicKey={musicKey} mode="major" active={fretActive} onDown={fretDown} onUp={fretUp} />
+                </>
+              ); })()
+            : <Fretboard musicKey={musicKey} mode="major" active={fretActive} onDown={fretDown} onUp={fretUp} />)
         : exView === "map"
         ? <ExploreMap start={exStart} count={exCount} stage={exStage}
             octaves={exOctaves} world={exWorld} singDeg={micOn ? singDeg : null} singInTune={singInTune}
@@ -6504,6 +6567,11 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .fp-main .ladder.explore { flex: 1 1 auto; align-content: stretch; grid-auto-rows: 1fr; }
   .app-wide .fp-main .explore-pad { min-height: 0; }
   .app-wide .fp-main .piano { flex: 1 1 auto; height: auto; min-height: 150px; }
+  /* Guitar Mode landscape (Chet-style): a slim position-indicator strip on top, the big
+     playable neck filling the rest of the freed height. */
+  .app-wide .fp-guitar-land { gap: 6px; }
+  .app-wide .fp-guitar-land .mini-neck { flex: 0 0 auto; height: 52px; }
+  .app-wide .fp-guitar-land .fretboard.fb-land { flex: 1 1 auto; min-height: 0; }
   /* Paths tab landscape: show the chord-name strip + the light-up map, hide the portrait
      solo columns, and tuck the setup (Build / Tempo / presets) behind the ⚙. */
   .app-wide .fp-pathchords { display: flex; }
