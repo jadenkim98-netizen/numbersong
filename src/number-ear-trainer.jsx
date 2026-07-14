@@ -4313,7 +4313,7 @@ export default function NumberEarTrainer() {
                 {voiceOn ? "Voice on" : "Voice off"}
               </button>
             )}
-            {mode === "chords" && (
+            {mode === "chords" && !isDuel && (
               <button className={"ghost voice" + (showRef ? " on" : "")}
                 onClick={() => { const v = !showRef; setShowRef(v); savePref("chordref", v ? "1" : "0"); }}
                 aria-pressed={showRef}>
@@ -4371,7 +4371,7 @@ export default function NumberEarTrainer() {
             )
           ) : mode === "chords" ? (
             <>
-            {showRef && (
+            {showRef && !isDuel && (
               <div className="chord-ref">
                 {lvl.pool.map((r) => {
                   const tones = chordTones(chordByRoman(r), lvl.sevenths);
