@@ -2960,7 +2960,8 @@ export default function NumberEarTrainer() {
     const state = evalBoss(s.results, s.bossMisses, s.boss);
     if (state.outcome === "win") { finishSession(); return; }
     s.qNum = (s.qNum || 0) + 1; setQNum(s.qNum);
-    sessTimer(() => nextQuestionRef.current(false), 1150); // a beat longer than a normal session so the strike + quip read
+    // chords already show their tail + symbol, so snap to the next one; melody gets a beat to read the quip
+    sessTimer(() => nextQuestionRef.current(false), s.mode === "chords" ? 500 : 1150);
   };
 
   // A CORRECT answer during a duel: strike the keeper NOW (drop her HP + flash) rather
@@ -3301,7 +3302,8 @@ export default function NumberEarTrainer() {
       setBusy(true);
       const dur = await playChord(s.key, tones);
       if (gen !== sessGenRef.current) return; // quit during the resolution → don't advance a dead session
-      sessTimer(() => { setBusy(false); advance(); }, (dur + 1.4) * 1000);
+      // duel: trim the "let it ring" tail so chord questions come faster
+      sessTimer(() => { setBusy(false); advance(); }, (dur + (s.boss ? 0.4 : 1.4)) * 1000);
     } else {
       s.attempted = true;
       s.misses = (s.misses || 0) + 1;
