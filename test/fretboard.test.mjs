@@ -28,6 +28,25 @@ test("answerBox: C major is the A·D·G / frets 2–5 shape from the spec", () =
   assert.equal(cellAt(box, 3, 4).degree, 7);
 });
 
+test("answerBox: minor follows the 6 — E·A·D, 6·7·1 / 2·3·4 / 5·6", () => {
+  const box = answerBox("C", "minor");            // relative-major C ⇒ A minor, home 6 = A
+  assert.deepEqual(box.strings, [0, 1, 2]);        // E, A, D
+  assert.equal(box.cells.length, 12);
+  const s = box.startFret;
+  // E string (lowest): 6 is the lowest note, then 7, then 1
+  assert.equal(cellAt(box, 0, s).degree, 6);
+  assert.equal(cellAt(box, 0, s).isTonic, true);   // 6 is home in la-based minor
+  assert.equal(cellAt(box, 0, s + 2).degree, 7);
+  assert.equal(cellAt(box, 0, s + 3).degree, 1);
+  // A string: 2, 3, 4
+  assert.equal(cellAt(box, 1, s).degree, 2);
+  assert.equal(cellAt(box, 1, s + 2).degree, 3);
+  assert.equal(cellAt(box, 1, s + 3).degree, 4);
+  // D string: 5, 6
+  assert.equal(cellAt(box, 2, s).degree, 5);
+  assert.equal(cellAt(box, 2, s + 2).degree, 6);
+});
+
 test("answerBox: holds all 7 degrees in every key/mode, stays on the neck", () => {
   for (const key of KEYS) {
     for (const mode of ["major", "minor"]) {

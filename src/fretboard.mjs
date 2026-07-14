@@ -106,20 +106,29 @@ export function positionBox(key, mode, opts = {}) {
 // 3rd fret and 2 on the 5th). Anchored one fret below where the tonic sits on the A string, so the
 // leading tone (7) sits under the index finger. Transposes per key; shifts up an octave if it would
 // fall below the nut. Grading is octave-agnostic, so the doubled 1/7 are all valid taps.
-export const ANSWER_STRINGS = [1, 2, 3]; // A, D, G
+export const ANSWER_STRINGS_MAJOR = [1, 2, 3]; // A, D, G — home is 1
+export const ANSWER_STRINGS_MINOR = [0, 1, 2]; // E, A, D — home is 6 (la-based minor)
+export const ANSWER_STRINGS = ANSWER_STRINGS_MAJOR; // back-compat default
 export function answerBox(key, mode = "major") {
-  // Anchor on the major-"1" (pc 0) on the A string — `key` is always the relative-major
-  // reference (minor sessions pass it too), so this window holds all 7 degrees for both modes;
-  // `mode` only changes which cell is starred as home (via degreeAt / tonicPcOf).
-  let anchorFretA = 0;
-  for (let f = 0; f <= 12; f++) { if (pcOf(1, f, key) === 0) { anchorFretA = f; break; } }
-  let startFret = anchorFretA - 1;      // include the 7 just below the 1
-  if (startFret < 0) startFret += 12;   // low keys → same shape an octave up
+  // The compact test box follows the mode's home, as the lowest note:
+  //  major → home 1 (pc0), on the A·D·G strings; window opens ONE fret below the 1 (so the 7 sits
+  //          under the index finger): A = 7·1·_·2, D = 3·4·_·5, G = 6·_·7·1.
+  //  minor → home 6 (pc9), on the E·A·D strings; window opens ON the 6 (the 6 IS the lowest note):
+  //          E = 6·_·7·1, A = 2·_·3·4, D = 5·_·6 — i.e. 6·7·1 / 2·3·4 / 5·6.
+  // `key` is always the relative-major reference either way. Both hold all 7 degrees.
+  const minor = mode === "minor";
+  const strings = minor ? ANSWER_STRINGS_MINOR : ANSWER_STRINGS_MAJOR;
+  const anchorString = strings[0];       // lowest string carries the home note
+  const homePc = minor ? 9 : 0;
+  let homeFret = 0;
+  for (let f = 0; f <= 12; f++) { if (pcOf(anchorString, f, key) === homePc) { homeFret = f; break; } }
+  let startFret = minor ? homeFret : homeFret - 1;
+  if (startFret < 0) startFret += 12;    // low keys → same shape an octave up
   const frets = [startFret, startFret + 1, startFret + 2, startFret + 3];
   const cells = [];
-  for (const s of ANSWER_STRINGS) for (const f of frets) cells.push(degreeAt(s, f, key, mode));
+  for (const s of strings) for (const f of frets) cells.push(degreeAt(s, f, key, mode));
   const markers = frets
     .filter((f) => INLAYS.includes(f) || DOUBLE_INLAYS.includes(f))
     .map((f) => ({ fret: f, double: DOUBLE_INLAYS.includes(f) }));
-  return { key, mode, strings: ANSWER_STRINGS, startFret, endFret: startFret + 3, frets, cells, markers, name: key + " " + mode + " answer" };
+  return { key, mode, strings, startFret, endFret: startFret + 3, frets, cells, markers, name: key + " " + mode + " answer" };
 }

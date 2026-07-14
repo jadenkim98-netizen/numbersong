@@ -1227,7 +1227,7 @@ function HalfStepDiagrams() {
    plays; the explore window's numbers sit on their corresponding keys, in
    both octaves. World chord tones show in blue, the tonic wears the star. */
 
-function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singInTune, onDown, onUp }) {
+function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singInTune, onDown, onUp, lo = 0, hi = 24 }) {
   const evts = (k) => ({ onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(k); }, onPointerUp: () => onUp(k), ...holdKeys(() => onDown(k), () => onUp(k)) });
   const baseMidi = Tone.Frequency(musicKey + "4").toMidi();
   const BLACK_PCS = [1, 3, 6, 8, 10];
@@ -1237,11 +1237,12 @@ function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singI
   exploreNotes(start, count).forEach((n) => {
     labels[n.semi] = n.label;
     if (n.semi + 12 <= 24) labels[n.semi + 12] = n.label;
+    labels[n.semi - 12] = n.label; // octave-below copy, for keyboards that extend under the tonic
   });
   const chordal = worldChordTones(world);
 
   const isBlack = (s) => BLACK_PCS.includes((((baseMidi + s) % 12) + 12) % 12);
-  let sStart = 0, sEnd = 24;
+  let sStart = lo, sEnd = hi;
   while (isBlack(sStart)) sStart--;   // extend down to a white key
   while (isBlack(sEnd)) sEnd++;       // extend up to a white key
   const keys = [];
@@ -4517,7 +4518,7 @@ export default function NumberEarTrainer() {
                 onAnswer={(c) => answerMelodySession(c.pc)} />
             ) : instrument === "keyboard" ? (
               <PianoMap start={1} count={8} stage={0} world={null} musicKey={sessKey} active={[]}
-                singDeg={null} singInTune={false}
+                singDeg={null} singInTune={false} lo={-1} hi={14}
                 onDown={(k) => { if (phase === "answer") answerMelodySession(mod12(k.s)); }} onUp={() => {}} />
             ) : lvl.chromatic ? (
               <div className="numpad chromatic">

@@ -3634,22 +3634,27 @@ window.SOUNDTRACK = SOUNDTRACK;
     const markers = frets.filter((f) => INLAYS.includes(f) || DOUBLE_INLAYS.includes(f)).map((f) => ({ fret: f, double: DOUBLE_INLAYS.includes(f) }));
     return { key, mode, strings: [0, 1, 2, 3, 4, 5], startFret, endFret, frets, cells, markers, name: key + " " + mode + " @" + startFret };
   }
-  var ANSWER_STRINGS = [1, 2, 3];
+  var ANSWER_STRINGS_MAJOR = [1, 2, 3];
+  var ANSWER_STRINGS_MINOR = [0, 1, 2];
   function answerBox(key, mode = "major") {
-    let anchorFretA = 0;
+    const minor = mode === "minor";
+    const strings = minor ? ANSWER_STRINGS_MINOR : ANSWER_STRINGS_MAJOR;
+    const anchorString = strings[0];
+    const homePc = minor ? 9 : 0;
+    let homeFret = 0;
     for (let f = 0; f <= 12; f++) {
-      if (pcOf(1, f, key) === 0) {
-        anchorFretA = f;
+      if (pcOf(anchorString, f, key) === homePc) {
+        homeFret = f;
         break;
       }
     }
-    let startFret = anchorFretA - 1;
+    let startFret = minor ? homeFret : homeFret - 1;
     if (startFret < 0) startFret += 12;
     const frets = [startFret, startFret + 1, startFret + 2, startFret + 3];
     const cells = [];
-    for (const s of ANSWER_STRINGS) for (const f of frets) cells.push(degreeAt(s, f, key, mode));
+    for (const s of strings) for (const f of frets) cells.push(degreeAt(s, f, key, mode));
     const markers = frets.filter((f) => INLAYS.includes(f) || DOUBLE_INLAYS.includes(f)).map((f) => ({ fret: f, double: DOUBLE_INLAYS.includes(f) }));
-    return { key, mode, strings: ANSWER_STRINGS, startFret, endFret: startFret + 3, frets, cells, markers, name: key + " " + mode + " answer" };
+    return { key, mode, strings, startFret, endFret: startFret + 3, frets, cells, markers, name: key + " " + mode + " answer" };
   }
 
   // src/.app.jsx
@@ -4883,7 +4888,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
     )), bk.map((x, i) => /* @__PURE__ */ React.createElement("rect", { key: i, x, y: "0", width: "20", height: "60", rx: "2.5", fill: "#232825" })), /* @__PURE__ */ React.createElement("path", { d: "M64 104 L64 108 L128 108 L128 104", fill: "none", stroke: "#57C6C4", strokeWidth: "2" }), /* @__PURE__ */ React.createElement("text", { x: "96", y: "126", textAnchor: "middle", fontSize: "11", fontWeight: "700", fill: "#57C6C4" }, "half step")), /* @__PURE__ */ React.createElement("span", { className: "hs-cap" }, "Piano · next-door keys")), /* @__PURE__ */ React.createElement("div", { className: "hs-fig" }, /* @__PURE__ */ React.createElement("svg", { width: "196", height: "120", viewBox: "0 0 224 132", "aria-label": "Guitar: two adjacent frets are a half step" }, /* @__PURE__ */ React.createElement("rect", { x: "6", y: "6", width: "212", height: "82", rx: "4", fill: "#4a3a29", stroke: "#2b2114", strokeWidth: "2" }), [8, 52, 96, 140, 184].map((x, i) => /* @__PURE__ */ React.createElement("line", { key: i, x1: x, y1: "6", x2: x, y2: "88", stroke: i === 0 ? "#cbb892" : "#8a7a5e", strokeWidth: i === 0 ? 5 : 2 })), [16, 28, 40, 52, 64, 76].map((y, i) => /* @__PURE__ */ React.createElement("line", { key: i, x1: "8", y1: y, x2: "216", y2: y, stroke: "#d8cba8", strokeWidth: "1", opacity: "0.7" })), /* @__PURE__ */ React.createElement("circle", { cx: "30", cy: "52", r: "8", fill: "#57C6C4", stroke: "#0f1c1a", strokeWidth: "1.5" }), /* @__PURE__ */ React.createElement("circle", { cx: "74", cy: "52", r: "8", fill: "#57C6C4", stroke: "#0f1c1a", strokeWidth: "1.5" }), /* @__PURE__ */ React.createElement("path", { d: "M30 100 L30 104 L74 104 L74 100", fill: "none", stroke: "#57C6C4", strokeWidth: "2" }), /* @__PURE__ */ React.createElement("text", { x: "52", y: "126", textAnchor: "middle", fontSize: "11", fontWeight: "700", fill: "#57C6C4" }, "half step")), /* @__PURE__ */ React.createElement("span", { className: "hs-cap" }, "Guitar · next-door frets")));
   }
-  function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singInTune, onDown, onUp }) {
+  function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singInTune, onDown, onUp, lo = 0, hi = 24 }) {
     const evts = (k) => ({ onPointerDown: (e) => {
       try {
         e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -4897,10 +4902,11 @@ window.SOUNDTRACK = SOUNDTRACK;
     exploreNotes(start, count).forEach((n) => {
       labels[n.semi] = n.label;
       if (n.semi + 12 <= 24) labels[n.semi + 12] = n.label;
+      labels[n.semi - 12] = n.label;
     });
     const chordal = worldChordTones(world);
     const isBlack = (s) => BLACK_PCS.includes(((baseMidi + s) % 12 + 12) % 12);
-    let sStart = 0, sEnd = 24;
+    let sStart = lo, sEnd = hi;
     while (isBlack(sStart)) sStart--;
     while (isBlack(sEnd)) sEnd++;
     const keys = [];
@@ -8100,6 +8106,8 @@ window.SOUNDTRACK = SOUNDTRACK;
           active: [],
           singDeg: null,
           singInTune: false,
+          lo: -1,
+          hi: 14,
           onDown: (k) => {
             if (phase === "answer") answerMelodySession(mod12(k.s));
           },
