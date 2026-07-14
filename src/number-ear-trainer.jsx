@@ -68,7 +68,7 @@ import {
   levelsFor,
 } from "./theory.mjs";
 import { detectPitch, pitchToDegree } from "./pitch.mjs";
-import { isBossRegion, bossConfigFor, evalBoss } from "./boss.mjs";
+import { isBossRegion, bossConfigFor, evalBoss, bossTimer } from "./boss.mjs";
 import {
   qCountForLevel,
   passRateForLevel,
@@ -2214,6 +2214,12 @@ export default function NumberEarTrainer() {
   const [bossFx, setBossFx] = useState("");                  // "" | "hit" | "hurt" — one-shot HUD flash class
   const [bossOutcome, setBossOutcome] = useState(null);      // { region } while the defeat overlay is up (win reuses results)
   const bossFxTimerRef = useRef(null);
+  // Duel timed turns: a drain bar the player races each note. `duelTurn` bumps to (re)start
+  // a fresh timed window (new question, or a restart after a timeout whiff); `duelSecs` is
+  // that window's length (escalates as the keeper weakens); the expiry timeout lives in the ref.
+  const [duelTurn, setDuelTurn] = useState(0);
+  const [duelSecs, setDuelSecs] = useState(0);
+  const duelTimerIdRef = useRef(null);
   const [melTab, setMelTab] = useState("stages");  // stages | custom
   const [sessLvl, setSessLvl] = useState(null);     // the level object being played (may be a custom one)
 
@@ -2460,6 +2466,7 @@ export default function NumberEarTrainer() {
     sessTimersRef.current.forEach(clearTimeout);
     sessTimersRef.current = [];
     if (bossFxTimerRef.current) { clearTimeout(bossFxTimerRef.current); bossFxTimerRef.current = null; }
+    if (duelTimerIdRef.current) { clearTimeout(duelTimerIdRef.current); duelTimerIdRef.current = null; }
     stopAll();
   };
 
@@ -2933,6 +2940,38 @@ export default function NumberEarTrainer() {
     if (state.outcome === "lose") { bossLose(); return true; }
     return false;
   };
+
+  // The timed window ran out — a whiff: it costs a heart, the keeper strikes, and (if you
+  // survive) the note replays for a fresh window. Racing the clock bleeds you even when
+  // you aren't guessing wrong. Guarded so a late fire on an already-answered turn no-ops.
+  const onDuelTimeout = () => {
+    const s = sess.current;
+    if (!s.boss || phaseRef.current !== "answer" || busyRef.current) return;
+    s.attempted = true;
+    s.misses = (s.misses || 0) + 1;
+    setStreak(0);
+    if (bossOnWrong()) return;                 // heart spent; if that emptied them, we're out
+    if (s.mode === "melody") setRevealPc(s.target); // help them land the next window
+    setFeedback("Too slow — " + s.boss.name + " strikes! Hear it again…");
+    sessTimer(() => replayTarget(), 500);
+    setDuelTurn((t) => t + 1);                 // restart the drain
+  };
+
+  // Timed turns: whenever a duel sits in the answer phase, run a drain clock whose length
+  // escalates with the keeper's HP. It (re)starts on each new question and on each duelTurn
+  // bump (timeout restart), and is torn down the moment the phase leaves "answer" (a correct
+  // answer, quit, or defeat) so a stale timer can never fire on the next turn.
+  useEffect(() => {
+    if (screen !== "session" || phase !== "answer") return;
+    const s = sess.current;
+    if (!s || !s.boss) return;
+    const st = evalBoss(s.results, s.bossMisses, s.boss);
+    const secs = bossTimer(st.hpPct, s.boss);
+    setDuelSecs(secs);
+    const id = setTimeout(onDuelTimeout, secs * 1000);
+    duelTimerIdRef.current = id;
+    return () => { clearTimeout(id); if (duelTimerIdRef.current === id) duelTimerIdRef.current = null; };
+  }, [screen, phase, duelTurn]);
 
   // The player's hearts ran out — Verda's meadow keeps its mark. No progress recorded;
   // kicked back to the map to try again (per design). Kill the session so no scheduled
@@ -4025,6 +4064,9 @@ export default function NumberEarTrainer() {
     const duelRegion = isDuel ? sess.current.bossRegion : null;
     const duelKeeper = isDuel && window.HARMONIA ? window.HARMONIA.nodes[duelRegion - 1] : null;
     const duelArt = isDuel && window.KEEPER_ART ? window.KEEPER_ART[duelRegion] : null;
+    // Battle-arena sprites: the keeper's portrait as the enemy combatant, Coda as the hero.
+    const duelEnemyImg = isDuel ? duelArt : null;
+    const duelHeroImg = isDuel && typeof window !== "undefined" ? (window.CODA_SPRITE || null) : null;
     // In-fight taunt keyed to the fight state: low HP > just-hurt > just-hit > intro.
     const duelTaunt = !isDuel ? "" :
       bossState.hpPct <= 34 ? duelCfg.taunts.low :
@@ -4044,25 +4086,35 @@ export default function NumberEarTrainer() {
             style={{ background: "none", border: 0, color: "var(--text)", fontSize: "1.15rem", lineHeight: 1, cursor: "pointer", padding: "2px 6px" }}>⚙</button>
         </header>
         {isDuel && (
-          <div className={"boss-hud fx-" + (bossFx || "idle")} aria-live="polite">
-            <div className="boss-hud-top">
-              <span className="boss-face" aria-hidden="true">
-                {duelArt ? <img src={duelArt} alt="" /> : <span className="boss-emblem">{duelKeeper ? duelKeeper.emblem : "⚔"}</span>}
-              </span>
-              <div className="boss-bars">
+          <div className={"duel-arena fx-" + (bossFx || "idle")} aria-live="polite">
+            {/* ENEMY — the keeper, up top (Pokémon-style): info panel + standing sprite */}
+            <div className="duel-enemy">
+              <div className="duel-enemy-info">
                 <div className="boss-name">{duelKeeper ? duelKeeper.keeper : (duelCfg.name + (duelCfg.title ? ", " + duelCfg.title : ""))}</div>
                 <div className="boss-hpbar" role="progressbar" aria-label="Keeper resolve" aria-valuenow={bossState.hpPct} aria-valuemin={0} aria-valuemax={100}>
                   <span className="boss-hpfill" style={{ width: bossState.hpPct + "%" }} />
                 </div>
+                <span className="boss-hearts" aria-label={bossState.hearts + " of " + bossState.heartsMax + " ears left"}>
+                  {Array.from({ length: bossState.heartsMax }).map((_, i) =>
+                    <span key={i} className={"boss-heart" + (i < bossState.hearts ? "" : " spent")} aria-hidden="true">{i < bossState.hearts ? "♥" : "♡"}</span>
+                  )}
+                </span>
               </div>
-            </div>
-            <div className="boss-hud-bot">
-              <span className="boss-hearts" aria-label={bossState.hearts + " of " + bossState.heartsMax + " ears left"}>
-                {Array.from({ length: bossState.heartsMax }).map((_, i) =>
-                  <span key={i} className={"boss-heart" + (i < bossState.hearts ? "" : " spent")} aria-hidden="true">{i < bossState.hearts ? "♥" : "♡"}</span>
-                )}
+              <span className="duel-sprite enemy" aria-hidden="true">
+                {duelEnemyImg ? <img src={duelEnemyImg} alt="" /> : <span className="boss-emblem">{duelKeeper ? duelKeeper.emblem : "⚔"}</span>}
               </span>
-              <span className="boss-taunt">{duelTaunt}</span>
+            </div>
+            {/* the keeper's in-fight line, as a speech bubble */}
+            <div className="duel-say">{duelTaunt}</div>
+            {/* HERO — Coda, lower corner, facing the keeper */}
+            <div className="duel-hero">
+              <span className="duel-sprite hero" aria-hidden="true">
+                {duelHeroImg ? <img src={duelHeroImg} alt="" /> : <span className="boss-emblem">🎧</span>}
+              </span>
+            </div>
+            {/* TIMER — the drain the player races; keyed so it restarts each turn */}
+            <div className="duel-timer" aria-hidden="true">
+              <span key={duelTurn + "-" + qNum} className={"duel-timer-fill" + (phase === "answer" ? " draining" : "")} style={{ animationDuration: duelSecs + "s" }} />
             </div>
           </div>
         )}
@@ -5269,27 +5321,34 @@ button { touch-action: manipulation; }
 }
 .session-score { color: var(--green); font-weight: 700; font-size: 0.95rem; }
 
-/* ── Keeper Duel (boss) — FUNCTIONAL base styling only. The retro/GBA juice
-   (drain animation, hit-flash, reel, screen-shake, pixel frame) is layered in
-   retro/retro.css. Keep this block minimal + correct; leave the feel to the skin. */
-.boss-hud { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 12px; padding: 10px 12px;
-  background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; }
-.boss-hud-top { display: flex; align-items: center; gap: 10px; }
-.boss-face { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 8px; overflow: hidden;
-  display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1.5px solid var(--line); }
-.boss-face img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; display: block; }
-.boss-emblem { font-size: 1.4rem; line-height: 1; }
-.boss-bars { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+/* ── Keeper Duel (boss) — Pokémon-style battle arena. FUNCTIONAL base layout only;
+   the retro/GBA juice (drain flash, hit/hurt reel, sprite flinch, pixel frames) is
+   layered in retro/retro.css. Keep this block correct + legible; leave feel to the skin. */
+.duel-arena { position: relative; margin: 6px 0 12px; padding: 12px; min-height: 150px; overflow: hidden;
+  background: linear-gradient(180deg, #414d46 0%, var(--card) 72%); border: 1.5px solid var(--line); border-radius: 12px; }
+.duel-enemy { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.duel-enemy-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .boss-name { font-weight: 800; font-size: 0.9rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .boss-hpbar { height: 12px; border-radius: 7px; background: var(--bg); overflow: hidden; border: 1px solid var(--line); }
 .boss-hpfill { display: block; height: 100%; width: 100%; background: var(--wrong, #E07856);
   border-radius: 7px; transition: width .45s cubic-bezier(.2,.7,.3,1); }
-.boss-hud-bot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.boss-hearts { display: inline-flex; gap: 2px; flex: 0 0 auto; }
+.boss-hearts { display: inline-flex; gap: 2px; }
 .boss-heart { color: var(--wrong-text, #E07856); font-size: 1rem; line-height: 1; }
 .boss-heart.spent { color: var(--line); opacity: .6; }
-.boss-taunt { flex: 1 1 auto; text-align: right; font-size: 0.8rem; color: var(--text-soft); font-style: italic;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.duel-sprite { flex: 0 0 auto; display: flex; align-items: flex-end; justify-content: center; }
+.duel-sprite img { image-rendering: pixelated; display: block; object-fit: contain; }
+.duel-sprite.enemy { width: 84px; height: 84px; }
+.duel-sprite.enemy img { width: 100%; height: 100%; }
+.duel-sprite.hero { width: 62px; height: 62px; }
+.duel-sprite.hero img { width: 100%; height: 100%; }
+.boss-emblem { font-size: 2rem; line-height: 1; }
+.duel-say { margin: 8px 0 6px; padding: 6px 10px; background: var(--bg); border: 1.5px solid var(--line);
+  border-radius: 10px; font-size: 0.82rem; color: var(--text); font-style: italic; min-height: 1.2em; }
+.duel-hero { display: flex; align-items: flex-end; }
+.duel-timer { margin-top: 8px; height: 8px; border-radius: 5px; background: var(--bg); overflow: hidden; border: 1px solid var(--line); }
+.duel-timer-fill { display: block; height: 100%; width: 100%; background: var(--teal, #57C6C4); border-radius: 5px; }
+.duel-timer-fill.draining { animation-name: duel-drain; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes duel-drain { from { width: 100%; } to { width: 0%; } }
 .level.duel .level-num { color: var(--wrong-text, #E07856); }
 .boss-defeat { text-align: center; }
 .boss-defeat-face { width: 64px; height: 64px; margin: 0 auto 4px; border-radius: 10px; overflow: hidden;

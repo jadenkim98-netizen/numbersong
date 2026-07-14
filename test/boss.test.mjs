@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  BOSS, DEFAULT_BOSS, isBossRegion, bossConfigFor, bossDamage, evalBoss,
+  BOSS, DEFAULT_BOSS, isBossRegion, bossConfigFor, bossDamage, evalBoss, bossTimer,
 } from "../src/boss.mjs";
 
 const R = (firstTry) => ({ target: 3, firstTry }); // a result stub; only firstTry matters
@@ -107,4 +107,20 @@ test("evalBoss: missing misses arg is treated as 0 (defensive)", () => {
   const s = evalBoss([], undefined, BOSS[1]);
   assert.equal(s.hearts, BOSS[1].hearts);
   assert.equal(s.misses, 0);
+});
+
+test("bossTimer: clock shrinks as the keeper weakens (by HP third)", () => {
+  const c = BOSS[1]; // { full: 8, mid: 6, low: 4 }
+  assert.equal(bossTimer(100, c), 8);
+  assert.equal(bossTimer(67, c), 8);
+  assert.equal(bossTimer(66, c), 6);   // boundary → mid
+  assert.equal(bossTimer(40, c), 6);
+  assert.equal(bossTimer(33, c), 4);   // boundary → low
+  assert.equal(bossTimer(1, c), 4);
+});
+
+test("bossTimer: falls back to a default clock when cfg has no timer", () => {
+  assert.equal(bossTimer(100, {}), 7);
+  assert.equal(bossTimer(50, {}), 5);
+  assert.equal(bossTimer(10, {}), 3);
 });

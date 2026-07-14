@@ -32,6 +32,9 @@ export const BOSS = {
     dmgRecover: 10,   // correct, but only after a miss — a glancing blow
     name: "Verda",
     title: "the Meadow Keeper",
+    // Escalating tempo: seconds to name each note, shrinking as she weakens (the fight
+    // speeds toward a frenzied climax). Gentle for the first keeper.
+    timer: { full: 8, mid: 6, low: 4 },
     // Short duel-flavored lines (the modal greeting/win already live in HARMONIA;
     // these are the in-fight beats).
     taunts: {
@@ -52,6 +55,7 @@ export const DEFAULT_BOSS = {
   hearts: 3,
   dmgFirst: 25,
   dmgRecover: 10,
+  timer: { full: 7, mid: 5, low: 3 },
   name: "Keeper",
   title: "",
   taunts: {
@@ -76,6 +80,17 @@ export function bossConfigFor(id) {
 // Damage a single correct answer deals, given whether it was a first-try hit.
 export function bossDamage(firstTry, cfg) {
   return firstTry ? cfg.dmgFirst : cfg.dmgRecover;
+}
+
+// Seconds allowed to name the current note, escalating with the keeper's HP: full clock
+// above 66%, tighter through the mid third, frantic in the last third. Drives the timed
+// turn — timing out is a whiff (a wrong answer) and costs a heart.
+const DEFAULT_TIMER = { full: 7, mid: 5, low: 3 };
+export function bossTimer(hpPct, cfg) {
+  const t = (cfg && cfg.timer) || DEFAULT_TIMER;
+  if (hpPct > 66) return t.full;
+  if (hpPct > 33) return t.mid;
+  return t.low;
 }
 
 // Derive the live duel state. `results` is the array the grading handlers push to
