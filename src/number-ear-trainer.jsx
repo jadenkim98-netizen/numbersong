@@ -1965,7 +1965,7 @@ function Fretboard({ musicKey, mode = "major", boxKind = "position", active = []
   const box = answer ? answerBox(musicKey, mode) : positionBox(musicKey, mode, { minFret: 2 });
   const strings = box.strings, frets = box.frets, startFret = box.startFret;
   const nS = strings.length, nWin = frets.length;
-  const fw = answer ? 84 : 76, sh = answer ? 54 : 36, padX = 24, padTop = 22, padBot = 34;
+  const fw = answer ? 84 : 76, sh = answer ? 54 : 36, padX = 24, padTop = 22, padBot = 48;
   const W = padX * 2 + nWin * fw, H = padTop + padBot + (nS - 1) * sh;
   const rowOf = (s) => nS - 1 - strings.indexOf(s);       // lowest string index → bottom row
   const wireX = (i) => padX + i * fw;                     // i: 0..nWin
