@@ -851,7 +851,7 @@ function useAudio() {
     }
   }, []);
 
-  return { playCadence, setCadenceSpeed, playDegree, playChord, playChordWR, playProgression, playSemi, sing, singMinor, minorShift, minorVoiceRef, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm: ensure };
+  return { playCadence, setCadenceSpeed, playDegree, playChord, playChordWR, playProgression, playSemi, sing, singMinor, minorShift, minorVoiceRef, sfx, lastSfxRef, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm: ensure };
 }
 
 // Background music engine (Fable's soundtrack). Owns Tone.Transport; routes
@@ -1881,7 +1881,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
 /* ─────────────────────────────  APP  ───────────────────────────── */
 
 export default function NumberEarTrainer() {
-  const { playCadence, setCadenceSpeed, playDegree, playChord, playChordWR, playProgression, playSemi, sing, singMinor, minorShift, minorVoiceRef, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm } = useAudio();
+  const { playCadence, setCadenceSpeed, playDegree, playChord, playChordWR, playProgression, playSemi, sing, singMinor, minorShift, minorVoiceRef, sfx, lastSfxRef, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm } = useAudio();
   const { playTheme, stopMusic, setMusicOn } = useMusic();
   const [musicPref, setMusicPref] = useState(() => loadPref("music", "1") === "1");
 
