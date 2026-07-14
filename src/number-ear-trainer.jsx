@@ -825,8 +825,12 @@ function useAudio() {
     const set = minorVoiceRef.current && minorVoiceRef.current["0"];
     if (!set) return;
     let ks = KEYS.indexOf(key); if (ks > 6) ks -= 12; // shift the C-base take into the current key
-    const cbase = targetMidi - ks;
-    const pc = ((cbase % 12) + 12) % 12;
+    const pc = ((((targetMidi - ks) % 12) + 12) % 12);
+    // Keep the minor home 6 (la = pc 9) down in the male voice's low-A→middle-A octave (MIDI 45–57),
+    // so a low home doesn't get sung up high. Other degrees still track the synth exactly.
+    let voiceMidi = targetMidi;
+    if (pc === 9) { while (voiceMidi > 57) voiceMidi -= 12; while (voiceMidi < 45) voiceMidi += 12; }
+    const cbase = voiceMidi - ks;
     let recMidi = null, bestD = 1e9;
     for (const m of Object.keys(set)) {
       const mm = +m;
@@ -836,7 +840,7 @@ function useAudio() {
     }
     if (recMidi == null) return;
     const player = new Tone.Player(set[recMidi]).toDestination();
-    player.playbackRate = Math.pow(2, (targetMidi - recMidi) / 12);
+    player.playbackRate = Math.pow(2, (voiceMidi - recMidi) / 12);
     player.fadeOut = 0.12;
     const t = Tone.now() + delay;
     if (lastVoiceRef.current) { try { lastVoiceRef.current.stop(t); } catch (e) {} }
@@ -3558,7 +3562,13 @@ export default function NumberEarTrainer() {
     const id = c.string + ":" + c.fret;
     setFretActive((a) => (a.includes(id) ? a : [...a, id]));
     holdNote(fretNote(c));
-    if (c.degree != null) singOct(String(c.degree), 0, voiceOn);
+    if (c.degree != null) {
+      // Sing at the fret's REAL octave (was hardcoded 0 → low notes sang too high). The low-E 6
+      // is a low A, so its voice comes out at the low A instead of the middle.
+      const midi = STANDARD_TUNING[c.string].midi + c.fret;
+      const up = Math.round((midi - (Tone.Frequency(musicKey + "4").toMidi() + DEGREE_SEMITONES[c.degree])) / 12);
+      singOct(String(c.degree), up, voiceOn);
+    }
   };
   const fretUp = (c) => {
     const id = c.string + ":" + c.fret;

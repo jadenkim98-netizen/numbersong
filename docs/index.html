@@ -4512,8 +4512,13 @@ window.SOUNDTRACK = SOUNDTRACK;
       if (!set) return;
       let ks = KEYS.indexOf(key);
       if (ks > 6) ks -= 12;
-      const cbase = targetMidi - ks;
-      const pc = (cbase % 12 + 12) % 12;
+      const pc = ((targetMidi - ks) % 12 + 12) % 12;
+      let voiceMidi = targetMidi;
+      if (pc === 9) {
+        while (voiceMidi > 57) voiceMidi -= 12;
+        while (voiceMidi < 45) voiceMidi += 12;
+      }
+      const cbase = voiceMidi - ks;
       let recMidi = null, bestD = 1e9;
       for (const m of Object.keys(set)) {
         const mm = +m;
@@ -4526,7 +4531,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
       if (recMidi == null) return;
       const player = new Tone.Player(set[recMidi]).toDestination();
-      player.playbackRate = Math.pow(2, (targetMidi - recMidi) / 12);
+      player.playbackRate = Math.pow(2, (voiceMidi - recMidi) / 12);
       player.fadeOut = 0.12;
       const t = Tone.now() + delay;
       if (lastVoiceRef.current) {
@@ -7503,7 +7508,11 @@ window.SOUNDTRACK = SOUNDTRACK;
       const id = c.string + ":" + c.fret;
       setFretActive((a) => a.includes(id) ? a : [...a, id]);
       holdNote(fretNote(c));
-      if (c.degree != null) singOct(String(c.degree), 0, voiceOn);
+      if (c.degree != null) {
+        const midi = STANDARD_TUNING[c.string].midi + c.fret;
+        const up = Math.round((midi - (Tone.Frequency(musicKey + "4").toMidi() + DEGREE_SEMITONES[c.degree])) / 12);
+        singOct(String(c.degree), up, voiceOn);
+      }
     };
     const fretUp = (c) => {
       const id = c.string + ":" + c.fret;
