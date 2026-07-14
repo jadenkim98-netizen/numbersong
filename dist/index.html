@@ -1234,6 +1234,11 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .fp-main .ladder.explore { flex: 1 1 auto; align-content: stretch; grid-auto-rows: 1fr; }
   .app-wide .fp-main .explore-pad { min-height: 0; }
   .app-wide .fp-main .piano { flex: 1 1 auto; height: auto; min-height: 150px; }
+  /* Guitar Mode landscape (Chet-style): a slim position-indicator strip on top, the big
+     playable neck filling the rest of the freed height. */
+  .app-wide .fp-guitar-land { gap: 6px; }
+  .app-wide .fp-guitar-land .mini-neck { flex: 0 0 auto; height: 52px; }
+  .app-wide .fp-guitar-land .fretboard.fb-land { flex: 1 1 auto; min-height: 0; }
   /* Paths tab landscape: show the chord-name strip + the light-up map, hide the portrait
      solo columns, and tuck the setup (Build / Tempo / presets) behind the ⚙. */
   .app-wide .fp-pathchords { display: flex; }
@@ -4891,6 +4896,33 @@ window.SOUNDTRACK = SOUNDTRACK;
       return false;
     }
   };
+  var LANDSCAPE_Q = "(orientation: landscape) and (max-height: 600px)";
+  function useLandscape() {
+    const [land, setLand] = useState(() => {
+      try {
+        return window.matchMedia(LANDSCAPE_Q).matches;
+      } catch (e) {
+        return false;
+      }
+    });
+    useEffect(() => {
+      let mq;
+      try {
+        mq = window.matchMedia(LANDSCAPE_Q);
+      } catch (e) {
+        return;
+      }
+      const on = () => setLand(mq.matches);
+      on();
+      if (mq.addEventListener) mq.addEventListener("change", on);
+      else if (mq.addListener) mq.addListener(on);
+      return () => {
+        if (mq.removeEventListener) mq.removeEventListener("change", on);
+        else if (mq.removeListener) mq.removeListener(on);
+      };
+    }, []);
+    return land;
+  }
   function ExploreMap({ start, count, stage, octaves, world, home, active, hi, litDeg, singDeg, singInTune, onPlay, onDown, onUp, staircase }) {
     const evts = (n, row) => onDown ? { onPointerDown: (e) => {
       try {
@@ -5715,13 +5747,18 @@ window.SOUNDTRACK = SOUNDTRACK;
 .fretboard { display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; }
 .fretboard svg { display:block; margin:0 auto; max-width:100%; height:auto; touch-action:none; }
 .fb-hit { cursor:pointer; }
+/* landscape: the neck fills its column instead of scrolling — wide fret spacing gives the
+   viewBox a landscape aspect so it spreads across a wide screen (see the landscape prop). */
+.fretboard.fb-land { overflow:hidden; width:100%; height:100%; min-height:0; display:flex; }
+.fretboard.fb-land svg { margin:auto; width:100%; height:100%; max-width:100%; }
 `;
-  function Fretboard({ musicKey, mode = "major", boxKind = "position", active = [], fb, disabled = false, onDown, onUp, onAnswer }) {
+  function Fretboard({ musicKey, mode = "major", boxKind = "position", active = [], fb, disabled = false, landscape = false, onDown, onUp, onAnswer }) {
     const answer = boxKind === "answer";
+    const land = landscape && !answer;
     const box = answer ? answerBox(musicKey, mode) : positionBox(musicKey, mode, { minFret: 2 });
     const strings = box.strings, frets = box.frets, startFret = box.startFret;
     const nS = strings.length, nWin = frets.length;
-    const fw = answer ? 84 : 76, sh = answer ? 54 : 36, padX = 24, padTop = 22, padBot = 34;
+    const fw = land ? 150 : answer ? 84 : 76, sh = land ? 50 : answer ? 54 : 36, padX = land ? 30 : 24, padTop = land ? 26 : 22, padBot = land ? 42 : 48;
     const W = padX * 2 + nWin * fw, H = padTop + padBot + (nS - 1) * sh;
     const rowOf = (s) => nS - 1 - strings.indexOf(s);
     const wireX = (i) => padX + i * fw;
@@ -5732,7 +5769,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const hit = fb && fb.hit != null ? fb.hit : null;
     const wrong = new Set(fb && fb.wrong || []);
     const reveal = new Set(fb && fb.reveal || []);
-    const dot = answer ? 21 : 17;
+    const dot = land ? 25 : answer ? 21 : 17;
     const els = [];
     els.push(/* @__PURE__ */ React.createElement("rect", { key: "bd", x: padX - 14, y: padTop - 14, width: W - padX * 2 + 28, height: (nS - 1) * sh + 28, rx: "9", fill: "#26302c", stroke: "#121815", strokeWidth: "2" }));
     [3, 5, 7, 9, 12].filter((f) => frets.includes(f)).forEach((f) => {
@@ -5745,7 +5782,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       const nut = startFret - 1 + i === 0;
       els.push(/* @__PURE__ */ React.createElement("line", { key: "f" + i, x1: wireX(i), y1: strY(strings[0]), x2: wireX(i), y2: strY(strings[nS - 1]), stroke: nut ? "#cdd3cb" : "#59635c", strokeWidth: nut ? 6 : 2.5 }));
     }
-    frets.forEach((f) => els.push(/* @__PURE__ */ React.createElement("text", { key: "l" + f, x: spaceX(f), y: H - 11, textAnchor: "middle", fontSize: "13", fontWeight: "700", fill: "#8b958c", fontFamily: "ui-monospace,monospace" }, f)));
+    frets.forEach((f) => els.push(/* @__PURE__ */ React.createElement("text", { key: "l" + f, x: spaceX(f), y: H - 11, textAnchor: "middle", fontSize: land ? 17 : 13, fontWeight: "700", fill: "#8b958c", fontFamily: "ui-monospace,monospace" }, f)));
     box.cells.forEach((c) => {
       const id = c.string + ":" + c.fret, x = spaceX(c.fret), y = strY(c.string);
       let fill = c.isTonic ? "#57C6C4" : "#f2f5f1", mark = null;
@@ -5762,9 +5799,9 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
       if (c.inKey) {
         els.push(/* @__PURE__ */ React.createElement("circle", { key: "n" + id, cx: x, cy: y, r: dot, fill, stroke: "#121815", strokeWidth: "1.5" }));
-        els.push(/* @__PURE__ */ React.createElement("text", { key: "t" + id, x, y: y + 5, textAnchor: "middle", fontSize: answer ? 19 : 15, fontWeight: "800", fill: "#16201f", fontFamily: "'Archivo Black',sans-serif", style: { pointerEvents: "none" } }, c.degree));
+        els.push(/* @__PURE__ */ React.createElement("text", { key: "t" + id, x, y: y + (land ? 7 : 5), textAnchor: "middle", fontSize: land ? 22 : answer ? 19 : 15, fontWeight: "800", fill: "#16201f", fontFamily: "'Archivo Black',sans-serif", style: { pointerEvents: "none" } }, c.degree));
         if (mark) els.push(/* @__PURE__ */ React.createElement("text", { key: "m" + id, x, y: y - dot - 3, textAnchor: "middle", fontSize: "14", fontWeight: "800", fill: mark === "✓" ? "#6ABF5E" : "#E07856", style: { pointerEvents: "none" } }, mark));
-        else if (c.isTonic) els.push(/* @__PURE__ */ React.createElement("text", { key: "st" + id, x, y: y - dot - 3, textAnchor: "middle", fontSize: "13", fill: "#57C6C4", style: { pointerEvents: "none" } }, "★"));
+        else if (c.isTonic) els.push(/* @__PURE__ */ React.createElement("text", { key: "st" + id, x, y: y - dot - 3, textAnchor: "middle", fontSize: land ? 16 : 13, fill: "#57C6C4", style: { pointerEvents: "none" } }, "★"));
       } else {
         const dfill = answer && wrong.has(c.pc) ? "#E07856" : answer && reveal.has(c.pc) ? "#57C6C4" : !answer && held.has(id) ? "#6ABF5E" : "#8b958c";
         els.push(/* @__PURE__ */ React.createElement("circle", { key: "c" + id, cx: x, cy: y, r: answer ? 6 : 4, fill: dfill }));
@@ -5788,7 +5825,35 @@ window.SOUNDTRACK = SOUNDTRACK;
       } : {};
       els.push(/* @__PURE__ */ React.createElement("rect", { key: "h" + id, className: "fb-hit", x: x - fw / 2, y: y - sh / 2, width: fw, height: sh, fill: "transparent", ...evts }));
     });
-    return /* @__PURE__ */ React.createElement("div", { className: "fretboard" }, /* @__PURE__ */ React.createElement("style", null, FRETBOARD_CSS), /* @__PURE__ */ React.createElement("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img", "aria-label": "Guitar fretboard, " + musicKey + " " + mode }, els));
+    return /* @__PURE__ */ React.createElement("div", { className: "fretboard" + (land ? " fb-land" : "") }, /* @__PURE__ */ React.createElement("style", null, FRETBOARD_CSS), /* @__PURE__ */ React.createElement("svg", { viewBox: `0 0 ${W} ${H}`, width: land ? "100%" : W, height: land ? "100%" : H, preserveAspectRatio: "xMidYMid meet", role: "img", "aria-label": "Guitar fretboard, " + musicKey + " " + mode }, els));
+  }
+  var MININECK_CSS = `
+.mini-neck { width:100%; height:100%; display:flex; }
+.mini-neck svg { margin:auto; width:100%; height:100%; max-width:100%; display:block; }
+`;
+  function MiniNeck({ startFret, endFret, maxFret = 15 }) {
+    const W = 720, H = 82, padX = 18, padTop = 12, padBot = 14;
+    const strTop = padTop, strBot = H - padBot, midY = (strTop + strBot) / 2;
+    const usableW = W - padX * 2;
+    const fx = (f) => padX + f / maxFret * usableW;
+    const els = [];
+    els.push(/* @__PURE__ */ React.createElement("rect", { key: "bg", x: padX - 8, y: strTop - 7, width: usableW + 16, height: strBot - strTop + 14, rx: "6", fill: "#26302c", stroke: "#121815", strokeWidth: "1.5" }));
+    INLAYS.filter((f) => f <= maxFret).forEach((f) => els.push(/* @__PURE__ */ React.createElement("circle", { key: "i" + f, cx: (fx(f - 1) + fx(f)) / 2, cy: midY, r: "3.5", fill: "#46524a" })));
+    DOUBLE_INLAYS.filter((f) => f <= maxFret).forEach((f) => {
+      const cx = (fx(f - 1) + fx(f)) / 2;
+      els.push(/* @__PURE__ */ React.createElement("circle", { key: "d" + f + "a", cx, cy: strTop + (strBot - strTop) * 0.28, r: "3.5", fill: "#46524a" }), /* @__PURE__ */ React.createElement("circle", { key: "d" + f + "b", cx, cy: strTop + (strBot - strTop) * 0.72, r: "3.5", fill: "#46524a" }));
+    });
+    for (let s = 0; s < 6; s++) {
+      const y = strTop + s * (strBot - strTop) / 5;
+      els.push(/* @__PURE__ */ React.createElement("line", { key: "s" + s, x1: fx(0), y1: y, x2: fx(maxFret), y2: y, stroke: "#8b958c", strokeWidth: 0.7 + s * 0.22 }));
+    }
+    for (let f = 0; f <= maxFret; f++) {
+      const x = fx(f);
+      els.push(/* @__PURE__ */ React.createElement("line", { key: "f" + f, x1: x, y1: strTop, x2: x, y2: strBot, stroke: f === 0 ? "#cdd3cb" : "#59635c", strokeWidth: f === 0 ? 4 : 1.4 }));
+    }
+    const bx1 = fx(Math.max(0, startFret - 1)), bx2 = fx(Math.min(maxFret, endFret));
+    els.push(/* @__PURE__ */ React.createElement("rect", { key: "box", x: bx1, y: strTop - 5, width: bx2 - bx1, height: strBot - strTop + 10, rx: "5", fill: "rgba(87,198,196,0.16)", stroke: "#57C6C4", strokeWidth: "2.5" }));
+    return /* @__PURE__ */ React.createElement("div", { className: "mini-neck" }, /* @__PURE__ */ React.createElement("style", null, MININECK_CSS), /* @__PURE__ */ React.createElement("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", height: "100%", preserveAspectRatio: "xMidYMid meet", role: "img", "aria-label": "Neck position, frets " + startFret + " to " + endFret }, els));
   }
   var AppErrorBoundary = class extends React.Component {
     constructor(props) {
@@ -7651,6 +7716,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       releaseNote(noteOf(n.label, oct));
     };
     const [fretActive, setFretActive] = useState([]);
+    const landscape = useLandscape();
     const fretNote = (c) => Tone.Frequency(STANDARD_TUNING[c.string].midi + c.fret, "midi").toNote();
     const fretDown = (c) => {
       const id = c.string + ":" + c.fret;
@@ -9167,7 +9233,10 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
       const offset = Math.max(-50, Math.min(50, singCents)) / 50 * 42;
       return /* @__PURE__ */ React.createElement("div", { className: "sing-panel" }, /* @__PURE__ */ React.createElement("div", { className: "sing-track " + state }, /* @__PURE__ */ React.createElement("span", { className: "sing-end flat" }, "flat ◄"), /* @__PURE__ */ React.createElement("span", { className: "sing-end sharp" }, "► sharp"), /* @__PURE__ */ React.createElement("div", { className: "sing-zone" }), /* @__PURE__ */ React.createElement("div", { className: "sing-center" }), singDeg != null && !micReq && /* @__PURE__ */ React.createElement("div", { className: "sing-marker", style: { left: `${50 + offset}%` } }, singDeg === 1 ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "tonic-star" }, "★"), "1") : singDeg)), /* @__PURE__ */ React.createElement("div", { className: "sing-level" }, /* @__PURE__ */ React.createElement("div", { className: "sing-level-fill", style: { width: `${Math.round(singLevel * 100)}%` } })), /* @__PURE__ */ React.createElement("p", { className: "sing-coach" }, coach), /* @__PURE__ */ React.createElement("p", { className: "sing-privacy" }, "🔒 The mic is only used on your device to hear your pitch — nothing is recorded, saved, or sent anywhere."));
-    })()), /* @__PURE__ */ React.createElement("div", { className: "fp-main" }, exView === "guitar" ? /* @__PURE__ */ React.createElement(Fretboard, { musicKey, mode: "major", active: fretActive, onDown: fretDown, onUp: fretUp }) : exView === "map" ? /* @__PURE__ */ React.createElement(
+    })()), /* @__PURE__ */ React.createElement("div", { className: "fp-main" + (exView === "guitar" && landscape ? " fp-guitar-land" : "") }, exView === "guitar" ? landscape ? (() => {
+      const gb = positionBox(musicKey, "major", { minFret: 2 });
+      return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(MiniNeck, { startFret: gb.startFret, endFret: gb.endFret }), /* @__PURE__ */ React.createElement(Fretboard, { landscape: true, musicKey, mode: "major", active: fretActive, onDown: fretDown, onUp: fretUp }));
+    })() : /* @__PURE__ */ React.createElement(Fretboard, { musicKey, mode: "major", active: fretActive, onDown: fretDown, onUp: fretUp }) : exView === "map" ? /* @__PURE__ */ React.createElement(
       ExploreMap,
       {
         start: exStart,
@@ -10074,6 +10143,11 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .fp-main .ladder.explore { flex: 1 1 auto; align-content: stretch; grid-auto-rows: 1fr; }
   .app-wide .fp-main .explore-pad { min-height: 0; }
   .app-wide .fp-main .piano { flex: 1 1 auto; height: auto; min-height: 150px; }
+  /* Guitar Mode landscape (Chet-style): a slim position-indicator strip on top, the big
+     playable neck filling the rest of the freed height. */
+  .app-wide .fp-guitar-land { gap: 6px; }
+  .app-wide .fp-guitar-land .mini-neck { flex: 0 0 auto; height: 52px; }
+  .app-wide .fp-guitar-land .fretboard.fb-land { flex: 1 1 auto; min-height: 0; }
   /* Paths tab landscape: show the chord-name strip + the light-up map, hide the portrait
      solo columns, and tuck the setup (Build / Tempo / presets) behind the ⚙. */
   .app-wide .fp-pathchords { display: flex; }
