@@ -3370,6 +3370,59 @@ window.SOUNDTRACK = SOUNDTRACK;
         win: "You found 6 in the dark. That's the whole trick.",
         lose: "The fen keeps its own time. Rest, then wade back in."
       }
+    },
+    // Sylva — Glasswood (node 3, CHORDS major 1·4·5·6). First chord keeper: identifying a
+    // whole chord by ear + tapping the stack is harder than a single note, so tuned gentler
+    // (hp 80 ≈ 3 clean strikes) with a longer clock for the multi-tap Check.
+    3: {
+      hp: 80,
+      hearts: 4,
+      dmgFirst: 25,
+      dmgRecover: 10,
+      timer: { full: 12, mid: 9, low: 6 },
+      name: "Sylva",
+      title: "of the Glasswood",
+      taunts: {
+        intro: "Look through the chord like glass — I'll not make it easy.",
+        hits: [
+          "Yes — all three voices, each in its own pane.",
+          "Clear! You saw right through it.",
+          "There — three notes, and you named every one.",
+          "Mm, luminous. Nothing hidden from that ear.",
+          "You held the whole chord like a windowpane.",
+          "Bright — each voice standing clear."
+        ],
+        low: "So clear now — I can almost see through myself.",
+        playerHurt: "Don't grab. Let the chord settle, then look through it.",
+        win: "Every voice, clear and true. The mark is yours.",
+        lose: "The glass will hold. Come back and look again."
+      }
+    },
+    // Bassil — Undertone Caves (node 4, CHORDS MINOR 6·2·3·4). Second chord keeper; minor
+    // chords gathered around 6. Same gentle chord tuning as Sylva.
+    4: {
+      hp: 80,
+      hearts: 4,
+      dmgFirst: 25,
+      dmgRecover: 10,
+      timer: { full: 12, mid: 9, low: 6 },
+      name: "Bassil",
+      title: "the Deep",
+      taunts: {
+        intro: "The chords go dark down here. Find 6 and listen deep.",
+        hits: [
+          "Aye — you felt all four, gathered 'round 6.",
+          "Heard it, low and whole. That's the floor.",
+          "Mm. The dark chord, named true.",
+          "There — deep, but every voice landed.",
+          "Good. You sank right to the root of it.",
+          "That one rang in the stone. Well heard."
+        ],
+        low: "Nearly to bedrock now — I can feel you coming down.",
+        playerHurt: "Steady. The dark's not sad, just deep — listen again.",
+        win: "Deep ears. Take my mark — the caves will remember.",
+        lose: "The caves keep their time. Rest, then come back down."
+      }
     }
   };
   var DEFAULT_BOSS = {
@@ -3389,7 +3442,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       lose: "Not yet. Come back sharper."
     }
   };
-  var ENABLED = /* @__PURE__ */ new Set([1, 2]);
+  var ENABLED = /* @__PURE__ */ new Set([1, 2, 3, 4]);
   var isBossRegion = (id) => ENABLED.has(id);
   function bossConfigFor(id) {
     return BOSS[id] || DEFAULT_BOSS;
@@ -6688,7 +6741,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
       s.qNum = (s.qNum || 0) + 1;
       setQNum(s.qNum);
-      sessTimer(() => nextQuestionRef.current(false), 1150);
+      sessTimer(() => nextQuestionRef.current(false), s.mode === "chords" ? 500 : 1150);
     };
     const bossOnCorrect = () => {
       const s = sess.current;
@@ -6725,6 +6778,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       setStreak(0);
       if (bossOnWrong()) return;
       if (s.mode === "melody") setRevealPc(s.target);
+      else if (s.mode === "chords") setLitCorrect(chordTones(s.target, s.sevenths));
       setFeedback("Too slow — " + s.boss.name + " strikes! Hear it again…");
       sessTimer(() => replayTarget(), 500);
       setDuelTurn((t) => t + 1);
@@ -7036,14 +7090,19 @@ window.SOUNDTRACK = SOUNDTRACK;
         sessTimer(() => {
           setBusy(false);
           advance();
-        }, (dur + 1.4) * 1e3);
+        }, (dur + (s.boss ? 0.4 : 1.4)) * 1e3);
       } else {
         s.attempted = true;
+        s.misses = (s.misses || 0) + 1;
         setStreak(0);
         setLitWrong(chPicked.filter((d) => !t.has(d)));
         setSrMsg("Not quite.");
         if (bossOnWrong()) return;
-        setFeedback("Close — the marked degrees aren't in it. Adjust and check again.");
+        if (s.boss && s.misses >= 2) {
+          setLitCorrect(tones);
+          setFeedback("It's " + chordSymbol(s.target.roman, s.sevenths) + " — hear it, then tap those.");
+          sessTimer(() => replayTarget(), 650);
+        } else setFeedback("Close — the marked degrees aren't in it. Adjust and check again.");
       }
     };
     const tapChord = (roman) => {
@@ -7741,7 +7800,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           "aria-pressed": voiceOn
         },
         voiceOn ? "Voice on" : "Voice off"
-      ), mode === "chords" && /* @__PURE__ */ React.createElement(
+      ), mode === "chords" && !isDuel && /* @__PURE__ */ React.createElement(
         "button",
         {
           className: "ghost voice" + (showRef ? " on" : ""),
@@ -7785,7 +7844,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           hitPad === pc && /* @__PURE__ */ React.createElement("span", { className: "num-mark", "aria-hidden": "true" }, "✓"),
           litWrong.includes(pc) && /* @__PURE__ */ React.createElement("span", { className: "num-mark", "aria-hidden": "true" }, "✕")
         );
-      })) : mode === "chords" ? /* @__PURE__ */ React.createElement(React.Fragment, null, showRef && /* @__PURE__ */ React.createElement("div", { className: "chord-ref" }, lvl.pool.map((r) => {
+      })) : mode === "chords" ? /* @__PURE__ */ React.createElement(React.Fragment, null, showRef && !isDuel && /* @__PURE__ */ React.createElement("div", { className: "chord-ref" }, lvl.pool.map((r) => {
         const tones = chordTones(chordByRoman(r), lvl.sevenths);
         return /* @__PURE__ */ React.createElement("div", { key: r, className: "cr-row" }, /* @__PURE__ */ React.createElement("span", { className: "cr-sym" }, chordSymbol(r, lvl.sevenths)), /* @__PURE__ */ React.createElement("span", { className: "cr-num" }, chordNumber(r, lvl.sevenths)), /* @__PURE__ */ React.createElement("span", { className: "cr-tones" }, tones.map(degreeLabel).join(" · ")));
       })), /* @__PURE__ */ React.createElement("div", { className: "chord-layout" }, /* @__PURE__ */ React.createElement(
