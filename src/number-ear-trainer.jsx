@@ -3012,9 +3012,11 @@ export default function NumberEarTrainer() {
     s.misses = (s.misses || 0) + 1;
     setStreak(0);
     if (bossOnWrong()) return;                 // heart spent; if that emptied them, we're out
-    // help them land the next window: melody lights the pad, chords light the stack tones
+    // help them land the next window: melody lights the pad, chords light the stack tones,
+    // progressions fill the answer slots with the correct changes
     if (s.mode === "melody") setRevealPc(s.target);
     else if (s.mode === "chords") setLitCorrect(chordTones(s.target, s.sevenths));
+    else if (s.mode === "progressions") setProgAnswer([...s.target]);
     setFeedback("Too slow — " + s.boss.name + " strikes! Hear it again…");
     sessTimer(() => replayTarget(), 500);
     setDuelTurn((t) => t + 1);                 // restart the drain
@@ -3355,11 +3357,17 @@ export default function NumberEarTrainer() {
       sessTimer(() => { setBusy(false); advance(); }, (dur + 0.4) * 1000);
     } else {
       s.attempted = true;
+      s.misses = (s.misses || 0) + 1;
       setStreak(0);
       setProgWrong(wrong);
       setSrMsg("Not quite.");
       if (bossOnWrong()) return; // duel: heart spent immediately; if that emptied them, bail
-      setFeedback("Not quite — the marked chords are off. Fix them and check again.");
+      if (s.boss && s.misses >= 2) {
+        // duel: fill in the correct changes so they can hear + check (mirrors melody/chords)
+        setProgAnswer([...s.target]); setProgWrong([]);
+        setFeedback("It went " + s.target.map((r) => chordNumber(r, false)).join("–") + " — hear it, then check.");
+        sessTimer(() => replayTarget(), 650);
+      } else setFeedback("Not quite — the marked chords are off. Fix them and check again.");
     }
   };
 

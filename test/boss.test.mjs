@@ -8,24 +8,19 @@ import {
 
 const R = (firstTry) => ({ target: 3, firstTry }); // a result stub; only firstTry matters
 
-test("isBossRegion: wired keepers = the free lite version (regions 1-4)", () => {
-  assert.equal(isBossRegion(1), true);
-  assert.equal(isBossRegion(2), true);
-  assert.equal(isBossRegion(3), true);
-  assert.equal(isBossRegion(4), true);
-  assert.equal(isBossRegion(8), false); // not yet wired
+test("isBossRegion: wired keepers = regions 1-6 (7-8 not yet)", () => {
+  for (const id of [1, 2, 3, 4, 5, 6]) assert.equal(isBossRegion(id), true, `region ${id}`);
+  assert.equal(isBossRegion(7), false); // not yet wired
+  assert.equal(isBossRegion(8), false);
 });
 
 test("bossConfigFor: known region → its config, unknown → default", () => {
-  assert.equal(bossConfigFor(1), BOSS[1]);
-  assert.equal(bossConfigFor(2), BOSS[2]);
-  assert.equal(bossConfigFor(3), BOSS[3]);
-  assert.equal(bossConfigFor(4), BOSS[4]);
+  for (const id of [1, 2, 3, 4, 5, 6]) assert.equal(bossConfigFor(id), BOSS[id], `region ${id}`);
   assert.equal(bossConfigFor(99), DEFAULT_BOSS);
 });
 
 test("every wired keeper has the fields the duel reads (hp/hearts/timer/taunts.hits)", () => {
-  for (const id of [1, 2, 3, 4]) {
+  for (const id of [1, 2, 3, 4, 5, 6]) {
     const c = BOSS[id];
     assert.ok(c.hp > 0 && c.hearts > 0, `region ${id} hp/hearts`);
     assert.ok(c.timer && c.timer.full && c.timer.mid && c.timer.low, `region ${id} timer`);

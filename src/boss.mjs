@@ -134,6 +134,59 @@ export const BOSS = {
       lose: "The caves keep their time. Rest, then come back down.",
     },
   },
+  // Marin — Pillar Coast (node 5, PROGRESSIONS major). First progression keeper: hearing a
+  // whole progression + tapping the changes in order takes the longest, so the most generous
+  // clock and hp 75 (~3 clean strikes). Only 4 chord buttons, so the input stays compact.
+  5: {
+    hp: 75,
+    hearts: 4,
+    dmgFirst: 25,
+    dmgRecover: 10,
+    timer: { full: 14, mid: 10, low: 7 },
+    name: "Marin",
+    title: "of the Pillars",
+    taunts: {
+      intro: "Hear the next stone coming — I'll not still the tide for you.",
+      hits: [
+        "Yes — you heard the next pillar before your foot fell.",
+        "There! Change to change, dry the whole way.",
+        "Aye, you rode that turn like the tide knew it.",
+        "Mm — foot to foot, never once looking down.",
+        "That's the crossing — each stone right on time.",
+        "You felt the road bend, and bent with it.",
+      ],
+      low: "Nearly across now — the changes are carrying you home.",
+      playerHurt: "Steady — don't watch your feet. Hear the next stone.",
+      win: "You crossed without looking down. Take my mark, sailor.",
+      lose: "The tide will turn again. Rest, then cross once more.",
+    },
+  },
+  // Sable — Sixstone Hollow (node 6, PROGRESSIONS minor). The dusk road; home wears a darker
+  // coat and answers to 6. Same gentle progression tuning as Marin.
+  6: {
+    hp: 75,
+    hearts: 4,
+    dmgFirst: 25,
+    dmgRecover: 10,
+    timer: { full: 14, mid: 10, low: 7 },
+    name: "Sable",
+    title: "of Sixstone",
+    taunts: {
+      intro: "Walk it at dusk with me — count true, I'll not light the way.",
+      hits: [
+        "Aye — stone to stone, and you kept the count.",
+        "There, in the grey. You heard the change land.",
+        "Mm. Darker coat, same road — walked true.",
+        "You never lost the count, turn after turn.",
+        "That's it — each stone cold and right.",
+        "Foot to foot through the dusk, steady on.",
+      ],
+      low: "Nearly through the low light — home was under you all along.",
+      playerHurt: "Easy. It's dim, not lost — hear the next stone.",
+      win: "Stone by stone, never lost the count. The mark is yours.",
+      lose: "Dusk keeps its own count. Rest, then walk it again.",
+    },
+  },
 };
 
 // Sensible default for regions whose duel isn't hand-tuned yet (so enabling one later
@@ -156,9 +209,9 @@ export const DEFAULT_BOSS = {
   },
 };
 
-// Which nodes currently launch a Keeper Duel instead of a normal capstone session.
-// The free "lite version" = regions 1–4 (Verda, Rue, Sylva, Bassil).
-const ENABLED = new Set([1, 2, 3, 4]);
+// Which nodes launch a Keeper Duel instead of a normal capstone session.
+// 1-4 (Verda/Rue/Sylva/Bassil) = free lite version; 5-6 (Marin/Sable, progressions) added.
+const ENABLED = new Set([1, 2, 3, 4, 5, 6]);
 export const isBossRegion = (id) => ENABLED.has(id);
 
 export function bossConfigFor(id) {
