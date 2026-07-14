@@ -4163,6 +4163,29 @@ export default function NumberEarTrainer() {
     // The keeper's speech is a persistent state (set on each answer, reset when the next
     // question starts) so her reaction stays readable — not tied to the ~520ms flash.
     const duelTaunt = !isDuel ? "" : (duelSay || duelCfg.taunts.intro);
+    // Chord duel: move Repeat + the quip into the RIGHT column (above the numpad) instead of a
+    // full-width top bar, so the stack rises and the whole fight fits without scrolling.
+    const chordDuel = isDuel && mode === "chords";
+    const replayControls = (
+      <div className="replay-group">
+        <button className="ghost" onClick={replayFull} disabled={phase !== "answer" || busy}>↻ Repeat</button>
+        <button className="ghost note" onClick={replayTarget} disabled={phase !== "answer" || busy}
+          aria-label="Play just the sound to identify">♪</button>
+      </div>
+    );
+    const answerHint = (
+      <p className={"hint grow" + (tutCoach ? " tut-coach-line" : "")} role="status" aria-live="polite">
+        {phase === "playing" ? (tutCoach ? "Verda plays a number… listen." : "Listen…")
+          : feedback && feedback.roman
+            ? <span><strong>{feedback.sym}</strong> <em className="numlabel">{feedback.num}</em> · {feedback.quality}. {CHORD_INSIGHTS[feedback.roman]}</span>
+          : feedback && feedback.prog
+            ? <span><strong>{feedback.prog.join("–")}</strong> — nailed the changes.</span>
+          : feedback ? feedback
+          : mode === "melody" ? (tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?")
+          : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.`
+          : "Tap the chords you heard, in order."}
+      </p>
+    );
     return (
       <div className={"app app-wide" + (lvl.mode === "minor" ? " sess-minor" : "") + (isDuel ? " sess-duel" : "")}>
         <style>{CSS}</style>
@@ -4314,38 +4337,26 @@ export default function NumberEarTrainer() {
         )}
 
         <section className="panel">
-          <div className="quiz-bar">
-            <div className="replay-group">
-              <button className="ghost" onClick={replayFull} disabled={phase !== "answer" || busy}>↻ Repeat</button>
-              <button className="ghost note" onClick={replayTarget} disabled={phase !== "answer" || busy}
-                aria-label="Play just the sound to identify">♪</button>
+          {!chordDuel && (
+            <div className="quiz-bar">
+              {replayControls}
+              {mode === "melody" && (
+                <button className={"ghost voice" + (voiceOn ? " on" : "")}
+                  onClick={() => setVoiceOn(!voiceOn)} aria-pressed={voiceOn}>
+                  {voiceOn ? "Voice on" : "Voice off"}
+                </button>
+              )}
+              {mode === "chords" && !isDuel && (
+                <button className={"ghost voice" + (showRef ? " on" : "")}
+                  onClick={() => { const v = !showRef; setShowRef(v); savePref("chordref", v ? "1" : "0"); }}
+                  aria-pressed={showRef}>
+                  Chord chart
+                </button>
+              )}
+              {answerHint}
+              <div className="sr-only" role="status" aria-live="polite">{srMsg}</div>
             </div>
-            {mode === "melody" && (
-              <button className={"ghost voice" + (voiceOn ? " on" : "")}
-                onClick={() => setVoiceOn(!voiceOn)} aria-pressed={voiceOn}>
-                {voiceOn ? "Voice on" : "Voice off"}
-              </button>
-            )}
-            {mode === "chords" && !isDuel && (
-              <button className={"ghost voice" + (showRef ? " on" : "")}
-                onClick={() => { const v = !showRef; setShowRef(v); savePref("chordref", v ? "1" : "0"); }}
-                aria-pressed={showRef}>
-                Chord chart
-              </button>
-            )}
-            <p className={"hint grow" + (tutCoach ? " tut-coach-line" : "")} role="status" aria-live="polite">
-              {phase === "playing" ? (tutCoach ? "Verda plays a number… listen." : "Listen…")
-                : feedback && feedback.roman
-                  ? <span><strong>{feedback.sym}</strong> <em className="numlabel">{feedback.num}</em> · {feedback.quality}. {CHORD_INSIGHTS[feedback.roman]}</span>
-                : feedback && feedback.prog
-                  ? <span><strong>{feedback.prog.join("–")}</strong> — nailed the changes.</span>
-                : feedback ? feedback
-                : mode === "melody" ? (tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?")
-                : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.`
-                : "Tap the chords you heard, in order."}
-            </p>
-            <div className="sr-only" role="status" aria-live="polite">{srMsg}</div>
-          </div>
+          )}
           {mode === "melody" ? (
             lvl.chromatic ? (
               <div className="numpad chromatic">
@@ -4398,10 +4409,17 @@ export default function NumberEarTrainer() {
                 })}
               </div>
             )}
-            <div className="chord-layout">
+            <div className={"chord-layout" + (chordDuel ? " chord-layout-duel" : "")}>
               <SessionStack picked={chPicked} correct={litCorrect} wrong={litWrong}
                 label={feedback && feedback.roman ? feedback.sym : null} />
               <div className="chord-right">
+                {chordDuel && (
+                  <div className="quiz-bar chord-duel-bar">
+                    {replayControls}
+                    {answerHint}
+                    <div className="sr-only" role="status" aria-live="polite">{srMsg}</div>
+                  </div>
+                )}
                 <div className="numpad">
                   {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                     <button key={d}
@@ -6148,6 +6166,9 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 }
 .chord-layout { display: flex; gap: 16px; align-items: flex-start; }
 .chord-right { flex: 1; display: flex; flex-direction: column; }
+/* Chord duel: Repeat + quip sit in the right column above the numpad, so the stack rises */
+.chord-duel-bar { margin-bottom: 8px; align-items: center; gap: 8px; }
+.chord-duel-bar .hint.grow { font-size: 0.82rem; min-width: 0; }
 .session-stack .stack-note { width: 32px; height: 32px; font-size: 0.98rem; }
 .session-stack { gap: 3px; }
 .session-stack .stack-note.picked { border: 2px solid var(--blue); color: var(--blue); }
