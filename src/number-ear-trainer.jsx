@@ -2926,13 +2926,16 @@ export default function NumberEarTrainer() {
     const li = lv[lv.length - 1].idx;               // the region's mastery-capstone level
     const cfg = bossConfigFor(regionId);
     track("boss_start", { region: regionId });
-    const lvl = resolveSessionLevel({
+    const lvl0 = resolveSessionLevel({
       mode: stage.mode,
       levelIdx: li,
       customLvl: null,
       chordSevenths,
       levelsByMode: { melody: MELODY_LEVELS, chords: CHORD_LEVELS, progressions: PROG_LEVELS },
     });
+    // Progression duel: use the 4-chord family (I·IV·V·vi / vi·ii·iii·IV) instead of the
+    // all-7-triads capstone pool — keeps it to "4 buttons" and beatable.
+    const lvl = stage.mode === "progressions" ? { ...lvl0, pool: stage.gi === 1 ? FOUR_MINOR : FOUR } : lvl0;
     setMode(stage.mode); setLevelIdx(li); setSessLvl(lvl);
     if (stage.mode === "melody") setMelGroup(groupIndexOf(li));
     if (stage.mode === "chords") setChordChapter(chordChapterIndexOf(li));
@@ -5516,6 +5519,10 @@ button { touch-action: manipulation; }
   display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1.5px solid var(--line); }
 .duel-victory-face img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
 .duel-quote-by { display: block; margin-top: 4px; font-style: normal; font-size: 0.75rem; color: var(--text-soft); opacity: 0.85; }
+/* Progression duel: compact the answer slots — hide the tall 7→1 ladder, keep just the chord chip */
+.sess-duel .prog-stack .stack-note { display: none; }
+.sess-duel .prog-stack { min-height: 40px; justify-content: center; padding: 6px 4px; }
+.sess-duel .prog-stack .stack-label { font-size: 1rem; }
 .boss-defeat { text-align: center; }
 .boss-defeat-face { width: 64px; height: 64px; margin: 0 auto 4px; border-radius: 10px; overflow: hidden;
   display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1.5px solid var(--line); }
