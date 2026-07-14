@@ -2400,6 +2400,7 @@ export default function NumberEarTrainer() {
 
   // preferences
   const [theme, setTheme] = useState(() => loadPref("theme", "dark"));
+  const [instrument, setInstrument] = useState(() => loadPref("instrument", "piano")); // piano | guitar — global choice
   const [testCfgOpen, setTestCfgOpen] = useState(false); // in-session quick settings (tempo/resolution/theme)
   const [resStep, setResStep] = useState(() => parseFloat(loadPref("resstep", "0.8")) || 0.8);
   const [progBeat, setProgBeat] = useState(() => parseFloat(loadPref("progbeat", "1.0")) || 1.0);
@@ -2410,6 +2411,7 @@ export default function NumberEarTrainer() {
     document.documentElement.setAttribute("data-theme", theme);
     savePref("theme", theme);
   }, [theme]);
+  useEffect(() => { savePref("instrument", instrument); }, [instrument]);
   // Keep audio alive across backgrounding. A standalone PWA (or any tab switch,
   // incoming call, or opening the VSL) suspends the AudioContext, and nothing
   // else resumes it — so ambient music goes silent. Resume it on return to front.
@@ -2723,7 +2725,7 @@ export default function NumberEarTrainer() {
   const [exStage, setExStage] = useState(0);
   const [exWorld, setExWorld] = useState(1);
   const [exOctaves, setExOctaves] = useState(1);
-  const [exView, setExView] = useState("map"); // map | piano
+  const [exView, setExView] = useState(() => (loadPref("instrument", "piano") === "guitar" ? "guitar" : "map")); // map | piano | guitar
   const [droneOn, setDroneOn] = useState(false);
   const [droneVol, setDroneVol] = useState(() => { // drone loudness in dB, remembered
     const v = parseFloat(loadPref("dronevol", "-8"));
@@ -3940,6 +3942,14 @@ export default function NumberEarTrainer() {
             <div className="seg">
               <button className={theme === "dark" ? "on" : ""} onClick={() => setTheme("dark")}>Dark</button>
               <button className={theme === "light" ? "on" : ""} onClick={() => setTheme("light")}>Light</button>
+            </div>
+          </div>
+          <div className="set-block">
+            <span className="set-label">Instrument</span>
+            <p className="set-desc">See and hear the numbers on a piano or a guitar fretboard. Free Play opens in your choice.</p>
+            <div className="seg">
+              <button className={instrument === "piano" ? "on" : ""} onClick={() => { setInstrument("piano"); setExView("map"); }}>Piano</button>
+              <button className={instrument === "guitar" ? "on" : ""} onClick={() => { setInstrument("guitar"); setExView("guitar"); }}>Guitar</button>
             </div>
           </div>
           <div className="set-block">
