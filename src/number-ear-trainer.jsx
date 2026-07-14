@@ -2213,6 +2213,7 @@ export default function NumberEarTrainer() {
   const [bossState, setBossState] = useState(null);          // { hp,hpMax,hpPct,hearts,heartsMax,outcome } | null
   const [bossFx, setBossFx] = useState("");                  // "" | "hit" | "hurt" — one-shot HUD flash class
   const [bossOutcome, setBossOutcome] = useState(null);      // { region } while the defeat overlay is up (win reuses results)
+  const [duelWinRegion, setDuelWinRegion] = useState(null);  // region whose duel was just WON → congrats banner on results (every win, not just first clear)
   const bossFxTimerRef = useRef(null);
   // Duel timed turns: a drain bar the player races each note. `duelTurn` bumps to (re)start
   // a fresh timed window (new question, or a restart after a timeout whiff); `duelSecs` is
@@ -3064,6 +3065,9 @@ export default function NumberEarTrainer() {
     // fragment via the existing clear/fanfare plumbing below.
     const bossWon = !!s.boss;
     const firstTries = bossWon ? Math.max(countFirstTries(s.results), passCountFor(s.lvl)) : countFirstTries(s.results);
+    // Verda's congrats shows on EVERY duel win (duels are replayable), not just the
+    // first clear — the fragment flourish below is first-clear-only.
+    setDuelWinRegion(bossWon ? s.bossRegion : null);
     if (bossWon) track("boss_win", { region: s.bossRegion, questions: s.results.length, hearts: bossState ? bossState.hearts : null });
     track("session_finish", { mode: s.mode, level: s.levelIdx, first_tries: firstTries, questions: s.results.length, passed: firstTries >= passCountFor(s.lvl) });
     // snapshot region-clear state BEFORE saving this session's progress (for the victory flourish)
@@ -4365,8 +4369,11 @@ export default function NumberEarTrainer() {
     const justCleared = advNode && !sessWasClearedRef.current && stageClearedAdv(advStageId);
     const finale = justCleared && advCollected.size >= 8; // the WHOLE sword just came together
     const fragName = advNode ? window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[advStageId]] : "";
-    // Cleared via a Keeper Duel? show the keeper's own words of congratulations.
-    const duelCfg = justCleared && isBossRegion(advStageId) ? bossConfigFor(advStageId) : null;
+    // Won a Keeper Duel (this or any prior clear)? Verda's congratulations show on EVERY
+    // win — the fragment flourish below is first-clear-only.
+    const duelWin = duelWinRegion ? bossConfigFor(duelWinRegion) : null;
+    const duelWinKeeper = duelWinRegion && window.HARMONIA ? window.HARMONIA.nodes[duelWinRegion - 1] : null;
+    const duelWinArt = duelWin && window.KEEPER_ART ? window.KEEPER_ART[duelWinRegion] : null;
     const hasNext = !isCustom && levelIdx + 1 < lvls.length;
 
     // best first-try streak this session
@@ -4422,14 +4429,25 @@ export default function NumberEarTrainer() {
                 <div className="forge-sparks" aria-hidden="true"><i /><i /><i /><i /><i /><i /><i /><i /></div>
               </div>
               <span className="frag-chip"><span className="gem">◆</span>{fragName} — forged into Excalibar</span>
-              {duelCfg
-                ? <span className="victory-quote duel-quote">“{duelCfg.taunts.win}”<em className="duel-quote-by">— {duelCfg.name}, {duelCfg.title}</em></span>
+              {duelWin
+                ? <span className="victory-quote duel-quote">“{duelWin.taunts.win}”<em className="duel-quote-by">— {duelWin.name}, {duelWin.title}</em></span>
                 : <span className="victory-quote">“{advNode.win}”</span>}
               <span className="forge-count">{advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments"}</span>
             </div>
           )}
-          {justCleared && !finale && (
-            <button className="primary map-return" onClick={() => { setSwordBurst(true); setScreen("adventure"); }}>← Return to the map</button>
+          {/* Duel won on an ALREADY-cleared region (no fresh fragment) → standalone congrats */}
+          {duelWin && !justCleared && !finale && (
+            <div className="duel-victory">
+              <span className="duel-victory-face" aria-hidden="true">
+                {duelWinArt ? <img src={duelWinArt} alt="" /> : <span className="boss-emblem">{duelWinKeeper ? duelWinKeeper.emblem : "⚔"}</span>}
+              </span>
+              <span className="victory-kicker">✦ Duel won ✦</span>
+              <h3 className="victory-title">{duelWinKeeper ? duelWinKeeper.winTitle : "The keeper yields!"}</h3>
+              <span className="victory-quote duel-quote">“{duelWin.taunts.win}”<em className="duel-quote-by">— {duelWin.name}, {duelWin.title}</em></span>
+            </div>
+          )}
+          {(justCleared || (duelWin && !finale)) && (
+            <button className="primary map-return" onClick={() => { setSwordBurst(!!justCleared); setScreen("adventure"); }}>← Return to the map</button>
           )}
           <div className={"score-big" + (passed ? " pass" : "")}>{pct}%</div>
           <p className="hint center">
@@ -5350,6 +5368,12 @@ button { touch-action: manipulation; }
 .duel-timer-fill.draining { animation-name: duel-drain; animation-timing-function: linear; animation-fill-mode: forwards; }
 @keyframes duel-drain { from { width: 100%; } to { width: 0%; } }
 .level.duel .level-num { color: var(--wrong-text, #E07856); }
+.duel-victory { text-align: center; padding: 16px 14px; margin-bottom: 12px; background: var(--card);
+  border: 1.5px solid var(--green, #6ABF5E); border-radius: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.duel-victory-face { width: 64px; height: 64px; margin-bottom: 4px; border-radius: 10px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1.5px solid var(--line); }
+.duel-victory-face img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.duel-quote-by { display: block; margin-top: 4px; font-style: normal; font-size: 0.75rem; color: var(--text-soft); opacity: 0.85; }
 .boss-defeat { text-align: center; }
 .boss-defeat-face { width: 64px; height: 64px; margin: 0 auto 4px; border-radius: 10px; overflow: hidden;
   display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1.5px solid var(--line); }
