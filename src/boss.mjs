@@ -187,6 +187,60 @@ export const BOSS = {
       lose: "Dusk keeps its own count. Rest, then walk it again.",
     },
   },
+  // Chroma — Halfstep Crossing (node 7, chromatic MAJOR melody). Same melody duel path as
+  // Verda/Rue, but all 12 notes (incl. the between-notes) — a 12-button pad. Chromatic is
+  // the hardest ID, so a slightly gentler clock. PLACEHOLDER copy — replaced with Fable's.
+  7: {
+    hp: 100,
+    hearts: 4,
+    dmgFirst: 25,
+    dmgRecover: 10,
+    timer: { full: 9, mid: 7, low: 5 },
+    name: "Chroma",
+    title: "the Wanderer",
+    taunts: {
+      intro: "Come slow, wanderer — I hide the sly ones on purpose.",
+      hits: [
+        "Ha! You caught the color hiding between the steps.",
+        "Yes — a borrowed note, and you knew its name.",
+        "Ooh, the sly one! Nobody names that but you.",
+        "That's twelve you're counting, not seven.",
+        "You heard the half-step wink and winked back.",
+        "There — even the in-between has nowhere to hide.",
+      ],
+      low: "So close — only a color or two left up my sleeve.",
+      playerHurt: "No matter — the odd ones are slippery. Listen close.",
+      win: "Every color named, even the hidden ones. Take my mark.",
+      lose: "The colors will keep. Wander back when your ear's rested.",
+    },
+  },
+  // Ferro — Anvil Peak (node 8, chromatic MINOR melody). THE FINAL BOSS. Beating him with
+  // the other 7 fragments triggers the grandFanfare + Excalibar-reforged finale. Tougher
+  // (more hp = a longer, climactic fight). PLACEHOLDER copy — replaced with Fable's.
+  8: {
+    hp: 130,
+    hearts: 4,
+    dmgFirst: 25,
+    dmgRecover: 10,
+    timer: { full: 9, mid: 7, low: 5 },
+    name: "Ferro",
+    title: "the Forgemaster",
+    taunts: {
+      intro: "The forge waited for ears like yours. Earn the last piece.",
+      hits: [
+        "Hn. You named it in the dark — iron rings true.",
+        "That one had no light to it, and still you struck.",
+        "Aye. Twelve gathered 'round home, and you knew each.",
+        "The hammer heard that. Well struck.",
+        "Even in the black, your ear found the edge.",
+        "Sparks. That's the sound of a true blade.",
+      ],
+      low: "The forge is nearly yours — I feel the last piece stir.",
+      playerHurt: "Steady. Iron's forged by the blows it takes. Again.",
+      win: "Eight pieces, one blade. Excalibar is whole — go, hero.",
+      lose: "The forge keeps burning. Rest your ears and climb again.",
+    },
+  },
 };
 
 // Sensible default for regions whose duel isn't hand-tuned yet (so enabling one later
@@ -210,8 +264,8 @@ export const DEFAULT_BOSS = {
 };
 
 // Which nodes launch a Keeper Duel instead of a normal capstone session.
-// 1-4 (Verda/Rue/Sylva/Bassil) = free lite version; 5-6 (Marin/Sable, progressions) added.
-const ENABLED = new Set([1, 2, 3, 4, 5, 6]);
+// All 8 keepers wired: 1-4 (free lite version), 5-6 (progressions), 7-8 (chromatic; 8 = Ferro, the finale).
+const ENABLED = new Set([1, 2, 3, 4, 5, 6, 7, 8]);
 export const isBossRegion = (id) => ENABLED.has(id);
 
 export function bossConfigFor(id) {
