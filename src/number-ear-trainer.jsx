@@ -3317,7 +3317,7 @@ export default function NumberEarTrainer() {
       <div className="forge-panel upsell-panel" role="dialog" aria-modal="true" aria-label="Keep going — the full program" tabIndex={-1} ref={upsellPanelRef} onClick={(e) => e.stopPropagation()}>
         <span className="forge-kicker">✦ Keep going ✦</span>
         <h2 className="forge-title">This is where it gets good</h2>
-        <p className="upsell-copy">You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program.</p>
+        <p className="upsell-copy">You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program for guitarists.</p>
         <div className="enc-actions">
           <button className="ghost" onClick={() => setUpsellOpen(false)}>Maybe later</button>
           <a className="primary offer-link" href={OFFER_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("offer_click", { where: "upsell" })}>Show me how →</a>
