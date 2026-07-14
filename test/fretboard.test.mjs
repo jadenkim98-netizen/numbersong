@@ -4,9 +4,42 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { KEYS, PC_TO_DEGREE, mod12 } from "../src/theory.mjs";
 import {
-  STANDARD_TUNING, OPEN_PC, INLAYS, DOUBLE_INLAYS, FRET_COUNT,
-  fretMidi, pcOf, degreeAt, positionsOfPc, positionsOfDegree, positionBox,
+  STANDARD_TUNING, OPEN_PC, INLAYS, DOUBLE_INLAYS, FRET_COUNT, ANSWER_STRINGS,
+  fretMidi, pcOf, degreeAt, positionsOfPc, positionsOfDegree, positionBox, answerBox,
 } from "../src/fretboard.mjs";
+
+const cellAt = (box, string, fret) => box.cells.find((c) => c.string === string && c.fret === fret);
+
+test("answerBox: C major is the A·D·G / frets 2–5 shape from the spec", () => {
+  const box = answerBox("C", "major");
+  assert.deepEqual(box.strings, [1, 2, 3]);         // A, D, G
+  assert.deepEqual(box.frets, [2, 3, 4, 5]);
+  assert.equal(box.cells.length, 12);               // 3 strings × 4 frets
+  // A string: 1 on fret 3 (2nd of window), 2 on fret 5 (4th)
+  assert.equal(cellAt(box, 1, 3).degree, 1);
+  assert.equal(cellAt(box, 1, 3).isTonic, true);
+  assert.equal(cellAt(box, 1, 5).degree, 2);
+  // D string: 3 on fret 2 (1st), 4 on fret 3 (2nd), 5 on fret 5
+  assert.equal(cellAt(box, 2, 2).degree, 3);
+  assert.equal(cellAt(box, 2, 3).degree, 4);
+  assert.equal(cellAt(box, 2, 5).degree, 5);
+  // G string: 6 on fret 2, 7 on fret 4
+  assert.equal(cellAt(box, 3, 2).degree, 6);
+  assert.equal(cellAt(box, 3, 4).degree, 7);
+});
+
+test("answerBox: holds all 7 degrees in every key/mode, stays on the neck", () => {
+  for (const key of KEYS) {
+    for (const mode of ["major", "minor"]) {
+      const box = answerBox(key, mode);
+      assert.equal(box.cells.length, 12);
+      assert.ok(box.startFret >= 0 && box.endFret <= FRET_COUNT, `on-neck ${key} ${mode}`);
+      const degs = new Set(box.cells.map((c) => c.degree).filter((d) => d !== null));
+      for (let d = 1; d <= 7; d++) assert.ok(degs.has(d), `degree ${d} missing in ${key} ${mode} answerBox`);
+      assert.ok(box.cells.some((c) => c.isTonic), `no tonic in ${key} ${mode} answerBox`);
+    }
+  }
+});
 
 test("open strings: pitch-classes match standard tuning EADGBE", () => {
   assert.deepEqual(OPEN_PC, [4, 9, 2, 7, 11, 4]); // E A D G B E

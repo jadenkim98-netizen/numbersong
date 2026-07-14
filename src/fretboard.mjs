@@ -100,3 +100,26 @@ export function positionBox(key, mode, opts = {}) {
     .map((f) => ({ fret: f, double: DOUBLE_INLAYS.includes(f) }));
   return { key, mode, startFret, endFret, frets, cells, markers, name: key + " " + mode + " @" + startFret };
 }
+
+// Compact 3-string × 4-fret ANSWER box for portrait tests — big finger targets, all 7 degrees.
+// Shape: the classic scale position on the A·D·G strings (in C: frets 2–5, with 1 on the A string
+// 3rd fret and 2 on the 5th). Anchored one fret below where the tonic sits on the A string, so the
+// leading tone (7) sits under the index finger. Transposes per key; shifts up an octave if it would
+// fall below the nut. Grading is octave-agnostic, so the doubled 1/7 are all valid taps.
+export const ANSWER_STRINGS = [1, 2, 3]; // A, D, G
+export function answerBox(key, mode = "major") {
+  // Anchor on the major-"1" (pc 0) on the A string — `key` is always the relative-major
+  // reference (minor sessions pass it too), so this window holds all 7 degrees for both modes;
+  // `mode` only changes which cell is starred as home (via degreeAt / tonicPcOf).
+  let anchorFretA = 0;
+  for (let f = 0; f <= 12; f++) { if (pcOf(1, f, key) === 0) { anchorFretA = f; break; } }
+  let startFret = anchorFretA - 1;      // include the 7 just below the 1
+  if (startFret < 0) startFret += 12;   // low keys → same shape an octave up
+  const frets = [startFret, startFret + 1, startFret + 2, startFret + 3];
+  const cells = [];
+  for (const s of ANSWER_STRINGS) for (const f of frets) cells.push(degreeAt(s, f, key, mode));
+  const markers = frets
+    .filter((f) => INLAYS.includes(f) || DOUBLE_INLAYS.includes(f))
+    .map((f) => ({ fret: f, double: DOUBLE_INLAYS.includes(f) }));
+  return { key, mode, strings: ANSWER_STRINGS, startFret, endFret: startFret + 3, frets, cells, markers, name: key + " " + mode + " answer" };
+}
