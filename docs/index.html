@@ -3483,6 +3483,60 @@ window.SOUNDTRACK = SOUNDTRACK;
         win: "Stone by stone, never lost the count. The mark is yours.",
         lose: "Dusk keeps its own count. Rest, then walk it again."
       }
+    },
+    // Chroma — Halfstep Crossing (node 7, chromatic MAJOR melody). Same melody duel path as
+    // Verda/Rue, but all 12 notes (incl. the between-notes) — a 12-button pad. Chromatic is
+    // the hardest ID, so a slightly gentler clock. PLACEHOLDER copy — replaced with Fable's.
+    7: {
+      hp: 100,
+      hearts: 4,
+      dmgFirst: 25,
+      dmgRecover: 10,
+      timer: { full: 9, mid: 7, low: 5 },
+      name: "Chroma",
+      title: "the Wanderer",
+      taunts: {
+        intro: "Come slow, wanderer — I hide the sly ones on purpose.",
+        hits: [
+          "Ha! You caught the color hiding between the steps.",
+          "Yes — a borrowed note, and you knew its name.",
+          "Ooh, the sly one! Nobody names that but you.",
+          "That's twelve you're counting, not seven.",
+          "You heard the half-step wink and winked back.",
+          "There — even the in-between has nowhere to hide."
+        ],
+        low: "So close — only a color or two left up my sleeve.",
+        playerHurt: "No matter — the odd ones are slippery. Listen close.",
+        win: "Every color named, even the hidden ones. Take my mark.",
+        lose: "The colors will keep. Wander back when your ear's rested."
+      }
+    },
+    // Ferro — Anvil Peak (node 8, chromatic MINOR melody). THE FINAL BOSS. Beating him with
+    // the other 7 fragments triggers the grandFanfare + Excalibar-reforged finale. Tougher
+    // (more hp = a longer, climactic fight). PLACEHOLDER copy — replaced with Fable's.
+    8: {
+      hp: 130,
+      hearts: 4,
+      dmgFirst: 25,
+      dmgRecover: 10,
+      timer: { full: 9, mid: 7, low: 5 },
+      name: "Ferro",
+      title: "the Forgemaster",
+      taunts: {
+        intro: "The forge waited for ears like yours. Earn the last piece.",
+        hits: [
+          "Hn. You named it in the dark — iron rings true.",
+          "That one had no light to it, and still you struck.",
+          "Aye. Twelve gathered 'round home, and you knew each.",
+          "The hammer heard that. Well struck.",
+          "Even in the black, your ear found the edge.",
+          "Sparks. That's the sound of a true blade."
+        ],
+        low: "The forge is nearly yours — I feel the last piece stir.",
+        playerHurt: "Steady. Iron's forged by the blows it takes. Again.",
+        win: "Eight pieces, one blade. Excalibar is whole — go, hero.",
+        lose: "The forge keeps burning. Rest your ears and climb again."
+      }
     }
   };
   var DEFAULT_BOSS = {
@@ -3502,7 +3556,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       lose: "Not yet. Come back sharper."
     }
   };
-  var ENABLED = /* @__PURE__ */ new Set([1, 2, 3, 4, 5, 6]);
+  var ENABLED = /* @__PURE__ */ new Set([1, 2, 3, 4, 5, 6, 7, 8]);
   var isBossRegion = (id) => ENABLED.has(id);
   function bossConfigFor(id) {
     return BOSS[id] || DEFAULT_BOSS;
