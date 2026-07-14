@@ -2683,7 +2683,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 </head>
 <body>
 <a href="#root" class="skip-link">Skip to content</a>
-<div id="root" role="main" tabindex="-1"></div>
+<div id="root" role="main" tabindex="-1" translate="no" class="notranslate"></div>
 <div id="errbox"></div>
 <script>
   // Raw error dumps show ON-SCREEN only in debug mode (localhost or ?debug in the URL);
@@ -3882,7 +3882,24 @@ window.SOUNDTRACK = SOUNDTRACK;
         replaysOnErrorSampleRate: 0,
         sendDefaultPii: false,
         // no IP/cookies attached to error events
-        initialScope: { user: { id: trackCid } }
+        initialScope: { user: { id: trackCid } },
+        // Drop crashes that AREN'T ours: the Instagram in-app browser injects a native bridge
+        // (sendDataToNative → window.webkit.messageHandlers on iOS, postMessage/"Java object is
+        // gone" + iabjs:// on Android) that throws on page-hide; browser extensions inject
+        // runtime.sendMessage; and interrupted media playback throws AbortError. All noise —
+        // filtering them keeps real bugs visible. (We deliberately KEEP audio-device errors.)
+        ignoreErrors: [
+          /webkit\.messageHandlers/i,
+          "sendDataToNative",
+          "sendPageHideMessage",
+          /Java object is gone/i,
+          /iabjs:/i,
+          /runtime\.sendMessage/i,
+          /Tab not found/i,
+          /Extension context/i,
+          "AbortError",
+          "ResizeObserver loop"
+        ]
       });
     }
     if (POSTHOG_KEY && window.posthog) {
@@ -5775,6 +5792,37 @@ window.SOUNDTRACK = SOUNDTRACK;
     });
     return /* @__PURE__ */ React.createElement("div", { className: "fretboard" }, /* @__PURE__ */ React.createElement("style", null, FRETBOARD_CSS), /* @__PURE__ */ React.createElement("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img", "aria-label": "Guitar fretboard, " + musicKey + " " + mode }, els));
   }
+  var AppErrorBoundary = class extends React.Component {
+    constructor(props) {
+      super(props);
+      this.state = { crashed: false };
+    }
+    static getDerivedStateFromError() {
+      return { crashed: true };
+    }
+    componentDidCatch(err) {
+      try {
+        window.Sentry && window.Sentry.captureException && window.Sentry.captureException(err);
+      } catch (e) {
+      }
+    }
+    render() {
+      if (!this.state.crashed) return this.props.children;
+      return /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24, textAlign: "center", background: "#383D3B", color: "#EDF2EE", fontFamily: "system-ui, -apple-system, sans-serif" } }, /* @__PURE__ */ React.createElement("p", { style: { fontSize: "1.15rem", fontWeight: 700, margin: 0 } }, "Something hiccupped."), /* @__PURE__ */ React.createElement("p", { style: { margin: 0, maxWidth: "34ch", lineHeight: 1.5, opacity: 0.85 } }, "A quick reload should fix it — your progress is saved. If your browser is auto-translating the page, turning that off for this site helps."), /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          onClick: () => {
+            try {
+              location.reload();
+            } catch (e) {
+            }
+          },
+          style: { marginTop: 4, padding: "12px 24px", fontSize: "1rem", fontWeight: 700, border: 0, borderRadius: 10, background: "#6ABF5E", color: "#20301d", cursor: "pointer" }
+        },
+        "Reload"
+      ));
+    }
+  };
   function NumberEarTrainer() {
     const { playCadence, setCadenceSpeed, playDegree, playChord, playChordWR, playProgression, playSemi, sing, singMinor, minorShift, minorVoiceRef, sfx, lastSfxRef, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm } = useAudio();
     const { playTheme, stopMusic, setMusicOn } = useMusic();
@@ -9989,7 +10037,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide.fp-opts-open .fp-path-secondary { display: flex; }
 }
 `;
-  ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(NumberEarTrainer));
+  ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(AppErrorBoundary, null, React.createElement(NumberEarTrainer)));
 })();
 
 </script>

@@ -222,6 +222,17 @@ try {
       tracesSampleRate: 0, replaysSessionSampleRate: 0, replaysOnErrorSampleRate: 0,
       sendDefaultPii: false,               // no IP/cookies attached to error events
       initialScope: { user: { id: trackCid } },
+      // Drop crashes that AREN'T ours: the Instagram in-app browser injects a native bridge
+      // (sendDataToNative → window.webkit.messageHandlers on iOS, postMessage/"Java object is
+      // gone" + iabjs:// on Android) that throws on page-hide; browser extensions inject
+      // runtime.sendMessage; and interrupted media playback throws AbortError. All noise —
+      // filtering them keeps real bugs visible. (We deliberately KEEP audio-device errors.)
+      ignoreErrors: [
+        /webkit\.messageHandlers/i, "sendDataToNative", "sendPageHideMessage",
+        /Java object is gone/i, /iabjs:/i,
+        /runtime\.sendMessage/i, /Tab not found/i, /Extension context/i,
+        "AbortError", "ResizeObserver loop",
+      ],
     });
   }
   if (POSTHOG_KEY && window.posthog) {
@@ -2013,6 +2024,29 @@ function Fretboard({ musicKey, mode = "major", boxKind = "position", active = []
     els.push(<rect key={"h" + id} className="fb-hit" x={x - fw / 2} y={y - sh / 2} width={fw} height={sh} fill="transparent" {...evts} />);
   });
   return <div className="fretboard"><style>{FRETBOARD_CSS}</style><svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={"Guitar fretboard, " + musicKey + " " + mode}>{els}</svg></div>;
+}
+
+/* Top-level error boundary: if a render throws — most likely a browser auto-translate
+   (Google Translate) mutating text nodes out from under React → "insertBefore … not a child"
+   — show a calm, self-contained recovery instead of a white screen, and report it. Styles are
+   inline so recovery doesn't depend on any app CSS that may have been what broke. */
+class AppErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { crashed: false }; }
+  static getDerivedStateFromError() { return { crashed: true }; }
+  componentDidCatch(err) { try { window.Sentry && window.Sentry.captureException && window.Sentry.captureException(err); } catch (e) {} }
+  render() {
+    if (!this.state.crashed) return this.props.children;
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24, textAlign: "center", background: "#383D3B", color: "#EDF2EE", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+        <p style={{ fontSize: "1.15rem", fontWeight: 700, margin: 0 }}>Something hiccupped.</p>
+        <p style={{ margin: 0, maxWidth: "34ch", lineHeight: 1.5, opacity: 0.85 }}>A quick reload should fix it — your progress is saved. If your browser is auto-translating the page, turning that off for this site helps.</p>
+        <button onClick={() => { try { location.reload(); } catch (e) {} }}
+          style={{ marginTop: 4, padding: "12px 24px", fontSize: "1rem", fontWeight: 700, border: 0, borderRadius: 10, background: "#6ABF5E", color: "#20301d", cursor: "pointer" }}>
+          Reload
+        </button>
+      </div>
+    );
+  }
 }
 
 /* ─────────────────────────────  APP  ───────────────────────────── */
