@@ -4140,6 +4140,16 @@ export default function NumberEarTrainer() {
                 </span>
               )}
             </div>
+            {/* PROJECTILES — flying ♪ notes. incoming: keeper's note flies in + hovers by Coda;
+                on a correct answer (fx-hit) Coda's note flies back and the incoming is intercepted;
+                on wrong/timeout (fx-hurt) the incoming lunges into Coda. Pure choreography off bossFx. */}
+            {(phase === "playing" || phase === "answer" || bossFx) && (
+              <div key={qNum} className={"duel-shots " + (bossFx ? ("fx-" + bossFx) : "incoming")} aria-hidden="true">
+                <span className="duel-note enemy">♪</span>
+                <span className="duel-note hero">♪</span>
+                <span className="duel-burst" />
+              </div>
+            )}
             {/* TIMER — the drain the player races; keyed so it restarts each turn */}
             <div className="duel-timer" aria-hidden="true">
               <span key={duelTurn + "-" + qNum} className={"duel-timer-fill" + (phase === "answer" ? " draining" : "")} style={{ animationDuration: duelSecs + "s" }} />
@@ -5400,6 +5410,30 @@ button { touch-action: manipulation; }
 .duel-victory-forge { margin: 4px 0 2px; }
 .duel-timer { margin-top: 8px; height: 8px; border-radius: 5px; background: var(--bg); overflow: hidden; border: 1px solid var(--line); }
 .duel-timer-fill { display: block; height: 100%; width: 100%; background: var(--teal, #57C6C4); border-radius: 5px; }
+/* Projectile layer — ♪ notes travel across the arena (positions are % of the arena so it's
+   responsive). Functional base; the retro skin refines the glyph/trail/burst feel. */
+.duel-shots { position: absolute; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; }
+.duel-note { position: absolute; font-size: 1.4rem; line-height: 1; color: var(--teal, #57C6C4);
+  text-shadow: 0 0 7px currentColor; opacity: 0; }
+.duel-burst { position: absolute; width: 22px; height: 22px; border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle, var(--text, #EDF2EE) 0%, transparent 70%); }
+/* incoming: keeper's ♪ flies from her (top-right) toward Coda (bottom-left), then hovers */
+.duel-shots.incoming .duel-note.enemy { animation: duel-note-in .5s ease-out forwards, duel-note-hover 1.2s ease-in-out .5s infinite; }
+@keyframes duel-note-in { from { left: 76%; top: 20%; opacity: 0; transform: scale(.6); }
+  to { left: 26%; top: 60%; opacity: 1; transform: scale(1); } }
+@keyframes duel-note-hover { 0%,100% { left: 26%; top: 60%; } 50% { left: 25%; top: 64%; } }
+/* strike: Coda's ♪ flies from him (bottom-left) up into the keeper (top-right) */
+.duel-shots.fx-hit .duel-note.hero { animation: duel-note-strike .3s ease-in forwards; }
+@keyframes duel-note-strike { from { left: 20%; top: 66%; opacity: 1; transform: scale(.8); }
+  to { left: 74%; top: 22%; opacity: .3; transform: scale(1.15); } }
+.duel-shots.fx-hit .duel-note.enemy { animation: duel-note-gone .26s ease-out forwards; } /* intercepted */
+.duel-shots.fx-hit .duel-burst { left: 72%; top: 20%; animation: duel-burst .32s ease-out .22s forwards; }
+/* land: the hovering ♪ lunges the last stretch into Coda */
+.duel-shots.fx-hurt .duel-note.enemy { animation: duel-note-land .3s ease-in forwards; }
+@keyframes duel-note-land { from { left: 26%; top: 60%; opacity: 1; } to { left: 16%; top: 74%; opacity: 0; transform: scale(.7); } }
+.duel-shots.fx-hurt .duel-burst { left: 16%; top: 70%; animation: duel-burst .3s ease-out .2s forwards; }
+@keyframes duel-note-gone { from { opacity: 1; } to { opacity: 0; transform: scale(.3); } }
+@keyframes duel-burst { 0% { opacity: 0; transform: scale(.3); } 40% { opacity: .9; transform: scale(1.2); } 100% { opacity: 0; transform: scale(1.6); } }
 .duel-timer-fill.draining { animation-name: duel-drain; animation-timing-function: linear; animation-fill-mode: forwards; }
 @keyframes duel-drain { from { width: 100%; } to { width: 0%; } }
 .level.duel .level-num { color: var(--wrong-text, #E07856); }
