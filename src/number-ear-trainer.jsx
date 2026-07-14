@@ -4478,6 +4478,11 @@ export default function NumberEarTrainer() {
             <div className="victory">
               <div className="victory-rays" aria-hidden="true" />
               <div className="victory-glow" aria-hidden="true" />
+              {duelWin && (
+                <span className="duel-victory-face" aria-hidden="true">
+                  {duelWinArt ? <img src={duelWinArt} alt="" /> : <span className="boss-emblem">{duelWinKeeper ? duelWinKeeper.emblem : "⚔"}</span>}
+                </span>
+              )}
               <span className="victory-kicker">✦ Fragment forged ✦</span>
               <h3 className="victory-title">{advNode.winTitle}</h3>
               <div className="victory-forge">
