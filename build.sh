@@ -10,7 +10,7 @@ src = src.replace('import React, { useState, useRef, useEffect, useLayoutEffect,
 src = src.replace('import * as Tone from "tone";\n', '')
 src = src.replace('export default function NumberEarTrainer()', 'function NumberEarTrainer()')
 prefix = 'const { useState, useRef, useEffect, useLayoutEffect, useCallback } = React;\n\n'
-suffix = '\n\nReactDOM.createRoot(document.getElementById("root")).render(React.createElement(NumberEarTrainer));\n'
+suffix = '\n\nReactDOM.createRoot(document.getElementById("root")).render(React.createElement(AppErrorBoundary, null, React.createElement(NumberEarTrainer)));\n'
 open("src/.app.jsx", "w").write(prefix + src + suffix)
 EOF
 
@@ -191,7 +191,7 @@ html = f'''<!DOCTYPE html>
 </head>
 <body>
 <a href="#root" class="skip-link">Skip to content</a>
-<div id="root" role="main" tabindex="-1"></div>
+<div id="root" role="main" tabindex="-1" translate="no" class="notranslate"></div>
 <div id="errbox"></div>
 <script>
   // Raw error dumps show ON-SCREEN only in debug mode (localhost or ?debug in the URL);
