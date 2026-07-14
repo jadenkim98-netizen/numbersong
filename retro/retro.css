@@ -1058,3 +1058,170 @@
 /* Free Play hints in the retro pixel font (per request) */
 .retro .fp-help{ font-family:var(--pf); font-size:9px; letter-spacing:.5px; line-height:1.9; text-transform:none; opacity:.92; }
 .retro .fp-help em{ font-family:var(--pf); color:var(--gold); font-style:normal; }
+
+/* ============================================================================
+   KEEPER DUEL (boss battle) — retro/GBA juice.  APPEND-ONLY BLOCK.
+   Layers the pixel skin + fight feel onto the FUNCTIONAL boss HUD in the JSX
+   base CSS. Flash classes (.fx-hit / .fx-hurt) clear after ~520ms, so every
+   one-shot animation here stays ≤ ~500ms. All keyframes are rt-duel-* to avoid
+   clashing with earlier blocks. Reduced-motion: the global `.retro *` rule
+   already kills descendants' animations; a local block below covers the
+   screen-shake (which can land on the .retro root itself) and keeps the
+   resting states correct with animation off.
+   ============================================================================ */
+
+/* ---- the duel banner: pixel panel, danger-framed portrait ----------------- */
+.retro .boss-hud{
+  border:0; border-radius:0; clip-path:var(--notch); background:#453f3b;
+  box-shadow:inset 0 0 0 2px var(--line),inset 0 0 0 4px rgba(0,0,0,.3),
+             inset 0 3px 0 2px rgba(237,242,238,.05);
+}
+.retro .boss-face{
+  border:0; border-radius:0; clip-path:var(--notch); background:var(--bg);
+  box-shadow:inset 0 0 0 2px var(--wrong); image-rendering:pixelated;
+}
+.retro .boss-name{
+  font-family:var(--pf); font-size:11px; letter-spacing:1px; text-transform:uppercase;
+  color:var(--gold); text-shadow:1px 1px 0 var(--ink); font-weight:400;
+}
+/* keeper speech stays sacred sans (house rule), just softened */
+.retro .boss-taunt{
+  font-family:var(--sans); font-style:italic; font-size:.82rem;
+  text-transform:none; letter-spacing:normal; color:var(--text); opacity:.85;
+}
+
+/* ---- HP bar: notched pixel track, segmented cells, bevelled fill ---------- */
+.retro .boss-hpbar{
+  position:relative; height:16px; padding:3px; border:0; border-radius:0;
+  background:var(--bg); clip-path:var(--notch);
+  box-shadow:inset 0 0 0 2px var(--line);
+}
+.retro .boss-hpfill{
+  border-radius:0;
+  background:linear-gradient(180deg,
+    #F09A76 0 2px, var(--wrong) 2px calc(100% - 2px), #9C4A35 calc(100% - 2px) 100%);
+}
+/* 10 pixel "cells" scored over the track (25 dmg = a clean strike ≈ 2.5 cells) */
+.retro .boss-hpbar::after{
+  content:""; position:absolute; inset:3px; pointer-events:none;
+  background:repeating-linear-gradient(90deg,
+    transparent 0 calc(10% - 2px), rgba(32,48,46,.55) calc(10% - 2px) 10%);
+}
+
+/* ---- fx-hit: you struck the keeper — green flash + chip off the bar ------- */
+.retro .boss-hud.fx-hit{ animation:rt-duel-strike .45s steps(2); }
+@keyframes rt-duel-strike{
+  0%{ filter:brightness(1.7);
+      box-shadow:inset 0 0 0 2px var(--green),inset 0 0 0 4px rgba(0,0,0,.3); }
+  100%{ filter:brightness(1);
+      box-shadow:inset 0 0 0 2px var(--line),inset 0 0 0 4px rgba(0,0,0,.3),
+                 inset 0 3px 0 2px rgba(237,242,238,.05); }
+}
+.retro .boss-hud.fx-hit .boss-face{ animation:rt-shake .28s steps(3); }
+/* the chip: a white-hot leading edge on the draining fill */
+.retro .boss-hud.fx-hit .boss-hpfill{ animation:rt-duel-chip .5s steps(2); }
+@keyframes rt-duel-chip{
+  0%{ filter:brightness(2.1); box-shadow:inset -4px 0 0 rgba(255,255,255,.9); }
+  100%{ filter:brightness(1); box-shadow:inset -4px 0 0 rgba(255,255,255,0); }
+}
+
+/* ---- fx-hurt: the keeper struck you — red flash + HUD reel + screen shake - */
+.retro .boss-hud.fx-hurt{ animation:rt-duel-reel .45s steps(4); }
+@keyframes rt-duel-reel{
+  0%{ transform:translateX(-4px);
+      box-shadow:inset 0 0 0 2px var(--wrong),inset 0 0 0 4px rgba(224,120,86,.3);
+      filter:brightness(1.35); }
+  25%{ transform:translateX(4px); }
+  50%{ transform:translateX(-3px);
+      box-shadow:inset 0 0 0 2px var(--wrong),inset 0 0 0 4px rgba(0,0,0,.3); }
+  75%{ transform:translateX(2px); }
+  100%{ transform:translateX(0);
+      box-shadow:inset 0 0 0 2px var(--line),inset 0 0 0 4px rgba(0,0,0,.3),
+                 inset 0 3px 0 2px rgba(237,242,238,.05); filter:brightness(1); }
+}
+/* a small full-screen quake sells the blow (works whether .retro is the app
+   root or an ancestor) */
+.retro .sess-duel:has(.boss-hud.fx-hurt),
+.retro.sess-duel:has(.boss-hud.fx-hurt){ animation:rt-duel-quake .4s steps(4); }
+@keyframes rt-duel-quake{
+  0%{ transform:translate(-3px,1px); } 25%{ transform:translate(3px,-1px); }
+  50%{ transform:translate(-2px,-1px); } 75%{ transform:translate(2px,1px); }
+  100%{ transform:translate(0,0); }
+}
+
+/* ---- hearts: pixel hearts; losing one pops + drains to grey --------------- */
+.retro .boss-hearts{ gap:4px; }
+.retro .boss-heart{
+  font-size:15px; color:var(--wrong); text-shadow:1px 1px 0 var(--ink);
+  transition:color .3s steps(2), opacity .3s steps(2);
+}
+.retro .boss-heart.spent{
+  color:var(--line); opacity:.5; text-shadow:none;
+  animation:rt-duel-heartbreak .5s steps(4);
+}
+@keyframes rt-duel-heartbreak{
+  0%{ transform:scale(1.6); filter:brightness(2.2); opacity:1; }
+  40%{ transform:scale(.8) rotate(-14deg); }
+  70%{ transform:scale(1.05) rotate(8deg) translateY(2px); }
+  100%{ transform:scale(1) rotate(0); opacity:.5; }
+}
+/* last heart standing: a steady danger pulse (down to one ear left) */
+.retro .boss-hearts:has(.boss-heart:nth-child(2).spent) .boss-heart:not(.spent){
+  animation:rt-duel-lastheart .9s steps(2) infinite;
+}
+@keyframes rt-duel-lastheart{
+  50%{ filter:brightness(1.7); transform:scale(1.15);
+       text-shadow:0 0 7px rgba(224,120,86,.9),1px 1px 0 var(--ink); }
+}
+
+/* ---- the duel row in the level list: reads as dangerous ------------------- */
+.retro .level.duel{
+  background:#493c37;
+  box-shadow:inset 0 0 0 2px var(--wrong),inset 2px 2px 0 var(--hl),
+             inset -2px -2px 0 var(--sh);
+}
+.retro .level.duel .level-name{ color:var(--wrong); }
+.retro .level.duel .level-num{
+  color:var(--wrong); text-shadow:1px 1px 0 var(--ink);
+  animation:rt-duel-ember 1.8s ease-in-out infinite;
+}
+@keyframes rt-duel-ember{
+  50%{ text-shadow:0 0 8px rgba(224,120,86,.85),1px 1px 0 var(--ink);
+       transform:translateY(-1px); }
+}
+.retro .level.duel.locked{ animation:none; }
+.retro .level.duel.locked .level-num{ color:var(--line); animation:none; text-shadow:none; }
+
+/* ---- defeat overlay: the keeper holds the line ---------------------------- */
+.retro .boss-defeat-modal{ background:rgba(18,10,8,.78); }
+.retro .forge-panel.boss-defeat{
+  box-shadow:inset 0 0 0 2px var(--wrong),inset 0 0 0 4px rgba(0,0,0,.3);
+  animation:rt-duel-defeat .5s cubic-bezier(.2,1.3,.4,1);
+}
+@keyframes rt-duel-defeat{
+  0%{ transform:translateY(-26px) scale(.92); opacity:0; }
+  70%{ transform:translateY(3px) scale(1.01); opacity:1; }
+  100%{ transform:translateY(0) scale(1); }
+}
+.retro .boss-defeat-face{
+  border:0; border-radius:0; clip-path:var(--notch); background:var(--bg);
+  box-shadow:inset 0 0 0 2px var(--wrong); image-rendering:pixelated;
+  margin-bottom:10px;
+}
+.retro .boss-defeat .forge-title{ color:var(--wrong); font-size:16px; }
+.retro .boss-defeat-line{
+  font-family:var(--sans); font-style:italic; text-transform:none;
+  letter-spacing:normal; font-size:.95rem; line-height:1.5;
+  color:var(--text); opacity:.92; margin:8px 0 16px;
+}
+
+/* ---- reduced motion: calm duel ---------------------------------------------
+   The global `.retro *` rule already stops HUD/heart/row animations; this also
+   covers the screen-shake when .retro sits ON the app root, and stills the
+   width slide so the bar simply steps down. Resting styles above are all
+   complete without animation (nothing ends hidden). */
+@media (prefers-reduced-motion:reduce){
+  .retro.sess-duel:has(.boss-hud.fx-hurt),
+  .retro .sess-duel:has(.boss-hud.fx-hurt){ animation:none!important; }
+  .retro .boss-hpfill{ transition:none!important; }
+}

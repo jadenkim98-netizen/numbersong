@@ -68,6 +68,7 @@ import {
   levelsFor,
 } from "./theory.mjs";
 import { detectPitch, pitchToDegree } from "./pitch.mjs";
+import { isBossRegion, bossConfigFor, evalBoss } from "./boss.mjs";
 import {
   qCountForLevel,
   passRateForLevel,
@@ -2206,6 +2207,13 @@ export default function NumberEarTrainer() {
   const [mapCelebrateNode, setMapCelebrateNode] = useState(null); // node to play a "region cleared!" flourish on next map view
   const [swordBurst, setSwordBurst] = useState(false);       // one-shot forge flash after earning a fragment
   const sessWasClearedRef = useRef(false);                   // was the region already cleared before this session?
+  // ── Keeper Duel (boss) ── a duel replaces a region's final capstone level; it runs
+  // the normal session loop but loops until a bar empties. `bossState` is derived from
+  // sess.results via evalBoss() and drives the HUD; `bossFx` triggers a hit/reel flash.
+  const [bossState, setBossState] = useState(null);          // { hp,hpMax,hpPct,hearts,heartsMax,outcome } | null
+  const [bossFx, setBossFx] = useState("");                  // "" | "hit" | "hurt" — one-shot HUD flash class
+  const [bossOutcome, setBossOutcome] = useState(null);      // { region } while the defeat overlay is up (win reuses results)
+  const bossFxTimerRef = useRef(null);
   const [melTab, setMelTab] = useState("stages");  // stages | custom
   const [sessLvl, setSessLvl] = useState(null);     // the level object being played (may be a custom one)
 
@@ -2451,6 +2459,7 @@ export default function NumberEarTrainer() {
     sessGenRef.current++;
     sessTimersRef.current.forEach(clearTimeout);
     sessTimersRef.current = [];
+    if (bossFxTimerRef.current) { clearTimeout(bossFxTimerRef.current); bossFxTimerRef.current = null; }
     stopAll();
   };
 
@@ -2855,6 +2864,72 @@ export default function NumberEarTrainer() {
     sessTimer(() => nextQuestionRef.current(true), 350);
   };
 
+  // Launch a Keeper Duel: a boss variant that REPLACES a region's final capstone level.
+  // Identical content/audio/grading to that level — but it loops until the keeper's HP or
+  // the player's hearts hit 0 (see advance() → bossAdvance / evalBoss). Winning force-passes
+  // the capstone, so the existing clear→fragment→fanfare plumbing forges the fragment.
+  const startBossSession = (regionId) => {
+    killSession();
+    const stage = ADV_STAGES[regionId - 1]; if (!stage) return;
+    const lv = advGroupOf(stage).levels;
+    const li = lv[lv.length - 1].idx;               // the region's mastery-capstone level
+    const cfg = bossConfigFor(regionId);
+    track("boss_start", { region: regionId });
+    const lvl = resolveSessionLevel({
+      mode: stage.mode,
+      levelIdx: li,
+      customLvl: null,
+      chordSevenths,
+      levelsByMode: { melody: MELODY_LEVELS, chords: CHORD_LEVELS, progressions: PROG_LEVELS },
+    });
+    setMode(stage.mode); setLevelIdx(li); setSessLvl(lvl);
+    if (stage.mode === "melody") setMelGroup(groupIndexOf(li));
+    if (stage.mode === "chords") setChordChapter(chordChapterIndexOf(li));
+    if (stage.mode === "progressions") setProgChapter(progChapterIndexOf(li));
+    const key = chooseSessionKey({ mode: stage.mode, lvl, musicKey, randKey });
+    setSessKey(key);
+    sess.current = buildSessionState({ mode: stage.mode, lvl, levelIdx: li, key, chordSevenths, qCount: 999 });
+    sess.current.boss = cfg;              // presence of .boss switches advance() into duel mode
+    sess.current.bossRegion = regionId;
+    setBossState(evalBoss([], cfg)); setBossFx("");
+    setQNum(0); setScore(0); setStreak(0); setSessionResults([]);
+    setChPicked([]); setProgAnswer([]); setProgWrong([]);
+    clearLadder(); setFeedback(null); setPhase("idle");
+    setScreen("session");
+    sessTimer(() => nextQuestionRef.current(true), 350);
+  };
+
+  // Duel step: recompute HP/hearts from results, flash the HUD, and route the fight.
+  // Called from advance() whenever sess.current.boss is set (bypasses the fixed qCount).
+  const bossAdvance = () => {
+    const s = sess.current;
+    const state = evalBoss(s.results, s.boss);
+    setBossState(state);
+    // flash: did the LAST answered question fumble (keeper hit us) or land clean (we hit)?
+    const last = s.results[s.results.length - 1];
+    const fx = last && last.firstTry === false ? "hurt" : "hit";
+    setBossFx(fx);
+    if (bossFxTimerRef.current) clearTimeout(bossFxTimerRef.current);
+    bossFxTimerRef.current = setTimeout(() => setBossFx(""), 520);
+    if (state.outcome === "win") { finishSession(); return; }
+    if (state.outcome === "lose") { bossLose(); return; }
+    s.qNum = (s.qNum || 0) + 1; setQNum(s.qNum);
+    sessTimer(() => nextQuestionRef.current(false), 750);
+  };
+
+  // The player's hearts ran out — Verda's meadow keeps its mark. No progress recorded;
+  // kicked back to the map to try again (per design). Kill the session so no scheduled
+  // audio/advance fires on the dead duel.
+  const bossLose = () => {
+    const region = sess.current.bossRegion;
+    track("boss_lose", { region, hp: bossState ? bossState.hp : null });
+    killSession();
+    setPhase("idle"); setBusy(false);
+    setBossState(null); setBossFx("");
+    setBossOutcome({ region });   // defeat overlay (Try again / To the map) over the map
+    setScreen("adventure");
+  };
+
   const nextQuestion = async (isFirst = false) => {
     const s = sess.current;
     const gen = sessGenRef.current; // capture; if the session is quit/restarted mid-await this goes stale
@@ -2914,6 +2989,7 @@ export default function NumberEarTrainer() {
 
   const advance = () => {
     const s = sess.current;
+    if (s.boss) { bossAdvance(); return; }   // duel: loop until a bar empties, not a fixed count
     const { nextQNum, isComplete } = nextQuestionProgress(s.qNum, s.qCount);
     s.qNum = nextQNum;
     if (isComplete) {
@@ -2926,7 +3002,13 @@ export default function NumberEarTrainer() {
 
   const finishSession = () => {
     const s = sess.current;
-    const firstTries = countFirstTries(s.results);
+    // A duel only reaches finishSession on a WIN (a loss routes through bossLose). Beating
+    // the keeper counts as clearing the capstone regardless of how many hearts it cost, so
+    // force a passing score → mergeBestProgress marks it passed → stageClearedAdv forges the
+    // fragment via the existing clear/fanfare plumbing below.
+    const bossWon = !!s.boss;
+    const firstTries = bossWon ? Math.max(countFirstTries(s.results), passCountFor(s.lvl)) : countFirstTries(s.results);
+    if (bossWon) track("boss_win", { region: s.bossRegion, questions: s.results.length, hearts: bossState ? bossState.hearts : null });
     track("session_finish", { mode: s.mode, level: s.levelIdx, first_tries: firstTries, questions: s.results.length, passed: firstTries >= passCountFor(s.lvl) });
     // snapshot region-clear state BEFORE saving this session's progress (for the victory flourish)
     sessWasClearedRef.current = (fromAdventure && advStageId != null) ? stageClearedAdv(advStageId) : false;
@@ -3487,6 +3569,28 @@ export default function NumberEarTrainer() {
             </div>
           </div>
         )}
+        {bossOutcome && window.HARMONIA && (() => {
+          const region = bossOutcome.region;
+          const cfg = bossConfigFor(region);
+          const kp = window.HARMONIA.nodes[region - 1];
+          const art = window.KEEPER_ART ? window.KEEPER_ART[region] : null;
+          return (
+            <div className="forge-modal boss-defeat-modal" onClick={() => setBossOutcome(null)}>
+              <div className="forge-panel boss-defeat" role="dialog" aria-modal="true" aria-label="Duel lost" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
+                <span className="boss-defeat-face" aria-hidden="true">
+                  {art ? <img src={art} alt="" /> : <span className="boss-emblem">{kp ? kp.emblem : "⚔"}</span>}
+                </span>
+                <span className="forge-kicker">Duel lost</span>
+                <h2 className="forge-title">{kp ? kp.short : cfg.name} holds the line</h2>
+                <p className="boss-defeat-line">“{cfg.taunts.lose}”</p>
+                <div className="boss-defeat-actions">
+                  <button className="primary" onClick={() => { setBossOutcome(null); startBossSession(region); }}>Challenge again →</button>
+                  <button className="ghost" onClick={() => setBossOutcome(null)}>Back to the map</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
         {upsellModal}
         {mapTour && mapReady && <MapTour onClose={() => setMapTour(false)} onSfx={sfx} />}
         <AdvSplash ready={mapReady} />
@@ -3849,12 +3953,16 @@ export default function NumberEarTrainer() {
             // Reached via a free Adventure region? the region gate already vetted access,
             // so never lock the rows there (region 3/4 are chord/minor stages).
             const locked = gated && !fromAdventure && !(mode === "melody" && isMelodyFree(lvl.idx));
+            // The region's FINAL capstone becomes a Keeper Duel (boss) in the adventure —
+            // same content, but a fight: beat the keeper's ear to forge the fragment.
+            const isDuelRow = fromAdventure && advStageId && isBossRegion(advStageId) && i === list.length - 1;
+            const duelKeeper = isDuelRow && window.HARMONIA ? window.HARMONIA.nodes[advStageId - 1] : null;
             return (
-              <button key={lvl.idx} className={"level" + (locked ? " locked" : "")}
-                onClick={() => locked ? openUpsell() : startSession(mode, lvl.idx)}>
-                <span className="level-num">{i + 1}</span>
+              <button key={lvl.idx} className={"level" + (locked ? " locked" : "") + (isDuelRow ? " duel" : "")}
+                onClick={() => locked ? openUpsell() : isDuelRow ? startBossSession(advStageId) : startSession(mode, lvl.idx)}>
+                <span className="level-num">{isDuelRow ? "⚔" : i + 1}</span>
                 <span className="level-body">
-                  <span className="level-name">{lvl.name}</span>
+                  <span className="level-name">{isDuelRow ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : lvl.name}</span>
                   {mode === "melody" ? (
                     <span className="level-tags">
                       {levelTags(lvl).map((t, ti) => <span key={ti} className="tag">{t}</span>)}
@@ -3891,18 +3999,53 @@ export default function NumberEarTrainer() {
     // Verda coaching on the tutorial's first drill question
     const tutCoach = tutorialActive && mode === "melody";
     const tutTarget = tutCoach && tutReveal && sess.current ? sess.current.target : null;
+    // Keeper Duel HUD: this session is a boss fight → draw the keeper's HP bar + hearts.
+    const isDuel = !!(sess.current && sess.current.boss && bossState);
+    const duelCfg = isDuel ? sess.current.boss : null;
+    const duelRegion = isDuel ? sess.current.bossRegion : null;
+    const duelKeeper = isDuel && window.HARMONIA ? window.HARMONIA.nodes[duelRegion - 1] : null;
+    const duelArt = isDuel && window.KEEPER_ART ? window.KEEPER_ART[duelRegion] : null;
+    // In-fight taunt keyed to the fight state: low HP > just-hurt > just-hit > intro.
+    const duelTaunt = !isDuel ? "" :
+      bossState.hpPct <= 34 ? duelCfg.taunts.low :
+      bossFx === "hurt" ? duelCfg.taunts.playerHurt :
+      bossFx === "hit" ? duelCfg.taunts.hurt :
+      duelCfg.taunts.intro;
     return (
-      <div className={"app app-wide" + (lvl.mode === "minor" ? " sess-minor" : "")}>
+      <div className={"app app-wide" + (lvl.mode === "minor" ? " sess-minor" : "") + (isDuel ? " sess-duel" : "")}>
         <style>{CSS}</style>
         {tutCelebrate && <div className="fx-flash" aria-hidden="true" />}
         <Confetti show={tutCelebrate} />
         <header className="top-slim">
-          <button className="back" onClick={() => { killSession(); setPhase("idle"); setBusy(false); setScreen("levels"); }}>← Quit</button>
-          <h2 className="screen-title">{lvl.name}</h2>
+          <button className="back" onClick={() => { killSession(); setPhase("idle"); setBusy(false); setBossState(null); setScreen("levels"); }}>← {isDuel ? "Flee" : "Quit"}</button>
+          <h2 className="screen-title">{isDuel ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : lvl.name}</h2>
           <span className="session-score">{streak >= 2 && <span key={streak} className="streak">🔥{streak}</span>}{score} ✓</span>
           <button className="sess-gear" onClick={() => setTestCfgOpen(true)} aria-label="Test settings"
             style={{ background: "none", border: 0, color: "var(--text)", fontSize: "1.15rem", lineHeight: 1, cursor: "pointer", padding: "2px 6px" }}>⚙</button>
         </header>
+        {isDuel && (
+          <div className={"boss-hud fx-" + (bossFx || "idle")} aria-live="polite">
+            <div className="boss-hud-top">
+              <span className="boss-face" aria-hidden="true">
+                {duelArt ? <img src={duelArt} alt="" /> : <span className="boss-emblem">{duelKeeper ? duelKeeper.emblem : "⚔"}</span>}
+              </span>
+              <div className="boss-bars">
+                <div className="boss-name">{duelKeeper ? duelKeeper.keeper : (duelCfg.name + (duelCfg.title ? ", " + duelCfg.title : ""))}</div>
+                <div className="boss-hpbar" role="progressbar" aria-label="Keeper resolve" aria-valuenow={bossState.hpPct} aria-valuemin={0} aria-valuemax={100}>
+                  <span className="boss-hpfill" style={{ width: bossState.hpPct + "%" }} />
+                </div>
+              </div>
+            </div>
+            <div className="boss-hud-bot">
+              <span className="boss-hearts" aria-label={bossState.hearts + " of " + bossState.heartsMax + " ears left"}>
+                {Array.from({ length: bossState.heartsMax }).map((_, i) =>
+                  <span key={i} className={"boss-heart" + (i < bossState.hearts ? "" : " spent")} aria-hidden="true">{i < bossState.hearts ? "♥" : "♡"}</span>
+                )}
+              </span>
+              <span className="boss-taunt">{duelTaunt}</span>
+            </div>
+          </div>
+        )}
         {testCfgOpen && (
           <div className="test-cfg-backdrop" onClick={() => setTestCfgOpen(false)}>
             <style>{`
@@ -3962,8 +4105,8 @@ export default function NumberEarTrainer() {
             </div>
           </div>
         )}
-        <div className="progressbar"><div className="fill" style={{ width: `${(qNum / qCountOf(lvl)) * 100}%` }} /></div>
-        {!boringMode && (
+        {!isDuel && <div className="progressbar"><div className="fill" style={{ width: `${(qNum / qCountOf(lvl)) * 100}%` }} /></div>}
+        {!boringMode && !isDuel && (
           <div className="hpbar">
             <span className="hp-label">Trial</span>
             <div className="trial-cells">
@@ -3979,7 +4122,8 @@ export default function NumberEarTrainer() {
             {streak >= 2 && <span className="combo">×{streak}</span>}
           </div>
         )}
-        <p className="qcount">Question {Math.min(qNum + 1, qCountOf(lvl))} of {qCountOf(lvl)} · {displayKey}{lvl.keyMode === "random" ? " (changes every question)" : ""}</p>
+        {!isDuel && <p className="qcount">Question {Math.min(qNum + 1, qCountOf(lvl))} of {qCountOf(lvl)} · {displayKey}{lvl.keyMode === "random" ? " (changes every question)" : ""}</p>}
+        {isDuel && <p className="qcount duel-key">{displayKey}{lvl.keyMode === "random" ? " · new key each strike" : ""}</p>}
 
         {/* drill-stage = display:contents in portrait (no change); a two-column flex row in phone-landscape */}
         <div className={"drill-stage drill-" + mode}>
@@ -5100,6 +5244,36 @@ button { touch-action: manipulation; }
   margin: 0; flex: 1;
 }
 .session-score { color: var(--green); font-weight: 700; font-size: 0.95rem; }
+
+/* ── Keeper Duel (boss) — FUNCTIONAL base styling only. The retro/GBA juice
+   (drain animation, hit-flash, reel, screen-shake, pixel frame) is layered in
+   retro/retro.css. Keep this block minimal + correct; leave the feel to the skin. */
+.boss-hud { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 12px; padding: 10px 12px;
+  background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; }
+.boss-hud-top { display: flex; align-items: center; gap: 10px; }
+.boss-face { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 8px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1.5px solid var(--line); }
+.boss-face img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; display: block; }
+.boss-emblem { font-size: 1.4rem; line-height: 1; }
+.boss-bars { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.boss-name { font-weight: 800; font-size: 0.9rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.boss-hpbar { height: 12px; border-radius: 7px; background: var(--bg); overflow: hidden; border: 1px solid var(--line); }
+.boss-hpfill { display: block; height: 100%; width: 100%; background: var(--wrong, #E07856);
+  border-radius: 7px; transition: width .45s cubic-bezier(.2,.7,.3,1); }
+.boss-hud-bot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.boss-hearts { display: inline-flex; gap: 2px; flex: 0 0 auto; }
+.boss-heart { color: var(--wrong-text, #E07856); font-size: 1rem; line-height: 1; }
+.boss-heart.spent { color: var(--line); opacity: .6; }
+.boss-taunt { flex: 1 1 auto; text-align: right; font-size: 0.8rem; color: var(--text-soft); font-style: italic;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.level.duel .level-num { color: var(--wrong-text, #E07856); }
+.boss-defeat { text-align: center; }
+.boss-defeat-face { width: 64px; height: 64px; margin: 0 auto 4px; border-radius: 10px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1.5px solid var(--line); }
+.boss-defeat-face img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.boss-defeat-line { color: var(--text-soft); font-style: italic; margin: 6px 0 14px; }
+.boss-defeat-actions { display: flex; flex-direction: column; gap: 8px; }
+
 .back {
   background: transparent; border: 1.5px solid var(--line); color: var(--text-soft);
   border-radius: 10px; padding: 7px 14px; font-size: 0.85rem; min-height: 44px;
