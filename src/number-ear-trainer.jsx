@@ -4587,7 +4587,7 @@ export default function NumberEarTrainer() {
           <div className="results-actions">
             <button className="primary" onClick={() => { try { sfx("select"); } catch (e) {} isCustom ? startSession(mode, null, sessLvl) : startSession(mode, levelIdx); }}>Try again</button>
             {hasNext && (
-              <button className="primary" onClick={() => { try { sfx("select"); } catch (e) {} (gated && !fromAdventure && !(mode === "melody" && isMelodyFree(levelIdx + 1))) ? openUpsell() : startSession(mode, levelIdx + 1); }}>Next level →</button>
+              <button className="primary" onClick={() => { try { sfx("select"); } catch (e) {} setScreen("levels"); }}>Pick a level →</button>
             )}
           </div>
         </div>
