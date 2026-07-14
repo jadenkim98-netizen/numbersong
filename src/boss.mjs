@@ -54,6 +54,33 @@ export const BOSS = {
       lose: "The steps will keep, dear. Rest your ears, then climb again.",
     },
   },
+  // Rue — Lowmoor Fen (node 2, la-based MINOR, home lives at 6). Second keeper; content is
+  // harder (minor), so tuned the same-gentle as Verda rather than piling on. Gruff-kind old
+  // fen-keeper: the dark isn't sad, home just settled down low.
+  2: {
+    hp: 100,
+    hearts: 4,
+    dmgFirst: 25,
+    dmgRecover: 10,
+    timer: { full: 8, mid: 6, low: 4 },
+    name: "Rue",
+    title: "of the Fen",
+    taunts: {
+      intro: "The fen sounds sad, but nothing moved. Find 6 and you're home.",
+      hits: [
+        "Aye — there's 6, soft in the dark.",
+        "Heard it. The mist can't hide home from you.",
+        "That's the low road, walked true.",
+        "Mm. You felt the floor of it.",
+        "Good ear. Nothing sad about that.",
+        "There now — down here that's exactly right.",
+      ],
+      low: "Nearly through the mist now — home's been under you all along.",
+      playerHurt: "Easy. The dark's friendly here — listen again.",
+      win: "You found 6 in the dark. That's the whole trick.",
+      lose: "The fen keeps its own time. Rest, then wade back in.",
+    },
+  },
 };
 
 // Sensible default for regions whose duel isn't hand-tuned yet (so enabling one later
@@ -78,7 +105,7 @@ export const DEFAULT_BOSS = {
 
 // Which nodes currently launch a Keeper Duel instead of a normal capstone session.
 // Start with Verda only; add ids here (and tune in BOSS) to roll the duel out.
-const ENABLED = new Set([1]);
+const ENABLED = new Set([1, 2]);
 export const isBossRegion = (id) => ENABLED.has(id);
 
 export function bossConfigFor(id) {
