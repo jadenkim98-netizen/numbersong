@@ -226,8 +226,6 @@ html = f'''<!DOCTYPE html>
   }});
 </script>
 <script>
-window.SUNG_NUMBERS = {voices};
-window.MINOR_VOICE = {minor_voice};
 window.WEJAM_LOGO = "{logo_data}";
 window.CODA_SPRITE = "{coda_data}";
 window.CODA_SKINS = {coda_skins_data};
@@ -253,6 +251,14 @@ window.SOUNDTRACK = SOUNDTRACK;
 </script>
 <script>
 {js}
+</script>
+<script>
+  // The sung-voice payload (~1.2 MB of base64) is the biggest blob and is only needed once audio
+  // starts (first gesture, seconds away) — so it's defined AFTER the app mounts, letting the boot
+  // screen paint without parsing it first. ensure() reads these lazily and falls back to speech if
+  // they somehow aren't ready yet, so the deferral is safe.
+  window.SUNG_NUMBERS = {voices};
+  window.MINOR_VOICE = {minor_voice};
 </script>
 <script>
   // Register the service worker so the app is cached for full offline use.

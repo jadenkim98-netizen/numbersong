@@ -2662,6 +2662,34 @@ export default function NumberEarTrainer() {
     return () => clearTimeout(t);
   }, [screen, warm]);
 
+  // ── sound-reliability safety net ──
+  // Silent audio = a dead ear-trainer. Some webviews (Instagram's in-app browser) reject
+  // Tone.start() even after a gesture. If the AudioContext still isn't "running" a beat after the
+  // user has tapped, surface a tap-to-enable nudge (rendered imperatively so it floats over every
+  // screen); any tap retries warm() and re-checks, and it clears the instant audio is live.
+  const audioRunning = () => { try { return !!(typeof Tone !== "undefined" && Tone.context && Tone.context.state === "running"); } catch (e) { return false; } };
+  const [soundBlocked, setSoundBlocked] = useState(false);
+  useEffect(() => {
+    let t;
+    const onDown = () => {
+      if (!audioRunning()) { try { warm && warm(); } catch (e) {} }
+      clearTimeout(t); t = setTimeout(() => setSoundBlocked(!audioRunning()), 500);
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    return () => { document.removeEventListener("pointerdown", onDown, true); clearTimeout(t); };
+  }, [warm]);
+  useEffect(() => {
+    const ID = "sound-nudge";
+    const el = document.getElementById(ID);
+    if (soundBlocked && !el) {
+      const b = document.createElement("button");
+      b.id = ID; b.type = "button"; b.textContent = "🔇 Tap to turn on sound"; b.setAttribute("aria-label", "Turn on sound");
+      b.setAttribute("style", "position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);transform:translateX(-50%);z-index:9999;padding:12px 20px;border:0;border-radius:999px;background:#E07856;color:#fff;font:600 15px system-ui,-apple-system,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.4);cursor:pointer;");
+      b.addEventListener("click", async () => { try { await (warm && warm()); } catch (e) {} setTimeout(() => setSoundBlocked(!audioRunning()), 300); });
+      document.body.appendChild(b);
+    } else if (!soundBlocked && el) { el.remove(); }
+  }, [soundBlocked, warm]);
+
   // ladder highlights
   const [litActive, setLitActive] = useState([]);
   const [playIdx, setPlayIdx] = useState(-1); // which note index of a tutorial phrase is sounding (for MaryNotation)
