@@ -87,7 +87,7 @@ import {
   pickChordRoman,
   shouldCelebrateStageClear,
 } from "./app-flow.mjs";
-import { positionBox, STANDARD_TUNING } from "./fretboard.mjs";
+import { positionBox, answerBox, STANDARD_TUNING } from "./fretboard.mjs";
 
 
 
@@ -1952,49 +1952,62 @@ const FRETBOARD_CSS = `
 .fretboard svg { display:block; margin:0 auto; max-width:100%; height:auto; touch-action:none; }
 .fb-hit { cursor:pointer; }
 `;
-function Fretboard({ musicKey, mode = "major", active = [], onDown, onUp }) {
-  // Show ONLY the ~5-fret position window (phone-first: wide frets, fills the width). minFret:2
-  // keeps it on the neck. Reaching other frets = the future "move the view" feature.
-  const box = positionBox(musicKey, mode, { minFret: 2 });
-  const frets = box.frets, startFret = box.startFret, endFret = box.endFret;
-  const nWin = frets.length, nS = 6;
-  const fw = 76, sh = 36, padX = 24, padTop = 22, padBot = 34;
+function Fretboard({ musicKey, mode = "major", boxKind = "position", active = [], fb, disabled = false, onDown, onUp, onAnswer }) {
+  // Box-driven: "position" = the ~5-fret Free Play window (6 strings); "answer" = the compact
+  // 3-string × 4-fret test box (big finger targets). Play mode (onDown/onUp + `active` ids) vs
+  // answer mode (onAnswer + pc-based `fb` feedback {hit, wrong[], reveal[]}).
+  const answer = boxKind === "answer";
+  const box = answer ? answerBox(musicKey, mode) : positionBox(musicKey, mode, { minFret: 2 });
+  const strings = box.strings, frets = box.frets, startFret = box.startFret;
+  const nS = strings.length, nWin = frets.length;
+  const fw = answer ? 84 : 76, sh = answer ? 54 : 36, padX = 24, padTop = 22, padBot = 34;
   const W = padX * 2 + nWin * fw, H = padTop + padBot + (nS - 1) * sh;
-  const wireX = (i) => padX + i * fw;                    // i: 0..nWin
+  const rowOf = (s) => nS - 1 - strings.indexOf(s);       // lowest string index → bottom row
+  const wireX = (i) => padX + i * fw;                     // i: 0..nWin
   const spaceX = (f) => padX + (f - startFret + 0.5) * fw; // fretted note sits mid-space
-  const strY = (s) => padTop + (nS - 1 - s) * sh;        // low E (s=0) at the bottom
+  const strY = (s) => padTop + rowOf(s) * sh;
   const midY = padTop + ((nS - 1) / 2) * sh;
   const held = new Set(active);
-  const dot = 17;
+  const hit = fb && fb.hit != null ? fb.hit : null;
+  const wrong = new Set((fb && fb.wrong) || []);
+  const reveal = new Set((fb && fb.reveal) || []);
+  const dot = answer ? 21 : 17;
   const els = [];
   els.push(<rect key="bd" x={padX - 14} y={padTop - 14} width={W - padX * 2 + 28} height={(nS - 1) * sh + 28} rx="9" fill="#26302c" stroke="#121815" strokeWidth="2" />);
-  // inlays that fall inside the window (positional landmarks)
-  [3, 5, 7, 9, 12].filter((f) => f >= startFret && f <= endFret).forEach((f) => {
+  [3, 5, 7, 9, 12].filter((f) => frets.includes(f)).forEach((f) => {
     const x = spaceX(f);
     if (f === 12) els.push(<circle key="i12a" cx={x} cy={midY - sh} r="7" fill="#46524a" />, <circle key="i12b" cx={x} cy={midY + sh} r="7" fill="#46524a" />);
     else els.push(<circle key={"i" + f} cx={x} cy={midY} r="7" fill="#46524a" />);
   });
-  for (let s = 0; s < nS; s++) els.push(<line key={"s" + s} x1={wireX(0)} y1={strY(s)} x2={wireX(nWin)} y2={strY(s)} stroke="#b3bcb4" strokeWidth={1.2 + s * 0.5} />);
-  for (let i = 0; i <= nWin; i++) { const nut = startFret - 1 + i === 0; els.push(<line key={"f" + i} x1={wireX(i)} y1={strY(nS - 1)} x2={wireX(i)} y2={strY(0)} stroke={nut ? "#cdd3cb" : "#59635c"} strokeWidth={nut ? 6 : 2.5} />); }
+  strings.forEach((s, r) => els.push(<line key={"s" + s} x1={wireX(0)} y1={strY(s)} x2={wireX(nWin)} y2={strY(s)} stroke="#b3bcb4" strokeWidth={1.2 + (nS - 1 - r) * 0.5} />));
+  for (let i = 0; i <= nWin; i++) { const nut = startFret - 1 + i === 0; els.push(<line key={"f" + i} x1={wireX(i)} y1={strY(strings[0])} x2={wireX(i)} y2={strY(strings[nS - 1])} stroke={nut ? "#cdd3cb" : "#59635c"} strokeWidth={nut ? 6 : 2.5} />); }
   frets.forEach((f) => els.push(<text key={"l" + f} x={spaceX(f)} y={H - 11} textAnchor="middle" fontSize="13" fontWeight="700" fill="#8b958c" fontFamily="ui-monospace,monospace">{f}</text>));
   box.cells.forEach((c) => {
-    const id = c.string + ":" + c.fret, on = held.has(id);
-    const x = spaceX(c.fret), y = strY(c.string);
+    const id = c.string + ":" + c.fret, x = spaceX(c.fret), y = strY(c.string);
+    let fill = c.isTonic ? "#57C6C4" : "#f2f5f1", mark = null;
+    if (answer && hit != null && c.pc === hit) { fill = "#6ABF5E"; mark = "✓"; }
+    else if (answer && wrong.has(c.pc)) { fill = "#E07856"; mark = "✕"; }
+    else if (answer && reveal.has(c.pc)) { fill = "#57C6C4"; }
+    else if (!answer && held.has(id)) { fill = "#6ABF5E"; }
     if (c.inKey) {
-      els.push(<circle key={"n" + id} cx={x} cy={y} r={dot} fill={on ? "#6ABF5E" : (c.isTonic ? "#57C6C4" : "#f2f5f1")} stroke="#121815" strokeWidth="1.5" />);
-      els.push(<text key={"t" + id} x={x} y={y + 5} textAnchor="middle" fontSize="15" fontWeight="800" fill="#16201f" fontFamily="'Archivo Black',sans-serif" style={{ pointerEvents: "none" }}>{c.degree}</text>);
-      if (c.isTonic) els.push(<text key={"st" + id} x={x} y={y - dot - 4} textAnchor="middle" fontSize="13" fill="#57C6C4" style={{ pointerEvents: "none" }}>★</text>);
+      els.push(<circle key={"n" + id} cx={x} cy={y} r={dot} fill={fill} stroke="#121815" strokeWidth="1.5" />);
+      els.push(<text key={"t" + id} x={x} y={y + 5} textAnchor="middle" fontSize={answer ? 19 : 15} fontWeight="800" fill="#16201f" fontFamily="'Archivo Black',sans-serif" style={{ pointerEvents: "none" }}>{c.degree}</text>);
+      if (mark) els.push(<text key={"m" + id} x={x} y={y - dot - 3} textAnchor="middle" fontSize="14" fontWeight="800" fill={mark === "✓" ? "#6ABF5E" : "#E07856"} style={{ pointerEvents: "none" }}>{mark}</text>);
+      else if (c.isTonic) els.push(<text key={"st" + id} x={x} y={y - dot - 3} textAnchor="middle" fontSize="13" fill="#57C6C4" style={{ pointerEvents: "none" }}>★</text>);
     } else {
-      els.push(<circle key={"c" + id} cx={x} cy={y} r={on ? 8 : 4} fill={on ? "#6ABF5E" : "#8b958c"} />);
+      const dfill = (answer && wrong.has(c.pc)) ? "#E07856" : (answer && reveal.has(c.pc)) ? "#57C6C4" : (!answer && held.has(id)) ? "#6ABF5E" : "#8b958c";
+      els.push(<circle key={"c" + id} cx={x} cy={y} r={answer ? 6 : 4} fill={dfill} />);
     }
-    const evts = onDown ? {
+    const evts = disabled ? {} : onAnswer ? {
+      onPointerDown: (e) => { e.preventDefault(); onAnswer(c); },
+    } : onDown ? {
       onPointerDown: (e) => { e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (er) {} onDown(c); },
       onPointerUp: () => onUp && onUp(c),
       onPointerCancel: () => onUp && onUp(c),
     } : {};
     els.push(<rect key={"h" + id} className="fb-hit" x={x - fw / 2} y={y - sh / 2} width={fw} height={sh} fill="transparent" {...evts} />);
   });
-  return <div className="fretboard"><style>{FRETBOARD_CSS}</style><svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={"Guitar fretboard, " + musicKey + " " + mode + ", frets " + startFret + "–" + endFret}>{els}</svg></div>;
+  return <div className="fretboard"><style>{FRETBOARD_CSS}</style><svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={"Guitar fretboard, " + musicKey + " " + mode}>{els}</svg></div>;
 }
 
 /* ─────────────────────────────  APP  ───────────────────────────── */
@@ -2400,7 +2413,10 @@ export default function NumberEarTrainer() {
 
   // preferences
   const [theme, setTheme] = useState(() => loadPref("theme", "dark"));
-  const [instrument, setInstrument] = useState(() => loadPref("instrument", "piano")); // piano | guitar — global choice
+  const [instrument, setInstrument] = useState(() => { // numbers | keyboard | guitar — how you answer, everywhere
+    const v = loadPref("instrument", "numbers");
+    return v === "piano" ? "keyboard" : (["numbers", "keyboard", "guitar"].includes(v) ? v : "numbers"); // migrate old piano→keyboard
+  });
   const [testCfgOpen, setTestCfgOpen] = useState(false); // in-session quick settings (tempo/resolution/theme)
   const [resStep, setResStep] = useState(() => parseFloat(loadPref("resstep", "0.8")) || 0.8);
   const [progBeat, setProgBeat] = useState(() => parseFloat(loadPref("progbeat", "1.0")) || 1.0);
@@ -2725,7 +2741,10 @@ export default function NumberEarTrainer() {
   const [exStage, setExStage] = useState(0);
   const [exWorld, setExWorld] = useState(1);
   const [exOctaves, setExOctaves] = useState(1);
-  const [exView, setExView] = useState(() => (loadPref("instrument", "piano") === "guitar" ? "guitar" : "map")); // map | piano | guitar
+  const [exView, setExView] = useState(() => { // map | piano | guitar — Free Play surface, seeded from the answer pref
+    const v = loadPref("instrument", "numbers");
+    return v === "guitar" ? "guitar" : (v === "piano" || v === "keyboard") ? "piano" : "map";
+  });
   const [droneOn, setDroneOn] = useState(false);
   const [droneVol, setDroneVol] = useState(() => { // drone loudness in dB, remembered
     const v = parseFloat(loadPref("dronevol", "-8"));
@@ -3945,10 +3964,11 @@ export default function NumberEarTrainer() {
             </div>
           </div>
           <div className="set-block">
-            <span className="set-label">Instrument</span>
-            <p className="set-desc">See and hear the numbers on a piano or a guitar fretboard. Free Play opens in your choice.</p>
+            <span className="set-label">How you answer</span>
+            <p className="set-desc">Answer with numbers, a piano, or a guitar fretboard — in tests and in Free Play. You can also change it mid-test from the ⚙.</p>
             <div className="seg">
-              <button className={instrument === "piano" ? "on" : ""} onClick={() => { setInstrument("piano"); setExView("map"); }}>Piano</button>
+              <button className={instrument === "numbers" ? "on" : ""} onClick={() => { setInstrument("numbers"); setExView("map"); }}>Numbers</button>
+              <button className={instrument === "keyboard" ? "on" : ""} onClick={() => { setInstrument("keyboard"); setExView("piano"); }}>Keyboard</button>
               <button className={instrument === "guitar" ? "on" : ""} onClick={() => { setInstrument("guitar"); setExView("guitar"); }}>Guitar</button>
             </div>
           </div>
@@ -4376,6 +4396,16 @@ export default function NumberEarTrainer() {
             `}</style>
             <div className="test-cfg" onClick={(e) => e.stopPropagation()}>
               <p className="tc-title">Test settings</p>
+              {mode === "melody" && (
+                <div className="set-block">
+                  <span className="set-label">How you answer</span>
+                  <div className="seg">
+                    <button className={instrument === "numbers" ? "on" : ""} onClick={() => setInstrument("numbers")}>Numbers</button>
+                    <button className={instrument === "keyboard" ? "on" : ""} onClick={() => setInstrument("keyboard")}>Keyboard</button>
+                    <button className={instrument === "guitar" ? "on" : ""} onClick={() => setInstrument("guitar")}>Guitar</button>
+                  </div>
+                </div>
+              )}
               <div className="set-block">
                 <span className="set-label">Tempo</span>
                 <p className="set-desc">How fast the cadence plays at the start of each question.</p>
@@ -4480,7 +4510,16 @@ export default function NumberEarTrainer() {
             <div className="sr-only" role="status" aria-live="polite">{srMsg}</div>
           </div>
           {mode === "melody" ? (
-            lvl.chromatic ? (
+            instrument === "guitar" && !lvl.chromatic ? (
+              <Fretboard boxKind="answer" musicKey={sessKey} mode={isMinor ? "minor" : "major"}
+                disabled={phase !== "answer"}
+                fb={{ hit: hitPad, wrong: litWrong, reveal: revealPc != null ? [revealPc] : [] }}
+                onAnswer={(c) => answerMelodySession(c.pc)} />
+            ) : instrument === "keyboard" ? (
+              <PianoMap start={1} count={8} stage={0} world={null} musicKey={sessKey} active={[]}
+                singDeg={null} singInTune={false}
+                onDown={(k) => { if (phase === "answer") answerMelodySession(mod12(k.s)); }} onUp={() => {}} />
+            ) : lvl.chromatic ? (
               <div className="numpad chromatic">
                 {chromOrder.map((pc) => {
                   const out = !pool.includes(pc);
@@ -5441,7 +5480,7 @@ export default function NumberEarTrainer() {
         <div className="seg fp-view-seg" role="group" aria-label="View">
           {["map", "piano", "guitar"].map((v) => (
             <button key={v} className={exView === v ? "on" : ""} aria-pressed={exView === v}
-              onClick={() => setExView(v)}>{v === "map" ? "Map" : v === "piano" ? "Piano" : "Guitar"}</button>
+              onClick={() => { setExView(v); setInstrument(v === "map" ? "numbers" : v === "piano" ? "keyboard" : "guitar"); }}>{v === "map" ? "Map" : v === "piano" ? "Piano" : "Guitar"}</button>
           ))}
         </div>
         {/* landscape bar only: a Voice on/off toggle (replaces Sing here; Sing moves behind ⚙) */}

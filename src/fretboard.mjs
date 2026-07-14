@@ -98,7 +98,7 @@ export function positionBox(key, mode, opts = {}) {
   const markers = frets
     .filter((f) => INLAYS.includes(f) || DOUBLE_INLAYS.includes(f))
     .map((f) => ({ fret: f, double: DOUBLE_INLAYS.includes(f) }));
-  return { key, mode, startFret, endFret, frets, cells, markers, name: key + " " + mode + " @" + startFret };
+  return { key, mode, strings: [0, 1, 2, 3, 4, 5], startFret, endFret, frets, cells, markers, name: key + " " + mode + " @" + startFret };
 }
 
 // Compact 3-string × 4-fret ANSWER box for portrait tests — big finger targets, all 7 degrees.
