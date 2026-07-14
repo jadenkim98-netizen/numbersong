@@ -8,13 +8,15 @@
 // draw the HUD and to decide continue / win / lose.
 //
 //   • Keeper HP  = maxHp − Σ damage         (first-try correct hits harder)
-//   • Player HP  = hearts − fumbled questions (a "fumble" = a not-first-try answer)
+//   • Player HP  = hearts − misses          (EVERY wrong answer costs a heart, right
+//                                            away — several wrong guesses on one
+//                                            question spend several hearts)
 //   • win  when keeper HP reaches 0   → force-pass the capstone → fragment forged
 //   • lose when hearts reach 0        → kicked back to the map
 //
-// Win takes precedence over lose on the same exchange (landing the killing blow on a
-// recovered answer that would also spend your last heart still wins — deliberately
-// generous).
+// HP only drops on a CORRECT answer; hearts only drop on a WRONG one — so win and lose
+// are triggered by different events (the correct-path and the wrong-path in the JSX),
+// and `misses` is tracked live rather than derived from completed questions.
 
 // Per-region duel config, keyed by HARMONIA node id. Only the keepers we've wired are
 // listed; `bossConfigFor` falls back to DEFAULT_BOSS for anything not tuned yet, and
@@ -76,22 +78,19 @@ export function bossDamage(firstTry, cfg) {
   return firstTry ? cfg.dmgFirst : cfg.dmgRecover;
 }
 
-// Derive the live duel state from the session results so far. `results` is the same
-// array the grading handlers push to: [{ target, firstTry }, ...]. Every entry is a
-// question the player ultimately answered correctly (the engine re-asks until right),
-// so a `firstTry === false` entry means the keeper landed a blow.
-export function evalBoss(results, cfg) {
+// Derive the live duel state. `results` is the array the grading handlers push to
+// ([{ target, firstTry }, ...]) — one entry per question the player answered correctly,
+// used only for keeper damage (first-try hits harder). `misses` is the running count of
+// WRONG answers across the whole duel — each one costs a heart the moment it happens, so
+// several wrong guesses on a single question drain several hearts.
+export function evalBoss(results, misses, cfg) {
   let damage = 0;
-  let fumbles = 0;
-  for (const r of results) {
-    damage += bossDamage(r.firstTry, cfg);
-    if (!r.firstTry) fumbles++;
-  }
+  for (const r of results) damage += bossDamage(r.firstTry, cfg);
   const hp = Math.max(0, cfg.hp - damage);
-  const hearts = Math.max(0, cfg.hearts - fumbles);
+  const hearts = Math.max(0, cfg.hearts - (misses || 0));
   let outcome = "ongoing";
-  if (hp <= 0) outcome = "win";          // killing blow wins even if it cost the last heart
-  else if (hearts <= 0) outcome = "lose";
+  if (hp <= 0) outcome = "win";          // killing blow (a correct answer) wins
+  else if (hearts <= 0) outcome = "lose"; // hearts gone (a wrong answer) loses
   return {
     hp,
     hpMax: cfg.hp,
@@ -99,7 +98,7 @@ export function evalBoss(results, cfg) {
     hearts,
     heartsMax: cfg.hearts,
     damage,
-    fumbles,
+    misses: misses || 0,
     outcome,
   };
 }

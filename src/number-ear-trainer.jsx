@@ -2891,7 +2891,8 @@ export default function NumberEarTrainer() {
     sess.current = buildSessionState({ mode: stage.mode, lvl, levelIdx: li, key, chordSevenths, qCount: 999 });
     sess.current.boss = cfg;              // presence of .boss switches advance() into duel mode
     sess.current.bossRegion = regionId;
-    setBossState(evalBoss([], cfg)); setBossFx("");
+    sess.current.bossMisses = 0;          // running count of wrong answers (each = −1 heart, live)
+    setBossState(evalBoss([], 0, cfg)); setBossFx("");
     setQNum(0); setScore(0); setStreak(0); setSessionResults([]);
     setChPicked([]); setProgAnswer([]); setProgWrong([]);
     clearLadder(); setFeedback(null); setPhase("idle");
@@ -2903,18 +2904,34 @@ export default function NumberEarTrainer() {
   // Called from advance() whenever sess.current.boss is set (bypasses the fixed qCount).
   const bossAdvance = () => {
     const s = sess.current;
-    const state = evalBoss(s.results, s.boss);
+    const state = evalBoss(s.results, s.bossMisses, s.boss);
     setBossState(state);
-    // flash: did the LAST answered question fumble (keeper hit us) or land clean (we hit)?
-    const last = s.results[s.results.length - 1];
-    const fx = last && last.firstTry === false ? "hurt" : "hit";
-    setBossFx(fx);
-    if (bossFxTimerRef.current) clearTimeout(bossFxTimerRef.current);
-    bossFxTimerRef.current = setTimeout(() => setBossFx(""), 520);
+    // advance() only runs on a CORRECT answer → the player just struck the keeper.
+    flashBoss("hit");
     if (state.outcome === "win") { finishSession(); return; }
-    if (state.outcome === "lose") { bossLose(); return; }
     s.qNum = (s.qNum || 0) + 1; setQNum(s.qNum);
     sessTimer(() => nextQuestionRef.current(false), 750);
+  };
+
+  // One-shot HUD flash ("hit" = we struck the keeper, "hurt" = the keeper struck us).
+  const flashBoss = (kind) => {
+    setBossFx(kind);
+    if (bossFxTimerRef.current) clearTimeout(bossFxTimerRef.current);
+    bossFxTimerRef.current = setTimeout(() => setBossFx(""), 520);
+  };
+
+  // A WRONG answer during a duel: spend a heart immediately (repeatable within one
+  // question), flash the hurt, and end the fight the instant hearts hit 0. Returns true
+  // if the duel is over (so the caller bails out of its normal retry/reveal flow).
+  const bossOnWrong = () => {
+    const s = sess.current;
+    if (!s.boss) return false;
+    s.bossMisses = (s.bossMisses || 0) + 1;
+    const state = evalBoss(s.results, s.bossMisses, s.boss);
+    setBossState(state);
+    flashBoss("hurt");
+    if (state.outcome === "lose") { bossLose(); return true; }
+    return false;
   };
 
   // The player's hearts ran out — Verda's meadow keeps its mark. No progress recorded;
@@ -3130,6 +3147,7 @@ export default function NumberEarTrainer() {
       setLitWrong([pc]);
       setSrMsg("Not quite — that was a " + spokenNote(pc) + ".");
       playSemi(s.key, pc, 0, s.octave); // echo the note they actually pressed
+      if (bossOnWrong()) return; // duel: heart spent immediately; if that emptied them, bail
       if (tutorialActive) { setTutReveal(true); setFeedback("Almost — hear it again, then tap the glowing number."); }
       else if (s.misses >= 2) {
         // don't leave a stuck learner brute-forcing: reveal + name the target, then replay it
@@ -3181,6 +3199,7 @@ export default function NumberEarTrainer() {
       setStreak(0);
       setLitWrong(chPicked.filter((d) => !t.has(d)));
       setSrMsg("Not quite.");
+      if (bossOnWrong()) return; // duel: heart spent immediately; if that emptied them, bail
       setFeedback("Close — the marked degrees aren't in it. Adjust and check again.");
     }
   };
@@ -3222,6 +3241,7 @@ export default function NumberEarTrainer() {
       setStreak(0);
       setProgWrong(wrong);
       setSrMsg("Not quite.");
+      if (bossOnWrong()) return; // duel: heart spent immediately; if that emptied them, bail
       setFeedback("Not quite — the marked chords are off. Fix them and check again.");
     }
   };
@@ -4293,6 +4313,8 @@ export default function NumberEarTrainer() {
     const justCleared = advNode && !sessWasClearedRef.current && stageClearedAdv(advStageId);
     const finale = justCleared && advCollected.size >= 8; // the WHOLE sword just came together
     const fragName = advNode ? window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[advStageId]] : "";
+    // Cleared via a Keeper Duel? show the keeper's own words of congratulations.
+    const duelCfg = justCleared && isBossRegion(advStageId) ? bossConfigFor(advStageId) : null;
     const hasNext = !isCustom && levelIdx + 1 < lvls.length;
 
     // best first-try streak this session
@@ -4348,7 +4370,9 @@ export default function NumberEarTrainer() {
                 <div className="forge-sparks" aria-hidden="true"><i /><i /><i /><i /><i /><i /><i /><i /></div>
               </div>
               <span className="frag-chip"><span className="gem">◆</span>{fragName} — forged into Excalibar</span>
-              <span className="victory-quote">“{advNode.win}”</span>
+              {duelCfg
+                ? <span className="victory-quote duel-quote">“{duelCfg.taunts.win}”<em className="duel-quote-by">— {duelCfg.name}, {duelCfg.title}</em></span>
+                : <span className="victory-quote">“{advNode.win}”</span>}
               <span className="forge-count">{advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments"}</span>
             </div>
           )}
