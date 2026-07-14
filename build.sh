@@ -160,7 +160,7 @@ html = f'''<!DOCTYPE html>
 <script>{react_js}</script>
 <script>{react_dom_js}</script>
 <script>{tone_js}</script>
-{sentry_tag}{posthog_tag}<style>
+{sentry_tag}<style>
   html, body {{ margin: 0; background: #383D3B; overscroll-behavior: none; }}
   /* Critical pre-mount layout: clamp the app column to the SAME 560px the mounted
      .app uses, so the first painted frame already matches — no width reflow. */
@@ -226,21 +226,12 @@ html = f'''<!DOCTYPE html>
   }});
 </script>
 <script>
+// Boot-critical assets only — what the first painted frame (boot/intro) needs. Everything else
+// is deferred below (after the app mounts) so it doesn't block first paint.
 window.WEJAM_LOGO = "{logo_data}";
 window.CODA_SPRITE = "{coda_data}";
 window.CODA_SKINS = {coda_skins_data};
-window.CODA_MEDITATE = "{coda_med_data}";
 window.CODA_VICTORY = "{coda_vic_data}";
-window.VERDA_SPRITE = "{verda_data}";
-window.RUE_SPRITE = "{rue_data}";
-window.SYLVA_SPRITE = "{sylva_data}";
-window.BASSIL_SPRITE = "{bassil_data}";
-window.VERDA_PORTRAIT = "{verda_portrait_data}";
-window.DOJO_SPRITE = "{dojo_data}";
-window.MAP_BAKED = "{map_baked_data}";
-window.MUSIC_BOOKS = "{music_books_data}";
-window.GUITAR_ICON = "{guitar_data}";
-window.KEEPER_ART = {keeper_art};
 </script>
 <script>
 {adventure}
@@ -253,12 +244,28 @@ window.SOUNDTRACK = SOUNDTRACK;
 {js}
 </script>
 <script>
-  // The sung-voice payload (~1.2 MB of base64) is the biggest blob and is only needed once audio
-  // starts (first gesture, seconds away) — so it's defined AFTER the app mounts, letting the boot
-  // screen paint without parsing it first. ensure() reads these lazily and falls back to speech if
-  // they somehow aren't ready yet, so the deferral is safe.
+  // Heavy, non-boot assets, defined AFTER the app mounts so the boot screen paints without parsing
+  // them: the sung-voice payload (~1 MB, read lazily on the first audio gesture) and the
+  // map/duel/tutorial/results images (~0.5 MB, read only when those screens render). All are read
+  // via `window.X` at render time behind existence guards, so late definition is safe.
   window.SUNG_NUMBERS = {voices};
   window.MINOR_VOICE = {minor_voice};
+  window.CODA_MEDITATE = "{coda_med_data}";
+  window.VERDA_SPRITE = "{verda_data}";
+  window.RUE_SPRITE = "{rue_data}";
+  window.SYLVA_SPRITE = "{sylva_data}";
+  window.BASSIL_SPRITE = "{bassil_data}";
+  window.VERDA_PORTRAIT = "{verda_portrait_data}";
+  window.DOJO_SPRITE = "{dojo_data}";
+  window.MAP_BAKED = "{map_baked_data}";
+  window.MUSIC_BOOKS = "{music_books_data}";
+  window.GUITAR_ICON = "{guitar_data}";
+  window.KEEPER_ART = {keeper_art};
+</script>
+{posthog_tag}<script>
+  // PostHog (~430 KB, not render-critical) is inlined here — AFTER the app mount — so it doesn't
+  // block first paint. Init it now that it's loaded; track() flushes any events buffered meanwhile.
+  try {{ window.__nsInitPostHog && window.__nsInitPostHog(); }} catch (e) {{}}
 </script>
 <script>
   // Register the service worker so the app is cached for full offline use.

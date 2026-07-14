@@ -235,7 +235,18 @@ try {
       ],
     });
   }
-  if (POSTHOG_KEY && window.posthog) {
+} catch (e) {}
+
+// PostHog is DEFERRED off the cold-start path (it's ~430 KB and not render-critical): its <script>
+// is inlined AFTER the app mounts. initPostHog() runs when that loads (the deferred loader calls
+// window.__nsInitPostHog; we also try here in case it's somehow already present). track() buffers
+// events until PostHog is live, then flushes — so early funnel events (boot_advance, …) are never
+// lost even if the user acts before PostHog finishes loading.
+const trackQueue = [];
+let posthogInited = false;
+function initPostHog() {
+  if (posthogInited || !POSTHOG_KEY || typeof window === "undefined" || !window.posthog) return;
+  try {
     window.posthog.init(POSTHOG_KEY, {
       api_host: POSTHOG_HOST,
       autocapture: false, capture_pageview: false, capture_pageleave: false,
@@ -246,13 +257,18 @@ try {
       disable_surveys: true,
       bootstrap: { distinctID: trackCid },
     });
-    trackOn = true;
-  }
-} catch (e) { trackOn = false; }
+    posthogInited = true; trackOn = true;
+    trackQueue.splice(0).forEach(([e, p]) => { try { window.posthog.capture(e, p || {}); } catch (x) {} });
+  } catch (e) {}
+}
+if (typeof window !== "undefined") { window.__nsInitPostHog = initPostHog; initPostHog(); }
 
-// Fire a light usage event. Silent no-op until PostHog is configured; never throws.
+// Fire a light usage event. Buffers until PostHog loads (deferred); never throws.
 function track(event, props) {
-  try { if (trackOn && window.posthog) window.posthog.capture(event, props || {}); } catch (e) {}
+  try {
+    if (trackOn && window.posthog) window.posthog.capture(event, props || {});
+    else if (POSTHOG_KEY) trackQueue.push([event, props]);
+  } catch (e) {}
 }
 
 /* ─────────────────────────────  AUDIO ENGINE  ───────────────────────────── */
