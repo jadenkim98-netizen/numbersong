@@ -501,6 +501,10 @@ button { touch-action: manipulation; }
   display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1.5px solid var(--line); }
 .duel-victory-face img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
 .duel-quote-by { display: block; margin-top: 4px; font-style: normal; font-size: 0.75rem; color: var(--text-soft); opacity: 0.85; }
+/* Progression duel: compact the answer slots — hide the tall 7→1 ladder, keep just the chord chip */
+.sess-duel .prog-stack .stack-note { display: none; }
+.sess-duel .prog-stack { min-height: 40px; justify-content: center; padding: 6px 4px; }
+.sess-duel .prog-stack .stack-label { font-size: 1rem; }
 .boss-defeat { text-align: center; }
 .boss-defeat-face { width: 64px; height: 64px; margin: 0 auto 4px; border-radius: 10px; overflow: hidden;
   display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1.5px solid var(--line); }
@@ -1126,6 +1130,9 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 }
 .chord-layout { display: flex; gap: 16px; align-items: flex-start; }
 .chord-right { flex: 1; display: flex; flex-direction: column; }
+/* Chord duel: Repeat + quip sit in the right column above the numpad, so the stack rises */
+.chord-duel-bar { margin-bottom: 8px; align-items: center; gap: 8px; }
+.chord-duel-bar .hint.grow { font-size: 0.82rem; min-width: 0; }
 .session-stack .stack-note { width: 32px; height: 32px; font-size: 0.98rem; }
 .session-stack { gap: 3px; }
 .session-stack .stack-note.picked { border: 2px solid var(--blue); color: var(--blue); }
@@ -3423,6 +3430,59 @@ window.SOUNDTRACK = SOUNDTRACK;
         win: "Deep ears. Take my mark — the caves will remember.",
         lose: "The caves keep their time. Rest, then come back down."
       }
+    },
+    // Marin — Pillar Coast (node 5, PROGRESSIONS major). First progression keeper: hearing a
+    // whole progression + tapping the changes in order takes the longest, so the most generous
+    // clock and hp 75 (~3 clean strikes). Only 4 chord buttons, so the input stays compact.
+    5: {
+      hp: 75,
+      hearts: 4,
+      dmgFirst: 25,
+      dmgRecover: 10,
+      timer: { full: 14, mid: 10, low: 7 },
+      name: "Marin",
+      title: "of the Pillars",
+      taunts: {
+        intro: "Hear the next stone coming — I'll not still the tide for you.",
+        hits: [
+          "Yes — you heard the next pillar before your foot fell.",
+          "There! Change to change, dry the whole way.",
+          "Aye, you rode that turn like the tide knew it.",
+          "Mm — foot to foot, never once looking down.",
+          "That's the crossing — each stone right on time.",
+          "You felt the road bend, and bent with it."
+        ],
+        low: "Nearly across now — the changes are carrying you home.",
+        playerHurt: "Steady — don't watch your feet. Hear the next stone.",
+        win: "You crossed without looking down. Take my mark, sailor.",
+        lose: "The tide will turn again. Rest, then cross once more."
+      }
+    },
+    // Sable — Sixstone Hollow (node 6, PROGRESSIONS minor). The dusk road; home wears a darker
+    // coat and answers to 6. Same gentle progression tuning as Marin.
+    6: {
+      hp: 75,
+      hearts: 4,
+      dmgFirst: 25,
+      dmgRecover: 10,
+      timer: { full: 14, mid: 10, low: 7 },
+      name: "Sable",
+      title: "of Sixstone",
+      taunts: {
+        intro: "Walk it at dusk with me — count true, I'll not light the way.",
+        hits: [
+          "Aye — stone to stone, and you kept the count.",
+          "There, in the grey. You heard the change land.",
+          "Mm. Darker coat, same road — walked true.",
+          "You never lost the count, turn after turn.",
+          "That's it — each stone cold and right.",
+          "Foot to foot through the dusk, steady on."
+        ],
+        low: "Nearly through the low light — home was under you all along.",
+        playerHurt: "Easy. It's dim, not lost — hear the next stone.",
+        win: "Stone by stone, never lost the count. The mark is yours.",
+        lose: "Dusk keeps its own count. Rest, then walk it again."
+      }
     }
   };
   var DEFAULT_BOSS = {
@@ -3442,7 +3502,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       lose: "Not yet. Come back sharper."
     }
   };
-  var ENABLED = /* @__PURE__ */ new Set([1, 2, 3, 4]);
+  var ENABLED = /* @__PURE__ */ new Set([1, 2, 3, 4, 5, 6]);
   var isBossRegion = (id) => ENABLED.has(id);
   function bossConfigFor(id) {
     return BOSS[id] || DEFAULT_BOSS;
@@ -6936,13 +6996,14 @@ window.SOUNDTRACK = SOUNDTRACK;
       const li = lv[lv.length - 1].idx;
       const cfg = bossConfigFor(regionId);
       track("boss_start", { region: regionId });
-      const lvl = resolveSessionLevel({
+      const lvl0 = resolveSessionLevel({
         mode: stage.mode,
         levelIdx: li,
         customLvl: null,
         chordSevenths,
         levelsByMode: { melody: MELODY_LEVELS, chords: CHORD_LEVELS, progressions: PROG_LEVELS }
       });
+      const lvl = stage.mode === "progressions" ? { ...lvl0, pool: stage.gi === 1 ? FOUR_MINOR : FOUR } : lvl0;
       setMode(stage.mode);
       setLevelIdx(li);
       setSessLvl(lvl);
@@ -7018,6 +7079,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       if (bossOnWrong()) return;
       if (s.mode === "melody") setRevealPc(s.target);
       else if (s.mode === "chords") setLitCorrect(chordTones(s.target, s.sevenths));
+      else if (s.mode === "progressions") setProgAnswer([...s.target]);
       setFeedback("Too slow — " + s.boss.name + " strikes! Hear it again…");
       sessTimer(() => replayTarget(), 500);
       setDuelTurn((t) => t + 1);
@@ -7384,11 +7446,17 @@ window.SOUNDTRACK = SOUNDTRACK;
         }, (dur + 0.4) * 1e3);
       } else {
         s.attempted = true;
+        s.misses = (s.misses || 0) + 1;
         setStreak(0);
         setProgWrong(wrong);
         setSrMsg("Not quite.");
         if (bossOnWrong()) return;
-        setFeedback("Not quite — the marked chords are off. Fix them and check again.");
+        if (s.boss && s.misses >= 2) {
+          setProgAnswer([...s.target]);
+          setProgWrong([]);
+          setFeedback("It went " + s.target.map((r) => chordNumber(r, false)).join("–") + " — hear it, then check.");
+          sessTimer(() => replayTarget(), 650);
+        } else setFeedback("Not quite — the marked chords are off. Fix them and check again.");
       }
     };
     const pianoNote = (k) => Tone.Frequency(Tone.Frequency(musicKey + "4").toMidi() + k.s, "midi").toNote();
@@ -7972,6 +8040,18 @@ window.SOUNDTRACK = SOUNDTRACK;
       const duelHeroImg = isDuel && typeof window !== "undefined" ? window.CODA_SPRITE || null : null;
       const duelWindowSecs = isDuel ? bossTimer(bossState.hpPct, duelCfg) : 0;
       const duelTaunt = !isDuel ? "" : duelSay || duelCfg.taunts.intro;
+      const chordDuel = isDuel && mode === "chords";
+      const replayControls = /* @__PURE__ */ React.createElement("div", { className: "replay-group" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: replayFull, disabled: phase !== "answer" || busy }, "↻ Repeat"), /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          className: "ghost note",
+          onClick: replayTarget,
+          disabled: phase !== "answer" || busy,
+          "aria-label": "Play just the sound to identify"
+        },
+        "♪"
+      ));
+      const answerHint = /* @__PURE__ */ React.createElement("p", { className: "hint grow" + (tutCoach ? " tut-coach-line" : ""), role: "status", "aria-live": "polite" }, phase === "playing" ? tutCoach ? "Verda plays a number… listen." : "Listen…" : feedback && feedback.roman ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.sym), " ", /* @__PURE__ */ React.createElement("em", { className: "numlabel" }, feedback.num), " · ", feedback.quality, ". ", CHORD_INSIGHTS[feedback.roman]) : feedback && feedback.prog ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.prog.join("–")), " — nailed the changes.") : feedback ? feedback : mode === "melody" ? tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?" : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.` : "Tap the chords you heard, in order.");
       return /* @__PURE__ */ React.createElement("div", { className: "app app-wide" + (lvl.mode === "minor" ? " sess-minor" : "") + (isDuel ? " sess-duel" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement(Confetti, { show: tutCelebrate }), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
         try {
           sfx("back");
@@ -8056,16 +8136,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           pool,
           showChrom: lvl.chromatic
         }
-      ), /* @__PURE__ */ React.createElement("section", { className: "panel" }, /* @__PURE__ */ React.createElement("div", { className: "quiz-bar" }, /* @__PURE__ */ React.createElement("div", { className: "replay-group" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: replayFull, disabled: phase !== "answer" || busy }, "↻ Repeat"), /* @__PURE__ */ React.createElement(
-        "button",
-        {
-          className: "ghost note",
-          onClick: replayTarget,
-          disabled: phase !== "answer" || busy,
-          "aria-label": "Play just the sound to identify"
-        },
-        "♪"
-      )), mode === "melody" && /* @__PURE__ */ React.createElement(
+      ), /* @__PURE__ */ React.createElement("section", { className: "panel" }, !chordDuel && /* @__PURE__ */ React.createElement("div", { className: "quiz-bar" }, replayControls, mode === "melody" && /* @__PURE__ */ React.createElement(
         "button",
         {
           className: "ghost voice" + (voiceOn ? " on" : ""),
@@ -8085,7 +8156,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           "aria-pressed": showRef
         },
         "Chord chart"
-      ), /* @__PURE__ */ React.createElement("p", { className: "hint grow" + (tutCoach ? " tut-coach-line" : ""), role: "status", "aria-live": "polite" }, phase === "playing" ? tutCoach ? "Verda plays a number… listen." : "Listen…" : feedback && feedback.roman ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.sym), " ", /* @__PURE__ */ React.createElement("em", { className: "numlabel" }, feedback.num), " · ", feedback.quality, ". ", CHORD_INSIGHTS[feedback.roman]) : feedback && feedback.prog ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.prog.join("–")), " — nailed the changes.") : feedback ? feedback : mode === "melody" ? tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?" : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.` : "Tap the chords you heard, in order."), /* @__PURE__ */ React.createElement("div", { className: "sr-only", role: "status", "aria-live": "polite" }, srMsg)), mode === "melody" ? instrument === "guitar" && !lvl.chromatic ? /* @__PURE__ */ React.createElement(
+      ), answerHint, /* @__PURE__ */ React.createElement("div", { className: "sr-only", role: "status", "aria-live": "polite" }, srMsg)), mode === "melody" ? instrument === "guitar" && !lvl.chromatic ? /* @__PURE__ */ React.createElement(
         Fretboard,
         {
           boxKind: "answer",
@@ -8150,7 +8221,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       })) : mode === "chords" ? /* @__PURE__ */ React.createElement(React.Fragment, null, showRef && !isDuel && /* @__PURE__ */ React.createElement("div", { className: "chord-ref" }, lvl.pool.map((r) => {
         const tones = chordTones(chordByRoman(r), lvl.sevenths);
         return /* @__PURE__ */ React.createElement("div", { key: r, className: "cr-row" }, /* @__PURE__ */ React.createElement("span", { className: "cr-sym" }, chordSymbol(r, lvl.sevenths)), /* @__PURE__ */ React.createElement("span", { className: "cr-num" }, chordNumber(r, lvl.sevenths)), /* @__PURE__ */ React.createElement("span", { className: "cr-tones" }, tones.map(degreeLabel).join(" · ")));
-      })), /* @__PURE__ */ React.createElement("div", { className: "chord-layout" }, /* @__PURE__ */ React.createElement(
+      })), /* @__PURE__ */ React.createElement("div", { className: "chord-layout" + (chordDuel ? " chord-layout-duel" : "") }, /* @__PURE__ */ React.createElement(
         SessionStack,
         {
           picked: chPicked,
@@ -8158,7 +8229,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           wrong: litWrong,
           label: feedback && feedback.roman ? feedback.sym : null
         }
-      ), /* @__PURE__ */ React.createElement("div", { className: "chord-right" }, /* @__PURE__ */ React.createElement("div", { className: "numpad" }, [1, 2, 3, 4, 5, 6, 7].map((d) => /* @__PURE__ */ React.createElement(
+      ), /* @__PURE__ */ React.createElement("div", { className: "chord-right" }, chordDuel && /* @__PURE__ */ React.createElement("div", { className: "quiz-bar chord-duel-bar" }, replayControls, answerHint, /* @__PURE__ */ React.createElement("div", { className: "sr-only", role: "status", "aria-live": "polite" }, srMsg)), /* @__PURE__ */ React.createElement("div", { className: "numpad" }, [1, 2, 3, 4, 5, 6, 7].map((d) => /* @__PURE__ */ React.createElement(
         "button",
         {
           key: d,
@@ -9113,6 +9184,10 @@ button { touch-action: manipulation; }
   display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1.5px solid var(--line); }
 .duel-victory-face img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
 .duel-quote-by { display: block; margin-top: 4px; font-style: normal; font-size: 0.75rem; color: var(--text-soft); opacity: 0.85; }
+/* Progression duel: compact the answer slots — hide the tall 7→1 ladder, keep just the chord chip */
+.sess-duel .prog-stack .stack-note { display: none; }
+.sess-duel .prog-stack { min-height: 40px; justify-content: center; padding: 6px 4px; }
+.sess-duel .prog-stack .stack-label { font-size: 1rem; }
 .boss-defeat { text-align: center; }
 .boss-defeat-face { width: 64px; height: 64px; margin: 0 auto 4px; border-radius: 10px; overflow: hidden;
   display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1.5px solid var(--line); }
@@ -9738,6 +9813,9 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 }
 .chord-layout { display: flex; gap: 16px; align-items: flex-start; }
 .chord-right { flex: 1; display: flex; flex-direction: column; }
+/* Chord duel: Repeat + quip sit in the right column above the numpad, so the stack rises */
+.chord-duel-bar { margin-bottom: 8px; align-items: center; gap: 8px; }
+.chord-duel-bar .hint.grow { font-size: 0.82rem; min-width: 0; }
 .session-stack .stack-note { width: 32px; height: 32px; font-size: 0.98rem; }
 .session-stack { gap: 3px; }
 .session-stack .stack-note.picked { border: 2px solid var(--blue); color: var(--blue); }
