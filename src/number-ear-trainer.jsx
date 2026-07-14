@@ -87,6 +87,7 @@ import {
   pickChordRoman,
   shouldCelebrateStageClear,
 } from "./app-flow.mjs";
+import { positionBox, STANDARD_TUNING } from "./fretboard.mjs";
 
 
 
@@ -264,7 +265,28 @@ function buildInstrument(buffers) {
 }
 
 // Sustaining synth voices for Free Play (piano is handled by the sampler instead).
+// Plucked-guitar voice (Karplus-Strong). PluckSynth doesn't satisfy PolySynth's per-voice
+// contract, so we hand-roll a tiny round-robin pool that exposes the same triggerAttack /
+// triggerRelease / releaseAll / dispose surface holdNote/releaseNote/setSustainVoice expect.
+// Release is a natural pluck decay, so triggerRelease is best-effort (guarded).
+function buildGuitarVoice() {
+  const N = 6;
+  const voices = Array.from({ length: N }, () => {
+    const v = new Tone.PluckSynth({ attackNoise: 0.8, dampening: 3600, resonance: 0.93 }).toDestination();
+    v.volume.value = -3;
+    return v;
+  });
+  let rr = 0;
+  const held = new Map();
+  return {
+    triggerAttack(note) { const v = voices[rr++ % N]; held.set(note, v); try { v.triggerAttack(note); } catch (e) {} },
+    triggerRelease(note) { const v = held.get(note); held.delete(note); try { v && v.triggerRelease && v.triggerRelease(Tone.now()); } catch (e) {} },
+    releaseAll() { held.clear(); try { voices.forEach((v) => v.triggerRelease && v.triggerRelease(Tone.now())); } catch (e) {} },
+    dispose() { voices.forEach((v) => { try { v.dispose(); } catch (e) {} }); },
+  };
+}
 function buildSusSynth(name) {
+  if (name === "guitar") return buildGuitarVoice();
   const P = {
     pad:     [Tone.Synth,     { oscillator: { type: "triangle" },                          envelope: { attack: 0.35, decay: 0.2, sustain: 0.85, release: 0.9 } }, -12],
     lead:    [Tone.MonoSynth, { oscillator: { type: "sawtooth" }, envelope: { attack: 0.02, decay: 0.1, sustain: 0.8, release: 0.25 }, filterEnvelope: { attack: 0.03, decay: 0.2, sustain: 0.6, baseFrequency: 350, octaves: 3.2 } }, -15],
@@ -1887,6 +1909,61 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
   );
 }
 
+/* ── Guitar Mode fretboard: a wide horizontal neck (nut→12), low E along the bottom, with the
+   active 5-fret position boxed in teal. Every in-key degree inside the box is numbered (tonic
+   teal + ★); chromatic notes are small in-between dots. Only in-box cells are tappable — tap
+   calls onDown({string,fret,pc,degree}) / onUp(...). Free Play uses it as a playable view now;
+   later it becomes the melody answer surface. `active` = ["<string>:<fret>", …] to light. ── */
+const FRETBOARD_CSS = `
+.fretboard { display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.fretboard svg { display:block; margin:0 auto; max-width:100%; height:auto; touch-action:none; }
+.fb-hit { cursor:pointer; }
+`;
+function Fretboard({ musicKey, mode = "major", active = [], onDown, onUp }) {
+  // minFret:2 keeps the box on the neck (never straddling the open strings) for any key.
+  const box = positionBox(musicKey, mode, { minFret: 2 });
+  const nFrets = 12, nS = 6;
+  const fw = 50, sh = 30, padX = 28, padTop = 24, padBot = 32;
+  const W = padX * 2 + nFrets * fw, H = padTop + padBot + (nS - 1) * sh;
+  const wireX = (i) => padX + i * fw;
+  const spaceX = (f) => padX + (f - 0.5) * fw;      // a fretted note sits in the space behind its wire
+  const strY = (s) => padTop + (nS - 1 - s) * sh;   // low E (s=0) at the bottom
+  const midY = padTop + ((nS - 1) / 2) * sh;
+  const held = new Set(active);
+  const dot = 15;
+  const els = [];
+  els.push(<rect key="bd" x={padX - 16} y={padTop - 14} width={W - padX * 2 + 32} height={H - padTop - padBot + 28} rx="9" fill="#26302c" stroke="#121815" strokeWidth="2" />);
+  els.push(<rect key="box" x={wireX(box.startFret - 1)} y={padTop - 9} width={5 * fw} height={(nS - 1) * sh + 18} rx="7" fill="rgba(87,198,196,0.13)" stroke="#57C6C4" strokeWidth="2" />);
+  // inlays (context landmarks)
+  [3, 5, 7, 9, 12].forEach((f) => {
+    const x = spaceX(f);
+    if (f === 12) els.push(<circle key="i12a" cx={x} cy={midY - sh} r="6" fill="#46524a" />, <circle key="i12b" cx={x} cy={midY + sh} r="6" fill="#46524a" />);
+    else els.push(<circle key={"i" + f} cx={x} cy={midY} r="6" fill="#46524a" />);
+  });
+  for (let s = 0; s < nS; s++) els.push(<line key={"s" + s} x1={wireX(0)} y1={strY(s)} x2={wireX(nFrets)} y2={strY(s)} stroke="#b3bcb4" strokeWidth={1 + s * 0.4} />);
+  for (let i = 0; i <= nFrets; i++) els.push(<line key={"f" + i} x1={wireX(i)} y1={strY(nS - 1)} x2={wireX(i)} y2={strY(0)} stroke={i === 0 ? "#cdd3cb" : "#59635c"} strokeWidth={i === 0 ? 6 : 2} />);
+  [3, 5, 7, 9, 12].forEach((f) => els.push(<text key={"l" + f} x={spaceX(f)} y={H - 10} textAnchor="middle" fontSize="12" fontWeight="700" fill="#8b958c" fontFamily="ui-monospace,monospace">{f}</text>));
+  // notes — in the boxed position only
+  box.cells.forEach((c) => {
+    const id = c.string + ":" + c.fret, on = held.has(id);
+    const x = spaceX(c.fret), y = strY(c.string);
+    if (c.inKey) {
+      els.push(<circle key={"n" + id} cx={x} cy={y} r={dot} fill={on ? "#6ABF5E" : (c.isTonic ? "#57C6C4" : "#f2f5f1")} stroke="#121815" strokeWidth="1.5" />);
+      els.push(<text key={"t" + id} x={x} y={y + 5} textAnchor="middle" fontSize="14" fontWeight="800" fill="#16201f" fontFamily="'Archivo Black',sans-serif" style={{ pointerEvents: "none" }}>{c.degree}</text>);
+      if (c.isTonic) els.push(<text key={"st" + id} x={x} y={y - dot - 4} textAnchor="middle" fontSize="12" fill="#57C6C4" style={{ pointerEvents: "none" }}>★</text>);
+    } else {
+      els.push(<circle key={"c" + id} cx={x} cy={y} r={on ? 7 : 3.5} fill={on ? "#6ABF5E" : "#8b958c"} />);
+    }
+    const evts = onDown ? {
+      onPointerDown: (e) => { e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (er) {} onDown(c); },
+      onPointerUp: () => onUp && onUp(c),
+      onPointerCancel: () => onUp && onUp(c),
+    } : {};
+    els.push(<rect key={"h" + id} className="fb-hit" x={x - fw / 2} y={y - sh / 2} width={fw} height={sh} fill="transparent" {...evts} />);
+  });
+  return <div className="fretboard"><style>{FRETBOARD_CSS}</style><svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={"Guitar fretboard, " + musicKey + " " + mode}>{els}</svg></div>;
+}
+
 /* ─────────────────────────────  APP  ───────────────────────────── */
 
 export default function NumberEarTrainer() {
@@ -3407,6 +3484,29 @@ export default function NumberEarTrainer() {
     releaseNote(noteOf(n.label, oct));
   };
 
+  // Guitar fretboard (Free Play): tapping a fret plucks its REAL pitch and, when Voice is on,
+  // sings its number. Lit via fretActive ("<string>:<fret>" ids).
+  const [fretActive, setFretActive] = useState([]);
+  const fretNote = (c) => Tone.Frequency(STANDARD_TUNING[c.string].midi + c.fret, "midi").toNote();
+  const fretDown = (c) => {
+    const id = c.string + ":" + c.fret;
+    setFretActive((a) => (a.includes(id) ? a : [...a, id]));
+    holdNote(fretNote(c));
+    if (c.degree != null) singOct(String(c.degree), 0, voiceOn);
+  };
+  const fretUp = (c) => {
+    const id = c.string + ":" + c.fret;
+    setFretActive((a) => a.filter((x) => x !== id));
+    releaseNote(fretNote(c));
+  };
+  // In the guitar view, play plucked-guitar; restore the prior sound on the way out.
+  const prevSusRef = useRef(null);
+  useEffect(() => {
+    if (exView === "guitar") { if (susVoice !== "guitar") { prevSusRef.current = susVoice; setSusVoice("guitar"); } }
+    else if (prevSusRef.current != null) { setSusVoice(prevSusRef.current); prevSusRef.current = null; }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exView]);
+
   /* ── render helpers ── */
 
   const keyRow = (
@@ -3421,6 +3521,7 @@ export default function NumberEarTrainer() {
         Sound
         <select value={susVoice} onChange={(e) => { setSusVoice(e.target.value); e.target.blur(); }}>
           <option value="piano">Piano</option>
+          <option value="guitar">Guitar</option>
           <option value="pad">Pad</option>
           <option value="lead">Lead</option>
           <option value="strings">Strings</option>
@@ -5294,8 +5395,8 @@ export default function NumberEarTrainer() {
             + Octave
           </button>
         )}
-        <button className="ghost" onClick={() => setExView(exView === "map" ? "piano" : "map")}>
-          {exView === "map" ? "Piano view" : "Map view"}
+        <button className="ghost" onClick={() => setExView(exView === "map" ? "piano" : exView === "piano" ? "guitar" : "map")}>
+          {exView === "map" ? "Piano view" : exView === "piano" ? "Guitar view" : "Map view"}
         </button>
         {/* landscape bar only: a Voice on/off toggle (replaces Sing here; Sing moves behind ⚙) */}
         <button className={"ghost voice fp-voice-bar" + (voiceOn ? " on" : "")}
@@ -5340,7 +5441,9 @@ export default function NumberEarTrainer() {
       })()}
       </div>
       <div className="fp-main">
-      {exView === "map"
+      {exView === "guitar"
+        ? <Fretboard musicKey={musicKey} mode="major" active={fretActive} onDown={fretDown} onUp={fretUp} />
+        : exView === "map"
         ? <ExploreMap start={exStart} count={exCount} stage={exStage}
             octaves={exOctaves} world={exWorld} singDeg={micOn ? singDeg : null} singInTune={singInTune}
             active={litActive} onDown={exploreDown} onUp={exploreUp} />
