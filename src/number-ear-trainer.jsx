@@ -1605,7 +1605,7 @@ function MapTour({ onClose, onSfx }) {
   );
 }
 
-function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, burst, boringMode, celebrateNode, onCelebrateDone, skinId, onReady }) {
+function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, onOffer, showOffer, burst, boringMode, celebrateNode, onCelebrateDone, skinId, onReady }) {
   const H = window.HARMONIA;
   const mapRef = useRef(null);
   const swordRef = useRef(null);
@@ -1847,6 +1847,12 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
         <button className="gear" onClick={onMenu} aria-label="Main menu">☰</button>
         <button className="gear gear-settings" onClick={onSettings} aria-label="Settings">⚙</button>
       </div>
+      {showOffer && (
+        <button className="adv-offer-badge" onClick={onOffer} aria-label="Learn to really play — the full program">
+          <img className="adv-offer-glyph" src={typeof window !== "undefined" ? window.GUITAR_ICON : ""} alt="" aria-hidden="true" width="30" height="30" />
+          <span className="adv-offer-label">Play for real</span>
+        </button>
+      )}
       <div className="adv-scroll" ref={scrollRef}>
         <canvas ref={mapRef} className="adv-map" onClick={tapMap} role="img" aria-label="Harmonia world map" />
       </div>
@@ -2005,7 +2011,7 @@ export default function NumberEarTrainer() {
     track("lead_submit", { outcome: delivered ? "sent" : "saved" }); // outcome only — never the email (PII)
     setLeadStatus(delivered ? "done" : "saved"); // "saved" = progress kept, but no email promise
   };
-  const openUpsell = () => { try { sfx("select"); } catch (e) {} setUpsellOpen(true); track("upsell_open"); };
+  const openUpsell = (source) => { try { sfx("select"); } catch (e) {} setUpsellOpen(true); track("upsell_open", source ? { where: source } : {}); };
   // The VSL/offer CTAs are now real <a target="_blank"> anchors (class "offer-link")
   // rendered inline — a genuine link tap opens a new tab / in-app browser without
   // navigating the game away, so audio isn't torn down the way a programmatic
@@ -3433,6 +3439,7 @@ export default function NumberEarTrainer() {
           onSettings={() => { setAuxReturn("adventure"); setScreen("settings"); }}
           onGuide={() => { setAuxReturn("adventure"); setGuidePage(0); setScreen("guide"); }}
           onFree={() => { setAuxReturn("adventure"); setFpTab("notes"); setScreen("learn"); }}
+          onOffer={() => openUpsell("map_corner")} showOffer={gated}
           onReady={() => setMapReady(true)} />
         {en && (
           <div className="encounter-modal" onClick={() => setEncounterNode(null)}>
@@ -5544,6 +5551,31 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .adv-forge-txt b { font-family: 'Archivo Black', sans-serif; font-size: 0.9rem; color: var(--teal); }
 .adv-hud-actions { display: flex; gap: 8px; }
 .adv-hud-actions .ghost { padding: 8px 11px; font-size: 1.1rem; background: rgba(20,24,22,.82); min-width: 44px; min-height: 44px; }
+/* Floating "offer" quest badge — top-left over the map (gated players only).
+   Reads like an in-world quest giver, not an ad; opens the upsell prompt → VSL. */
+.adv-offer-badge {
+  position: absolute; z-index: 4; left: 10px;
+  top: calc(env(safe-area-inset-top, 0px) + 62px);
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 12px 6px 7px; border-radius: 999px;
+  background: rgba(20,24,22,.9); border: 1.5px solid var(--teal); color: var(--text);
+  font-family: 'Archivo', sans-serif; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  animation: advOfferPulse 2.6s ease-in-out infinite;
+  -webkit-tap-highlight-color: transparent;
+}
+.adv-offer-badge:hover { border-color: var(--green); }
+.adv-offer-badge:active { transform: translateY(1px); }
+.adv-offer-glyph {
+  width: 30px; height: 30px; flex-shrink: 0; image-rendering: pixelated;
+  display: block; object-fit: contain;
+}
+.adv-offer-label { color: var(--teal); letter-spacing: 0.02em; white-space: nowrap; }
+/* Glow via filter (not box-shadow) so it survives the retro skin's inset-shadow border. */
+@keyframes advOfferPulse {
+  0%, 100% { filter: drop-shadow(0 0 2px rgba(87,198,196,.45)); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 8px rgba(87,198,196,.9)); transform: scale(1.04); }
+}
+@media (prefers-reduced-motion: reduce) { .adv-offer-badge { animation: none; } }
 .settings { display: flex; flex-direction: column; gap: 20px; }
 .set-block {
   display: flex; flex-direction: column; gap: 10px;

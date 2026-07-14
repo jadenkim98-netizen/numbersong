@@ -72,6 +72,7 @@ bassil_data = "data:image/png;base64," + base64.b64encode(open("keepers/keeper_b
 dojo_data = "data:image/png;base64," + base64.b64encode(open("dojo_final.png","rb").read()).decode()
 map_baked_data = "data:image/png;base64," + base64.b64encode(open("map_baked.png","rb").read()).decode()
 music_books_data = "data:image/png;base64," + base64.b64encode(open("music_books.png","rb").read()).decode()
+guitar_data = "data:image/png;base64," + base64.b64encode(open("guitar_icon.png","rb").read()).decode()  # map "Play for real" offer badge icon
 def _png(p): return "data:image/png;base64," + base64.b64encode(open(p,"rb").read()).decode()
 # Keeper art shown in the encounter modal, keyed by region node id. Region 1 = Verda's
 # bust portrait; 2-8 = bust portraits derived from each keeper's full-body sprite
@@ -240,6 +241,7 @@ window.VERDA_PORTRAIT = "{verda_portrait_data}";
 window.DOJO_SPRITE = "{dojo_data}";
 window.MAP_BAKED = "{map_baked_data}";
 window.MUSIC_BOOKS = "{music_books_data}";
+window.GUITAR_ICON = "{guitar_data}";
 window.KEEPER_ART = {keeper_art};
 </script>
 <script>
