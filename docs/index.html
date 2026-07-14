@@ -3592,6 +3592,71 @@ window.SOUNDTRACK = SOUNDTRACK;
     return levelIdx === lastIdx && firstTries >= passCount;
   }
 
+  // src/fretboard.mjs
+  var STANDARD_TUNING = [
+    { name: "E", midi: 40 },
+    { name: "A", midi: 45 },
+    { name: "D", midi: 50 },
+    { name: "G", midi: 55 },
+    { name: "B", midi: 59 },
+    { name: "E", midi: 64 }
+  ];
+  var OPEN_PC = STANDARD_TUNING.map((s) => mod12(s.midi));
+  var INLAYS = [3, 5, 7, 9, 15, 17, 19, 21];
+  var DOUBLE_INLAYS = [12, 24];
+  var FRET_COUNT = 22;
+  function pcOf(string, fret, key) {
+    return mod12(OPEN_PC[string] + fret - KEYS.indexOf(key));
+  }
+  function degreeAt(string, fret, key, mode) {
+    const pc = pcOf(string, fret, key);
+    const degree = PC_TO_DEGREE[pc] ?? null;
+    return { string, fret, pc, degree, isTonic: pc === tonicPcOf(mode), inKey: degree !== null };
+  }
+  function positionBox(key, mode, opts = {}) {
+    const span = opts.span ?? 5;
+    const minFret = opts.minFret ?? 0;
+    const tonicPc = tonicPcOf(mode);
+    let anchor = null;
+    for (let f = minFret; f <= FRET_COUNT && anchor === null; f++) {
+      if (pcOf(0, f, key) === tonicPc || pcOf(1, f, key) === tonicPc) anchor = f;
+    }
+    if (anchor === null) anchor = minFret;
+    let startFret = Math.max(0, anchor - 1);
+    if (startFret + span - 1 > FRET_COUNT) startFret = FRET_COUNT - span + 1;
+    const endFret = startFret + span - 1;
+    const frets = [];
+    for (let f = startFret; f <= endFret; f++) frets.push(f);
+    const cells = [];
+    for (let s = 0; s < STANDARD_TUNING.length; s++) {
+      for (const f of frets) cells.push(degreeAt(s, f, key, mode));
+    }
+    const markers = frets.filter((f) => INLAYS.includes(f) || DOUBLE_INLAYS.includes(f)).map((f) => ({ fret: f, double: DOUBLE_INLAYS.includes(f) }));
+    return { key, mode, strings: [0, 1, 2, 3, 4, 5], startFret, endFret, frets, cells, markers, name: key + " " + mode + " @" + startFret };
+  }
+  var ANSWER_STRINGS_MAJOR = [1, 2, 3];
+  var ANSWER_STRINGS_MINOR = [0, 1, 2];
+  function answerBox(key, mode = "major") {
+    const minor = mode === "minor";
+    const strings = minor ? ANSWER_STRINGS_MINOR : ANSWER_STRINGS_MAJOR;
+    const anchorString = strings[0];
+    const homePc = minor ? 9 : 0;
+    let homeFret = 0;
+    for (let f = 0; f <= 12; f++) {
+      if (pcOf(anchorString, f, key) === homePc) {
+        homeFret = f;
+        break;
+      }
+    }
+    let startFret = minor ? homeFret : homeFret - 1;
+    if (startFret < 0) startFret += 12;
+    const frets = [startFret, startFret + 1, startFret + 2, startFret + 3];
+    const cells = [];
+    for (const s of strings) for (const f of frets) cells.push(degreeAt(s, f, key, mode));
+    const markers = frets.filter((f) => INLAYS.includes(f) || DOUBLE_INLAYS.includes(f)).map((f) => ({ fret: f, double: DOUBLE_INLAYS.includes(f) }));
+    return { key, mode, strings, startFret, endFret: startFret + 3, frets, cells, markers, name: key + " " + mode + " answer" };
+  }
+
   // src/.app.jsx
   var { useState, useRef, useEffect, useLayoutEffect, useCallback } = React;
   var OFFER_URL = "https://wejamimprovisation.com/strategy?utm_source=numbersong";
@@ -3748,7 +3813,51 @@ window.SOUNDTRACK = SOUNDTRACK;
       volume: -2
     }).toDestination();
   }
+  function buildGuitarVoice() {
+    const N = 6;
+    const voices = Array.from({ length: N }, () => {
+      const v = new Tone.PluckSynth({ attackNoise: 0.8, dampening: 3600, resonance: 0.93 }).toDestination();
+      v.volume.value = -3;
+      return v;
+    });
+    let rr = 0;
+    const held = /* @__PURE__ */ new Map();
+    return {
+      triggerAttack(note) {
+        const v = voices[rr++ % N];
+        held.set(note, v);
+        try {
+          v.triggerAttack(note);
+        } catch (e) {
+        }
+      },
+      triggerRelease(note) {
+        const v = held.get(note);
+        held.delete(note);
+        try {
+          v && v.triggerRelease && v.triggerRelease(Tone.now());
+        } catch (e) {
+        }
+      },
+      releaseAll() {
+        held.clear();
+        try {
+          voices.forEach((v) => v.triggerRelease && v.triggerRelease(Tone.now()));
+        } catch (e) {
+        }
+      },
+      dispose() {
+        voices.forEach((v) => {
+          try {
+            v.dispose();
+          } catch (e) {
+          }
+        });
+      }
+    };
+  }
   function buildSusSynth(name) {
+    if (name === "guitar") return buildGuitarVoice();
     const P = {
       pad: [Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 0.35, decay: 0.2, sustain: 0.85, release: 0.9 } }, -12],
       lead: [Tone.MonoSynth, { oscillator: { type: "sawtooth" }, envelope: { attack: 0.02, decay: 0.1, sustain: 0.8, release: 0.25 }, filterEnvelope: { attack: 0.03, decay: 0.2, sustain: 0.6, baseFrequency: 350, octaves: 3.2 } }, -15],
@@ -4123,6 +4232,38 @@ window.SOUNDTRACK = SOUNDTRACK;
     const susRef = useRef(null);
     const susVoiceRef = useRef("piano");
     const susInst = () => susVoiceRef.current === "piano" ? synthRef.current : susRef.current;
+    const guitarBuffersRef = useRef(null);
+    const guitarLoadRef = useRef(null);
+    const loadGuitarBuffers = useCallback(async () => {
+      if (guitarBuffersRef.current) return guitarBuffersRef.current;
+      if (!guitarLoadRef.current) {
+        guitarLoadRef.current = (async () => {
+          const URLS = { E2: "E2.mp3", A2: "A2.mp3", C3: "C3.mp3", "F#3": "Fs3.mp3", A3: "A3.mp3", C4: "C4.mp3", "F#4": "Fs4.mp3", A4: "A4.mp3", C5: "C5.mp3" };
+          const BASE = "https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-acoustic/";
+          const loaded = await Promise.race([
+            Promise.all(Object.entries(URLS).map(([n, f]) => new Promise((res) => {
+              const b = new Tone.ToneAudioBuffer(BASE + f, () => res([n, b]), () => res(null));
+            }))),
+            new Promise((res) => setTimeout(() => res(null), 8e3))
+          ]);
+          if (Array.isArray(loaded)) {
+            const ok = loaded.filter(Boolean);
+            if (ok.length) guitarBuffersRef.current = Object.fromEntries(ok.map(([n, b]) => [n, b.get()]));
+          }
+          if (!guitarBuffersRef.current) console.warn("[numbersong] guitar samples unavailable (offline/timed out) — using the pluck synth fallback.");
+          return guitarBuffersRef.current;
+        })();
+      }
+      return guitarLoadRef.current;
+    }, []);
+    const buildGuitarInst = () => {
+      if (guitarBuffersRef.current) {
+        const s = new Tone.Sampler({ urls: guitarBuffersRef.current, release: 1 }).toDestination();
+        s.volume.value = -3;
+        return s;
+      }
+      return buildGuitarVoice();
+    };
     const setSustainVoice = useCallback(async (name) => {
       await ensure();
       susVoiceRef.current = name;
@@ -4134,11 +4275,19 @@ window.SOUNDTRACK = SOUNDTRACK;
         }
         susRef.current = null;
       }
-      if (name !== "piano") susRef.current = buildSusSynth(name);
-    }, [ensure]);
+      if (name === "guitar") {
+        await loadGuitarBuffers();
+        if (susVoiceRef.current !== "guitar") return;
+        susRef.current = buildGuitarInst();
+      } else if (name !== "piano") {
+        susRef.current = buildSusSynth(name);
+      }
+    }, [ensure, loadGuitarBuffers]);
     const holdNote = useCallback(async (note) => {
       await ensure();
-      if (susVoiceRef.current !== "piano" && !susRef.current) susRef.current = buildSusSynth(susVoiceRef.current);
+      if (susVoiceRef.current !== "piano" && !susRef.current) {
+        susRef.current = susVoiceRef.current === "guitar" ? buildGuitarInst() : buildSusSynth(susVoiceRef.current);
+      }
       try {
         susInst()?.triggerAttack(note);
       } catch (e) {
@@ -4739,7 +4888,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
     )), bk.map((x, i) => /* @__PURE__ */ React.createElement("rect", { key: i, x, y: "0", width: "20", height: "60", rx: "2.5", fill: "#232825" })), /* @__PURE__ */ React.createElement("path", { d: "M64 104 L64 108 L128 108 L128 104", fill: "none", stroke: "#57C6C4", strokeWidth: "2" }), /* @__PURE__ */ React.createElement("text", { x: "96", y: "126", textAnchor: "middle", fontSize: "11", fontWeight: "700", fill: "#57C6C4" }, "half step")), /* @__PURE__ */ React.createElement("span", { className: "hs-cap" }, "Piano · next-door keys")), /* @__PURE__ */ React.createElement("div", { className: "hs-fig" }, /* @__PURE__ */ React.createElement("svg", { width: "196", height: "120", viewBox: "0 0 224 132", "aria-label": "Guitar: two adjacent frets are a half step" }, /* @__PURE__ */ React.createElement("rect", { x: "6", y: "6", width: "212", height: "82", rx: "4", fill: "#4a3a29", stroke: "#2b2114", strokeWidth: "2" }), [8, 52, 96, 140, 184].map((x, i) => /* @__PURE__ */ React.createElement("line", { key: i, x1: x, y1: "6", x2: x, y2: "88", stroke: i === 0 ? "#cbb892" : "#8a7a5e", strokeWidth: i === 0 ? 5 : 2 })), [16, 28, 40, 52, 64, 76].map((y, i) => /* @__PURE__ */ React.createElement("line", { key: i, x1: "8", y1: y, x2: "216", y2: y, stroke: "#d8cba8", strokeWidth: "1", opacity: "0.7" })), /* @__PURE__ */ React.createElement("circle", { cx: "30", cy: "52", r: "8", fill: "#57C6C4", stroke: "#0f1c1a", strokeWidth: "1.5" }), /* @__PURE__ */ React.createElement("circle", { cx: "74", cy: "52", r: "8", fill: "#57C6C4", stroke: "#0f1c1a", strokeWidth: "1.5" }), /* @__PURE__ */ React.createElement("path", { d: "M30 100 L30 104 L74 104 L74 100", fill: "none", stroke: "#57C6C4", strokeWidth: "2" }), /* @__PURE__ */ React.createElement("text", { x: "52", y: "126", textAnchor: "middle", fontSize: "11", fontWeight: "700", fill: "#57C6C4" }, "half step")), /* @__PURE__ */ React.createElement("span", { className: "hs-cap" }, "Guitar · next-door frets")));
   }
-  function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singInTune, onDown, onUp }) {
+  function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singInTune, onDown, onUp, lo = 0, hi = 24, home }) {
     const evts = (k) => ({ onPointerDown: (e) => {
       try {
         e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -4753,10 +4902,11 @@ window.SOUNDTRACK = SOUNDTRACK;
     exploreNotes(start, count).forEach((n) => {
       labels[n.semi] = n.label;
       if (n.semi + 12 <= 24) labels[n.semi + 12] = n.label;
+      labels[n.semi - 12] = n.label;
     });
     const chordal = worldChordTones(world);
     const isBlack = (s) => BLACK_PCS.includes(((baseMidi + s) % 12 + 12) % 12);
-    let sStart = 0, sEnd = 24;
+    let sStart = lo, sEnd = hi;
     while (isBlack(sStart)) sStart--;
     while (isBlack(sEnd)) sEnd++;
     const keys = [];
@@ -4770,7 +4920,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const wW = 100 / nWhites;
     const bW = wW * 0.62;
     const singCls = (s) => labels[s] != null && labels[s] === singDeg ? singInTune ? " singing in" : " singing off" : "";
-    const homeDeg = world || 1;
+    const homeDeg = home != null ? home : world || 1;
     const keyLabel = (s) => {
       const lab = labels[s];
       if (lab == null || stage === 1) return null;
@@ -5427,6 +5577,85 @@ window.SOUNDTRACK = SOUNDTRACK;
     const next = nodes.find((n) => !collected.has(H.stageFrag[n.id]));
     return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" + (restored ? " restored" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top", role: "navigation", "aria-label": "Map controls" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", width: "32", height: "24", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG"), restored && /* @__PURE__ */ React.createElement("em", { className: "adv-restored-tag" }, " · restored")), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear gear-settings", onClick: onSettings, "aria-label": "Settings" }, "⚙")), showOffer && /* @__PURE__ */ React.createElement("button", { className: "adv-offer-badge", onClick: onOffer, "aria-label": "Learn to really play — the full program" }, /* @__PURE__ */ React.createElement("img", { className: "adv-offer-glyph", src: typeof window !== "undefined" ? window.GUITAR_ICON : "", alt: "", "aria-hidden": "true", width: "30", height: "30" }), /* @__PURE__ */ React.createElement("span", { className: "adv-offer-label" }, "Play for real")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), celebrateNode && H.nodes[celebrateNode - 1] && /* @__PURE__ */ React.createElement("div", { className: "map-cleared", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "map-cleared-star" }, "★"), /* @__PURE__ */ React.createElement("span", { className: "map-cleared-text" }, H.nodes[celebrateNode - 1].name, /* @__PURE__ */ React.createElement("em", null, "region cleared"))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("div", { className: "adv-forge-chip" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost shop-btn", onClick: onShop, "aria-label": "Shop" }, "★"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"))));
   }
+  var FRETBOARD_CSS = `
+.fretboard { display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.fretboard svg { display:block; margin:0 auto; max-width:100%; height:auto; touch-action:none; }
+.fb-hit { cursor:pointer; }
+`;
+  function Fretboard({ musicKey, mode = "major", boxKind = "position", active = [], fb, disabled = false, onDown, onUp, onAnswer }) {
+    const answer = boxKind === "answer";
+    const box = answer ? answerBox(musicKey, mode) : positionBox(musicKey, mode, { minFret: 2 });
+    const strings = box.strings, frets = box.frets, startFret = box.startFret;
+    const nS = strings.length, nWin = frets.length;
+    const fw = answer ? 84 : 76, sh = answer ? 54 : 36, padX = 24, padTop = 22, padBot = 34;
+    const W = padX * 2 + nWin * fw, H = padTop + padBot + (nS - 1) * sh;
+    const rowOf = (s) => nS - 1 - strings.indexOf(s);
+    const wireX = (i) => padX + i * fw;
+    const spaceX = (f) => padX + (f - startFret + 0.5) * fw;
+    const strY = (s) => padTop + rowOf(s) * sh;
+    const midY = padTop + (nS - 1) / 2 * sh;
+    const held = new Set(active);
+    const hit = fb && fb.hit != null ? fb.hit : null;
+    const wrong = new Set(fb && fb.wrong || []);
+    const reveal = new Set(fb && fb.reveal || []);
+    const dot = answer ? 21 : 17;
+    const els = [];
+    els.push(/* @__PURE__ */ React.createElement("rect", { key: "bd", x: padX - 14, y: padTop - 14, width: W - padX * 2 + 28, height: (nS - 1) * sh + 28, rx: "9", fill: "#26302c", stroke: "#121815", strokeWidth: "2" }));
+    [3, 5, 7, 9, 12].filter((f) => frets.includes(f)).forEach((f) => {
+      const x = spaceX(f);
+      if (f === 12) els.push(/* @__PURE__ */ React.createElement("circle", { key: "i12a", cx: x, cy: midY - sh, r: "7", fill: "#46524a" }), /* @__PURE__ */ React.createElement("circle", { key: "i12b", cx: x, cy: midY + sh, r: "7", fill: "#46524a" }));
+      else els.push(/* @__PURE__ */ React.createElement("circle", { key: "i" + f, cx: x, cy: midY, r: "7", fill: "#46524a" }));
+    });
+    strings.forEach((s, r) => els.push(/* @__PURE__ */ React.createElement("line", { key: "s" + s, x1: wireX(0), y1: strY(s), x2: wireX(nWin), y2: strY(s), stroke: "#b3bcb4", strokeWidth: 1.2 + (nS - 1 - r) * 0.5 })));
+    for (let i = 0; i <= nWin; i++) {
+      const nut = startFret - 1 + i === 0;
+      els.push(/* @__PURE__ */ React.createElement("line", { key: "f" + i, x1: wireX(i), y1: strY(strings[0]), x2: wireX(i), y2: strY(strings[nS - 1]), stroke: nut ? "#cdd3cb" : "#59635c", strokeWidth: nut ? 6 : 2.5 }));
+    }
+    frets.forEach((f) => els.push(/* @__PURE__ */ React.createElement("text", { key: "l" + f, x: spaceX(f), y: H - 11, textAnchor: "middle", fontSize: "13", fontWeight: "700", fill: "#8b958c", fontFamily: "ui-monospace,monospace" }, f)));
+    box.cells.forEach((c) => {
+      const id = c.string + ":" + c.fret, x = spaceX(c.fret), y = strY(c.string);
+      let fill = c.isTonic ? "#57C6C4" : "#f2f5f1", mark = null;
+      if (answer && hit != null && c.pc === hit) {
+        fill = "#6ABF5E";
+        mark = "✓";
+      } else if (answer && wrong.has(c.pc)) {
+        fill = "#E07856";
+        mark = "✕";
+      } else if (answer && reveal.has(c.pc)) {
+        fill = "#57C6C4";
+      } else if (!answer && held.has(id)) {
+        fill = "#6ABF5E";
+      }
+      if (c.inKey) {
+        els.push(/* @__PURE__ */ React.createElement("circle", { key: "n" + id, cx: x, cy: y, r: dot, fill, stroke: "#121815", strokeWidth: "1.5" }));
+        els.push(/* @__PURE__ */ React.createElement("text", { key: "t" + id, x, y: y + 5, textAnchor: "middle", fontSize: answer ? 19 : 15, fontWeight: "800", fill: "#16201f", fontFamily: "'Archivo Black',sans-serif", style: { pointerEvents: "none" } }, c.degree));
+        if (mark) els.push(/* @__PURE__ */ React.createElement("text", { key: "m" + id, x, y: y - dot - 3, textAnchor: "middle", fontSize: "14", fontWeight: "800", fill: mark === "✓" ? "#6ABF5E" : "#E07856", style: { pointerEvents: "none" } }, mark));
+        else if (c.isTonic) els.push(/* @__PURE__ */ React.createElement("text", { key: "st" + id, x, y: y - dot - 3, textAnchor: "middle", fontSize: "13", fill: "#57C6C4", style: { pointerEvents: "none" } }, "★"));
+      } else {
+        const dfill = answer && wrong.has(c.pc) ? "#E07856" : answer && reveal.has(c.pc) ? "#57C6C4" : !answer && held.has(id) ? "#6ABF5E" : "#8b958c";
+        els.push(/* @__PURE__ */ React.createElement("circle", { key: "c" + id, cx: x, cy: y, r: answer ? 6 : 4, fill: dfill }));
+      }
+      const evts = disabled ? {} : onAnswer ? {
+        onPointerDown: (e) => {
+          e.preventDefault();
+          onAnswer(c);
+        }
+      } : onDown ? {
+        onPointerDown: (e) => {
+          e.preventDefault();
+          try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+          } catch (er) {
+          }
+          onDown(c);
+        },
+        onPointerUp: () => onUp && onUp(c),
+        onPointerCancel: () => onUp && onUp(c)
+      } : {};
+      els.push(/* @__PURE__ */ React.createElement("rect", { key: "h" + id, className: "fb-hit", x: x - fw / 2, y: y - sh / 2, width: fw, height: sh, fill: "transparent", ...evts }));
+    });
+    return /* @__PURE__ */ React.createElement("div", { className: "fretboard" }, /* @__PURE__ */ React.createElement("style", null, FRETBOARD_CSS), /* @__PURE__ */ React.createElement("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img", "aria-label": "Guitar fretboard, " + musicKey + " " + mode }, els));
+  }
   function NumberEarTrainer() {
     const { playCadence, setCadenceSpeed, playDegree, playChord, playChordWR, playProgression, playSemi, sing, singMinor, minorShift, minorVoiceRef, sfx, lastSfxRef, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm } = useAudio();
     const { playTheme, stopMusic, setMusicOn } = useMusic();
@@ -5979,6 +6208,10 @@ window.SOUNDTRACK = SOUNDTRACK;
     const [voiceOn, setVoiceOn] = useState(true);
     const [busy, setBusy] = useState(false);
     const [theme, setTheme] = useState(() => loadPref("theme", "dark"));
+    const [instrument, setInstrument] = useState(() => {
+      const v = loadPref("instrument", "numbers");
+      return v === "piano" ? "keyboard" : ["numbers", "keyboard", "guitar"].includes(v) ? v : "numbers";
+    });
     const [testCfgOpen, setTestCfgOpen] = useState(false);
     const [resStep, setResStep] = useState(() => parseFloat(loadPref("resstep", "0.8")) || 0.8);
     const [progBeat, setProgBeat] = useState(() => parseFloat(loadPref("progbeat", "1.0")) || 1);
@@ -5989,6 +6222,9 @@ window.SOUNDTRACK = SOUNDTRACK;
       document.documentElement.setAttribute("data-theme", theme);
       savePref("theme", theme);
     }, [theme]);
+    useEffect(() => {
+      savePref("instrument", instrument);
+    }, [instrument]);
     useEffect(() => {
       let wasHidden = false;
       const quiet = (p) => {
@@ -6347,7 +6583,10 @@ window.SOUNDTRACK = SOUNDTRACK;
     const [exStage, setExStage] = useState(0);
     const [exWorld, setExWorld] = useState(1);
     const [exOctaves, setExOctaves] = useState(1);
-    const [exView, setExView] = useState("map");
+    const [exView, setExView] = useState(() => {
+      const v = loadPref("instrument", "numbers");
+      return v === "guitar" ? "guitar" : v === "piano" || v === "keyboard" ? "piano" : "map";
+    });
     const [droneOn, setDroneOn] = useState(false);
     const [droneVol, setDroneVol] = useState(() => {
       const v = parseFloat(loadPref("dronevol", "-8"));
@@ -7190,13 +7429,38 @@ window.SOUNDTRACK = SOUNDTRACK;
       setLitActive((a) => a.filter((x) => x !== id));
       releaseNote(noteOf(n.label, oct));
     };
+    const [fretActive, setFretActive] = useState([]);
+    const fretNote = (c) => Tone.Frequency(STANDARD_TUNING[c.string].midi + c.fret, "midi").toNote();
+    const fretDown = (c) => {
+      const id = c.string + ":" + c.fret;
+      setFretActive((a) => a.includes(id) ? a : [...a, id]);
+      holdNote(fretNote(c));
+      if (c.degree != null) singOct(String(c.degree), 0, voiceOn);
+    };
+    const fretUp = (c) => {
+      const id = c.string + ":" + c.fret;
+      setFretActive((a) => a.filter((x) => x !== id));
+      releaseNote(fretNote(c));
+    };
+    const prevSusRef = useRef(null);
+    useEffect(() => {
+      if (exView === "guitar") {
+        if (susVoice !== "guitar") {
+          prevSusRef.current = susVoice;
+          setSusVoice("guitar");
+        }
+      } else if (prevSusRef.current != null) {
+        setSusVoice(prevSusRef.current);
+        prevSusRef.current = null;
+      }
+    }, [exView]);
     const keyRow = /* @__PURE__ */ React.createElement("div", { className: "key-row" }, /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Key", /* @__PURE__ */ React.createElement("select", { value: musicKey, onChange: (e) => {
       setMusicKey(e.target.value);
       e.target.blur();
     } }, KEYS.map((k) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, k, " major")))), /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Sound", /* @__PURE__ */ React.createElement("select", { value: susVoice, onChange: (e) => {
       setSusVoice(e.target.value);
       e.target.blur();
-    } }, /* @__PURE__ */ React.createElement("option", { value: "piano" }, "Piano"), /* @__PURE__ */ React.createElement("option", { value: "pad" }, "Pad"), /* @__PURE__ */ React.createElement("option", { value: "lead" }, "Lead"), /* @__PURE__ */ React.createElement("option", { value: "strings" }, "Strings"))), (() => {
+    } }, /* @__PURE__ */ React.createElement("option", { value: "piano" }, "Piano"), /* @__PURE__ */ React.createElement("option", { value: "guitar" }, "Guitar"), /* @__PURE__ */ React.createElement("option", { value: "pad" }, "Pad"), /* @__PURE__ */ React.createElement("option", { value: "lead" }, "Lead"), /* @__PURE__ */ React.createElement("option", { value: "strings" }, "Strings"))), (() => {
       const on = fpTab === "paths" ? pathVoice : voiceOn;
       const set = fpTab === "paths" ? setPathVoice : setVoiceOn;
       return /* @__PURE__ */ React.createElement("button", { className: "ghost voice fp-keyrow-voice" + (on ? " on" : ""), onClick: () => set(!on), "aria-pressed": on }, on ? "Voice on" : "Voice off");
@@ -7450,7 +7714,16 @@ window.SOUNDTRACK = SOUNDTRACK;
       } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "Free play"), /* @__PURE__ */ React.createElement("span", { className: "card-desc" }, "Improvise and explore with the raw materials of music."))), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Every sound relates to home. One map to rule them all."));
     }
     if (screen === "settings") {
-      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => setScreen(auxReturn || (boringMode ? "home" : "menu")) }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Settings")), /* @__PURE__ */ React.createElement("div", { className: "settings" }, /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Theme"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: theme === "dark" ? "on" : "", onClick: () => setTheme("dark") }, "Dark"), /* @__PURE__ */ React.createElement("button", { className: theme === "light" ? "on" : "", onClick: () => setTheme("light") }, "Light"))), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Music"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "Chiptune soundtrack on the menu, map and dojo (drills stay silent)."), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: musicPref ? "on" : "", onClick: () => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => setScreen(auxReturn || (boringMode ? "home" : "menu")) }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Settings")), /* @__PURE__ */ React.createElement("div", { className: "settings" }, /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Theme"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: theme === "dark" ? "on" : "", onClick: () => setTheme("dark") }, "Dark"), /* @__PURE__ */ React.createElement("button", { className: theme === "light" ? "on" : "", onClick: () => setTheme("light") }, "Light"))), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "How you answer"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "Answer with numbers, a piano, or a guitar fretboard — in tests and in Free Play. You can also change it mid-test from the ⚙."), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: instrument === "numbers" ? "on" : "", onClick: () => {
+        setInstrument("numbers");
+        setExView("map");
+      } }, "Numbers"), /* @__PURE__ */ React.createElement("button", { className: instrument === "keyboard" ? "on" : "", onClick: () => {
+        setInstrument("keyboard");
+        setExView("piano");
+      } }, "Keyboard"), /* @__PURE__ */ React.createElement("button", { className: instrument === "guitar" ? "on" : "", onClick: () => {
+        setInstrument("guitar");
+        setExView("guitar");
+      } }, "Guitar"))), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Music"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "Chiptune soundtrack on the menu, map and dojo (drills stay silent)."), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: musicPref ? "on" : "", onClick: () => {
         setMusicPref(true);
         setMusicOn(true);
       } }, "On"), /* @__PURE__ */ React.createElement("button", { className: !musicPref ? "on" : "", onClick: () => {
@@ -7731,7 +8004,7 @@ window.SOUNDTRACK = SOUNDTRACK;
               .test-cfg .tempo-row input[type=range]{ flex:1; accent-color:var(--teal,#57C6C4); height:24px; }
               .test-cfg .tempo-val{ font-variant-numeric:tabular-nums; min-width:3.4em; text-align:right; font-weight:700; color:var(--teal,#57C6C4); }
               .retro .test-cfg .tempo-val{ font-family:var(--pf); font-size:11px; }
-            `), /* @__PURE__ */ React.createElement("div", { className: "test-cfg", onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("p", { className: "tc-title" }, "Test settings"), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Tempo"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "How fast the cadence plays at the start of each question."), /* @__PURE__ */ React.createElement("div", { className: "tempo-row" }, /* @__PURE__ */ React.createElement(
+            `), /* @__PURE__ */ React.createElement("div", { className: "test-cfg", onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("p", { className: "tc-title" }, "Test settings"), mode === "melody" && /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "How you answer"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: instrument === "numbers" ? "on" : "", onClick: () => setInstrument("numbers") }, "Numbers"), /* @__PURE__ */ React.createElement("button", { className: instrument === "keyboard" ? "on" : "", onClick: () => setInstrument("keyboard") }, "Keyboard"), /* @__PURE__ */ React.createElement("button", { className: instrument === "guitar" ? "on" : "", onClick: () => setInstrument("guitar") }, "Guitar"))), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Tempo"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "How fast the cadence plays at the start of each question."), /* @__PURE__ */ React.createElement("div", { className: "tempo-row" }, /* @__PURE__ */ React.createElement(
         "input",
         {
           type: "range",
@@ -7812,7 +8085,37 @@ window.SOUNDTRACK = SOUNDTRACK;
           "aria-pressed": showRef
         },
         "Chord chart"
-      ), /* @__PURE__ */ React.createElement("p", { className: "hint grow" + (tutCoach ? " tut-coach-line" : ""), role: "status", "aria-live": "polite" }, phase === "playing" ? tutCoach ? "Verda plays a number… listen." : "Listen…" : feedback && feedback.roman ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.sym), " ", /* @__PURE__ */ React.createElement("em", { className: "numlabel" }, feedback.num), " · ", feedback.quality, ". ", CHORD_INSIGHTS[feedback.roman]) : feedback && feedback.prog ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.prog.join("–")), " — nailed the changes.") : feedback ? feedback : mode === "melody" ? tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?" : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.` : "Tap the chords you heard, in order."), /* @__PURE__ */ React.createElement("div", { className: "sr-only", role: "status", "aria-live": "polite" }, srMsg)), mode === "melody" ? lvl.chromatic ? /* @__PURE__ */ React.createElement("div", { className: "numpad chromatic" }, chromOrder.map((pc) => {
+      ), /* @__PURE__ */ React.createElement("p", { className: "hint grow" + (tutCoach ? " tut-coach-line" : ""), role: "status", "aria-live": "polite" }, phase === "playing" ? tutCoach ? "Verda plays a number… listen." : "Listen…" : feedback && feedback.roman ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.sym), " ", /* @__PURE__ */ React.createElement("em", { className: "numlabel" }, feedback.num), " · ", feedback.quality, ". ", CHORD_INSIGHTS[feedback.roman]) : feedback && feedback.prog ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.prog.join("–")), " — nailed the changes.") : feedback ? feedback : mode === "melody" ? tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?" : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.` : "Tap the chords you heard, in order."), /* @__PURE__ */ React.createElement("div", { className: "sr-only", role: "status", "aria-live": "polite" }, srMsg)), mode === "melody" ? instrument === "guitar" && !lvl.chromatic ? /* @__PURE__ */ React.createElement(
+        Fretboard,
+        {
+          boxKind: "answer",
+          musicKey: sessKey,
+          mode: isMinor ? "minor" : "major",
+          disabled: phase !== "answer",
+          fb: { hit: hitPad, wrong: litWrong, reveal: revealPc != null ? [revealPc] : [] },
+          onAnswer: (c) => answerMelodySession(c.pc)
+        }
+      ) : instrument === "keyboard" ? /* @__PURE__ */ React.createElement(
+        PianoMap,
+        {
+          start: 1,
+          count: 8,
+          stage: 0,
+          world: null,
+          musicKey: sessKey,
+          active: [],
+          singDeg: null,
+          singInTune: false,
+          lo: isMinor ? -5 : -1,
+          hi: isMinor ? 11 : 14,
+          home: isMinor ? 6 : 1,
+          onDown: (k) => {
+            if (phase === "answer") answerMelodySession(mod12(k.s));
+          },
+          onUp: () => {
+          }
+        }
+      ) : lvl.chromatic ? /* @__PURE__ */ React.createElement("div", { className: "numpad chromatic" }, chromOrder.map((pc) => {
         const out = !pool.includes(pc);
         return /* @__PURE__ */ React.createElement(
           "button",
@@ -8584,7 +8887,19 @@ window.SOUNDTRACK = SOUNDTRACK;
         onClick: () => setExOctaves(exOctaves === 2 ? 1 : 2)
       },
       "+ Octave"
-    ), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setExView(exView === "map" ? "piano" : "map") }, exView === "map" ? "Piano view" : "Map view"), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ React.createElement("div", { className: "seg fp-view-seg", role: "group", "aria-label": "View" }, ["map", "piano", "guitar"].map((v) => /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: v,
+        className: exView === v ? "on" : "",
+        "aria-pressed": exView === v,
+        onClick: () => {
+          setExView(v);
+          setInstrument(v === "map" ? "numbers" : v === "piano" ? "keyboard" : "guitar");
+        }
+      },
+      v === "map" ? "Map" : v === "piano" ? "Piano" : "Guitar"
+    ))), /* @__PURE__ */ React.createElement(
       "button",
       {
         className: "ghost voice fp-voice-bar" + (voiceOn ? " on" : ""),
@@ -8624,7 +8939,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
       const offset = Math.max(-50, Math.min(50, singCents)) / 50 * 42;
       return /* @__PURE__ */ React.createElement("div", { className: "sing-panel" }, /* @__PURE__ */ React.createElement("div", { className: "sing-track " + state }, /* @__PURE__ */ React.createElement("span", { className: "sing-end flat" }, "flat ◄"), /* @__PURE__ */ React.createElement("span", { className: "sing-end sharp" }, "► sharp"), /* @__PURE__ */ React.createElement("div", { className: "sing-zone" }), /* @__PURE__ */ React.createElement("div", { className: "sing-center" }), singDeg != null && !micReq && /* @__PURE__ */ React.createElement("div", { className: "sing-marker", style: { left: `${50 + offset}%` } }, singDeg === 1 ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "tonic-star" }, "★"), "1") : singDeg)), /* @__PURE__ */ React.createElement("div", { className: "sing-level" }, /* @__PURE__ */ React.createElement("div", { className: "sing-level-fill", style: { width: `${Math.round(singLevel * 100)}%` } })), /* @__PURE__ */ React.createElement("p", { className: "sing-coach" }, coach), /* @__PURE__ */ React.createElement("p", { className: "sing-privacy" }, "🔒 The mic is only used on your device to hear your pitch — nothing is recorded, saved, or sent anywhere."));
-    })()), /* @__PURE__ */ React.createElement("div", { className: "fp-main" }, exView === "map" ? /* @__PURE__ */ React.createElement(
+    })()), /* @__PURE__ */ React.createElement("div", { className: "fp-main" }, exView === "guitar" ? /* @__PURE__ */ React.createElement(Fretboard, { musicKey, mode: "major", active: fretActive, onDown: fretDown, onUp: fretUp }) : exView === "map" ? /* @__PURE__ */ React.createElement(
       ExploreMap,
       {
         start: exStart,
