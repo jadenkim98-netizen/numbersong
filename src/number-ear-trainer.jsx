@@ -512,6 +512,8 @@ function useAudio() {
     else if (name === "correct") { beep(880, 0.09, 0, "triangle"); beep(1319, 0.1, 0.09, "triangle"); }
     else if (name === "victory") [659, 784, 1047, 1319].forEach((f, i) => beep(f, 0.18, i * 0.095, "triangle"));
     else if (name === "twinkle") [2093, 2637, 3136, 2349, 1760].forEach((fr, i) => beep(fr, 0.11, i * 0.05, "triangle"));
+    // Dojo entry: a struck temple bell (warm fifth) with a soft shimmer tail.
+    else if (name === "dojo") { beep(392, 0.55, 0, "triangle"); beep(587, 0.6, 0.01, "triangle"); beep(1175, 0.28, 0.14, "triangle"); }
   }, [ensure]);
 
   // big triumphant fanfare for forging a fragment — layered: lead run + chord,
@@ -1605,7 +1607,7 @@ function MapTour({ onClose, onSfx }) {
   );
 }
 
-function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, onOffer, showOffer, burst, boringMode, celebrateNode, onCelebrateDone, skinId, onReady }) {
+function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, onOffer, showOffer, sfx, burst, boringMode, celebrateNode, onCelebrateDone, skinId, onReady }) {
   const H = window.HARMONIA;
   const mapRef = useRef(null);
   const swordRef = useRef(null);
@@ -1825,6 +1827,7 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
     if (dojoD < 22 * 22 && dojoD <= bd) { // the dojo (Free Play) was tapped
       const c0 = codaRef.current;
       const atDojo = c0 && Math.round(c0.c) === DOJO.c && Math.round(c0.r) === DOJO.r;
+      try { sfx && sfx("dojo"); } catch (e) {}
       if (boringMode || atDojo) onFree(); else walkTo(DOJO, () => onFree());
       return;
     }
@@ -2493,6 +2496,19 @@ export default function NumberEarTrainer() {
       if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} }
     };
   }, [upsellOpen, forgeOpen, encounterNode]);
+
+  // ── little "back" blip on any back / soft-dismiss button ──
+  // One delegated listener (capture phase, so it fires regardless of a button's
+  // own handler) gives every current & future `.back` and `.dismiss` button the
+  // back sound, without threading sfx() through each onClick.
+  useEffect(() => {
+    const onClick = (e) => {
+      const b = e.target && e.target.closest && e.target.closest("button.back, button.dismiss");
+      if (b && !b.disabled) { try { sfx("back"); } catch (err) {} }
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, [sfx]);
 
   // guide
   const [guidePage, setGuidePage] = useState(0);
@@ -3319,7 +3335,7 @@ export default function NumberEarTrainer() {
         <h2 className="forge-title">This is where it gets good</h2>
         <p className="upsell-copy">You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program for guitarists.</p>
         <div className="enc-actions">
-          <button className="ghost" onClick={() => setUpsellOpen(false)}>Maybe later</button>
+          <button className="ghost dismiss" onClick={() => setUpsellOpen(false)}>Maybe later</button>
           <a className="primary offer-link" href={OFFER_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("offer_click", { where: "upsell" })}>Show me how →</a>
         </div>
       </div>
@@ -3369,7 +3385,7 @@ export default function NumberEarTrainer() {
       <div className="app menu-screen">
         <style>{CSS}</style>
         <header className="top-slim">
-          <button className="back" onClick={() => { sfx("back"); setScreen("menu"); }}>← Menu</button>
+          <button className="back" onClick={() => setScreen("menu")}>← Menu</button>
           <h2 className="screen-title">Tutorials</h2>
         </header>
         <div className="menu-list">
@@ -3401,7 +3417,7 @@ export default function NumberEarTrainer() {
       <div className="app">
         <style>{CSS}</style>
         <header className="top-slim">
-          <button className="back" onClick={() => { sfx("back"); setScreen("menu"); }}>← Menu</button>
+          <button className="back" onClick={() => setScreen("menu")}>← Menu</button>
           <h2 className="screen-title">Basic Training</h2>
         </header>
         <div className="cards">
@@ -3439,7 +3455,7 @@ export default function NumberEarTrainer() {
           onSettings={() => { setAuxReturn("adventure"); setScreen("settings"); }}
           onGuide={() => { setAuxReturn("adventure"); setGuidePage(0); setScreen("guide"); }}
           onFree={() => { setAuxReturn("adventure"); setFpTab("notes"); setScreen("learn"); }}
-          onOffer={() => openUpsell("map_corner")} showOffer={gated}
+          onOffer={() => openUpsell("map_corner")} showOffer={gated} sfx={sfx}
           onReady={() => setMapReady(true)} />
         {en && (
           <div className="encounter-modal" onClick={() => setEncounterNode(null)}>
@@ -3464,7 +3480,7 @@ export default function NumberEarTrainer() {
               <p className="stage-goal">{stageGoal(enMode, enTitle)}</p>
               <span className="stage-meta">{enLevels} levels · {enModeLabel} · earn {en.short}'s mark → ◆</span>
               <div className="enc-actions">
-                <button className="ghost" onClick={() => setEncounterNode(null)}>Not yet</button>
+                <button className="ghost dismiss" onClick={() => setEncounterNode(null)}>Not yet</button>
                 <button className="primary" onClick={() => { const id = encounterNode; sfx("select"); setEncounterNode(null); enterStage({ id }); }}>Continue →</button>
               </div>
             </div>
@@ -4277,7 +4293,7 @@ export default function NumberEarTrainer() {
                     <button className="primary" onClick={submitLead} disabled={leadStatus === "sending"}>
                       {leadStatus === "sending" ? "Sending…" : "Send me the PDF"}
                     </button>
-                    <button className="ghost" onClick={finishOnboarding}>Maybe later</button>
+                    <button className="ghost dismiss" onClick={finishOnboarding}>Maybe later</button>
                   </div>
                 </>
               )}
@@ -4793,7 +4809,7 @@ export default function NumberEarTrainer() {
         </header>
         <section className="panel">{pages[guidePage]}</section>
         <div className="pager">
-          <button className="ghost" disabled={guidePage === 0} onClick={() => setGuidePage((p) => p - 1)}>← Back</button>
+          <button className="ghost dismiss" disabled={guidePage === 0} onClick={() => setGuidePage((p) => p - 1)}>← Back</button>
           <div className="dots">
             {pages.map((_, i) => <span key={i} className={"dot" + (i === guidePage ? " on" : "")} />)}
           </div>

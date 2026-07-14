@@ -3398,6 +3398,11 @@ window.SOUNDTRACK = SOUNDTRACK;
         beep(1319, 0.1, 0.09, "triangle");
       } else if (name === "victory") [659, 784, 1047, 1319].forEach((f, i) => beep(f, 0.18, i * 0.095, "triangle"));
       else if (name === "twinkle") [2093, 2637, 3136, 2349, 1760].forEach((fr, i) => beep(fr, 0.11, i * 0.05, "triangle"));
+      else if (name === "dojo") {
+        beep(392, 0.55, 0, "triangle");
+        beep(587, 0.6, 0.01, "triangle");
+        beep(1175, 0.28, 0.14, "triangle");
+      }
     }, [ensure]);
     const fanfareRef = useRef(null);
     const fanfare = useCallback(async () => {
@@ -4519,7 +4524,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       last ? onClose() : setStep(step + 1);
     } }, last ? "Let's go!" : "Next ▸")))));
   }
-  function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, onOffer, showOffer, burst, boringMode, celebrateNode, onCelebrateDone, skinId, onReady }) {
+  function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, onOffer, showOffer, sfx, burst, boringMode, celebrateNode, onCelebrateDone, skinId, onReady }) {
     const H = window.HARMONIA;
     const mapRef = useRef(null);
     const swordRef = useRef(null);
@@ -4785,6 +4790,10 @@ window.SOUNDTRACK = SOUNDTRACK;
       if (dojoD < 22 * 22 && dojoD <= bd) {
         const c0 = codaRef.current;
         const atDojo = c0 && Math.round(c0.c) === DOJO.c && Math.round(c0.r) === DOJO.r;
+        try {
+          sfx && sfx("dojo");
+        } catch (e2) {
+        }
         if (boringMode || atDojo) onFree();
         else walkTo(DOJO, () => onFree());
         return;
@@ -5606,6 +5615,19 @@ window.SOUNDTRACK = SOUNDTRACK;
         }
       };
     }, [upsellOpen, forgeOpen, encounterNode]);
+    useEffect(() => {
+      const onClick = (e) => {
+        const b = e.target && e.target.closest && e.target.closest("button.back, button.dismiss");
+        if (b && !b.disabled) {
+          try {
+            sfx("back");
+          } catch (err) {
+          }
+        }
+      };
+      document.addEventListener("click", onClick, true);
+      return () => document.removeEventListener("click", onClick, true);
+    }, [sfx]);
     const [guidePage, setGuidePage] = useState(0);
     const playPhrase = (degs) => {
       if (busy) return;
@@ -6443,7 +6465,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         (c, i) => c.gap ? /* @__PURE__ */ React.createElement("div", { key: i, className: "bi-cl bi-gap" }, /* @__PURE__ */ React.createElement("i", { className: "bi-st" }), /* @__PURE__ */ React.createElement("span", { className: "bi-mid" }, /* @__PURE__ */ React.createElement("s", null)), /* @__PURE__ */ React.createElement("u", { className: "bi-sol" })) : /* @__PURE__ */ React.createElement("div", { key: i, className: "bi-cl " + c.d + (c.tonic ? " tonic" : "") }, /* @__PURE__ */ React.createElement("i", { className: "bi-st" }, c.tonic ? "✱" : ""), /* @__PURE__ */ React.createElement("b", { className: "bi-pad" }, c.n), /* @__PURE__ */ React.createElement("u", { className: "bi-sol" }, c.sol))
       ))), /* @__PURE__ */ React.createElement("div", { className: "bi-wave" }, Array.from({ length: 24 }).map((_, i) => /* @__PURE__ */ React.createElement("i", { key: i })))), /* @__PURE__ */ React.createElement("img", { className: "bi-coda", src: typeof window !== "undefined" ? window.CODA_VICTORY : "", alt: "", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("button", { className: "bi-cta", onClick: bootAdvance }, "START YOUR EAR QUEST"), /* @__PURE__ */ React.createElement("div", { className: "bi-foot" }, "EVERY NOTE IS ON THE MAP"));
     }
-    const upsellModal = upsellOpen ? /* @__PURE__ */ React.createElement("div", { className: "forge-modal upsell-modal", onClick: () => setUpsellOpen(false) }, /* @__PURE__ */ React.createElement("div", { className: "forge-panel upsell-panel", role: "dialog", "aria-modal": "true", "aria-label": "Keep going — the full program", tabIndex: -1, ref: upsellPanelRef, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("span", { className: "forge-kicker" }, "✦ Keep going ✦"), /* @__PURE__ */ React.createElement("h2", { className: "forge-title" }, "This is where it gets good"), /* @__PURE__ */ React.createElement("p", { className: "upsell-copy" }, "You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program for guitarists."), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setUpsellOpen(false) }, "Maybe later"), /* @__PURE__ */ React.createElement("a", { className: "primary offer-link", href: OFFER_URL, target: "_blank", rel: "noopener noreferrer", onClick: () => track("offer_click", { where: "upsell" }) }, "Show me how →")))) : null;
+    const upsellModal = upsellOpen ? /* @__PURE__ */ React.createElement("div", { className: "forge-modal upsell-modal", onClick: () => setUpsellOpen(false) }, /* @__PURE__ */ React.createElement("div", { className: "forge-panel upsell-panel", role: "dialog", "aria-modal": "true", "aria-label": "Keep going — the full program", tabIndex: -1, ref: upsellPanelRef, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("span", { className: "forge-kicker" }, "✦ Keep going ✦"), /* @__PURE__ */ React.createElement("h2", { className: "forge-title" }, "This is where it gets good"), /* @__PURE__ */ React.createElement("p", { className: "upsell-copy" }, "You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program for guitarists."), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost dismiss", onClick: () => setUpsellOpen(false) }, "Maybe later"), /* @__PURE__ */ React.createElement("a", { className: "primary offer-link", href: OFFER_URL, target: "_blank", rel: "noopener noreferrer", onClick: () => track("offer_click", { where: "upsell" }) }, "Show me how →")))) : null;
     if (screen === "menu") {
       const item = (icon, label, go) => /* @__PURE__ */ React.createElement("button", { className: "menu-item", onClick: () => {
         sfx("select");
@@ -6480,10 +6502,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         { chapter: "chordsMinor", flag: "tut4", icon: "🕯", title: "Undertone Caves", sub: "Bassil · minor chords — 6 · 2 · 3 · 4" }
       ];
       const passed = TUTS.filter((t) => loadPref(t.flag, "0") === "1");
-      return /* @__PURE__ */ React.createElement("div", { className: "app menu-screen" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
-        sfx("back");
-        setScreen("menu");
-      } }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Tutorials")), /* @__PURE__ */ React.createElement("div", { className: "menu-list" }, passed.length === 0 ? /* @__PURE__ */ React.createElement("p", { className: "set-desc", style: { textAlign: "center", padding: "20px 8px" } }, "No lessons yet — a keeper teaches you the first time you reach a new kind of world.") : passed.map((t) => /* @__PURE__ */ React.createElement("button", { key: t.chapter, className: "menu-item", onClick: () => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app menu-screen" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => setScreen("menu") }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Tutorials")), /* @__PURE__ */ React.createElement("div", { className: "menu-list" }, passed.length === 0 ? /* @__PURE__ */ React.createElement("p", { className: "set-desc", style: { textAlign: "center", padding: "20px 8px" } }, "No lessons yet — a keeper teaches you the first time you reach a new kind of world.") : passed.map((t) => /* @__PURE__ */ React.createElement("button", { key: t.chapter, className: "menu-item", onClick: () => {
         sfx("select");
         startTutorial(t.chapter);
       }, onMouseEnter: () => sfx("move") }, /* @__PURE__ */ React.createElement("span", { className: "mi-icon" }, t.icon), /* @__PURE__ */ React.createElement("span", { className: "tut-lib-txt" }, /* @__PURE__ */ React.createElement("b", null, t.title), /* @__PURE__ */ React.createElement("span", { className: "tut-lib-sub" }, t.sub))))), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Replay any lesson you've cleared."));
@@ -6493,10 +6512,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         sfx("select");
         go();
       } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, title), /* @__PURE__ */ React.createElement("span", { className: "card-desc" }, desc));
-      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
-        sfx("back");
-        setScreen("menu");
-      } }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Basic Training")), /* @__PURE__ */ React.createElement("div", { className: "cards" }, sec("Single notes", `Hear a note, name its degree. ${MELODY_GROUPS.length} stages.`, () => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => setScreen("menu") }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Basic Training")), /* @__PURE__ */ React.createElement("div", { className: "cards" }, sec("Single notes", `Hear a note, name its degree. ${MELODY_GROUPS.length} stages.`, () => {
         setMode("melody");
         setMelGroup(null);
         setScreen("levels");
@@ -6565,9 +6581,10 @@ window.SOUNDTRACK = SOUNDTRACK;
           },
           onOffer: () => openUpsell("map_corner"),
           showOffer: gated,
+          sfx,
           onReady: () => setMapReady(true)
         }
-      ), en && /* @__PURE__ */ React.createElement("div", { className: "encounter-modal", onClick: () => setEncounterNode(null) }, /* @__PURE__ */ React.createElement("div", { className: "encounter mood-" + en.mood, role: "dialog", "aria-modal": "true", "aria-label": "Keeper of " + en.name, tabIndex: -1, ref: encPanelRef, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "enc-head" }, /* @__PURE__ */ React.createElement("span", { className: "enc-emblem", "aria-hidden": "true" }, window.KEEPER_ART && window.KEEPER_ART[encounterNode] ? /* @__PURE__ */ React.createElement("img", { src: window.KEEPER_ART[encounterNode], alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block", imageRendering: "pixelated" } }) : en.emblem), /* @__PURE__ */ React.createElement("div", { className: "enc-titles" }, /* @__PURE__ */ React.createElement("span", { className: "kicker" }, "Region ", encounterNode, " · Harmonia"), /* @__PURE__ */ React.createElement("h2", { className: "encounter-title" }, en.name), /* @__PURE__ */ React.createElement("span", { className: "encounter-sub" }, enTitle)), /* @__PURE__ */ React.createElement("span", { className: "enc-frag" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), enFrag)), /* @__PURE__ */ React.createElement("p", { className: "keeper-line" }, /* @__PURE__ */ React.createElement("b", { className: "keeper-name" }, en.keeper), /* @__PURE__ */ React.createElement("q", null, en.greet)), /* @__PURE__ */ React.createElement("p", { className: "stage-goal" }, stageGoal(enMode, enTitle)), /* @__PURE__ */ React.createElement("span", { className: "stage-meta" }, enLevels, " levels · ", enModeLabel, " · earn ", en.short, "'s mark → ◆"), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setEncounterNode(null) }, "Not yet"), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => {
+      ), en && /* @__PURE__ */ React.createElement("div", { className: "encounter-modal", onClick: () => setEncounterNode(null) }, /* @__PURE__ */ React.createElement("div", { className: "encounter mood-" + en.mood, role: "dialog", "aria-modal": "true", "aria-label": "Keeper of " + en.name, tabIndex: -1, ref: encPanelRef, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "enc-head" }, /* @__PURE__ */ React.createElement("span", { className: "enc-emblem", "aria-hidden": "true" }, window.KEEPER_ART && window.KEEPER_ART[encounterNode] ? /* @__PURE__ */ React.createElement("img", { src: window.KEEPER_ART[encounterNode], alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block", imageRendering: "pixelated" } }) : en.emblem), /* @__PURE__ */ React.createElement("div", { className: "enc-titles" }, /* @__PURE__ */ React.createElement("span", { className: "kicker" }, "Region ", encounterNode, " · Harmonia"), /* @__PURE__ */ React.createElement("h2", { className: "encounter-title" }, en.name), /* @__PURE__ */ React.createElement("span", { className: "encounter-sub" }, enTitle)), /* @__PURE__ */ React.createElement("span", { className: "enc-frag" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), enFrag)), /* @__PURE__ */ React.createElement("p", { className: "keeper-line" }, /* @__PURE__ */ React.createElement("b", { className: "keeper-name" }, en.keeper), /* @__PURE__ */ React.createElement("q", null, en.greet)), /* @__PURE__ */ React.createElement("p", { className: "stage-goal" }, stageGoal(enMode, enTitle)), /* @__PURE__ */ React.createElement("span", { className: "stage-meta" }, enLevels, " levels · ", enModeLabel, " · earn ", en.short, "'s mark → ◆"), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost dismiss", onClick: () => setEncounterNode(null) }, "Not yet"), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => {
         const id = encounterNode;
         sfx("select");
         setEncounterNode(null);
@@ -7133,7 +7150,7 @@ window.SOUNDTRACK = SOUNDTRACK;
             if (e.key === "Enter") submitLead();
           }
         }
-      ), leadStatus === "error" && /* @__PURE__ */ React.createElement("span", { className: "lead-err" }, "Enter a valid email, or tap Maybe later."), /* @__PURE__ */ React.createElement("span", { className: "lead-consent" }, "We'll email you the free PDF. No spam — unsubscribe anytime."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: submitLead, disabled: leadStatus === "sending" }, leadStatus === "sending" ? "Sending…" : "Send me the PDF"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Maybe later")))), /* @__PURE__ */ React.createElement("div", { className: "results-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => isCustom ? startSession(mode, null, sessLvl) : startSession(mode, levelIdx) }, "Try again"), hasNext && /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => gated && !fromAdventure && !(mode === "melody" && isMelodyFree(levelIdx + 1)) ? openUpsell() : startSession(mode, levelIdx + 1) }, "Next level →"))));
+      ), leadStatus === "error" && /* @__PURE__ */ React.createElement("span", { className: "lead-err" }, "Enter a valid email, or tap Maybe later."), /* @__PURE__ */ React.createElement("span", { className: "lead-consent" }, "We'll email you the free PDF. No spam — unsubscribe anytime."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: submitLead, disabled: leadStatus === "sending" }, leadStatus === "sending" ? "Sending…" : "Send me the PDF"), /* @__PURE__ */ React.createElement("button", { className: "ghost dismiss", onClick: finishOnboarding }, "Maybe later")))), /* @__PURE__ */ React.createElement("div", { className: "results-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => isCustom ? startSession(mode, null, sessLvl) : startSession(mode, levelIdx) }, "Try again"), hasNext && /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => gated && !fromAdventure && !(mode === "melody" && isMelodyFree(levelIdx + 1)) ? openUpsell() : startSession(mode, levelIdx + 1) }, "Next level →"))));
     }
     if (screen === "shop") {
       const bal = starBalance();
@@ -7577,7 +7594,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         killSession();
         setBusy(false);
         setScreen(auxReturn || (boringMode ? "home" : "menu"));
-      } }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "How music works")), /* @__PURE__ */ React.createElement("section", { className: "panel" }, pages[guidePage]), /* @__PURE__ */ React.createElement("div", { className: "pager" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", disabled: guidePage === 0, onClick: () => setGuidePage((p) => p - 1) }, "← Back"), /* @__PURE__ */ React.createElement("div", { className: "dots" }, pages.map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "dot" + (i === guidePage ? " on" : "") }))), guidePage < pages.length - 1 ? /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => setGuidePage((p) => p + 1) }, "Next →") : /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => startSession("melody", 0) }, "Start training →")));
+      } }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "How music works")), /* @__PURE__ */ React.createElement("section", { className: "panel" }, pages[guidePage]), /* @__PURE__ */ React.createElement("div", { className: "pager" }, /* @__PURE__ */ React.createElement("button", { className: "ghost dismiss", disabled: guidePage === 0, onClick: () => setGuidePage((p) => p - 1) }, "← Back"), /* @__PURE__ */ React.createElement("div", { className: "dots" }, pages.map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "dot" + (i === guidePage ? " on" : "") }))), guidePage < pages.length - 1 ? /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => setGuidePage((p) => p + 1) }, "Next →") : /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => startSession("melody", 0) }, "Start training →")));
     }
     const stageLabels = ["Numbers on", "Blank pads"];
     const pathCurTones = fpTab === "paths" && pathPlaying && pathIdx >= 0 && pathProg[pathIdx] ? chordTones(chordByRoman(pathProg[pathIdx]), pathSevenths) : [];
