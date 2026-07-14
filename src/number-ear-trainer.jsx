@@ -499,7 +499,9 @@ function useAudio() {
 
   // Retro menu SFX (chiptune blips) — spec from the design pass.
   const sfxRef = useRef(null);
+  const lastSfxRef = useRef(0);
   const sfx = useCallback(async (name) => {
+    lastSfxRef.current = (typeof performance !== "undefined" ? performance.now() : 0); // mark that a sound just fired (global click-sound de-dupes off this)
     await ensure();
     if (!sfxRef.current) sfxRef.current = new Tone.Synth({ envelope: { attack: 0.006, decay: 0.08, sustain: 0, release: 0.05 }, volume: -17 }).toDestination();
     // +0.05s lead so the FIRST sound after audio-unlock (the boot chime) isn't
@@ -2216,6 +2218,7 @@ export default function NumberEarTrainer() {
   const [bossFx, setBossFx] = useState("");                  // "" | "hit" | "hurt" — one-shot HUD flash class
   const [bossOutcome, setBossOutcome] = useState(null);      // { region } while the defeat overlay is up (win reuses results)
   const [duelWinRegion, setDuelWinRegion] = useState(null);  // region whose duel was just WON → congrats banner on results (every win, not just first clear)
+  const [duelSay, setDuelSay] = useState("");                // keeper's speech-bubble line; persists (her reaction stays until the next question starts)
   const bossFxTimerRef = useRef(null);
   // Duel timed turns: a drain bar the player races each note. `duelTurn` bumps to (re)start
   // a fresh timed window (new question, or a restart after a timeout whiff); `duelSecs` is
@@ -2445,6 +2448,22 @@ export default function NumberEarTrainer() {
   // correct answer landing first must cancel the pending replay, not play over it.
   const phaseRef = useRef(phase); const busyRef = useRef(busy);
   useEffect(() => { phaseRef.current = phase; busyRef.current = busy; }, [phase, busy]);
+  // Global click sound: give every button a tick by default, so nothing feels dead. Skips
+  // the musical answer-pads (they make their own sound) and de-dupes against buttons that
+  // already played a specific sound in their own handler (back/select/victory/etc.).
+  useEffect(() => {
+    const NO_TICK = ".num, .explore-pad, .pk, .rung, .chip, .cu-note, .path-note, .bi-pad";
+    const onDocClick = (e) => {
+      const btn = e.target.closest && e.target.closest("button");
+      if (!btn || btn.disabled) return;
+      if (btn.matches(NO_TICK) || btn.closest(".numpad")) return;   // musical controls opt out
+      const now = typeof performance !== "undefined" ? performance.now() : 0;
+      if (now - lastSfxRef.current < 80) return;                    // its own handler already played a sound
+      try { sfx("move"); } catch (err) {}
+    };
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, [sfx]);
   const [feedback, setFeedback] = useState(null); // string or {roman}
   const [srMsg, setSrMsg] = useState(""); // visually-hidden live region: explicit "Correct / Not quite" for screen readers
   const [chPicked, setChPicked] = useState([]);
@@ -2902,7 +2921,7 @@ export default function NumberEarTrainer() {
     sess.current.boss = cfg;              // presence of .boss switches advance() into duel mode
     sess.current.bossRegion = regionId;
     sess.current.bossMisses = 0;          // running count of wrong answers (each = −1 heart, live)
-    setBossState(evalBoss([], 0, cfg)); setBossFx("");
+    setBossState(evalBoss([], 0, cfg)); setBossFx(""); setDuelSay(cfg.taunts.intro);
     setQNum(0); setScore(0); setStreak(0); setSessionResults([]);
     setChPicked([]); setProgAnswer([]); setProgWrong([]);
     clearLadder(); setFeedback(null); setPhase("idle");
@@ -2929,6 +2948,7 @@ export default function NumberEarTrainer() {
     const s = sess.current;
     if (!s.boss) return;
     setBossState(evalBoss(s.results, s.bossMisses, s.boss));
+    setDuelSay(s.boss.taunts.hurt); // she reacts to being struck — stays up until the next question
     flashBoss("hit");
   };
 
@@ -2948,6 +2968,7 @@ export default function NumberEarTrainer() {
     s.bossMisses = (s.bossMisses || 0) + 1;
     const state = evalBoss(s.results, s.bossMisses, s.boss);
     setBossState(state);
+    setDuelSay(s.boss.taunts.playerHurt); // she reassures after a fumble — stays up until the next question
     flashBoss("hurt");
     if (state.outcome === "lose") { bossLose(); return true; }
     return false;
@@ -3004,6 +3025,8 @@ export default function NumberEarTrainer() {
     const gen = sessGenRef.current; // capture; if the session is quit/restarted mid-await this goes stale
     clearLadder(); setChPicked([]); setProgAnswer([]); setProgWrong([]); setProgActive(-1); setFeedback(null);
     s.attempted = false; s.misses = 0;
+    // duel: the next question is starting → clear the keeper's reaction back to her resting line
+    if (s.boss) { const st = evalBoss(s.results, s.bossMisses, s.boss); setDuelSay(st.hpPct <= 34 ? s.boss.taunts.low : s.boss.taunts.intro); }
     setPhase("playing"); setBusy(true);
 
     try {
@@ -3617,7 +3640,7 @@ export default function NumberEarTrainer() {
               <p className="stage-goal">{stageGoal(enMode, enTitle)}</p>
               <span className="stage-meta">{enLevels} levels · {enModeLabel} · earn {en.short}'s mark → ◆</span>
               <div className="enc-actions">
-                <button className="ghost" onClick={() => setEncounterNode(null)}>Not yet</button>
+                <button className="ghost" onClick={() => { try { sfx("back"); } catch (e) {} setEncounterNode(null); }}>Not yet</button>
                 <button className="primary" onClick={() => { const id = encounterNode; sfx("select"); setEncounterNode(null); enterStage({ id }); }}>Continue →</button>
               </div>
             </div>
@@ -3662,8 +3685,8 @@ export default function NumberEarTrainer() {
                 <h2 className="forge-title">{kp ? kp.short : cfg.name} holds the line</h2>
                 <p className="boss-defeat-line">“{cfg.taunts.lose}”</p>
                 <div className="boss-defeat-actions">
-                  <button className="primary" onClick={() => { setBossOutcome(null); startBossSession(region); }}>Challenge again →</button>
-                  <button className="ghost" onClick={() => setBossOutcome(null)}>Back to the map</button>
+                  <button className="primary" onClick={() => { try { sfx("select"); } catch (e) {} setBossOutcome(null); startBossSession(region); }}>Challenge again →</button>
+                  <button className="ghost" onClick={() => { try { sfx("back"); } catch (e) {} setBossOutcome(null); }}>Back to the map</button>
                 </div>
               </div>
             </div>
@@ -4037,7 +4060,7 @@ export default function NumberEarTrainer() {
             const duelKeeper = isDuelRow && window.HARMONIA ? window.HARMONIA.nodes[advStageId - 1] : null;
             return (
               <button key={lvl.idx} className={"level" + (locked ? " locked" : "") + (isDuelRow ? " duel" : "")}
-                onClick={() => locked ? openUpsell() : isDuelRow ? startBossSession(advStageId) : startSession(mode, lvl.idx)}>
+                onClick={() => { try { sfx(isDuelRow && !locked ? "boot" : "select"); } catch (e) {} locked ? openUpsell() : isDuelRow ? startBossSession(advStageId) : startSession(mode, lvl.idx); }}>
                 <span className="level-num">{isDuelRow ? "⚔" : i + 1}</span>
                 <span className="level-body">
                   <span className="level-name">{isDuelRow ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : lvl.name}</span>
@@ -4086,19 +4109,16 @@ export default function NumberEarTrainer() {
     // Battle-arena sprites: the keeper's portrait as the enemy combatant, Coda as the hero.
     const duelEnemyImg = isDuel ? duelArt : null;
     const duelHeroImg = isDuel && typeof window !== "undefined" ? (window.CODA_SPRITE || null) : null;
-    // In-fight taunt keyed to the fight state: low HP > just-hurt > just-hit > intro.
-    const duelTaunt = !isDuel ? "" :
-      bossState.hpPct <= 34 ? duelCfg.taunts.low :
-      bossFx === "hurt" ? duelCfg.taunts.playerHurt :
-      bossFx === "hit" ? duelCfg.taunts.hurt :
-      duelCfg.taunts.intro;
+    // The keeper's speech is a persistent state (set on each answer, reset when the next
+    // question starts) so her reaction stays readable — not tied to the ~520ms flash.
+    const duelTaunt = !isDuel ? "" : (duelSay || duelCfg.taunts.intro);
     return (
       <div className={"app app-wide" + (lvl.mode === "minor" ? " sess-minor" : "") + (isDuel ? " sess-duel" : "")}>
         <style>{CSS}</style>
         {tutCelebrate && <div className="fx-flash" aria-hidden="true" />}
         <Confetti show={tutCelebrate} />
         <header className="top-slim">
-          <button className="back" onClick={() => { killSession(); setPhase("idle"); setBusy(false); setBossState(null); setScreen("levels"); }}>← {isDuel ? "Flee" : "Quit"}</button>
+          <button className="back" onClick={() => { try { sfx("back"); } catch (e) {} killSession(); setPhase("idle"); setBusy(false); setBossState(null); setScreen("levels"); }}>← {isDuel ? "Flee" : "Quit"}</button>
           <h2 className="screen-title">{isDuel ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : lvl.name}</h2>
           <span className="session-score">{streak >= 2 && <span key={streak} className="streak">🔥{streak}</span>}{score} ✓</span>
           <button className="sess-gear" onClick={() => setTestCfgOpen(true)} aria-label="Test settings"
@@ -4443,12 +4463,12 @@ export default function NumberEarTrainer() {
               </div>
               <h2 className="finale-title">EXCALIBAR<br />REFORGED</h2>
               <span className="finale-quote">“{advNode.win}”</span>
-              <button className="primary finale-btn" onClick={(e) => { e.stopPropagation(); setSwordBurst(true); setScreen("adventure"); }}>Return to Harmonia →</button>
+              <button className="primary finale-btn" onClick={(e) => { e.stopPropagation(); try { sfx("victory"); } catch (er) {} setSwordBurst(true); setScreen("adventure"); }}>Return to Harmonia →</button>
             </div>
           </div>
         )}
         <header className="top-slim">
-          <button className="back" onClick={() => { if (fromAdventure) { setSwordBurst(!!justCleared); setScreen("adventure"); } else { setScreen("levels"); } }}>{fromAdventure ? "← To the map" : "← Levels"}</button>
+          <button className="back" onClick={() => { try { sfx("back"); } catch (e) {} if (fromAdventure) { setSwordBurst(!!justCleared); setScreen("adventure"); } else { setScreen("levels"); } }}>{fromAdventure ? "← To the map" : "← Levels"}</button>
           <h2 className="screen-title">{resultName}</h2>
         </header>
         <div className="results">
@@ -4485,7 +4505,7 @@ export default function NumberEarTrainer() {
             </div>
           )}
           {(justCleared || (duelWin && !finale)) && (
-            <button className="primary map-return" onClick={() => { setSwordBurst(!!justCleared); setScreen("adventure"); }}>← Return to the map</button>
+            <button className="primary map-return" onClick={() => { try { sfx("select"); } catch (e) {} setSwordBurst(!!justCleared); setScreen("adventure"); }}>← Return to the map</button>
           )}
           <div className={"score-big" + (passed ? " pass" : "")}>{pct}%</div>
           <p className="hint center">
@@ -4553,9 +4573,9 @@ export default function NumberEarTrainer() {
             </div>
           )}
           <div className="results-actions">
-            <button className="primary" onClick={() => isCustom ? startSession(mode, null, sessLvl) : startSession(mode, levelIdx)}>Try again</button>
+            <button className="primary" onClick={() => { try { sfx("select"); } catch (e) {} isCustom ? startSession(mode, null, sessLvl) : startSession(mode, levelIdx); }}>Try again</button>
             {hasNext && (
-              <button className="primary" onClick={() => (gated && !fromAdventure && !(mode === "melody" && isMelodyFree(levelIdx + 1))) ? openUpsell() : startSession(mode, levelIdx + 1)}>Next level →</button>
+              <button className="primary" onClick={() => { try { sfx("select"); } catch (e) {} (gated && !fromAdventure && !(mode === "melody" && isMelodyFree(levelIdx + 1))) ? openUpsell() : startSession(mode, levelIdx + 1); }}>Next level →</button>
             )}
           </div>
         </div>
