@@ -1190,6 +1190,117 @@
   100%{ transform:translate(0,0); }
 }
 
+/* ---- note PROJECTILES: ♪ shots crossing the arena between the two sprites ---
+   Coordinate frame inherited from the base layer (positions are % of the arena,
+   so it stays responsive): the ENEMY keeper sprite sits TOP-RIGHT (~78%/18%),
+   CODA the hero sits BOTTOM-LEFT (~12%/72%). We override the base flights with
+   fresh rt-duel-note-* keyframes (boring mode keeps its own), so the glyph spins,
+   drags a comet trail, and the burst pops with real GBA snap. All flights ≤ ~500ms. */
+.retro .duel-note{
+  font-size:1.5rem; color:var(--teal);
+  text-shadow:0 0 6px var(--teal),0 0 12px rgba(87,198,196,.55),1px 1px 0 var(--ink);
+  filter:drop-shadow(0 0 2px rgba(87,198,196,.7)); will-change:left,top,transform;
+}
+
+/* incoming: the keeper's ♪ flies in from her, then looms near Coda through the
+   answer window. Comet trail points back up-right, toward the keeper. */
+.retro .duel-shots.incoming .duel-note.enemy{
+  animation:rt-duel-note-in .5s cubic-bezier(.3,.55,.4,1) forwards,
+            rt-duel-note-hover 1.3s ease-in-out .5s infinite;
+  box-shadow:5px -4px 0 rgba(87,198,196,.4),11px -9px 0 rgba(87,198,196,.2),
+             17px -14px 0 rgba(87,198,196,.09);
+}
+@keyframes rt-duel-note-in{
+  from{ left:80%; top:14%; opacity:0; transform:scale(.5) rotate(-45deg); }
+  55%{ opacity:1; }
+  to{ left:24%; top:61%; opacity:1; transform:scale(1) rotate(0deg); }
+}
+@keyframes rt-duel-note-hover{
+  0%,100%{ left:24%; top:61%; transform:rotate(-7deg) scale(1); }
+  50%{ left:22%; top:64%; transform:rotate(7deg) scale(1.08); }
+}
+
+/* fx-hit: Coda's ♪ flies UP into the keeper (spins hard); her incoming note is
+   intercepted mid-air (quick fizzle). Trail points back down-left toward Coda. */
+.retro .duel-shots.fx-hit .duel-note.hero{
+  animation:rt-duel-note-strike .34s ease-in forwards;
+  box-shadow:-5px 5px 0 rgba(87,198,196,.4),-11px 10px 0 rgba(87,198,196,.2),
+             -17px 15px 0 rgba(87,198,196,.09);
+}
+@keyframes rt-duel-note-strike{
+  from{ left:13%; top:67%; opacity:1; transform:scale(.8) rotate(0deg); }
+  to{ left:79%; top:19%; opacity:.25; transform:scale(1.2) rotate(400deg); }
+}
+.retro .duel-shots.fx-hit .duel-note.enemy{ animation:rt-duel-note-gone .24s ease-out forwards; }
+@keyframes rt-duel-note-gone{
+  from{ opacity:1; transform:scale(1) rotate(0); }
+  to{ opacity:0; transform:scale(.25) rotate(140deg); }
+}
+.retro .duel-shots.fx-hit .duel-burst{ left:78%; top:18%; animation:rt-duel-burst .34s ease-out .2s forwards; }
+
+/* fx-hurt: the looming keeper ♪ LUNGES the last stretch into Coda, souring
+   teal→wrong as it lands. Trail points back up-right toward its hover point. */
+.retro .duel-shots.fx-hurt .duel-note.enemy{
+  animation:rt-duel-note-land .3s ease-in forwards;
+  box-shadow:5px -4px 0 rgba(224,120,86,.4),11px -9px 0 rgba(224,120,86,.2);
+}
+@keyframes rt-duel-note-land{
+  from{ left:24%; top:61%; opacity:1; transform:scale(1) rotate(0); color:var(--teal); }
+  to{ left:12%; top:73%; opacity:.15; transform:scale(1.3) rotate(-70deg); color:var(--wrong); }
+}
+.retro .duel-shots.fx-hurt .duel-burst{ left:12%; top:71%; animation:rt-duel-burst .32s ease-out .18s forwards; }
+
+/* the impact: a hot core flash + an expanding ring + 4-point star spokes.
+   Pseudo bursts only fire on the strike beats (not on the calm incoming beat). */
+.retro .duel-burst{
+  width:26px; height:26px;
+  background:radial-gradient(circle,#fff 0%,var(--teal) 42%,transparent 72%);
+}
+.retro .duel-burst::before,.retro .duel-burst::after{ content:""; position:absolute; opacity:0; }
+.retro .duel-burst::before{  /* 4-point star spokes */
+  inset:-6px; background:var(--teal);
+  clip-path:polygon(50% 0,58% 42%,100% 50%,58% 58%,50% 100%,42% 58%,0 50%,42% 42%);
+}
+.retro .duel-burst::after{   /* shockwave ring */
+  inset:0; border-radius:50%; box-shadow:0 0 0 2px var(--teal);
+}
+.retro .duel-shots.fx-hit .duel-burst::before{ animation:rt-duel-spark .34s ease-out .2s forwards; }
+.retro .duel-shots.fx-hit .duel-burst::after{ animation:rt-duel-ring .4s ease-out .2s forwards; }
+.retro .duel-shots.fx-hurt .duel-burst{ background:radial-gradient(circle,#fff 0%,var(--wrong) 42%,transparent 72%); }
+.retro .duel-shots.fx-hurt .duel-burst::before{ background:var(--wrong); animation:rt-duel-spark .32s ease-out .18s forwards; }
+.retro .duel-shots.fx-hurt .duel-burst::after{ box-shadow:0 0 0 2px var(--wrong); animation:rt-duel-ring .38s ease-out .18s forwards; }
+@keyframes rt-duel-burst{
+  0%{ opacity:0; transform:scale(.3); }
+  40%{ opacity:1; transform:scale(1.3); }
+  100%{ opacity:0; transform:scale(1.75); }
+}
+@keyframes rt-duel-spark{
+  0%{ opacity:0; transform:scale(.2) rotate(0); }
+  45%{ opacity:.95; transform:scale(1.15) rotate(35deg); }
+  100%{ opacity:0; transform:scale(1.6) rotate(70deg); }
+}
+@keyframes rt-duel-ring{
+  0%{ opacity:0; transform:scale(.4); }
+  30%{ opacity:.8; }
+  100%{ opacity:0; transform:scale(2.3); }
+}
+
+/* ---- "at stake" fragment tag (bottom-right of the hero row): pixel chip ----- */
+.retro .duel-stake{
+  border:0; border-radius:0; clip-path:var(--notch); background:var(--bg);
+  box-shadow:inset 0 0 0 2px var(--line);
+}
+.retro .duel-stake-sword{ filter:drop-shadow(0 0 4px rgba(217,180,91,.5)); }
+.retro .duel-stake-label em{
+  font-family:var(--pf); font-size:7px; letter-spacing:1px; text-transform:uppercase;
+  color:var(--text); opacity:.6;
+}
+.retro .duel-stake-label b{
+  font-family:var(--pf); font-size:9px; letter-spacing:.5px; text-transform:uppercase;
+  color:var(--gold);
+}
+.retro .duel-stake-label .gem{ color:var(--teal); }
+
 /* ---- hearts (the player's "ears"): pixel hearts; a lost one pops + greys --- */
 .retro .boss-hearts{ gap:4px; }
 .retro .boss-heart{
@@ -1310,4 +1421,9 @@
   .retro.sess-duel:has(.duel-arena.fx-hurt),
   .retro .sess-duel:has(.duel-arena.fx-hurt){ animation:none!important; }
   .retro .boss-hpfill{ transition:none!important; }
+  /* projectiles: with flight animation off, keep the ♪/burst layer fully hidden
+     so nothing freezes mid-air — the hit/hurt is still read via the HUD flashes,
+     hearts, and HP bar. */
+  .retro .duel-note,.retro .duel-burst,
+  .retro .duel-burst::before,.retro .duel-burst::after{ opacity:0!important; }
 }
