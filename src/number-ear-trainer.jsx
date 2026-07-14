@@ -1227,7 +1227,7 @@ function HalfStepDiagrams() {
    plays; the explore window's numbers sit on their corresponding keys, in
    both octaves. World chord tones show in blue, the tonic wears the star. */
 
-function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singInTune, onDown, onUp, lo = 0, hi = 24 }) {
+function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singInTune, onDown, onUp, lo = 0, hi = 24, home }) {
   const evts = (k) => ({ onPointerDown: (e) => { try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) {} onDown(k); }, onPointerUp: () => onUp(k), ...holdKeys(() => onDown(k), () => onUp(k)) });
   const baseMidi = Tone.Frequency(musicKey + "4").toMidi();
   const BLACK_PCS = [1, 3, 6, 8, 10];
@@ -1259,7 +1259,7 @@ function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singI
   const singCls = (s) => labels[s] != null && labels[s] === singDeg
     ? (singInTune ? " singing in" : " singing off") : "";
 
-  const homeDeg = world || 1; // starred home follows the selected world (1 only in world 1)
+  const homeDeg = home != null ? home : (world || 1); // starred home (explicit `home` wins — e.g. 6 in minor)
   const keyLabel = (s) => {
     const lab = labels[s];
     if (lab == null || stage === 1) return null;
@@ -4518,7 +4518,8 @@ export default function NumberEarTrainer() {
                 onAnswer={(c) => answerMelodySession(c.pc)} />
             ) : instrument === "keyboard" ? (
               <PianoMap start={1} count={8} stage={0} world={null} musicKey={sessKey} active={[]}
-                singDeg={null} singInTune={false} lo={-1} hi={14}
+                singDeg={null} singInTune={false}
+                lo={isMinor ? -5 : -1} hi={isMinor ? 11 : 14} home={isMinor ? 6 : 1}
                 onDown={(k) => { if (phase === "answer") answerMelodySession(mod12(k.s)); }} onUp={() => {}} />
             ) : lvl.chromatic ? (
               <div className="numpad chromatic">

@@ -4888,7 +4888,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
     )), bk.map((x, i) => /* @__PURE__ */ React.createElement("rect", { key: i, x, y: "0", width: "20", height: "60", rx: "2.5", fill: "#232825" })), /* @__PURE__ */ React.createElement("path", { d: "M64 104 L64 108 L128 108 L128 104", fill: "none", stroke: "#57C6C4", strokeWidth: "2" }), /* @__PURE__ */ React.createElement("text", { x: "96", y: "126", textAnchor: "middle", fontSize: "11", fontWeight: "700", fill: "#57C6C4" }, "half step")), /* @__PURE__ */ React.createElement("span", { className: "hs-cap" }, "Piano · next-door keys")), /* @__PURE__ */ React.createElement("div", { className: "hs-fig" }, /* @__PURE__ */ React.createElement("svg", { width: "196", height: "120", viewBox: "0 0 224 132", "aria-label": "Guitar: two adjacent frets are a half step" }, /* @__PURE__ */ React.createElement("rect", { x: "6", y: "6", width: "212", height: "82", rx: "4", fill: "#4a3a29", stroke: "#2b2114", strokeWidth: "2" }), [8, 52, 96, 140, 184].map((x, i) => /* @__PURE__ */ React.createElement("line", { key: i, x1: x, y1: "6", x2: x, y2: "88", stroke: i === 0 ? "#cbb892" : "#8a7a5e", strokeWidth: i === 0 ? 5 : 2 })), [16, 28, 40, 52, 64, 76].map((y, i) => /* @__PURE__ */ React.createElement("line", { key: i, x1: "8", y1: y, x2: "216", y2: y, stroke: "#d8cba8", strokeWidth: "1", opacity: "0.7" })), /* @__PURE__ */ React.createElement("circle", { cx: "30", cy: "52", r: "8", fill: "#57C6C4", stroke: "#0f1c1a", strokeWidth: "1.5" }), /* @__PURE__ */ React.createElement("circle", { cx: "74", cy: "52", r: "8", fill: "#57C6C4", stroke: "#0f1c1a", strokeWidth: "1.5" }), /* @__PURE__ */ React.createElement("path", { d: "M30 100 L30 104 L74 104 L74 100", fill: "none", stroke: "#57C6C4", strokeWidth: "2" }), /* @__PURE__ */ React.createElement("text", { x: "52", y: "126", textAnchor: "middle", fontSize: "11", fontWeight: "700", fill: "#57C6C4" }, "half step")), /* @__PURE__ */ React.createElement("span", { className: "hs-cap" }, "Guitar · next-door frets")));
   }
-  function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singInTune, onDown, onUp, lo = 0, hi = 24 }) {
+  function PianoMap({ start, count, stage, world, musicKey, active, singDeg, singInTune, onDown, onUp, lo = 0, hi = 24, home }) {
     const evts = (k) => ({ onPointerDown: (e) => {
       try {
         e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -4920,7 +4920,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const wW = 100 / nWhites;
     const bW = wW * 0.62;
     const singCls = (s) => labels[s] != null && labels[s] === singDeg ? singInTune ? " singing in" : " singing off" : "";
-    const homeDeg = world || 1;
+    const homeDeg = home != null ? home : world || 1;
     const keyLabel = (s) => {
       const lab = labels[s];
       if (lab == null || stage === 1) return null;
@@ -8106,8 +8106,9 @@ window.SOUNDTRACK = SOUNDTRACK;
           active: [],
           singDeg: null,
           singInTune: false,
-          lo: -1,
-          hi: 14,
+          lo: isMinor ? -5 : -1,
+          hi: isMinor ? 11 : 14,
+          home: isMinor ? 6 : 1,
           onDown: (k) => {
             if (phase === "answer") answerMelodySession(mod12(k.s));
           },
