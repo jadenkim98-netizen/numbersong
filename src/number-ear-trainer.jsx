@@ -1827,8 +1827,8 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
     if (dojoD < 22 * 22 && dojoD <= bd) { // the dojo (Free Play) was tapped
       const c0 = codaRef.current;
       const atDojo = c0 && Math.round(c0.c) === DOJO.c && Math.round(c0.r) === DOJO.r;
-      try { sfx && sfx("dojo"); } catch (e) {}
-      if (boringMode || atDojo) onFree(); else walkTo(DOJO, () => onFree());
+      const enterDojo = () => { try { sfx && sfx("dojo"); } catch (e) {} onFree(); }; // bell rings on arrival
+      if (boringMode || atDojo) enterDojo(); else walkTo(DOJO, enterDojo);
       return;
     }
     if (!best || bd >= 16 * 16) return;
