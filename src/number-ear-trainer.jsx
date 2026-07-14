@@ -513,6 +513,8 @@ function useAudio() {
     else if (name === "correct") { beep(880, 0.09, 0, "triangle"); beep(1319, 0.1, 0.09, "triangle"); }
     else if (name === "victory") [659, 784, 1047, 1319].forEach((f, i) => beep(f, 0.18, i * 0.095, "triangle"));
     else if (name === "twinkle") [2093, 2637, 3136, 2349, 1760].forEach((fr, i) => beep(fr, 0.11, i * 0.05, "triangle"));
+    // sad, deflating "you failed" motif — a descending sawtooth sigh ending on a low, held note
+    else if (name === "deflate") [330, 277, 220, 165].forEach((fr, i) => beep(fr, i === 3 ? 0.5 : 0.17, i * 0.16, "sawtooth"));
   }, [ensure]);
 
   // big triumphant fanfare for forging a fragment — layered: lead run + chord,
@@ -2912,13 +2914,22 @@ export default function NumberEarTrainer() {
   // Called from advance() whenever sess.current.boss is set (bypasses the fixed qCount).
   const bossAdvance = () => {
     const s = sess.current;
+    // HP + hit-flash already applied the instant the answer landed (bossOnCorrect);
+    // advance() runs after the resolution plays and only ROUTES the fight.
     const state = evalBoss(s.results, s.bossMisses, s.boss);
-    setBossState(state);
-    // advance() only runs on a CORRECT answer → the player just struck the keeper.
-    flashBoss("hit");
     if (state.outcome === "win") { finishSession(); return; }
     s.qNum = (s.qNum || 0) + 1; setQNum(s.qNum);
-    sessTimer(() => nextQuestionRef.current(false), 750);
+    sessTimer(() => nextQuestionRef.current(false), 1150); // a beat longer than a normal session so the strike + quip read
+  };
+
+  // A CORRECT answer during a duel: strike the keeper NOW (drop her HP + flash) rather
+  // than waiting for the resolution walk-home. Routing (win / next question) still happens
+  // later in bossAdvance once the resolution finishes.
+  const bossOnCorrect = () => {
+    const s = sess.current;
+    if (!s.boss) return;
+    setBossState(evalBoss(s.results, s.bossMisses, s.boss));
+    flashBoss("hit");
   };
 
   // One-shot HUD flash ("hit" = we struck the keeper, "hurt" = the keeper struck us).
@@ -2981,6 +2992,7 @@ export default function NumberEarTrainer() {
     const region = sess.current.bossRegion;
     track("boss_lose", { region, hp: bossState ? bossState.hp : null });
     killSession();
+    try { sfx("deflate"); haptic(false); } catch (e) {} // sad, deflated failure sound
     setPhase("idle"); setBusy(false);
     setBossState(null); setBossFx("");
     setBossOutcome({ region });   // defeat overlay (Try again / To the map) over the map
@@ -3161,6 +3173,7 @@ export default function NumberEarTrainer() {
       const first = !s.attempted;
       s.results.push({ target: s.target, firstTry: first });
       setSessionResults([...s.results]);
+      bossOnCorrect(); // duel: strike the keeper immediately, don't wait for the resolution
       if (first) { setScore((sc) => sc + 1); setStreak((x) => x + 1); }
       setLitWrong([]); setRevealPc(null);
       setHitPad(pc);
@@ -3228,6 +3241,7 @@ export default function NumberEarTrainer() {
       const first = !s.attempted;
       s.results.push({ target: s.target.roman, firstTry: first });
       setSessionResults([...s.results]);
+      bossOnCorrect(); // duel: strike the keeper immediately, don't wait for the resolution
       if (first) { setScore((sc) => sc + 1); setStreak((x) => x + 1); }
       setLitCorrect(tones); setLitWrong([]);
       setPhase("resolving");
@@ -3269,6 +3283,7 @@ export default function NumberEarTrainer() {
       const first = !s.attempted;
       s.results.push({ target: s.target.join("–"), firstTry: first, prog: [...s.target] });
       setSessionResults([...s.results]);
+      bossOnCorrect(); // duel: strike the keeper immediately, don't wait for the resolution
       if (first) { setScore((sc) => sc + 1); setStreak((x) => x + 1); }
       setPhase("resolving");
       setSrMsg("Correct.");
@@ -4110,11 +4125,20 @@ export default function NumberEarTrainer() {
             </div>
             {/* the keeper's in-fight line, as a speech bubble */}
             <div className="duel-say">{duelTaunt}</div>
-            {/* HERO — Coda, lower corner, facing the keeper */}
+            {/* HERO — Coda, lower corner, facing the keeper — plus the Excalibar fragment at stake */}
             <div className="duel-hero">
               <span className="duel-sprite hero" aria-hidden="true">
                 {duelHeroImg ? <img src={duelHeroImg} alt="" /> : <span className="boss-emblem">🎧</span>}
               </span>
+              {window.HARMONIA && (
+                <span className="duel-stake" aria-label={"At stake: " + (window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[duelRegion]] || "a fragment")}>
+                  <ForgeSword collected={advCollected} className="duel-stake-sword" />
+                  <span className="duel-stake-label">
+                    <em>At stake</em>
+                    <b><span className="gem">◆</span>{window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[duelRegion]]}</b>
+                  </span>
+                </span>
+              )}
             </div>
             {/* TIMER — the drain the player races; keyed so it restarts each turn */}
             <div className="duel-timer" aria-hidden="true">
@@ -4443,6 +4467,10 @@ export default function NumberEarTrainer() {
               </span>
               <span className="victory-kicker">✦ Duel won ✦</span>
               <h3 className="victory-title">{duelWinKeeper ? duelWinKeeper.winTitle : "The keeper yields!"}</h3>
+              <div className="duel-victory-forge">
+                <ForgeSword collected={advCollected} className="victory-sword" />
+              </div>
+              {duelWinKeeper && <span className="frag-chip"><span className="gem">◆</span>{window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[duelWinRegion]]} — held in Excalibar</span>}
               <span className="victory-quote duel-quote">“{duelWin.taunts.win}”<em className="duel-quote-by">— {duelWin.name}, {duelWin.title}</em></span>
             </div>
           )}
@@ -5362,7 +5390,14 @@ button { touch-action: manipulation; }
 .boss-emblem { font-size: 2rem; line-height: 1; }
 .duel-say { margin: 8px 0 6px; padding: 6px 10px; background: var(--bg); border: 1.5px solid var(--line);
   border-radius: 10px; font-size: 0.82rem; color: var(--text); font-style: italic; min-height: 1.2em; }
-.duel-hero { display: flex; align-items: flex-end; }
+.duel-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.duel-stake { display: flex; align-items: center; gap: 7px; padding: 4px 8px; background: var(--bg); border: 1.5px solid var(--line); border-radius: 10px; }
+.duel-stake-sword { width: 20px; height: 60px; image-rendering: pixelated; display: block; }
+.duel-stake-label { display: flex; flex-direction: column; line-height: 1.2; }
+.duel-stake-label em { font-style: normal; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-soft); opacity: 0.8; }
+.duel-stake-label b { font-size: 0.75rem; color: var(--text); font-weight: 800; }
+.duel-stake-label .gem { color: var(--teal, #57C6C4); margin-right: 3px; }
+.duel-victory-forge { margin: 4px 0 2px; }
 .duel-timer { margin-top: 8px; height: 8px; border-radius: 5px; background: var(--bg); overflow: hidden; border: 1px solid var(--line); }
 .duel-timer-fill { display: block; height: 100%; width: 100%; background: var(--teal, #57C6C4); border-radius: 5px; }
 .duel-timer-fill.draining { animation-name: duel-drain; animation-timing-function: linear; animation-fill-mode: forwards; }
