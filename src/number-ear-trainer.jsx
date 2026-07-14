@@ -2221,10 +2221,10 @@ export default function NumberEarTrainer() {
   const [duelSay, setDuelSay] = useState("");                // keeper's speech-bubble line; persists (her reaction stays until the next question starts)
   const bossFxTimerRef = useRef(null);
   // Duel timed turns: a drain bar the player races each note. `duelTurn` bumps to (re)start
-  // a fresh timed window (new question, or a restart after a timeout whiff); `duelSecs` is
-  // that window's length (escalates as the keeper weakens); the expiry timeout lives in the ref.
+  // a fresh timed window (new question, or a restart after a timeout whiff). The window
+  // length is computed at render (bossTimer) so the CSS bar and the JS expiry stay in sync;
+  // the expiry timeout lives in the ref.
   const [duelTurn, setDuelTurn] = useState(0);
-  const [duelSecs, setDuelSecs] = useState(0);
   const duelTimerIdRef = useRef(null);
   const [melTab, setMelTab] = useState("stages");  // stages | custom
   const [sessLvl, setSessLvl] = useState(null);     // the level object being played (may be a custom one)
@@ -2981,7 +2981,10 @@ export default function NumberEarTrainer() {
   // you aren't guessing wrong. Guarded so a late fire on an already-answered turn no-ops.
   const onDuelTimeout = () => {
     const s = sess.current;
-    if (!s.boss || phaseRef.current !== "answer" || busyRef.current) return;
+    // fire on any live answer window (don't bail just because audio is mid-replay — the
+    // player still ran out of time). The phase guard alone prevents firing on an
+    // already-answered turn.
+    if (!s.boss || phaseRef.current !== "answer") return;
     s.attempted = true;
     s.misses = (s.misses || 0) + 1;
     setStreak(0);
@@ -3002,7 +3005,6 @@ export default function NumberEarTrainer() {
     if (!s || !s.boss) return;
     const st = evalBoss(s.results, s.bossMisses, s.boss);
     const secs = bossTimer(st.hpPct, s.boss);
-    setDuelSecs(secs);
     const id = setTimeout(onDuelTimeout, secs * 1000);
     duelTimerIdRef.current = id;
     return () => { clearTimeout(id); if (duelTimerIdRef.current === id) duelTimerIdRef.current = null; };
@@ -4111,6 +4113,9 @@ export default function NumberEarTrainer() {
     // Battle-arena sprites: the keeper's portrait as the enemy combatant, Coda as the hero.
     const duelEnemyImg = isDuel ? duelArt : null;
     const duelHeroImg = isDuel && typeof window !== "undefined" ? (window.CODA_SPRITE || null) : null;
+    // window length computed here (not stored) so the drain bar's duration matches the JS
+    // expiry exactly from the first paint — the bar empties precisely when the heart is lost.
+    const duelWindowSecs = isDuel ? bossTimer(bossState.hpPct, duelCfg) : 0;
     // The keeper's speech is a persistent state (set on each answer, reset when the next
     // question starts) so her reaction stays readable — not tied to the ~520ms flash.
     const duelTaunt = !isDuel ? "" : (duelSay || duelCfg.taunts.intro);
@@ -4174,7 +4179,7 @@ export default function NumberEarTrainer() {
             )}
             {/* TIMER — the drain the player races; keyed so it restarts each turn */}
             <div className="duel-timer" aria-hidden="true">
-              <span key={duelTurn + "-" + qNum} className={"duel-timer-fill" + (phase === "answer" ? " draining" : "")} style={{ animationDuration: duelSecs + "s" }} />
+              <span key={duelTurn + "-" + qNum + "-" + phase} className={"duel-timer-fill" + (phase === "answer" ? " draining" : "")} style={{ animationDuration: duelWindowSecs + "s" }} />
             </div>
           </div>
         )}
