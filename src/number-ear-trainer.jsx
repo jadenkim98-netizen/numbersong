@@ -517,6 +517,8 @@ function useAudio() {
     else if (name === "twinkle") [2093, 2637, 3136, 2349, 1760].forEach((fr, i) => beep(fr, 0.11, i * 0.05, "triangle"));
     // sad, deflating "you failed" motif — a descending sawtooth sigh ending on a low, held note
     else if (name === "deflate") [330, 277, 220, 165].forEach((fr, i) => beep(fr, i === 3 ? 0.5 : 0.17, i * 0.16, "sawtooth"));
+    // Dojo entry: a struck temple bell (warm fifth) with a soft shimmer tail.
+    else if (name === "dojo") { beep(392, 0.55, 0, "triangle"); beep(587, 0.6, 0.01, "triangle"); beep(1175, 0.28, 0.14, "triangle"); }
   }, [ensure]);
 
   // big triumphant fanfare for forging a fragment — layered: lead run + chord,
@@ -1610,7 +1612,7 @@ function MapTour({ onClose, onSfx }) {
   );
 }
 
-function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, burst, boringMode, celebrateNode, onCelebrateDone, skinId, onReady }) {
+function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, onOffer, showOffer, sfx, burst, boringMode, celebrateNode, onCelebrateDone, skinId, onReady }) {
   const H = window.HARMONIA;
   const mapRef = useRef(null);
   const swordRef = useRef(null);
@@ -1830,7 +1832,8 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
     if (dojoD < 22 * 22 && dojoD <= bd) { // the dojo (Free Play) was tapped
       const c0 = codaRef.current;
       const atDojo = c0 && Math.round(c0.c) === DOJO.c && Math.round(c0.r) === DOJO.r;
-      if (boringMode || atDojo) onFree(); else walkTo(DOJO, () => onFree());
+      const enterDojo = () => { try { sfx && sfx("dojo"); } catch (e) {} onFree(); }; // bell rings on arrival
+      if (boringMode || atDojo) enterDojo(); else walkTo(DOJO, enterDojo);
       return;
     }
     if (!best || bd >= 16 * 16) return;
@@ -1852,6 +1855,12 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
         <button className="gear" onClick={onMenu} aria-label="Main menu">☰</button>
         <button className="gear gear-settings" onClick={onSettings} aria-label="Settings">⚙</button>
       </div>
+      {showOffer && (
+        <button className="adv-offer-badge" onClick={onOffer} aria-label="Learn to really play — the full program">
+          <img className="adv-offer-glyph" src={typeof window !== "undefined" ? window.GUITAR_ICON : ""} alt="" aria-hidden="true" width="30" height="30" />
+          <span className="adv-offer-label">Play for real</span>
+        </button>
+      )}
       <div className="adv-scroll" ref={scrollRef}>
         <canvas ref={mapRef} className="adv-map" onClick={tapMap} role="img" aria-label="Harmonia world map" />
       </div>
@@ -2010,7 +2019,7 @@ export default function NumberEarTrainer() {
     track("lead_submit", { outcome: delivered ? "sent" : "saved" }); // outcome only — never the email (PII)
     setLeadStatus(delivered ? "done" : "saved"); // "saved" = progress kept, but no email promise
   };
-  const openUpsell = () => { try { sfx("select"); } catch (e) {} setUpsellOpen(true); track("upsell_open"); };
+  const openUpsell = (source) => { try { sfx("select"); } catch (e) {} setUpsellOpen(true); track("upsell_open", source ? { where: source } : {}); };
   // The VSL/offer CTAs are now real <a target="_blank"> anchors (class "offer-link")
   // rendered inline — a genuine link tap opens a new tab / in-app browser without
   // navigating the game away, so audio isn't torn down the way a programmatic
@@ -2525,6 +2534,19 @@ export default function NumberEarTrainer() {
       if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} }
     };
   }, [upsellOpen, forgeOpen, encounterNode]);
+
+  // ── little "back" blip on any back / soft-dismiss button ──
+  // One delegated listener (capture phase, so it fires regardless of a button's
+  // own handler) gives every current & future `.back` and `.dismiss` button the
+  // back sound, without threading sfx() through each onClick.
+  useEffect(() => {
+    const onClick = (e) => {
+      const b = e.target && e.target.closest && e.target.closest("button.back, button.dismiss");
+      if (b && !b.disabled) { try { sfx("back"); } catch (err) {} }
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, [sfx]);
 
   // guide
   const [guidePage, setGuidePage] = useState(0);
@@ -3498,9 +3520,9 @@ export default function NumberEarTrainer() {
       <div className="forge-panel upsell-panel" role="dialog" aria-modal="true" aria-label="Keep going — the full program" tabIndex={-1} ref={upsellPanelRef} onClick={(e) => e.stopPropagation()}>
         <span className="forge-kicker">✦ Keep going ✦</span>
         <h2 className="forge-title">This is where it gets good</h2>
-        <p className="upsell-copy">You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program.</p>
+        <p className="upsell-copy">You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program for guitarists.</p>
         <div className="enc-actions">
-          <button className="ghost" onClick={() => setUpsellOpen(false)}>Maybe later</button>
+          <button className="ghost dismiss" onClick={() => setUpsellOpen(false)}>Maybe later</button>
           <a className="primary offer-link" href={OFFER_URL} target="_blank" rel="noopener noreferrer" onClick={() => track("offer_click", { where: "upsell" })}>Show me how →</a>
         </div>
       </div>
@@ -3550,7 +3572,7 @@ export default function NumberEarTrainer() {
       <div className="app menu-screen">
         <style>{CSS}</style>
         <header className="top-slim">
-          <button className="back" onClick={() => { sfx("back"); setScreen("menu"); }}>← Menu</button>
+          <button className="back" onClick={() => setScreen("menu")}>← Menu</button>
           <h2 className="screen-title">Tutorials</h2>
         </header>
         <div className="menu-list">
@@ -3582,7 +3604,7 @@ export default function NumberEarTrainer() {
       <div className="app">
         <style>{CSS}</style>
         <header className="top-slim">
-          <button className="back" onClick={() => { sfx("back"); setScreen("menu"); }}>← Menu</button>
+          <button className="back" onClick={() => setScreen("menu")}>← Menu</button>
           <h2 className="screen-title">Basic Training</h2>
         </header>
         <div className="cards">
@@ -3620,6 +3642,7 @@ export default function NumberEarTrainer() {
           onSettings={() => { setAuxReturn("adventure"); setScreen("settings"); }}
           onGuide={() => { setAuxReturn("adventure"); setGuidePage(0); setScreen("guide"); }}
           onFree={() => { setAuxReturn("adventure"); setFpTab("notes"); setScreen("learn"); }}
+          onOffer={() => openUpsell("map_corner")} showOffer={gated} sfx={sfx}
           onReady={() => setMapReady(true)} />
         {en && (
           <div className="encounter-modal" onClick={() => setEncounterNode(null)}>
@@ -3644,7 +3667,7 @@ export default function NumberEarTrainer() {
               <p className="stage-goal">{stageGoal(enMode, enTitle)}</p>
               <span className="stage-meta">{enLevels} levels · {enModeLabel} · earn {en.short}'s mark → ◆</span>
               <div className="enc-actions">
-                <button className="ghost" onClick={() => { try { sfx("back"); } catch (e) {} setEncounterNode(null); }}>Not yet</button>
+                <button className="ghost dismiss" onClick={() => { try { sfx("back"); } catch (e) {} setEncounterNode(null); }}>Not yet</button>
                 <button className="primary" onClick={() => { const id = encounterNode; sfx("select"); setEncounterNode(null); enterStage({ id }); }}>Continue →</button>
               </div>
             </div>
@@ -4578,7 +4601,7 @@ export default function NumberEarTrainer() {
                     <button className="primary" onClick={submitLead} disabled={leadStatus === "sending"}>
                       {leadStatus === "sending" ? "Sending…" : "Send me the PDF"}
                     </button>
-                    <button className="ghost" onClick={finishOnboarding}>Maybe later</button>
+                    <button className="ghost dismiss" onClick={finishOnboarding}>Maybe later</button>
                   </div>
                 </>
               )}
@@ -5094,7 +5117,7 @@ export default function NumberEarTrainer() {
         </header>
         <section className="panel">{pages[guidePage]}</section>
         <div className="pager">
-          <button className="ghost" disabled={guidePage === 0} onClick={() => setGuidePage((p) => p - 1)}>← Back</button>
+          <button className="ghost dismiss" disabled={guidePage === 0} onClick={() => setGuidePage((p) => p - 1)}>← Back</button>
           <div className="dots">
             {pages.map((_, i) => <span key={i} className={"dot" + (i === guidePage ? " on" : "")} />)}
           </div>
@@ -5926,6 +5949,31 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .adv-forge-txt b { font-family: 'Archivo Black', sans-serif; font-size: 0.9rem; color: var(--teal); }
 .adv-hud-actions { display: flex; gap: 8px; }
 .adv-hud-actions .ghost { padding: 8px 11px; font-size: 1.1rem; background: rgba(20,24,22,.82); min-width: 44px; min-height: 44px; }
+/* Floating "offer" quest badge — top-left over the map (gated players only).
+   Reads like an in-world quest giver, not an ad; opens the upsell prompt → VSL. */
+.adv-offer-badge {
+  position: absolute; z-index: 4; left: 10px;
+  top: calc(env(safe-area-inset-top, 0px) + 62px);
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 12px 6px 7px; border-radius: 999px;
+  background: rgba(20,24,22,.9); border: 1.5px solid var(--teal); color: var(--text);
+  font-family: 'Archivo', sans-serif; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  animation: advOfferPulse 2.6s ease-in-out infinite;
+  -webkit-tap-highlight-color: transparent;
+}
+.adv-offer-badge:hover { border-color: var(--green); }
+.adv-offer-badge:active { transform: translateY(1px); }
+.adv-offer-glyph {
+  width: 30px; height: 30px; flex-shrink: 0; image-rendering: pixelated;
+  display: block; object-fit: contain;
+}
+.adv-offer-label { color: var(--teal); letter-spacing: 0.02em; white-space: nowrap; }
+/* Glow via filter (not box-shadow) so it survives the retro skin's inset-shadow border. */
+@keyframes advOfferPulse {
+  0%, 100% { filter: drop-shadow(0 0 2px rgba(87,198,196,.45)); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 8px rgba(87,198,196,.9)); transform: scale(1.04); }
+}
+@media (prefers-reduced-motion: reduce) { .adv-offer-badge { animation: none; } }
 .settings { display: flex; flex-direction: column; gap: 20px; }
 .set-block {
   display: flex; flex-direction: column; gap: 10px;

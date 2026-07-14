@@ -434,6 +434,80 @@ button { touch-action: manipulation; }
   margin: 0; flex: 1;
 }
 .session-score { color: var(--green); font-weight: 700; font-size: 0.95rem; }
+
+/* ── Keeper Duel (boss) — Pokémon-style battle arena. FUNCTIONAL base layout only;
+   the retro/GBA juice (drain flash, hit/hurt reel, sprite flinch, pixel frames) is
+   layered in retro/retro.css. Keep this block correct + legible; leave feel to the skin. */
+.duel-arena { position: relative; margin: 6px 0 12px; padding: 12px; min-height: 150px; overflow: hidden;
+  background: linear-gradient(180deg, #414d46 0%, var(--card) 72%); border: 1.5px solid var(--line); border-radius: 12px; }
+.duel-enemy { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.duel-enemy-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.boss-name { font-weight: 800; font-size: 0.9rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.boss-hpbar { height: 12px; border-radius: 7px; background: var(--bg); overflow: hidden; border: 1px solid var(--line); }
+.boss-hpfill { display: block; height: 100%; width: 100%; background: var(--wrong, #E07856);
+  border-radius: 7px; transition: width .45s cubic-bezier(.2,.7,.3,1); }
+.boss-hearts { display: inline-flex; gap: 2px; }
+.boss-heart { color: var(--wrong-text, #E07856); font-size: 1rem; line-height: 1; }
+.boss-heart.spent { color: var(--line); opacity: .6; }
+.duel-sprite { flex: 0 0 auto; display: flex; align-items: flex-end; justify-content: center; }
+.duel-sprite img { image-rendering: pixelated; display: block; object-fit: contain; }
+.duel-sprite.enemy { width: 84px; height: 84px; }
+.duel-sprite.enemy img { width: 100%; height: 100%; }
+.duel-sprite.hero { width: 62px; height: 62px; }
+.duel-sprite.hero img { width: 100%; height: 100%; }
+.boss-emblem { font-size: 2rem; line-height: 1; }
+.duel-say { margin: 8px 0 6px; padding: 6px 10px; background: var(--bg); border: 1.5px solid var(--line);
+  border-radius: 10px; font-size: 0.82rem; color: var(--text); font-style: italic; min-height: 1.2em; }
+.duel-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.duel-stake { display: flex; align-items: center; gap: 7px; padding: 4px 8px; background: var(--bg); border: 1.5px solid var(--line); border-radius: 10px; }
+.duel-stake-sword { width: 20px; height: 60px; image-rendering: pixelated; display: block; }
+.duel-stake-label { display: flex; flex-direction: column; line-height: 1.2; }
+.duel-stake-label em { font-style: normal; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-soft); opacity: 0.8; }
+.duel-stake-label b { font-size: 0.75rem; color: var(--text); font-weight: 800; }
+.duel-stake-label .gem { color: var(--teal, #57C6C4); margin-right: 3px; }
+.duel-victory-forge { margin: 4px 0 2px; }
+.duel-timer { margin-top: 8px; height: 8px; border-radius: 5px; background: var(--bg); overflow: hidden; border: 1px solid var(--line); }
+.duel-timer-fill { display: block; height: 100%; width: 100%; background: var(--teal, #57C6C4); border-radius: 5px; }
+/* Projectile layer — ♪ notes travel across the arena (positions are % of the arena so it's
+   responsive). Functional base; the retro skin refines the glyph/trail/burst feel. */
+.duel-shots { position: absolute; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; }
+.duel-note { position: absolute; font-size: 1.4rem; line-height: 1; color: var(--teal, #57C6C4);
+  text-shadow: 0 0 7px currentColor; opacity: 0; }
+.duel-burst { position: absolute; width: 22px; height: 22px; border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle, var(--text, #EDF2EE) 0%, transparent 70%); }
+/* incoming: keeper's ♪ flies from her (top-right) toward Coda (bottom-left), then hovers */
+.duel-shots.incoming .duel-note.enemy { animation: duel-note-in .5s ease-out forwards, duel-note-hover 1.2s ease-in-out .5s infinite; }
+@keyframes duel-note-in { from { left: 76%; top: 20%; opacity: 0; transform: scale(.6); }
+  to { left: 26%; top: 60%; opacity: 1; transform: scale(1); } }
+@keyframes duel-note-hover { 0%,100% { left: 26%; top: 60%; } 50% { left: 25%; top: 64%; } }
+/* strike: Coda's ♪ flies from him (bottom-left) up into the keeper (top-right) */
+.duel-shots.fx-hit .duel-note.hero { animation: duel-note-strike .3s ease-in forwards; }
+@keyframes duel-note-strike { from { left: 20%; top: 66%; opacity: 1; transform: scale(.8); }
+  to { left: 74%; top: 22%; opacity: .3; transform: scale(1.15); } }
+.duel-shots.fx-hit .duel-note.enemy { animation: duel-note-gone .26s ease-out forwards; } /* intercepted */
+.duel-shots.fx-hit .duel-burst { left: 72%; top: 20%; animation: duel-burst .32s ease-out .22s forwards; }
+/* land: the hovering ♪ lunges the last stretch into Coda */
+.duel-shots.fx-hurt .duel-note.enemy { animation: duel-note-land .3s ease-in forwards; }
+@keyframes duel-note-land { from { left: 26%; top: 60%; opacity: 1; } to { left: 16%; top: 74%; opacity: 0; transform: scale(.7); } }
+.duel-shots.fx-hurt .duel-burst { left: 16%; top: 70%; animation: duel-burst .3s ease-out .2s forwards; }
+@keyframes duel-note-gone { from { opacity: 1; } to { opacity: 0; transform: scale(.3); } }
+@keyframes duel-burst { 0% { opacity: 0; transform: scale(.3); } 40% { opacity: .9; transform: scale(1.2); } 100% { opacity: 0; transform: scale(1.6); } }
+.duel-timer-fill.draining { animation-name: duel-drain; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes duel-drain { from { width: 100%; } to { width: 0%; } }
+.level.duel .level-num { color: var(--wrong-text, #E07856); }
+.duel-victory { text-align: center; padding: 16px 14px; margin-bottom: 12px; background: var(--card);
+  border: 1.5px solid var(--green, #6ABF5E); border-radius: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.duel-victory-face { width: 64px; height: 64px; margin-bottom: 4px; border-radius: 10px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1.5px solid var(--line); }
+.duel-victory-face img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.duel-quote-by { display: block; margin-top: 4px; font-style: normal; font-size: 0.75rem; color: var(--text-soft); opacity: 0.85; }
+.boss-defeat { text-align: center; }
+.boss-defeat-face { width: 64px; height: 64px; margin: 0 auto 4px; border-radius: 10px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1.5px solid var(--line); }
+.boss-defeat-face img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.boss-defeat-line { color: var(--text-soft); font-style: italic; margin: 6px 0 14px; }
+.boss-defeat-actions { display: flex; flex-direction: column; gap: 8px; }
+
 .back {
   background: transparent; border: 1.5px solid var(--line); color: var(--text-soft);
   border-radius: 10px; padding: 7px 14px; font-size: 0.85rem; min-height: 44px;
@@ -878,6 +952,31 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .adv-forge-txt b { font-family: 'Archivo Black', sans-serif; font-size: 0.9rem; color: var(--teal); }
 .adv-hud-actions { display: flex; gap: 8px; }
 .adv-hud-actions .ghost { padding: 8px 11px; font-size: 1.1rem; background: rgba(20,24,22,.82); min-width: 44px; min-height: 44px; }
+/* Floating "offer" quest badge — top-left over the map (gated players only).
+   Reads like an in-world quest giver, not an ad; opens the upsell prompt → VSL. */
+.adv-offer-badge {
+  position: absolute; z-index: 4; left: 10px;
+  top: calc(env(safe-area-inset-top, 0px) + 62px);
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 12px 6px 7px; border-radius: 999px;
+  background: rgba(20,24,22,.9); border: 1.5px solid var(--teal); color: var(--text);
+  font-family: 'Archivo', sans-serif; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  animation: advOfferPulse 2.6s ease-in-out infinite;
+  -webkit-tap-highlight-color: transparent;
+}
+.adv-offer-badge:hover { border-color: var(--green); }
+.adv-offer-badge:active { transform: translateY(1px); }
+.adv-offer-glyph {
+  width: 30px; height: 30px; flex-shrink: 0; image-rendering: pixelated;
+  display: block; object-fit: contain;
+}
+.adv-offer-label { color: var(--teal); letter-spacing: 0.02em; white-space: nowrap; }
+/* Glow via filter (not box-shadow) so it survives the retro skin's inset-shadow border. */
+@keyframes advOfferPulse {
+  0%, 100% { filter: drop-shadow(0 0 2px rgba(87,198,196,.45)); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 8px rgba(87,198,196,.9)); transform: scale(1.04); }
+}
+@media (prefers-reduced-motion: reduce) { .adv-offer-badge { animation: none; } }
 .settings { display: flex; flex-direction: column; gap: 20px; }
 .set-block {
   display: flex; flex-direction: column; gap: 10px;
@@ -1749,6 +1848,10 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .retro .adv-forge-txt b{ font-family:var(--pf); font-size:12px; letter-spacing:1px; color:var(--gold); }
 .retro .adv-forge-txt span{ font-size:8px; letter-spacing:1px; opacity:.7; }
 .retro .adv-hud-bottom .ghost{ clip-path:var(--notch); }
+/* "Play for real" offer badge (top-left of map): pixel-panel chrome + pixel-font label. */
+.retro .adv-offer-badge{ clip-path:var(--notch); border:0; border-radius:0;
+  box-shadow:inset 0 0 0 2px var(--teal),inset 2px 2px 0 rgba(87,198,196,.25); }
+.retro .adv-offer-label{ font-family:var(--pf); text-transform:uppercase; letter-spacing:1px; font-size:10px; color:var(--teal); }
 /* NUMBERSONG load cover: pixel font + drop shadow, matching the boot/title logo. */
 .retro .adv-splash-logo{ font-family:var(--pf); letter-spacing:2px; text-shadow:3px 3px 0 var(--ink); font-size:clamp(1.7rem,8.4vw,2.6rem); }
 
@@ -2200,6 +2303,375 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .retro .fp-help{ font-family:var(--pf); font-size:9px; letter-spacing:.5px; line-height:1.9; text-transform:none; opacity:.92; }
 .retro .fp-help em{ font-family:var(--pf); color:var(--gold); font-style:normal; }
 
+/* ============================================================================
+   KEEPER DUEL (boss battle) — retro/GBA juice.  APPEND/EDIT BLOCK.
+   Layers the pixel skin + fight feel onto the FUNCTIONAL Pokémon-style battle
+   ARENA in the JSX base CSS (rebuilt from the old .boss-hud banner). One-shot
+   flash classes live on `.duel-arena` (.fx-hit = the player struck the keeper,
+   .fx-hurt = the keeper struck the player) and clear after ~520ms, so every
+   one-shot animation stays ≤ ~500ms. New keyframes are rt-duel-* to avoid
+   clashing with earlier blocks; the clock reuses the base `duel-drain` width
+   animation untouched. Reduced-motion: the global `.retro *` rule already kills
+   descendants' animations; a local block below covers the screen-shake (which
+   can land on the .retro root itself) and keeps resting states correct.
+   ============================================================================ */
+
+/* ---- the arena: pixel battle-scene panel ---------------------------------- */
+.retro .duel-arena{
+  border:0; border-radius:0; clip-path:var(--notch);
+  background:linear-gradient(180deg,#46534b 0%,#414d46 42%,#3c423f 100%);
+  box-shadow:inset 0 0 0 2px var(--line),inset 0 0 0 4px rgba(0,0,0,.3),
+             inset 0 3px 0 2px rgba(237,242,238,.05);
+}
+.retro .boss-name{
+  font-family:var(--pf); font-size:11px; letter-spacing:1px; text-transform:uppercase;
+  color:var(--gold); text-shadow:1px 1px 0 var(--ink); font-weight:400;
+}
+
+/* ---- combatant sprites: pixel-crisp, standing on a little GBA platform ----- */
+.retro .duel-sprite{ position:relative; image-rendering:pixelated; }
+.retro .duel-sprite img{ filter:drop-shadow(2px 3px 0 rgba(0,0,0,.35)); }
+/* a soft ground-shadow oval beneath each combatant */
+.retro .duel-sprite::after{
+  content:""; position:absolute; left:50%; bottom:-2px; transform:translateX(-50%);
+  width:70%; height:8px; border-radius:50%; pointer-events:none;
+  background:radial-gradient(closest-side,rgba(0,0,0,.4),transparent 78%);
+}
+.retro .duel-sprite.enemy{ animation:rt-duel-hover 3.2s ease-in-out infinite; }
+@keyframes rt-duel-hover{ 50%{ transform:translateY(-3px); } }
+
+/* ---- keeper speech bubble: notched, clean sans (speech is never pixel) ----- */
+.retro .duel-say{
+  border:0; border-radius:0; clip-path:var(--notch); background:var(--bg);
+  box-shadow:inset 0 0 0 2px var(--line);
+  font-family:var(--sans); font-style:italic; font-size:.82rem;
+  text-transform:none; letter-spacing:normal; color:var(--text); opacity:.92;
+}
+
+/* ---- keeper HP bar: notched pixel track, segmented cells, bevelled fill ---- */
+.retro .boss-hpbar{
+  position:relative; height:16px; padding:3px; border:0; border-radius:0;
+  background:var(--bg); clip-path:var(--notch);
+  box-shadow:inset 0 0 0 2px var(--line);
+}
+.retro .boss-hpfill{
+  border-radius:0;
+  background:linear-gradient(180deg,
+    #F09A76 0 2px, var(--wrong) 2px calc(100% - 2px), #9C4A35 calc(100% - 2px) 100%);
+}
+/* 10 pixel "cells" scored over the track (25 dmg = a clean strike ≈ 2.5 cells) */
+.retro .boss-hpbar::after{
+  content:""; position:absolute; inset:3px; pointer-events:none;
+  background:repeating-linear-gradient(90deg,
+    transparent 0 calc(10% - 2px), rgba(32,48,46,.55) calc(10% - 2px) 10%);
+}
+
+/* ---- the race clock: shift teal→amber→red as it drains, flare at the end ---
+   Adds a color animation ALONGSIDE the base `duel-drain` width slide; both share
+   the element's inline animation-duration, so the colour stays locked to the
+   remaining time. We must re-list duel-drain here so it isn't dropped. */
+.retro .duel-timer{
+  height:10px; border:0; border-radius:0; padding:2px; background:var(--bg);
+  clip-path:var(--notch); box-shadow:inset 0 0 0 2px var(--line);
+}
+.retro .duel-timer-fill{ border-radius:0; background:var(--teal); }
+.retro .duel-timer-fill.draining{ animation-name:duel-drain, rt-duel-clock; }
+@keyframes rt-duel-clock{
+  0%{   background:var(--teal); box-shadow:none; }
+  55%{  background:var(--teal); }
+  62%{  background:var(--gold); }
+  82%{  background:#E8A24E; }
+  90%{  background:var(--wrong); box-shadow:0 0 6px rgba(224,120,86,.8); }
+  93%{  filter:brightness(1.9); }
+  95%{  filter:brightness(1); }
+  97%{  filter:brightness(1.9); }
+  100%{ background:var(--wrong); filter:brightness(1); box-shadow:0 0 6px rgba(224,120,86,.9); }
+}
+
+/* ---- fx-hit: player struck the keeper — enemy flinch + impact flash + chip - */
+.retro .duel-arena.fx-hit{ animation:rt-duel-strike .4s steps(2); }
+@keyframes rt-duel-strike{
+  0%{ filter:brightness(1.55); } 100%{ filter:brightness(1); }
+}
+/* the enemy recoils back-and-up and flashes white on the blow */
+.retro .duel-arena.fx-hit .duel-sprite.enemy{ animation:rt-duel-enemyhit .42s steps(3); }
+@keyframes rt-duel-enemyhit{
+  0%{ transform:translate(5px,-4px); filter:brightness(3) sepia(1) saturate(4) hue-rotate(-10deg); }
+  35%{ transform:translate(-3px,0); filter:brightness(1.6); }
+  70%{ transform:translate(2px,0); }
+  100%{ transform:translate(0,0); filter:brightness(1); }
+}
+/* the chip: a white-hot leading edge on the draining HP fill */
+.retro .duel-arena.fx-hit .boss-hpfill{ animation:rt-duel-chip .5s steps(2); }
+@keyframes rt-duel-chip{
+  0%{ filter:brightness(2.1); box-shadow:inset -4px 0 0 rgba(255,255,255,.9); }
+  100%{ filter:brightness(1); box-shadow:inset -4px 0 0 rgba(255,255,255,0); }
+}
+
+/* ---- fx-hurt: keeper struck the player — hero flinch + red screen shake ---- */
+.retro .duel-arena.fx-hurt{ animation:rt-duel-redflash .4s steps(2); }
+@keyframes rt-duel-redflash{
+  0%{ box-shadow:inset 0 0 0 2px var(--wrong),inset 0 0 0 4px rgba(224,120,86,.35),
+                 inset 0 0 34px 6px rgba(224,120,86,.28); }
+  100%{ box-shadow:inset 0 0 0 2px var(--line),inset 0 0 0 4px rgba(0,0,0,.3),
+                 inset 0 3px 0 2px rgba(237,242,238,.05); }
+}
+/* Coda (the hero) reels back and flashes red-hot */
+.retro .duel-arena.fx-hurt .duel-sprite.hero{ animation:rt-duel-herohit .42s steps(3); }
+@keyframes rt-duel-herohit{
+  0%{ transform:translate(-5px,2px); filter:brightness(2.4) sepia(1) saturate(6) hue-rotate(-30deg); }
+  35%{ transform:translate(3px,0); filter:brightness(1.5); }
+  70%{ transform:translate(-2px,0); }
+  100%{ transform:translate(0,0); filter:brightness(1); }
+}
+/* the whole battle screen quakes on the blow (works whether .retro is the app
+   root or an ancestor). Reuses the small rt-shake feel at arena scale. */
+.retro .sess-duel:has(.duel-arena.fx-hurt),
+.retro.sess-duel:has(.duel-arena.fx-hurt){ animation:rt-duel-quake .4s steps(4); }
+@keyframes rt-duel-quake{
+  0%{ transform:translate(-3px,1px); } 25%{ transform:translate(3px,-1px); }
+  50%{ transform:translate(-2px,-1px); } 75%{ transform:translate(2px,1px); }
+  100%{ transform:translate(0,0); }
+}
+
+/* ---- note PROJECTILES: ♪ shots crossing the arena between the two sprites ---
+   Coordinate frame inherited from the base layer (positions are % of the arena,
+   so it stays responsive): the ENEMY keeper sprite sits TOP-RIGHT (~78%/18%),
+   CODA the hero sits BOTTOM-LEFT (~12%/72%). We override the base flights with
+   fresh rt-duel-note-* keyframes (boring mode keeps its own), so the glyph spins,
+   drags a comet trail, and the burst pops with real GBA snap. All flights ≤ ~500ms. */
+.retro .duel-note{
+  font-size:1.5rem; color:var(--teal);
+  text-shadow:0 0 6px var(--teal),0 0 12px rgba(87,198,196,.55),1px 1px 0 var(--ink);
+  filter:drop-shadow(0 0 2px rgba(87,198,196,.7)); will-change:left,top,transform;
+}
+
+/* incoming: the keeper's ♪ flies in from her, then looms near Coda through the
+   answer window. Comet trail points back up-right, toward the keeper. */
+.retro .duel-shots.incoming .duel-note.enemy{
+  animation:rt-duel-note-in .5s cubic-bezier(.3,.55,.4,1) forwards,
+            rt-duel-note-hover 1.3s ease-in-out .5s infinite;
+  box-shadow:5px -4px 0 rgba(87,198,196,.4),11px -9px 0 rgba(87,198,196,.2),
+             17px -14px 0 rgba(87,198,196,.09);
+}
+@keyframes rt-duel-note-in{
+  from{ left:80%; top:14%; opacity:0; transform:scale(.5) rotate(-45deg); }
+  55%{ opacity:1; }
+  to{ left:24%; top:61%; opacity:1; transform:scale(1) rotate(0deg); }
+}
+@keyframes rt-duel-note-hover{
+  0%,100%{ left:24%; top:61%; transform:rotate(-7deg) scale(1); }
+  50%{ left:22%; top:64%; transform:rotate(7deg) scale(1.08); }
+}
+
+/* fx-hit: Coda's ♪ flies UP into the keeper (spins hard); her incoming note is
+   intercepted mid-air (quick fizzle). Trail points back down-left toward Coda. */
+.retro .duel-shots.fx-hit .duel-note.hero{
+  animation:rt-duel-note-strike .34s ease-in forwards;
+  box-shadow:-5px 5px 0 rgba(87,198,196,.4),-11px 10px 0 rgba(87,198,196,.2),
+             -17px 15px 0 rgba(87,198,196,.09);
+}
+@keyframes rt-duel-note-strike{
+  from{ left:13%; top:67%; opacity:1; transform:scale(.8) rotate(0deg); }
+  to{ left:79%; top:19%; opacity:.25; transform:scale(1.2) rotate(400deg); }
+}
+.retro .duel-shots.fx-hit .duel-note.enemy{ animation:rt-duel-note-gone .24s ease-out forwards; }
+@keyframes rt-duel-note-gone{
+  from{ opacity:1; transform:scale(1) rotate(0); }
+  to{ opacity:0; transform:scale(.25) rotate(140deg); }
+}
+.retro .duel-shots.fx-hit .duel-burst{ left:78%; top:18%; animation:rt-duel-burst .34s ease-out .2s forwards; }
+
+/* fx-hurt: the looming keeper ♪ LUNGES the last stretch into Coda, souring
+   teal→wrong as it lands. Trail points back up-right toward its hover point. */
+.retro .duel-shots.fx-hurt .duel-note.enemy{
+  animation:rt-duel-note-land .3s ease-in forwards;
+  box-shadow:5px -4px 0 rgba(224,120,86,.4),11px -9px 0 rgba(224,120,86,.2);
+}
+@keyframes rt-duel-note-land{
+  from{ left:24%; top:61%; opacity:1; transform:scale(1) rotate(0); color:var(--teal); }
+  to{ left:12%; top:73%; opacity:.15; transform:scale(1.3) rotate(-70deg); color:var(--wrong); }
+}
+.retro .duel-shots.fx-hurt .duel-burst{ left:12%; top:71%; animation:rt-duel-burst .32s ease-out .18s forwards; }
+
+/* the impact: a hot core flash + an expanding ring + 4-point star spokes.
+   Pseudo bursts only fire on the strike beats (not on the calm incoming beat). */
+.retro .duel-burst{
+  width:26px; height:26px;
+  background:radial-gradient(circle,#fff 0%,var(--teal) 42%,transparent 72%);
+}
+.retro .duel-burst::before,.retro .duel-burst::after{ content:""; position:absolute; opacity:0; }
+.retro .duel-burst::before{  /* 4-point star spokes */
+  inset:-6px; background:var(--teal);
+  clip-path:polygon(50% 0,58% 42%,100% 50%,58% 58%,50% 100%,42% 58%,0 50%,42% 42%);
+}
+.retro .duel-burst::after{   /* shockwave ring */
+  inset:0; border-radius:50%; box-shadow:0 0 0 2px var(--teal);
+}
+.retro .duel-shots.fx-hit .duel-burst::before{ animation:rt-duel-spark .34s ease-out .2s forwards; }
+.retro .duel-shots.fx-hit .duel-burst::after{ animation:rt-duel-ring .4s ease-out .2s forwards; }
+.retro .duel-shots.fx-hurt .duel-burst{ background:radial-gradient(circle,#fff 0%,var(--wrong) 42%,transparent 72%); }
+.retro .duel-shots.fx-hurt .duel-burst::before{ background:var(--wrong); animation:rt-duel-spark .32s ease-out .18s forwards; }
+.retro .duel-shots.fx-hurt .duel-burst::after{ box-shadow:0 0 0 2px var(--wrong); animation:rt-duel-ring .38s ease-out .18s forwards; }
+@keyframes rt-duel-burst{
+  0%{ opacity:0; transform:scale(.3); }
+  40%{ opacity:1; transform:scale(1.3); }
+  100%{ opacity:0; transform:scale(1.75); }
+}
+@keyframes rt-duel-spark{
+  0%{ opacity:0; transform:scale(.2) rotate(0); }
+  45%{ opacity:.95; transform:scale(1.15) rotate(35deg); }
+  100%{ opacity:0; transform:scale(1.6) rotate(70deg); }
+}
+@keyframes rt-duel-ring{
+  0%{ opacity:0; transform:scale(.4); }
+  30%{ opacity:.8; }
+  100%{ opacity:0; transform:scale(2.3); }
+}
+
+/* ---- "at stake" fragment tag (bottom-right of the hero row): pixel chip ----- */
+.retro .duel-stake{
+  border:0; border-radius:0; clip-path:var(--notch); background:var(--bg);
+  box-shadow:inset 0 0 0 2px var(--line);
+}
+.retro .duel-stake-sword{ filter:drop-shadow(0 0 4px rgba(217,180,91,.5)); }
+.retro .duel-stake-label em{
+  font-family:var(--pf); font-size:7px; letter-spacing:1px; text-transform:uppercase;
+  color:var(--text); opacity:.6;
+}
+.retro .duel-stake-label b{
+  font-family:var(--pf); font-size:9px; letter-spacing:.5px; text-transform:uppercase;
+  color:var(--gold);
+}
+.retro .duel-stake-label .gem{ color:var(--teal); }
+
+/* ---- hearts (the player's "ears"): pixel hearts; a lost one pops + greys --- */
+.retro .boss-hearts{ gap:4px; }
+.retro .boss-heart{
+  font-size:15px; color:var(--wrong); text-shadow:1px 1px 0 var(--ink);
+  transition:color .3s steps(2), opacity .3s steps(2);
+}
+.retro .boss-heart.spent{
+  color:var(--line); opacity:.5; text-shadow:none;
+  animation:rt-duel-heartbreak .5s steps(4);
+}
+@keyframes rt-duel-heartbreak{
+  0%{ transform:scale(1.6); filter:brightness(2.2); opacity:1; }
+  40%{ transform:scale(.8) rotate(-14deg); }
+  70%{ transform:scale(1.05) rotate(8deg) translateY(2px); }
+  100%{ transform:scale(1) rotate(0); opacity:.5; }
+}
+/* last heart standing: a steady danger pulse (down to one ear left) */
+.retro .boss-hearts:has(.boss-heart:nth-child(2).spent) .boss-heart:not(.spent){
+  animation:rt-duel-lastheart .9s steps(2) infinite;
+}
+@keyframes rt-duel-lastheart{
+  50%{ filter:brightness(1.7); transform:scale(1.15);
+       text-shadow:0 0 7px rgba(224,120,86,.9),1px 1px 0 var(--ink); }
+}
+
+/* ---- victory banner: the keeper yields her mark (a celebratory forge look) - */
+.retro .duel-victory{
+  border:0; border-radius:0; clip-path:var(--notch); position:relative; overflow:hidden;
+  background:var(--card);
+  box-shadow:inset 0 0 0 2px var(--gold),inset 0 0 0 4px rgba(0,0,0,.3);
+  animation:rt-duel-winslam .5s cubic-bezier(.2,1.4,.35,1);
+}
+@keyframes rt-duel-winslam{
+  0%{ transform:scale(1.35); opacity:0; } 60%{ transform:scale(.98); opacity:1; }
+  80%{ transform:scale(1.02); } 100%{ transform:scale(1); }
+}
+/* a warm glow behind the panel content */
+.retro .duel-victory::before{
+  content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
+  background:radial-gradient(120% 80% at 50% 26%,rgba(217,180,91,.34),transparent 68%);
+  animation:rt-duel-winglow 2.4s ease-in-out infinite;
+}
+@keyframes rt-duel-winglow{ 50%{ opacity:.55; } }
+.retro .duel-victory > *{ position:relative; z-index:1; }
+.retro .duel-victory-face{
+  border:0; border-radius:0; clip-path:var(--notch); background:var(--bg);
+  box-shadow:inset 0 0 0 2px var(--gold); image-rendering:pixelated;
+  animation:rt-duel-facepop .6s cubic-bezier(.2,1.3,.4,1);
+}
+@keyframes rt-duel-facepop{ from{ transform:translateY(10px) scale(.85); opacity:0; } }
+.retro .duel-victory .victory-kicker{
+  font-family:var(--pf); font-size:9px; letter-spacing:2px; text-transform:uppercase;
+  color:var(--gold); opacity:.85;
+}
+.retro .duel-victory .victory-title{
+  font-family:var(--pf); font-size:16px; letter-spacing:1px; text-transform:uppercase;
+  color:var(--gold); text-shadow:2px 2px 0 var(--ink); margin:2px 0;
+  animation:rt-flash 1.2s ease-out;
+}
+/* the keeper's win line stays sacred sans; attribution in gold pixel */
+.retro .duel-victory .victory-quote.duel-quote{
+  font-family:var(--sans); font-style:italic; text-transform:none; letter-spacing:normal;
+  font-size:.95rem; line-height:1.5; color:var(--text);
+}
+.retro .duel-victory .duel-quote-by{
+  font-family:var(--pf); font-style:normal; font-size:9px; letter-spacing:1px;
+  text-transform:uppercase; color:var(--gold); opacity:.9; margin-top:6px;
+}
+
+/* ---- the duel row in the level list: reads as dangerous ------------------- */
+.retro .level.duel{
+  background:#493c37;
+  box-shadow:inset 0 0 0 2px var(--wrong),inset 2px 2px 0 var(--hl),
+             inset -2px -2px 0 var(--sh);
+}
+.retro .level.duel .level-name{ color:var(--wrong); }
+.retro .level.duel .level-num{
+  color:var(--wrong); text-shadow:1px 1px 0 var(--ink);
+  animation:rt-duel-ember 1.8s ease-in-out infinite;
+}
+@keyframes rt-duel-ember{
+  50%{ text-shadow:0 0 8px rgba(224,120,86,.85),1px 1px 0 var(--ink);
+       transform:translateY(-1px); }
+}
+.retro .level.duel.locked{ animation:none; }
+.retro .level.duel.locked .level-num{ color:var(--line); animation:none; text-shadow:none; }
+
+/* ---- defeat overlay: the keeper holds the line ---------------------------- */
+.retro .boss-defeat-modal{ background:rgba(18,10,8,.78); }
+.retro .forge-panel.boss-defeat{
+  box-shadow:inset 0 0 0 2px var(--wrong),inset 0 0 0 4px rgba(0,0,0,.3);
+  animation:rt-duel-defeat .5s cubic-bezier(.2,1.3,.4,1);
+}
+@keyframes rt-duel-defeat{
+  0%{ transform:translateY(-26px) scale(.92); opacity:0; }
+  70%{ transform:translateY(3px) scale(1.01); opacity:1; }
+  100%{ transform:translateY(0) scale(1); }
+}
+.retro .boss-defeat-face{
+  border:0; border-radius:0; clip-path:var(--notch); background:var(--bg);
+  box-shadow:inset 0 0 0 2px var(--wrong); image-rendering:pixelated;
+  margin-bottom:10px;
+}
+.retro .boss-defeat .forge-title{ color:var(--wrong); font-size:16px; }
+.retro .boss-defeat-line{
+  font-family:var(--sans); font-style:italic; text-transform:none;
+  letter-spacing:normal; font-size:.95rem; line-height:1.5;
+  color:var(--text); opacity:.92; margin:8px 0 16px;
+}
+
+/* ---- reduced motion: calm duel ---------------------------------------------
+   The global `.retro *` rule already stops arena/sprite/heart/row animations;
+   this also covers the screen-shake when .retro sits ON the app root, and stills
+   the HP width slide so the bar simply steps down. The base `duel-drain` clock is
+   already neutralized by the global rule (a calm, non-draining timer). Resting
+   styles above are all complete without animation (nothing ends hidden). */
+@media (prefers-reduced-motion:reduce){
+  .retro.sess-duel:has(.duel-arena.fx-hurt),
+  .retro .sess-duel:has(.duel-arena.fx-hurt){ animation:none!important; }
+  .retro .boss-hpfill{ transition:none!important; }
+  /* projectiles: with flight animation off, keep the ♪/burst layer fully hidden
+     so nothing freezes mid-air — the hit/hurt is still read via the HUD flashes,
+     hearts, and HP bar. */
+  .retro .duel-note,.retro .duel-burst,
+  .retro .duel-burst::before,.retro .duel-burst::after{ opacity:0!important; }
+}
+
 </style>
 </head>
 <body>
@@ -2254,6 +2726,7 @@ window.VERDA_PORTRAIT = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACAC
 window.DOJO_SPRITE = "data:image/png;base64,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";
 window.MAP_BAKED = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAGgCAYAAABFbrmIAAB6TklEQVR4nO19CZgcVbn219Xr7NOZJZPJAtkXQmIgSICwRDECNxgQCYsYQDZB8IJcr9zf7Rf1dwXUqyAKssiqIGIQlEQTdmQxkoSQhOyTTCazz3T3TO/9P9+pPtWnTp/qrTpTXd31zdNPdS1vTXf1+c7yne99j21cY2sCAKB5wgRwVlUBtdrqWpg9bw4c6OiAf7/xBkyYNg14O7R7t/LewlvPzyo/VabzH4nu9HR2qE76R/zw5iuvQDAYBDtkNwtvPT+r/JjPf2wtja2JaCIq79gcygkRyOmqBme1G2KRCIwE/Mp1Ft56flb5AVP6j+P8z11O3tTV1qkufuCeX6Td5OhjZoPH44FJkyfDc7//PXwmibXw1vOzyk+dKf3Hdu1NXyExgKd+9xB85KSTyIXYbejt6oKBQ4cglqxNcItGxxKnnHKq6uYW3np+Vvk5yXT+43hv40blJocPH1YCCNTY4EE3E3QIhkZh+9Ztqg9h4a3nZ5UfMJX/KIOGSDioCiD0HjqkdCHwhh9u2aTcBGuTnQ0NYHfaIRaR6xYLbz0/q/yYz39sRx09mwwBfIMDyg1ol4EdQ9AuBA06YMChrtGrnLfw1vOzyo/5/MdG8wD4gAE/duCvweOJ5I0svPX8rPJjTv9xrFi1ihzAqCA7ZsAkgdPO+Q+oqa1R3TjgD8D65/9C3p970aXKcQtvPT+r/IDp/EfyuKsAX4uWnEpqBGo4pmDBL724lmwP7O9QdT0svPX8rPJTZVr/UYKAH/zrXXDYHEqQgNYW7E0wsyg0GiTjDew54D+28Nbzs8oPmNZ/bCcuPZPEAGiUELixBe1SDB3uVrKH0HDOMeALKPsW3np+Vvkxn//YTl72yQQmDeC0wZxFi0imEBoSCHhblhxTYM2yeeO/YGTYB1NmzSRJBxbeen5W+VlkOv9x4DwignHMEBkJkXnFmjp14ACN7XLgFrsSWKNYeOv5WeXnkGn9x3bMcUsSGDHk6YLHL16sADDNUItOiMctvPX8rPIzzZT+I1FOcWR0VHUS0wQxXXDnzh1pQP4mFt56flb5GTWl/1h6AEmz9AwsPYNKxFt6AJaegaXnkKhcPQdLDyBpFp/dnHx2Cy+bpQdg8fEtPr4J+fjULD0AS0/A0lOw9BQAzdIDMBGf2sJbz8/M5cfSA0iapWdg6RlUIt7SA7D0DJSCYUY+u4V36Hp+lh5A0iw9A0vPoBLxlh6Axee3+Pxu8/L5LT0Ak/OxLbz1/NAsPQCLTw9m5JNbeHM/P0sPwNIzsPQcuipXz8LSA7D4/Baf/5B5+fyWHoClR2DpMVh6DGDpAZiUj23hreeHZukBmJRPbeGt52fm8mPpAZicz23hrecXtfQALD65xae39AQK0VOwXXvTVxJm5jNbeOv5WeUHCvYfx3sbNypOZPGxx56PbeGt52dk+VEGnWblM1t46/lZ5QcsPQCz8rEtvPX80Cw9AFCbxQe3+PCWHgAccT0ESw/A5HxuC289PzRLD8CkfGwLbz0/j6UHYPHpLT0BS0/BYYCehO3EpWcmzMxntvDW87PKD1h6AGblY1t46/n1WnoA5uVTW3jr+fWauPzYjjluScLiUxu3PruFt57fIQPLj6TFR3/3nXd08dmNxlt8fEuPwMjy865J/Eeib7AbwRtGDdlAWyY7UvhS51Nb+PJ/fglmelfLStV/suGFegD8A8PzOMWA0wvVNTLRIBMfPV88zVpyuJ3y9aGICk+nNSg22/8XfQY0i09v6Qlk01Nwu51p5Y+mbuda/sbaf/TgHed/7nLSVaDjBcorRz4xNVsSPHP+AmhubiLHXl+/lmSiIe5I42klMXHqNBLg8HrHkWw4NrBh8eEtPnwhfHjW2DLElj9qOGPjbWgET3W1qvyVuv9kwit6AM//8WloGN+qgObMmauknFLDBzpt/gIY6OuBJafKfGL6jwvF03v8bc2foXacV4i39AAsPYSx0oOocntgYGgQDu7ZCyODAyoSF76fPnsedB8+BJ8891MqxzPKf/TiHQjEmq26vo4EEpxV8g2DIyNkSx/KGxvWg7umFroOdIC7yqPUPHrx//jL8wTPOj/7gVuZ6CUNeFBjtQzQLD6+pUdQKJ8+Eg4q5aehoYGU0f7uICw/7wJy7J8vvSTf47B6rG20/+jFO3AssG3jRtKdQcMkFbSXn/8LccAdmzbDwhNOUM6zzoeBkiOFx9pLSw8AxzRbLD0ASw+hCHoQaPQe1IaGhgje4/IQx8fy+7H/OCet/CK+VP0nVzwJApKHkMxUe2PdegiGR9LGT2xLTK1z1w4SXCgm/p3XX4fwqJ8EYvjuFx/0aGmfTBIa0Cw+vqVHUKgeQ4wLCtLr2fc4fkZDpxH1KErFf/LFKxVANhPximl08Uji1XWztll6AunPzeLT6+PTQxYs2pEu/0car+oBaDkRaDw4/qEUE++dMIEEcc7mui4s95nt1oj40DT3XotPb+Gt50fthWT5aRWUHyxbdl5Ig3O8UvOfXPFSpnlz9hjWFviya1x/JPCYF0CjnMinR+fFwI3Fp7f0BIqtp7BgyamqVpLGFPAce1+SryJodUvRf3LBOy644XR4+u6XVN0JWnM8+8y3wOmKwvJzvp12c7xm1Q2nk/d68I11Trj/h+sEHx/gEyvPT10fiZD4AB2vFYsPbeGt54e28c1X0sb11HC+HHsItIzTGMK1Xz0TBn0RQ/1HL9522/cvTbRPbiYHv/XFR8hNrv2uHPFsc6WmUw729SuOetZFckBk4tHyvKNePLWHfvoSBIOjqi9Cgy8H9+xO0wPA+V4awbX0BCw9hWLoSdiZICEkM+cojnb9i13+jcTb/vfXNyZmLZxEDhwId0ONxw0xKQJxnxumJ9rJcaxFtga7YXAoFWm2jTjANhIn7/XgE9USJKqjquP/98Yn0qKxmMZ70pnLLD69pSdQdD2Fg3v2kl4hxWPDglNr/Bj7+qRjKcd8YZjYNA6M9B+9eMfxM+fCrtFOkOpCMAlaAeIA3QEfuWiXrVO+OpkaPY5N1hkHyj/QjafXAUC8QT12oTXy2eetUI3ZSoVPbeHN//x8gwMEj+8DkYCC54Nox544QXEutKKVfwPxqmhG3UgdqS26Qb4Ba5IdwFkTh0hAUra8FYrHD08fqrs+Dj9Ycxncdu4jynns1mDwj52DxcxBTNWkx6bMmQcjkSD5sniM/cExzRPpkawhHn94C289P1p+0LA80PKDPQVMqMGK4K6nr4FIAMuwE31MaEb5jx68g9YS6IB7oAviEa2vBwqIbsn1trh+fNL54zEgNSxv+AOwzs8eZ/nQNA0SDR0eRREOdKhpnrxp4bHCmT1vTsnj2yd6oK72KKhr8IBvKAB1DTVQDS4YOrQDhpLXnHrqR8j28NAAOU+vQ9yOTeb+/nrx3QyeLWFYfjCDEMuYy1allM/QsEQaKSzDH8Y7iWMZ7j868OSdlJDIi94sV6PX68VTw4cZHXSDK1ZFpgCRqbj6+htVNEwtq1Q9AerM7JY1b2OK4cZfh1ujP7/RfP5YhvKDFQgyBj912Sr42urHieNjGaUORJ3faP/Rg7f9bsPXSCJQthtg7afUdsx7aoXi8T3BM/s3f/oeWHSyzFZCIgPayy++AA1eOdqJZukJyO3V8afOS3Nq7AGIjO8B4HbXpn0VzecXRf5pwHBgoF8hCGFP42d/ukZY9o30H7145RtnA7fEmyERtoEDnBCFCPRX9aiv0YmnhrUsGk7RINkCyQxoTpcH7E4nTJ87J00PoJL1BDa9t4Gcm9jYBAeTPYLqBnEFwPYQaCWAvSwzf/9i8PlZ48tP84QJ4G1qIe9x7EyNH4Mb7T+F4pUeAK1F0sDJGzdFmsEeTRWs7qpU5F4vnq2RwvZR+K8VD0L79Flk7pavsXGqBtlalM9Nnb9S9QT27H1bVw9gwcIzTP39i8Hnr6utg6cefxTaJk1WGJYonPHWhvUEQ4U37157FbkXxgG0egFG+I8evGoWwBsdB4mojby3ORIE0OvpIvtRiJKr6XlRN6RQPHsfnMd0uW1KcAe7YmjozNiFwx8W+czUKl1PwCalxwBC8VHwehtU9x4YGII6bw14m+Tj9Hr2GZjx+xeDzz9rwbHkehTKoIHEmlCNUobw/+L9qeOLnN9I/9GDV1UALJivRYacg+S95EgGQORLoZh4NHzI/+/py5VpQHR87IbxfOaNb71NtpWuJ4CJLXwPIDSgVoilxnf/5f0GU3//YvD5//3GG0r56evuUSSzaEYqlpffvPRFMg2IphUHMNp/CsGrhgD4xZwxWZgTrSnWQmoQdnwRDybAa/cqN1T9I5148sHqQhAciavyAPAHmHXscWlTgdiisxmDlagnMGFKvXINdWpXXIJpUyfBwKBP1QNwe6tUswR4/Y7Nh0z9/YvN5//nSy+Re/H+fScTANSahzfafwrBp1UA3nijcrE/EYCYK31eXqsG1ItHw4cbCIZUFYAWtdHSE4jC4tMWCHsAoiFAWIqnDRd2bNpHzh8JPr3ReMiCBY7Zl4lSi8lpODxFxz9S5d8IvGoIgAd90rCqxqCBBdUxDefVi6dDAJddHZkVURvxh8v041E9AX7okI+ewGlZ9ASQJWY0PhiW579Zp3alWN4qE+UB0Gdg1u+fK58fsvD5M1FqSXkLVwEdadBEIN6M9p9C8Gnfgp9OsEXs0BhsEkYYRVYInuYCsPvY5aJd9VysUvUEBvqGNJN7ckkaMvrzlwqfX8skVwxefP5byvQ0msj5jfQfPXgH3y1QOWMkAXYJL3JCNC5nQWn+4wLxvPOzx3/+7PXw5fN+k/6hkz8gahlUup6AKLA33ps+I4IxgYODfWnXG/35S5HPT+3B+28k20jYATizik6E5RiNL8tG+Y9evCoGwN+wOSwnQOAN+GBCNssVj2N+0bwq4mlXCwODXz77AYiH7aRGXn7+InKNpScQgHpvVFceQALpl2Wkp1AInx/NXueC+25fQ96ff/XHyPbc44+F1rYG6BmJQ21VBDrdA5o5AEb5j1687dH130jgCQQ4JLmbQGs5egM0zBxqiDSmRR9pCmKheFFkVcRaosFBajgmG941VPF6ApOmN6mcGjMC2eg/ayMQTqssAn53RfP52yc3Q+tsuZdxuGMIalvk/z/J1QrRA2GAanmWpa4uTLZYCcT8DlWZN9J/9OIdmDzQ5+wlYHyPhvt4w0FPH9mn/2BAGlQFDTC7iF5fKL6lWoIdng6I+NzK/rZAd9pYC9/X1MisQdIraAwBahlUup5AXcMUlVNjOrBWD0AUA0jEHab+/kXh8wfk8jNn4hSy7R71kRc0YQPVQxqo/miqt5qcSoep7gbwjzoN9R+9eAcmD4yLtsCQfRDABjCYkEmkZDzBMJ/p+IIdY9DEA714cr4uBLWjOGXhVukDsL0A2ivAFzvUqWQ9AVEMIBcuAM0I7Dxo7u/P4gvh8ztdUfI/sQzVDcsVQm99r6o8sQ2RHAyMQ3O8AfzDTigF/9GDd7CkgoFEf8ZxBj/2wRqGvb4QfD/ylyPyw+5I+CBuG1L2RRHX1L7MfybBjeSPRc+7IH0aMV89AbPw2TNRfHljr6OzB4d27zP192eDfuxvjBXG0VOOkhmE2At0jZJ5fDTqBLvsnYpajsKnZ/QpRL1Q5f+CDyRHAOLOuKH+oxdfEnoAevD8l8LewX9f9CDJA8A1BZDthmuimZnPnglf6XoAMQ2eBxqy/lZcdCGced4K+EqyR0iGj1w+v2Ti8m96PYBi4dkK4Poz74WTl30Cenv7yHgQC9Hmf75B9ASQUlzKfPZ88ZWuB8Bei3kfaKgsjXoSOEuAFQnlEiCbTyuTTzJ5+Te9HkCx9ASoUeen0WTUE0A9ACSATJjQTrLJSonPbukBFP/54RQgrpoLSXYhziKxgeRSKr8VrQdQLDzbA6B6AnxLgeujY6tQqnz2fPGWHoCa1kv1AJARiMMCzBrEgCHl82eax5dMXv5NqwdQLDw1Vk+A55PTQFGp8dkLxVt6ALINDfQKnx/O9OALk4Do+F/LvCYv/6bXAygUT6Wa8AemegKoKkTHlCI++YHx40uCz27pAejXA+AN8SxVHA3TyrNZwqTlv2z0AArFsxUAKyvGU0VjXNCp3pvKlDIrH77S9QBQyYfyA9jfmb8Xdv/ZFXPY5DGzl389+DRaVK0tNTXUZ+9Jl+722GAgps4oMhrPBnSwMogPV6nUXGIcyQPPYaEYHujR5JNTE/HRSwk/69gJQj0AUTqwaMqQOp5Zv79tUFzJ8ziSwdcolw+a+ScyM5Z/Pfg0MhA/nSDiE2cyo/Asp+CWFQ/DlJlzYdKUyQqbjDLLWD55Nj0AmnvOWqnhUQ+ApwRjD0AkCEJ7AGwlMGHCfFN//0x6ADSouvH1V6DKXQ/fefrTZM2JTCaZtPwXii8JPYBi4DFFkw4FQqEIcf79u/Youf9IBcbCU6p8dksPQN/z++gZy1T6EYjHGQHMBZCFU0ZIJqAW/dzs5d+0egDFwLN67dSwlcDWhEo/W3oA5a0H8N7bb5PhBItHq61tgHV/ei7j6kBmL/968EoFwEt0Ez5xolUZTBHao+ayiMbi+YVGf5wkA/n7B2Dnhx+S42w+ABoeZ9VksYWghoUFE4doJYKGFUgvE6jCHHWWj24Uvt6bGxcAYwKiGACVBTfr96czAfT3pb8o4t/YsJ68x7X9fvLcFeQ9dZK0TDq7ecu/HrwjE5+YGmYO4TX58pHHAs8bRnkdyS+N87/bNsqFBrPCWGlo2ppMnHo0SbpBE/HR2RzzTHx2o/A2KXc9ABEXIOC3m/r7Y/LPrg+2kUpj7nEnqPDUx8MJWSadX9PPiaxSjttvtvKvF2+4HoBePF7L04ZZ/TYaEWadX+GT48oxkcmG89ktPYDCnx/2AnBIEI1EFT0AXNUHuKlEmQmopvZOD7dBTzRu6vJfFnoAuvDJaU9WOUi0xLiIT27pAZSXHgB979+v1gOgPAA6A6CUkaBchkxd/nXi07gA+VAKRVMORuJJN6gxfWGRGJdSS43tXuLqQywfHe34xYvJWBO7k/niMXuN8tmPJF4vG7DSt1+8fXnJlF8j8KbXA2ANa7nooJvU9EgNRS2A1dffqFoWWstE68NXgh5Ati3GFPQ4WanjS6H8WnoAOvjMtEvD7t/86XsIHxwN54LRXn7xBaIHQI3lo9OxIuWT8+vL016TaH15o/nwVg+gOD0AyaR8fr34stMDoAFAOkW0Y9NmZVoIxUCmz50DXu841frwNFdAtD48W0mgngAGqHg8izObHgDdZ/Gi89n2zYovlfJrFN6RC5+Y1BZxOaFABqUIB0bj+eQHKh2OXWjUA2ANg0ZEMnrbB4rzUef/25o/q5YYxyknmnJKDRlpOBZH2inrvNRhWT4/jul5Pj9KVRcbTws1TfLJVROQ37L4QrZmxZu9/OvFl4UeAHsfnO5h9QDQkdHQmbELjxryyCCj9o+/PE/molnnp2ZncstFunM0icZIPQA3jJK1AJEARLchEC8OSlcMoj0ErW0oPqq6H92WK97s5R8qXQ+ANaoHQGcB0PGxNeUXCd341ttki2NpbFnpeZw6ojgtPjqO2beUiB6At1bt6NTZ9RhfeVQKPmHy8l8IXlUB9Lp6ZD5xEt8EKb48tWgopslHNhpPvlBjCKKprFLiRBhh59cFQGNFI3BMjb0FJA2FR+X14alsuCgg98G/3oaW9skkIYXGGGgPgb0eHVY9EJFTXbHSYUktheJbjj1K+Bww+q+VEZiLVSK+1+TlvxB8WegBsGaP4/gmtYQYGpJMsAXlHZkQRBg+Ok0aUe6VrARYfkWMidazU4dG8eEBxBWAHuepZHytyct/vniH2dc3Fw0BXPZ0zjcLoSvBsqvB8go03mQQjh86sNz1bHz2fNa3LxQ/dGiH9sOwLC+TTF7+C8GXhR4Az/HG/Tv/dI2KH57NRM8U8wLoNB/y0dH5cChRUnoAA0NpL70mumc+9zUzPm7C8l/RegBaAg94HIUgv3zeb9K/dLLlv+CG06Gxzgn3/3Cd8B6fWHm+8r5U9QTCUuoHZxWBeOP1ANjr0/al9PNzjppSlnizl3+odD0ATPzBbj9/HyKQWBMnPQHUCPjy2Q9APGwHyRWD5ecvIteg86Nd9dUzyfahn75EVpVBR8TuP3bLZ86X15LnhSsxRx/n62kUv5T0AHDKi7fdew6QysJs8/RHGm/28g+VrgdAF3pg6cDse/IwfG742V+uVZKEyBcPV8HwriFIVEuQqJa73rfdsxJsIw74vzc+QYYE+KLBQ0zDNYsewO6BAyCyXHPnaUZdobn3ZsJLJi//Fa8H0FItwQ5PB0R8bmV/W6BbuLIruyyU1BiC42fOJfusRHS8QR0PoLn6Z5+3QjVmL2U9AC3LqaXU4XxmxHtNroehF29+PQB6vi4EtaNI4nGT93R9d7Y3gFvcJ3xw5kGw1+OQ4gdJSTFqOCTg8whKRU+AdmPZQo2ZbyJju73eJjlZRoTPZb9c8IlK1wN4dP03EjRyKEov1DKehcef44/jggRtiYmkO4OZSrSWKkV8Pmuu/WcyyFhsPYFc8TRXQYSnGYSoiffDpy5TjmMlR1fJfeO+rWAG22ELQXW1BxraHbD89JnC360QPvyvfvQeBHzDUFNXX9D2lu+eYn49AOVAFmfIFHFnb8oeQ8fjcZiXzI55jMZncnbcxzFZXbSedLHoi79OS0+ADfRlskLxsQx4FBRB0tCnLlsFX1v9OHF8/I15bTwz2KyEGw6t3QeBfSFY85ws9EpND58+oMP5cav3/xuNl/iAQ9pFsdSrLdwOraPt8j9FIoEk/+OtT+xXnAznHXF/2++6yLkWewuZjgCnDbbt3026Kv5EgFyD15YCHrFbHt0P9rATRvoTsPXBrrSHao86SZeJHXaQ48moPb6wRcYXSd/dvZvMJOzesomc606eQ4Yivti0Xz149h4Uj685c+aS3sNrr71CXhgvoK2+Wc3pScDO9fvI+6cf2ALupBx8LgWf/d7s+xodzo9bvf/faLwj29wiWnO4ReERo6FjoKPsXtMJcTuAFHNBeNAGI72jMLB5EKSIzLJCBxuEIQgnW5yuN+QIZnVzFbnm8Muj0HWo11D8gL8fmubWk/1df+yDkaA8Hbfpsb2w8MLpELfLDxeHDbzzo6HqUDY9AUz3xUeJU4pUsPL19WtJJl8uegTZ8KzxeBwaeJta0tZPYAOkZrHJ88eT7YWXTifbUWap70L58AHfMHzmqlvI+xd+f3/e+2bXAxAuDYbG9gy88UayxZaTWsAXhd1rDoG7NkWtbZo+AQ5s2QO1zmqIOZK1syNMtpHBOFR7qgGHqaOjAB3dfmhvr1Z9UCPweL7e5iHH/BHZ+asYuvDU8+Xvzg4XcAgw4OgnD/2Vp8PK+vQN41uVa7AF5vUEsKxOm78ABvp6YMmpsmIRdWA9eHT6px5/FNomTVYYhlhRvLVhvaKHiL0CXCCTnTpFe+1ec8QA+sJB6HPbYMKMWlh57nSV8+cSq8GIN9JjqXVXyTM/v/7h5qLGAPL9/3o/v168QwSmBZxWAjh9gCyjzY91qBweW3+08668lmxfeXkNfPbmL8No/zC88Ac5ii5FXVDrlGDmp0+HpskzoK9jJ0ydOhd+8a2fQCRcBU7XqKH4T199CYwmauHh7/wMWpqb4OzrL4N196eyB/c8MwijoWHSG4i55B4QlSLH+AI6Ls7lV9fXQWR0VAnEBUfkygRFPlCWDBepcNfUQteBDqJHQFv+YuBRGx+PYcVA8TUheSoRfyIcPuA0I3V8M439qUVqXeAJ22DwcASeXbMLzvrYzLRrCuHD23yHgagv+EYL2+r8/0bjSQ+A7eqjkSkFzB575RD4ukagfXEr9H0wDF37o+D1pioKdLZ4OAo3/s/P0n6Mu++4lZyTXHIdc8W1/xdu/c5X4J4f/Uo5Tz6Iwfgbbr2DPJxf3/FVcv0X/ucO8p7a43fcSbbTzp0AO/+6D+Z/dgqwleZN599L3vN6ApRZiE678IQToKlVTc2k04p0LF8sfF93jzJEYFdIvmfddUq3ny08bA+grl5dpH3DftU53KdbkR1J/IZXt0ONVAU1x4yD1tleiPaH4IIr5YVNqY0bbVHx4akDZCLHPHXH24QnQDUE8n3/mVtP0PX/9X5+vXhSAWD3AGsGHB/EHGHokXqhY0MvBDqipNuM3WlsRXfs88MNX7tZuRk6iyPZiSA1jIbhNSM+H0w/cQns+uebUF2n1r8rBTyex+N0i/dD3OlHj4NobIAMC3C4MHtlmwp3c7ICiCUz9d5Yt56k9fKNLKssRK1z1w7FSYuF/+dLL5GAH4/HlGjq+GxuhKgCyMVBRdccSXwwCLD5X/tJBXDjtxeTY/wwgKR/Ix8+aU2xljQHwF4by4d/qogVQCH/nzUj8KT0oMOjlDyCd798CCaf0qQ4/8ovfkEB/+nWO4jTU0MHQUeZfc5/QFSS02x3PbeO7G9nxq94zdxLzgWbLQHzpq+AnWv+rvrgRuMnz1sI7unN5DhfOVx43edIL+Kldc9Az759JLCYcKaH0lk9AVEPm4/aHwk8VTFiz1Oac9g+SjIh0fHZGABrWo5bCucDUhDazpoCq1bNg1BAe0paL59er5lNDyAtCIj5xv96di8ZH19005VKF1nLpq+QiTTU3LW1EPKLf0h0QLREQkPPq0Tw1HY88Zzy3XFY8Md771aCijPPkwN2lG3I6wlkOoZTdhjZFzlqofhMhkOAn/7xesXptXoAZggC1judpOuvlcQlSo7JFCV/qog9gEL+v97Prxevqkjwob7zlx0k6IUtHzq/ltPPOPfj5MUb73zU6eg2mxmNRwsHfOQ16+IVpJeDf9fe+kP49HU3gLd2HJk25E2rVWadEF92jev14rUM2Y8vPv8t1XqJhU4BYhedvsYa3+TyQOcreyHikeDxe9/XDGTmy4cfSOoEsJoB+b7X8/+NxpMhgNKdiiTIdNmnr7yBBNboOBgd3VWj7hqjg4haTlHri86nhaetcSnhbbbUNUetOAP2PbdBiXWgzZw2CQYS8jQgago8ffdLisoQ23I/+8y3wOmKwvJzvp32mfCaVTecTt4XG0/twftvJNtI2EGGeDSrEa2QmYBsXfgjjT9j6WzwHtcOi46rh1E5BydtsYt8+fB+qCpOHoBJ9QBUswCYPUfH/Rg1p+NmtsusdhT1ubSbc+dZR9TqppcCnuLYLdp/nfwRWP/MYzD99GbwOWTppfff2APtk2VW1re++Ahxwmu/K69E3OZKtXQH+/oV4ZGzLpI1BiYeLQ8j9OLR7HUuuO/2NeT9+Vd/jGzPPf5YaG1rgJ6RONRWRaDTPZA2/jfLEKDLFYdw2AbVbS5YdamcB4Cm2ROIpWa10AH4YBi1XxcxD6CQ/69lY4UnegBgl+mCcWcYqqrk5Brq/Fqm1eKyTsc6Ed0vNTy28nwlxl/Pn3/j0W0w5+LxJKAysWkczJopp0f/5LkryLoEuPIssgunJ+Tj2IpvDXbD13/7mdTnHHGAbUT+QfTgUc+gdbYc+Pk/v7oIalvkPI1JrlaIHghD9zD+hvLnbw95obN+AGJ+h0IRNYu1hSUyFTj/M/Ph4Xu3w0WXzZVbPZ18+oBOLoDp9QCag21ytNAegRlnHQVDr6bGNaLWPVvLr+VMLD6TjT1euwejuipZGUqTozDvzNRUIGoK7BrtJJTiSdBKVmDpTg4vFJ2B5FKD49jFR8aB4uC68QH5ujkT5RyF7lEfeUETtgQ9pJXsj8rBP+wBJKXhYaq7AWTZkdym6bLZkcbjEGDHYT9U1bnh2Wc/hKtWzodEpE4XH76GceazV8mZkk/df1dO+4gzu54AGTQ2xBqh194Drpo4SYnNZnzLqhV5zzZEoGYG/BeWLoR1D98HDUsx+sswDJknWjdSR1rrbkiXpGbn33nFIj14vB4rCKxA6oblCqG3vlelb8D+LzkYGIfmeAP4h505zd9ns7HCv7nxANRPa4RVVy2CKvweAf18/gDTotMxfq77uDW7noADW/+IPdnEOG0Q8cgLXbDdf5ETiY7xDpfLNUbj2e8pwrPHsHJE90fWYGusBbpcnUorjQ5H3qsXFiZGI7Axv8y/xi3Y4uR6dgz+CuyCfOw1UI/f88UXIzi3yz8AvoMHClbwIdsc8Z5WALc9Avd8+0V9/4/ZNhFNxUOqbTUEYZwX8+bV28PcdbhlSTk0MKxlfLwCW2j2eiPwpAcg4sVrmZYDsfPnWsMFUUzBaDw/C5BppgPT7F2NCWhE3TANoUXRPCyOyZBQxc4kUDKR2a3UNP6Kga9m1gxkVxgSXV/IXL2Iz28UXsLWf88/usl8IVJ8Qz75Jlsfe444h1YrSg3Po6PRF298iyoaoxuJR9PCs9fXO+Tu8q413aSbhT0nNL16AmY3s6oBZ9pqrTAkut70egDIo/d1RmHHn+UCjVTa4WgkLSWWbyG1gnHscXYajZ+HNwOevccP178LX/38F+DZX/4K3nuyA2acM4Gc73jlsC49AbMbdQK2pS1Eo6+U8NXcqsHURHiz6wFI/o0RaJsgRxPRkPhDW7tslmt2XaYxu9H4XO5Br4nEUrr8qIVwcL28H9kWJvkTqCeAFGmkTFe565VKlXb5ccxFI7PlYtQJ2JaWHs9nv9TwIhPhWaO9PvbFjr3R+dgtb0bgyaD04xetVt0I017peDXXSDo1rXl3M+BFXAH2/Rf/+9fwq+/fCn964NfKsZVXXK5LT8DsVg0upcWk21B8lCxOgurE7Ha8V57G5K8vNfwAk+tPDY/x9+PVl82oB+BA52cJPzT3HWmxrAOwATHewdhpNDwmStLJND4vFXwuacWYIv2L7/8neY8swTQ9ga+m6wlI4CIKSjv/ul+lJ+Bwq3/BUubj54KnxjtPvmY0vtD7ss7Hd89pAo6UTMKQbKWBty1d/nlhM4Q58Lxp9QZEEfRsWXpmxe9d85KqstSrJ/DKr7eYgo+vhT+UFDDhjY2eF2JG4gcGhshaiixe1CsoCz0ALKjI7kMniA1HCI+e7oui4iLjr6MOlcu8fCnjRTZh3jHQsfU98p5WBMXQEyh1Pn4u51nT47xmxteaTQ/gsz9/OCEq+LmQbUTGk4XyHYsbiS/m989VT8AsZBwt0+oBmNkGNGIA2XoAZtQDUPFHsxV6UReaP8beQ3Qtf9xoPHuuUKfnjcZLUE8AKwEaWMVK4O9PPkz4BIVYqefqUxPx5PMZmxuNz/e+2fj4mGrPZ+2VCl6pADIFvtjz1NgWNhu7TgsvOj/WeFqBZKMJ8/hi6QmYiY8vwh8eSk2NKlNjyf4lO1U256gpylRb2vUlhncJOtgYExDhza4HoHxTrUy6TOfZTDl6PtM4O1Mk3ih8Puf5mRC+56HV+zj63NPJC2cJ0DJJrJnNzDrPn+163nbvOZAxD4A6Fyu73pxoJa1vLun2RuElPhEm1+QabPFEwTKz4fOJL/B6AvjKxC9gtywW9QSiIROR8TOYKPe+0LTdUsFrmeh6di1KJf07bS3KFB+fN6Pxjmz8ed7y5eObDZ/Niq0nYMYxvgrD597rIO6UCl7LRNeXhR5AJiXdXKxQPB1/mxVfFD0BE/HxRVZo7r23qaFk8S6NSTYR3ux6AGQakBbgXNJ+RddYePHzo62+PeaBXc//DX72o8/DUz99gMiJYRYgBmbeuM/YaUDC5+daNkzvFRkG/PgW8CMTJ0El2A5bCKqrPdDQ7oDlp8/MSZK8kCm7scY7jObjVwI+Zg8qmZVIGtr2xGE49tLJILmM1wMoBh++EmxWwg1vr90HjjMmwZrnPoSVK1NrE5paD8BoPn4l4e2xOqhf5IKayQ6IxOWEIKOtGHz4SjGnJwE71+8j759+YAu4k8utm1oPoJT5+OWAZ40uVDrt1AkkHZhXEzLCisWHrwSbPH882V546fS0tQlNqwdgdj6/0fhc73HhknkkC3B4Y2m0/NSKyYcvZ+tLLk3mOqZOuDCpWfUA0iqAbGKg2ayS8VoVAr3PaZ85l+gKoqIQr91ulIm69aKUVzyG5zH6XYkxgEitCzwJFwwejsCza3YJg4A4DYfLcOEL36PkPnVETP7Clbex9SXz8rHSwDvKic9fqnoCWCk88/ouuGHRFDIN6Ox1lQyfXxQDQLELkQmn1Gq9JaNHcCTx2/7xIdRIVWR58qpqL4kB4CKlZtcDSOMCZLJM04QWPvPzw+XLI/VV4F8bgfGn1UFC0o4BiAooLbxo2UQ58sFrzYOL+PS5xgDG8vOPFX7J4tmw+V/7yXtcmgwN1ydkewK9rh6Zj5/0vyaQl+ZiDTNAtfj8RuAdpczHNxue9gTYypAOCa4/dQG8/fTj0H2gF8bDZCE5wwg+v1YPQMSHF84CMD0Ao/UIjuT5gBSEtrOmwKpV8yAUSI/Em1UPIO0+ou5rPlbJeNb5eWJQbyQK0z56AjR5q4l6cKkYP6bPFNir5DwAtFFfCJ55OKXglBYEtANZNBZbV3yhBiQbjNPCGYlPIwOx89n8vLcoyFXpeN6QMShiBf7hza0waUobzF0+Hfyx9O5bLoZdV/oqFn6gbyhnp9abB3AkPv9Y4ZtcHuh8ZS9EPBI8fu/72qsSC/j4GJTjnVDLxhrvMDufv9TwmTgFqB68c38HLLj0aLKfbx7AkeDzi2IAVD03Ex++kB5AKeoZ5GO4OKn3uHZYdFw9Gf+jKXkAJtUDUNiAqYKbfZzLWqXj+fO80R4DkoEwBhCw+aFlah1ZjzHTDzpWlmu3HmMC2WIA5WxdrjiEwzbo3dZDKoBMfHw0dETk4wOdbhMsI1cK+Ix5AGbg85caPpOdcMElkOhxwXt/KGwRzyNhevnwlWJtYQl2v7qDvH/43u0phzO7HkCp8fHNjte63z2vbIIvLUwRSHC6pjZeU5J8fi02YLYegBn1DPLB4xBgx2E/VNW54dlnP4SrVs6HRKSucvUAjObjmw3/pwfuI2xAjAFEQmGwJxpLks+fCxeA8uGN/vxjiX9z4wGon9YIq65aBFX1cYCA+fUAVD2AfPUA+GstfGY9gC8n9QCioTqiB9Ab7zE8uJVPt16VLpycPcAegNHBubHA77CFYNLSyUQPAC0UkCAEIQCGlJNN6JWP+fBKvUbgLT0ASw/A0gPIwSw9gBLg05sdb+kBmNuclh6A+fj4RuNZs/QAzG2TLT2A0uPjG4239AAqw/osPYDy5/PrxVt6AOVrEUsPoPT5+EbjLT2A0uXzW3oAg+Q5WHoABukZWHoAlh4AmqUHUMZ4Sw+gdPn8es8HLD2A8ufz68VbegDlbaOWHkDp8fGNxvNm6QFom6UHkN0sPQBLD0DTLD0ASw9Ayyw9AEsPoCCz9AByM0sPwCR8fKPxmczSAzCvtVl6AObg4xuN17qfpQeQ3Sw9gHHkOVh6ADmapQegdhxLD8DSAxi09ADy0zPoXvtbodLNkdjuSm7/8i3u/MED+u6vF69DD+C07y5mrpAXzyzcxh7/8g925VxxLlk0CTrqgYiBWHoAY8inP5L4bM7ArppbiDOZEc8qArErBFWyJuCGV7dD67ETSW/r94/tIqsDYSWg0uXLYZlu1uj1RuKJKjA7rtVSzeXfs8fMjM/mDHqcz6x41tgVgoSagIVYFLWqdSyOqgdfIPaMpbNJJRAZaoIbvneaalkwdKRsuv10mo5/bzTeUep8+iONp4WYbSnpcbaQZ9svJ3wumoD59gCaQm1kG+1zgKMpCn2OrpyxRwTvzg9P1weccFa7as6drQS0DK9riTdDIowafE6i0tvPSIkZiZfMzsfXi6eFmC56Qff5FjHbfrnhRSbC52PU+Qo1vXg0PfjeJht8uK1H1tjnWmE0KsvNvshxpbV1qra8GYF35CP6mYuZDY8S2LTFo9tQfJQskImr5LJbumIOf3254QcGhsDrTan+0mP8/XCrWFSCplhr2vOlLW1oKAFu1vn4rrhePNPKK9hBP0DTCLmO4BvyL0/U9kMCXJE4BH0Az/x5uyoGQA1ludkluu1RF/R65M8fhSjxNnpeVIEYgXeUEx+/UDxvfOHP18yOL+i+6IyiFXOTjupvPQx+1tH5cbhevMCaGmuhD0bI+zR8nnoCu1/dATVSFdQcMw48s71kcZCLLpurup51Pr57rsXHNxqftjbgkeLDlzqeNzb6XYhVIp601uiwScvL0ccKn4P5BNOCOP5/59094BoKktZ/dDh9GNDr6iELvkDS/5qgJe0+lh5ACfL5RabHeSoWH5Wg0dZIup4xRxj67N3CyzQDcHrx1OnpdSK8I64ZQPRl0QOYsewoOH/1fNUMAG+1tlQMpc/ekxackzw2GIipV+gxEp8WA2C7zzZbfq1mOeAtK9CSLe+gvR8Ag0+JMcaLegF6pho5IlC0pgockVjGBV3xnE8aVjmdaI5e6x5G4B28g4jWtuej7jxH3sx4kWHAS8/Y2uz4vO5Lg3H4wvdMFzztGpFjFgvPBgUFwcVMvYa+cFC13+TyqJw/4sH/m4BVqxZBIhHLPOXGnbNF7NAQa0xbxadU8I5y4+Pniz88NKAcU6a2kuWMneqac9QUZaos7foyw6ui+0mbNnWSEH/7FW8BuONw008WgG0wAj//xnZy7qb/nQ/eumrigLsOdMMvv/kvcMUlqHbXwzfv/yi55rbL1kE1NOrCs/aDB5enVQBaAT9qp1w3D5585AOIB+JwyXXHQDyYgN8/8wFU9wZhpNkDziBA43gnrDwXx/0RYfBNDx/faLztsz9/OK/OlijCbmb8WHIBzLLFKT7RNGBYiqddPzhLXk588MUd0Lh8Fkh2uTiF/rIT7v7j9bD60l+BraYaGk9oJ8fjvgjcfMkM+N7P3oK66ancfb14PD78xh64877VytQfTgsqiT8YDxAMCRL9VeCsjcKDd34AV3x5LkT8DtJS4uq/Vy4/WZkz73J1ZnRA3tARm8NyEBDvgdNx+aTqjhVeKjU+/Vjj+cKPGXF6nKcc8Fomuh4dFl+uhnrVtRFvHXFet6NWcV5qt39pLdS0ytRXvXhqjkYH1J80FW654RFo6G5XcgJo4g8GFxtjagw1nM+/6OpjiPPTcfO5K2aS6TQMRuLLG2+EBle1gqHXKWPsWGpf1QqTOfgIcb6GiLwaNH8PI/GOUuPTjzW+HHL3i43XMtH18fHyeLn6RNnh4rHk848ANBx/FATf6yMOrhxPmlQnt6z0eKF4angej3mrJsG1N9wHP3hgJdi9oYxloSnUBrGonfDvSVlwe8A+VEPSZLG177PLx9GhMPsvOprqRqOjYeINGuLxPLuPGBx3E7wtTvYHJHX0vinSbDg+LRGonPn4Ijwd07KFOpd9b5PcRS5HvCgGgCbCy+kl6Va9tI04Lm7ZFgmdFLv62Sxf/ODbnXKMYKQOpHAchmEIvJAK5mlZImqDcdHkfH0YYMiu/kb0fxPCDTPGjkMcbE4fxEfrCZ7gbJA3Hx/NSDyJAVAHymXKTHSNkXjRGB7Te0WGAT++BZv+mZsM/fxHEk+HQ/aYB3Y9/zf42Y8+D0/99AGYc/F4cLjtJDD0/cffJdfQsbfISOuaPM++p/tG49n96GAUAq/sh/O/dQzUVtXCgoXq9GDeYgNu5T3pPucxzuavNyOeTAOWG58/Hz670Z9/LPAxexCOWnEGOVbtqYZtTxyGYy+dDJIrVVj4LjYa2/Vmz4uuNRLP70er5WeSzfmpmZnPD5WuByBy6nz47K0m//654FM9gTqoX+QC24EwROJhkLDPqGGs8wnH4IJjRuJ9uw5DrD8GdrcN/uP67EMM1uIm5vNDpesBFJvPbrbvnw3PmuSSf+5pp06AhDOmGiOqruO647m22EbicUpwsL8T6hZMgOra9N8/jSnIJQbFTcrnh0rXAxgLPnspf/9c73Hhknnw9ycfhuGN4ZwcLpODlhKeTiOi4XTh6AEf/OHHW+DkxbNSmYOi7ELRvRLm4/NDpesBiLr1yIcXJbLUeWtU0W9RZWG2789jRTi6f9pnzoX1Dz0J7z3ZAfMuxSi7fJ46G3aj0dgEm1zMSDwNAtJKwN3gAd9QEA7vHIF5U4+GPhATikTmNSGfHypdD0Ark01koimvVpN/fxbP7rMYrBieeX0X3LBoCjQsbQBnr3iIBIE4RPsDMNgfg/o5LWlz7VnNQDytREJD6rz+tC5/Bj2AhAn5/FDpegBa89giPnumGIBZv3+u+KgUgkh9FfjXRmD8aXWQkFIxABpQw/EzpuTaR0ZhKLAPvGfMUObYE4ERcIyrIdewU3KlgMctyQMISZDwheH6G/5D/eXZFGBUB+pPAKn5OTMjn18v3lEKfHw9eK0egIjPLpwFMPn3Z/G0J8BWBnRYcP2pC+Dtpx+H7gO9MB4ma5JD3PMmQOiQj8wPoKMNbZRbTszHR+ejpjVGH2s8O/73/f0AzF48CaDdBn6PX5MBiOpAWlZrMj4/VLoeAD+mzyWTTWvK0IjPX0w86/w8Lbo3EoVpHz0BYoGXYNcf+2DKhance6UFxUy6E9ugapI848BmjaGD0ZZaNA9vJJ5azUfHw9ZtXXDztE+AfxxGufObF5dMyOfXi5f4KDIWHHY8ymeW8dcbjacr1GRy6kw9AKM/v148b0iHFmki/OHNrTBpShvMXT4d/LH07iOOucNDwzDyapcqqIatrsLEY1pdPnJvFJ5WCORYnRPsw3H44hUPZJwCzJdP3xhsyjrPbla86fUARDEAqn6bic+uFQMw2/fnz2fiRIwmamHn/g5YcOnRZJ+NAQA6T1sdwChA/5uHYNySVHcbzbfpENmy3XBqRuNFNuCTxUC94WYIYaWZWRYAzMrn14uXaGGjLU+mcWamSLRReH5eX6sHgDEBUR6A0Z9fLz7bedproDEA3wE/aRWwQFCjLStxrgg+LD8Ze5Muty+iTM9pmdF4ygEY2LATYrERWPnNWdA/5CfOz46JM5lEWX721PvmRCtR00FDtl054k2vB6CXz2705y82PpOdcMElkOhxwXt/2KV5jWeh/PxiIXm8HdzaB7FdMsOsZqpMP0XTGocbhcfrUDtg3NkzVbLg9qiTrAeAWgAiPQDJ5Hz+itcDEPHZtdiAWrMArJlNzyCb0fvd88om+NLClHPgdFFtXK4AVeNx2hWvkcjxWFUCXFAPMUgQ0Q2ZUqr+jEbj0WpPHk+GDm1dCZg7exJ4vR7ogy4AtZaIph6Aw6R8fqh0PQBRDCAXLgCdPTD7988H/6cH7iNsQIwBREJhsCca0yi1uE2Ns9n38r7IjMazU4EHfBH436veg2/+/qScVIETST0As/L59eJV04D58tH5a43A59Ktp8ZeR2cPWk30/bPlBYjw7LFLbv0yPH7HnTDS3wCuRhv0gppQImqR6dQbfywbjXes8Ow9MA9g1D8IZ149D15/ZwecvEROJNKyPre6hzAorx0EWrE2/vgQHFDtmxFv6QGUOJ9fdD0/NZgNz/5fd60Hdv51H8y7eIqaUmpiPQCcIbCP2ogSEDp/bXNaeotlGmbpAZQ4n1/rXvn8f1oBxMOyQOa8CyZnVbg1kx4ADhMCL+wn76nzp7X+gsVECza99yohvKUHUMJ8fvY+Wni+R8DjWYYg6gHUOiVob2mDnr5+iLlwzs3cegD02pqzp5Dt39cOwVe/MD/teiQARbvl4k5kwjMsFCIymkykyIxrLC9mNrylB5CDGcXn16L35vr/Ref9kTgc+vcQNNoaykIPgL8HphH/4LZ/CjUAsODjC52gEIsmnadQK0W8pQdQRnoAvNHeBzsMQNu5eT8kjm5Van+z6wGo9n0RQL2LmM9JprkGxx1K6y4LnSgqpgnTnkJoKAFuFsd3w02Kt/QASojPXww83acYvhKJO8Iwe2WbKhPQ7HoANE0Yk4eQErzk/FYiC94EqcQhtssv5AY4NJYdTzoKMgj9rKPlumx5ieMtPQCT8PmzmVZWIf1/X1i6kEiCRQbjMNKfABeTVGY0n18vHo9hJYBswtrTsfeQIKnAk6vFLX1OKwsD5OdoJsVbegAlzufPNgXIzgLQbj4GDCmdmFq9wwm1UAV+TzXsfP4QzLtwPIDdVhZ6ALTyQPO/1AWvhaJw+idngd8r4BA44toyYVGJLCGGUlq4HBhZT1BgmgFEE+ItPQAT8PlFY3q6z5/nsXg/ZBgORyPQ1dsHtpYwLDx1skoV2Gg+vx686r0vArGQ3OoTMpCXWRmIX1pcMIZGG7T3A2B+fm7xXdPjbZf970OJXAuoKCqdTwE/EnjRykD5rG4748IbDf38R9q+uux44vxofR07IeDZAhG7vI+5AN975F3V6rqu6vpkN1q7lea74KWAJ8lAwzalAkBW4J1rPi3u+qPj8/tawwN6LYvhKw4T4y09AJPw+en5m0+YnXYOHfy3G3cr5+74+xaiAYjOP9o/DOv+8Ag5PhoahoUXTk9XhSkDPQBkCgbeOgxXrD4FDoVH4W9P/Es5d8sFfyJMweraevjm//uYvHw4rjJ8xVvJhxuHm36yAGyDEfj5N7aTQzf973zw1lUTp9l1oBt++c1/yT0Udz188/6Pkmtuu2wdVEOjqfFkbUDIw3IRnhhLfDHWBjTy8+dD+Pn8ommw/t77IcbU4JjYMzoKsOy6qwjfH+3jF60mlQLuzztlCqGTolJsT6yHaMKxK95+59G3Vf8PFXnCI8PEGRsWtclr7XX3kwg9migIV0p45ANQs7sdcM0PPwKPrkmNeXHdgJuvXAR3ffdVwiCk98DgIy46Su8d+stOuPuP15MlyjH+oKgS+SJw8yUz4Hs/e0s1XWlWfMY8gEIK8ljjRXoAIkHQfPQAjPz+vNF7ofOjQ6Oc1/yLp6TGx5EEhAMSvPjQL2HOORPJIYz2Dw36YdanWiBkGwF3tBq6pE6QnKnPxbPFWD5++I1hNR9/SHbIXPn8RuLRGpbLzwErj9989d9kSMFe/4Ov/ZUsPR5nSEauhpRGInms3jriPKTncIJ62vD2L62F+pOmJp+jufGOUuOzV7oeQCaLBUZgxllHkWkuSu9E1RdHtROqV9ogATEyvz9umQOa7Y0QgwhRgAWXeBFvyicvBz0AVhiU1QjkLdrvB1s4XQ2p+kTZSZR7R4BUEsH3+sRchOS9zY5XLQ9uRj78zj/8QtlXNAEb0jUB0UYgrOgBTJnWTijBrZ/4vCn4/Cjp9ebD95OFPTxN+IPKx5vDLUTzDVeAEa0Px0bSeQLQuNEWuPXpv2pSdPmCk4nAUyp4niOQK+GokPPZzAx4VQWQL5+dmpF4vTEAs2+nTjoN7E65I9fVsTvtOzvd1WS7598fwgOPXg9xh7xq0u74PuEzohWGojGXkEivAheXxPnl2hq55dgZ2ZeVUcgaylnhUET53ao6yZbOQvB8APVnSnXVeW0A3uEtfH7PL6seAGtG8OGz4UVOwSoCsSsEFeJk7KrDpYjv6ZJpsGgtbTIjDiuEvu4uaGpNjf0+jG1WnJ+2/mj8KrNTalvANxwhkvoOcECwoQcCIzaIxqOQIOk52dNzia4ds3Y9vkdtPkxOwUoEg5K8mVmPwMx4ogpMFWVxCisTW03kiCw+U746fS9KXtGDzxbYYwOChTghu+pwKeJZoz0BtEhInuqKRVLpsD/5yXvw4zvlqH8jRoZrUi0y2rcu/BNxfkfyD80x5IV/vvkBPLXuNbjxqt/AvX95HsLuETKDQHsLrNTUL77yOlTVyDt4jHIOsKJBrbou20GiVVdTnXnyidcDEJ238PqfnyOTuARmsrGEE9a05rvHmk9PnYBtKXPRBOSdiMWLzmfbNwo/ftw04uTo/PwQgN//4O2NsHj5qeS9FK2Cl9YehK3x9+ETZx8jq9La3HDvb/8OTVM8cNbHPwK3X/4iuI8agVPPm0Yw9qhbuVdn5wDce8vr8I3HzyYzETi9+O1VL8DR86eTHgPaHVe/AZ/77jyYPlOOUONxh9tOxCv7RnqFv5HZ9AjMjs+qB5ALX91IPj1t8dmWUsvY83yPgcfz57PtG4VHEzk/b+iY0VgQBsLvkVb8nr89Dfc+9Duo90pgDzvhr/fLq+oe2NMFxy6YBL+/G6sjgElT2+Coye1w6H07OOxyau07O3fCPx6Re1bdXUNQNw7gbw/IPQ1btaxA+/BPtin/Gx3/1/e8BGtfeJ8MB7AnUEp6AlIF40kMQCu1leeRlyIfHtN+cS1AdhsCcSowXTGI9hC0tqH4qPC+pYhnHb9tstxSs0aHAGysAJ1+eCAOrRNbyfa+722HhgZZUrrduxBefzIBEJF7fB1vhuH1QAJqYhhfOEQqgs63D0NdrTyBuuG5nfCirwZqpTaIJ0IQ87ngiZ8cgGbv0dARPAT7Ojrhkf99FRaefrQqqCjSIzSjHoHZ8UQTMBMfnSeYpBw05ZxG8uF5R6fOrsdE9zQTnjc2NtD3gQdCh+0Qj7mhproKDr0fhpGhUaivliuVg9s6IBwMgssjt/b4HocO2HvAHsDh9wegdWoTBCPy7zHa6QXJHoVD/QfJEKJ3/2GCAfiQnF/3M8zCq4bu7h740qWfgUQwmXmX1KwvBz0CM+MlfqWZTLz0TL0Bo/G8YfRfj5kdjz0DfGHLjzMC8ZgDTjhzGUyYMhEOfHAQOnfsI6+Odw/B4OFu2PbvfxIHnzZnoXKPuScsUt7PP/50mPORE4lzIx6nFfF6dPjuPX3Q27mfXHPMSTIGKxAWbw/WQYO7huQs4AuXJ1NmCpiFQDFJx94zCkPvpqYpkSmIy35RPgBJ8hHIhFv4CXk/P7I6MDsLQFtarRZXK/AniuTzDpuJD68HLzKtdOByx2OXn4380xmB8RPbSU/AU+shrTlveAwdtsorkUAhtvI+fzc5js5c2+oCmzOsuh4NKwTq9F2H9pD/gfhpC6creDqUuPwzv4JHN6wl04CReDhtCSyqBxBrqSL561hIaaHNR0/Awlfl/PwcPE21WMo0RvDpK934QCDGBPjKAB0UewJ8XAANHdbH1PuYV1BbL0sH4X2w8kDnpvc8fLCTdP/xPhhk5D8DYo9dchIc2n+Q9BCwx4CzC0MwCE5wQUO40fR6BGbHK3oAhTqa0XoAHb//pfBaURAw17G1VgyhFPGBQPoxNhhIE4LQMfkgodbMAb2OOjqdZcgXT+8xOjIMwwN+2P/Bdjj5SjlZCSuCplgL/OfTa0pCTyBeoXjHf5+xWHXyRxveMZQPny8eRT6o0akxrAl5mzZ1kjLVxl+fti+ln59z1JSSxH/n658i77/x3T+nfWfqoNSR+RkDfGWaPqQ9BOrQ+eLxHKYiYwWEFQBrf/37v+GiM84oCT0BqYLx0ou//RU8+vMfAG6RRorikSITZQqi6V3fXi9ea56ct917Dphynj8bHtN78fWVr5wBN3z+NBLsCwz4FcekXACtIGG+5/LFY/wBeyHUPr5sHpx3gfyiRlsqUjgxS3jAT7QASZfVF1Gmt7TMwtsKfn6OlhX10AJyptbWJ/bDuvt/A1+97gb44XqZpMEa65ylrAewe0C9aCK1UsjdLzZ+b6xD/nIegMamJvjet86BSy/7AUyfM0+JAdBpwGxdeL7rzk8h5otnsZ1795M8ATY5KMDxEMpBj8BjMjyTPJ4gXPOhVzPPoWstSVVKegBallPuvQ7nNQLfXt0EI/2pefVwwAu2iNpBRV34bEa7/7QLnyueOr6IpETuJ7kgMBKBSVUtcGC0pyT0BKQKxpMKAKmeZO3geoCDkQHQMq2sQSP59KJcecycExk7pvY2ycGzQnP3SwUf7neCzSFPzyG55/rL78w4C8Aa30PI1KIXgkfHx3OBZADwnodvgFqPE/yBCByAToZMlKKo4jY1TmXfy/sis/C2gp+f7dH130hgQkY8mICev/mgoaYJTrzoQrj21h/C9BVnQi7G8vlFrMFsrXox8fy17DEUyXz8jjth2rkTwNUo3/v7j5ubjz6xM6RLD2HG1I8p5/PpIaDlMitAYxADh4ag++CHMPfMyXDxdccT/gFKk1NNQrM+/7jJ8aTqRuff89wQUY1d/vkvEFXZXKftMvH5RUHDscTzC2bI13lg51/3wbyLpwjz0c3G59arh8BH9llmoSgmQA27+Fp5B6weAd3HCgBt1eXHET4AJgJNqW41/fM3O16ifG3vsR4iGb1nzwewfP5UCPtGNVtfLT2ATLMEWlZMfDY9gXhYLsTzLpicVc3GLHx0kVPno4fAGxu4Y7MK+aShbEb1COh9qHX3DcsaAU4b7PenBwHN9vzNjnfI6rA2aJzhgW1rDkJsxA8X3TQXfn731+CeVzblPI+vpSdwpPF8j0BLxQivkVwOIqPd3tIGPX39EHOlK9OYjc+tVw8B9QSo8S067/R0H8f2ooh/Jj0C7P4/+uRtiipRJkkxMz1/s+OVaFnHhl6ot6WWUvqvr96Z0/rz+dKFi43P97w/EodD/x6CRltDWfC5tfIERCbKI6BWyAwBtVz0CFwO7SxIMz9/s+Pl/l4kAb6uEQjXxOGim74A37lfVopF05OLrzeHvxh4VlWI2s7N+yFxdKtS+5mZzy3q1qOegCgVus5bo5p9EMUAtIxNLMKxPY7x2W6+Fp52/5FByJqlB1Aa5Uf2AaeNBMUmnzoeXlr3DJy34lQSA2DZfyLGID3Pd89FtF4R428s8HwlEneEYfZKwfrwlE/d4SPECsygytsMwGeLAbCG51EKPVMMIJvRnABWcDST0ZgCsgI/e9EP4PWOTXDYs7dsnr/Z8aoJ84PrB+Cjx30cjh1fAx+55pK0i2krKupai/j8+XTvjzQeU5wx1TkyGIeRfvV9zcwn18wTEOgJiGIAWoYtPE3p5ROKcjEWi0MGZALSYcBowF42z9/seKUC2PPMIIT8QfjjI3eTdeV2PPGc5hidn4YTtc75rH2nB8/3TuhMAo+vdzihFqqg2lMNO58/RIY95cAn1+IOiPQEMsUAeOO79zSbj68UcrX2WUdBOCpPBWL2IpELt/QADC8/pH+GEs+4jtx7T3ZA2/h24iyzLl4hnJbjTTQnz5pI15/dLyaely8jD6S2lnwPrNS6evvA1hKGhadOJkkodG08M/O5+TF9LpmQ7DbB1AFamYBafIJsKsTstcgFQNu86QDREVx19fFKHMDMz9/seNvvNnyNeBXWyGjYPQ7u98DpZ56fRg3OZ+Ueray8TA5cDDxvmP2Hzo/W17ETAp4tELHL+1gA6co0ZuVzTz4cTHNqFBAVBQGROs1XArUOWazzSOgJoPmH+qGquh72bN1FpgKXfn4mkSGnZvbnb3a8kvVB9dl2/nU/SBEXPLrlTrjlpiuhI+yBP7y5lbSkdP35n74tr0HO7n9q/hSYVlWVdp5dux4TcXAunl5/tN2p2i8Uz16DhpmMUSlEnH+0fxjW/eERchwzHTHZSX4I5cHnFsUAqHpwJj0EUQ9Ai8/P7uerB4CGFQDNAxgODUNfuIf0wGgSmpmfv9nxSg9AuVmyJ7D92S6YXDuR8AIwOzDRdjT0/Pk5cu64z5wJ/3pqHRwc7IGm6RPg5GVnwIH9XfDh+pdg2eUXkfdtDRNh09q/Kde//NQasrotGr0Gr3dPGa8LjzY6CrDsuqvI8tloH79oNakUcH/eKVOIBp3NkYCeWA9ZwIJ2j3DoQ3PRS2V9+3zxoh5APlwAUQ+At2yOns1QQvy9NzbA757+z9Rn8ewFn8+mcDEK/f68WfiuvJ6fQ7SOG26nn4t52hHYePBRaHNOhLfXrIUTTllArnvh6d/B+EUtMLWxEQZ3DkDvoffg3X/8Gxb/xyzY3r0OApEovPvM3+DETx5DFGCfffCh5P1k3YGDPW/Au//YAdPPaoHBffrwaOGABC8+9EuYc468LjxG+4cG/SSuEbKNkEUpu6ROkJxMDjTJgIybns8t0hPQEhTNFgPIxOfnz+fDHsRhAM4ADAZGlOXIUA9AlAlotudvdryjMdhE1m3DFrE13AZ99h4yRqbrz2OOQBd0wuQzmqFX6iLdNnyPtQgyumZMaYGQY4Q4nz8RIFhXIxDn7HXKud7ovKmAD8CANJh0aIAZUybrwpPlsaudUL3SBgmQu5Xjljmg2d4IMYjAQGwQwDUofFhNkWbT87lFegJaPQBR0lCtQ65EM/H5C9ETYBOHGr3Nijow5gEsnjEDpBGJLBFm9POrdLztLy/8lKBjjghZwbXX1q10k7MtHd062k62WGngmA5/0B6pN1V5KB9Q3udrfDzWFm7XhScVADih19Ol9GREn5n93OwKubc+/de0h8iSKNiHxe+zZhS+cUdqgQ0lBtCQHgNAG4GwEgOYMq2dJAWNH3eicj4Tu0/k/LnoAQwO9ILb7YJNr71Ojl3/02VkrUDsAZTD8zc73sEuDy05JFwoQPgP5Buo93mnG3D0g2QTXyvq7uEYnK4TXyh+qF2W/0KYiFtCj216rwse/PrrYLdXQ8PyiRlzpfkkC7xWlHiBJrrPWOLzzQSk19GMwPFyIyy0XFp8fpjAGu1FYE7B0fMWwJ4PNymJQJJgaXIzPv+4yfEONvAnakEzGRs7MAqfhdWrmH/UD+f85xxYe+de8L9+mHSNsiVWsDWmasolR3aWmfUA6PSfXj0ANg8ApcpOnrxAYQNiBW7086t0vJSr47FdaT6Dy2h8LnbykhnQ2iI3d7G+gHA6RevhqcZYzPly1APQygREh6etfaZWn8XTSoOtPHBZcvnzZ/7dzfL8zY5PywMQGToc6gYmwpg44CTTanz3zWh8NhsYCMIDt78JDUuPynot/8ByrXHNqgeQC5+f3ceWnqYGs5WBSE8Ag4ByZeKAn9z1BUUPoFyev9nxqpxR7IrzL/mG8nl0Pnab9o8Nxmey76x+HtyOWhIJxVe58LmLoQeQC5+fNXqtyPm11iFwV7vg1v/+FewLdpKXOjhr3udvdrzKEzAKn4jKQEycsUddJNCHFoUouZqeF0XljcY3hdIpqn1uGY8pklhvZGxNLT2AousB8FyAhlgjyQXYHd9XFs/f7HhVD4B1PtU/sMVhyDkIfc5eoj+PL1FU3mi80KISeX3qlqMhNOpXUiLLhc9d6noAvNFEoHJ5/mbHqyqAXlcPDNkHYTAxRF4ii4ZiUBeVM/J4MxqPrX2fvVt5sTbiD8MlV38U7KM2UgmwFYGZ+dxHSg+Apf3q1QPAF64L8Kv7bxBea+bnb3Z8Wji31pYqFJigwwfnMEkIs+vEhFPj8Y22RjJ0iDnCciXgiJMewKtvhSDw1iao+/gkyGTIpw4d8pG8AnxIuMZavnzsscSLegDIBsykB6CVCZhpHI9BP3aNP777T/EsFt9jEhCSgfz9EaitcUJfaAh8jmE5caMEnl+l41UVAHarfdKwyulEc/Taaq7G4tEG7f3CjKDAK/sB3G4hxsx87mLqAYhWE6KBPjzGdvu1goZ0LQBcEry2YZxy7V13XgDDgWHweYbL6vmbHZ/GBuQN8/0xcIPj7nwTdcYCb/emFpwUWlSCxv4JsL1/F/zktg0Qtcs56d4zZqguq3Q9AFxVuKFhHHhqZWXowwc7lf2gPwiH9n8IU+cdq9xPtE4AzftH27N1M0yYMhMSUhiuue4YkmqOLT//G1p6AKWiB5CMqquSbCIJsEvytBuSbDK1vEbjhRaVoCnWiqFncDkBrrhtKdz/vRehcfms9ESJCtUDuP2WT5F9FOysrR0PI4FBsoqvZHPD7564RTmH1n0wpeybcAI89shtyj6uSDy+daayAtDIUBS+cP080u1HFiASuGiadyk9v0rHa/YAKNEGLRPZRsvGCq/ZA4hK0NDdDo6mZDbakB2+8OWHSBcpk1WaHsAd370GjrRhBYABXqzQeaIZ7QGY9fmbHS8pY2xsgZPJN3yqLWbeofM1RBrT/qHReM2pP6w4ks6Pds2190PMH02LoIr41GgqPvUuuVXLlY89lniRHoCWiWIAe2Mdygvz8/GFDktfuJIvfbHXsC8U98AXzu3ji8ejYe9tije1FmC5PH+z4x2YfIPz60jMoPxs3EcnpGvOk9WDkzx8ScCnNxTfDTA4Tu7e4Fjf3hBTkn/6HMmodVQCu9sBsVBU+PAqWQ8A9SAw7wJzMJAKjvoPVB8ibUiW7IDh8UlVLTA6LCdrRfsipIWn19M0bT5ZC9cCxH0qPIP3MPr5VTpe0QPA+XdcLgvn37XWzONbZtpFNxLPtvJo3SMD6cOCqAS3XPRHkgocdsdJRJQ39iGysQH2YfH75aAHcPMN55EKACtd+X+rHV+9gk/qPVbYmI+BGhJoWk6fySw9gBLTAxhI9GdhaKn3+ci8EXibPSTP9SfNLp7pg9pgAoLOKDQulfMA+HFUphRhrX3tz2kePYCf3v0nYc9grLaTDfq/xdoOzmoy9PfXize/HgDj/Hlhkw8O509hwE9mBvSY1g8hqmByqWzGSg8g25ZlGVr4mrTnMGjw768XTyoAKgSaydiuHd/NMxqfiwXjyXUP/tkFnnlNINXJXVdMnvCPhklFYHfbhFMlJLKqMXTQMn6aUTRuy9SjyBWvVw8g21aP81cCHsZ7DP399eKlfPj4OGZDHUB27F4q+IzmiMP/eeyT8vtkeAFzo9FwZgDN2ZucLgwlhwa+CHF8fKHl6/zqz59bjV0Ino7psaXORvARcQG08Pz5bPuVijf699eLrxg9AG9dNUjhOKEEI1HCMa6GJEfEYiNw5tXzIBAeBjgwAq6QRHoJOH1SXVsP/r5eglE+Yw7qLKJ0zUymB69XD0ALz5/Ptl+peKN/f714VSIQTqtp8fEx4usAh3KeTvuwZgReFfE/XAtNjeqlwhVCEAC8/6YfHr79ZfkhJeSuwCdvnUm2KBf22I+3QKI/nHqQyWvsTTXKsCFT16tQPrcefOu2AeFxUSowf0zL8Npc7mnhAbaPlwz9/fXiHfnw8alyMNkKfMBoPGvIBsQKRLGoBLEqP1xw00fgj49uBeiLgEdSDztu+fpS+M0/PoT54+T/397QDA/f8TK4pCqA9/pIkgUiAnt6xZqCyMfuD8Bgfwzq57QocYacrQC8yCm1HDhXy9XRLbzxv79evKoHgGNtZywFaoq1pKXgxoMJ8Nq9ikOyZgReNOefwreqegBo69ZtJa19d08/2T/zjPnKuZjPCWv+lloqrLbZAf7eKLz2hCxdjkOIuEtSKMXsFIsyq/DiDrBH7RCtTiiEIwwwJgIjZNghSuXUg599OC6sADD3nw0A5tMD4GcPCrFKwW8fLxn6++vFl6UeQAqvdn60M8+cRyqJ19/xE5EQVQ5BXQSuuPAM+X3UBTtH9pL3r/39MMS6fKgrRmIGmYYBRvPBqekp/BYeCn5+Rv/+lh4A6gFkM0ecyISLjg9CEm8H8LrlKZ7f/uJzAH1VcPXVv4SGFTPTfgSj+eCWGWtxE+sBpPUA+BbXFrHnxec3Gi8yFAul/IBCsOj8bFBQ5IA45kI+NrwKKj62qNYWsbkKxesd74vMCgIOCZ9LpiGUUb+/Xnx56wGgHa4FyJFEmGZMPGH1TXeBw+0h9Eo+uGIknxtFPqjRqSlsCbLpAbDXp+1L6efnHDXFwg+mPz8Aj6n1AJSSQp2LsLWS75sTraT1RWOXcRKZ0XihHkDnpNS0YDR/PAYRewND0GU7CFd+cwkZ/wfekqdaWKM1K3m42EkY8JOxG+ly+SLK9IyW6cFrzVPztnvPAVPOs5c63ujfXy/e/HoArGMnJcDpMXY6EZ25MZZhJUwNa65pAGdLFCZPaSRrC6JhohDhEJSBHoAIX2jabCXiebP0AMZYD8Aei0EfigIknZzgk+P9wdaUhJXW+D7a55BXGGYUhAjeEU/pCSQzCc889qOwNryXrC3YeM70ktUD0LJyyL0vNTyM9xj6++vFl50eACYA5TQTQIODg35V9qBQTwDDEb1u+OqVj0P9SVOFCRalpAeAMQBRJqDbW5WmB5BTTECwb+HbyfPrSJKBzKonoUoEokotuRp/vRnxtnq1noDQohJ8Y+XTEHRWqZKAqPHJQNmYWqrPIEgmygcv+izwzyB885HF2YFRCV7+yYegx067LdUTymSb3uuCB7/+Otjt1dCwfGLmVowz+nz493TfSPzEzpAuTUaqJ2DU5yc9amXsrYPPb1q8Dj0BthDn47Ci5cn04OlnUeICfZmHPooV+N0LMf+on8RQMJvS//rhjN+B/S7sln/PP38j8D7RsIAxdoWmTDEEoz4/qQBymp+PaXfFzY7PV0+AXXcNHyINCvLrsdElyNjCTnQHRm1FwyOWUpbRAi/sh9GIYAnufGdBimyYeIUp2GgYQxFyKRjje0Si86WAr9Opx2D053fkw8dPhDFxwEmi8qyUWDngc9ET+H9XblDpCWCuNTotzsXjemyhCUGoqnMqDx4j+agzEJ+YihngdTG3W8ncQpahHjx+noQvTKZ6HBpLc9MAabTbocRMCk2MKtQGBoLwwO1vQsPSo7JeayY+vY/RE6ABRFaRiTXW6WklMGjw51cvDSZQ5SFqPTgvH8+Nz29mfE56ArWcnkCXD5wxD4DNCYm9AczDIIb53Er2YI9EWulYfQIkmxMA79MTAmiqIdlbevBE6Riv2StBFIbAYwvBBbeeJvwOfMB0LO07q58Hd3U9iUTzvTA+5pHPcMhofB2dPchDj0E0i2DU51d5DE7DoUw0vvB9c7BNGV9HIUoi7Nh6knl5QTfa7HiiJxBqU72UrrMjDqu/eRrRC3CNuoh4CL4wqPWJ1XLADZ0xun2IvOzDccLAOuXyqalz/QE4afUkqFsxmbC1cLlyvXgMqH3uByeSJc8wUencG0+EGm89DO7xyZ9/DI1/duz/xyWrsN7lx66q1nTX4axJLyIzEu8TOLUolRqP4Xlcy5EfLhj5+ctKD8AIPQH38okAzb3wP788FW7/0lrlcqRk3nbXWbD5wG745I1TCK2YUoyXYPrDLFmE9M0dMV14tJoGB5x+4TSiX4DOjxYKOclqSJBci4Pt8td2j1eOs1ZXrxZT8Q37Vedwn25ztmQF+qlbjoY//HgLxDYd0h7/m5BPXyeIAeDajCLju/+0B2Dk5ze9HoDRegLU8FiwUx2HWHTCVPjg4D7ioI8/fwg+dlwVnLxYdtx1G7YUBU/ozcnPNaF2CgQGhkkl0NzogHlTj04f6ydTnOnxl3+wK60C0HJwtoKg16RNA4qeX/Lz1kcaSeWJySnkfsmKwMx8+kaNPAyRHgObh0GvxzwCSw/AxHoC1AHRNkEXLGibQRKLaELSgma5G7xkluwI9H4srhh4ut8Ym0K22HsRBvq4DEfWsrXsubT8+Pzwf+PnV55fVIJX3wpB4K1NSh5FufDp6zR6ACI9Aa0YgJGfXx0EtAP4JPUSziLNfi1WntnxevUEFixEZ/VDH6Q7isjhi41Xff5CmJNFMPL/Bf878Mp+ALd41RYz8+m9TXLGJevULo3mRVRZDBr8+aVc+PgYVMum218ueJHpDaYREpKOeXi9+GIFA3EIQF85W1Qiazb+112fVKZPqSQ7azhmDQ8Nk9kOLKjKPPuCCYokO9tl56e6jMIPJNOpMxGEcskDMOrzp9YFSNYWMlkg+QrSZAGZj5/JzI7PqCegw4jzoqBIgVl3evHFnAnAIQB95WTJeAMu2OoaD3DFbUvBFo6TsbUqHRULJCWxOGU+e9r/5hKiWDMS7xME9kTCIRgTEOUBGP35y0YPoCT1BEJtZDyMDmAUHtmOdH9MLcmupDY1Mh1+94s3lSXYRPPWZuTT1+Wox4AxAfY8WxkY+flNrwdQknoCzD3JVFwyODZmeMbodygUX5AlPz+beHTNtfeTVZhE3Vcz8+l9OvUYjP78DkyY0cPHp9dXqp4Aud4uxpNou2C+ne0e68Vn1TNozfb506cB0XLt5jd2T4TBcXLXEsf62FtRff7kZ7W7HXLWoqDwmplPXyfQE9BiA5ainoADk2fGRVsIHx/nDpCPL98Us2fVkXM6tuYTb8yOp46HhtNX+RqLR30ByGVhFhzTx/Tj0eGVcX6TnO2Yr2Wb/89k6PDK52+IyXoKgmB/KOoHt7uWjE/5dRYJK40GpewJZrqKfS/vi8xIvE8QA8iFC0BnDwYN/vwVrwdgtB4B7Z3QuMXdX3sZfB0+sIMDYhCFpafIqcClapYeQMjSAzC1HkAp4Bk15MXLZsCy1YuI82MlUC5m6QGApQdQqnoARuLpsKSqPg5PPvIB7OkagleektN8sRIoF7P0AMDSAyhlPQCj8WgXXTYX3lrXCTsD28BhE48jzWqWHgCUpB6AanKYdmXZl3xD+XwufHwLX/jzc9fIlciMT8ry4+U0BCB6AI5aEommmgCZCmxenHYD8XUa6waITCsPwMjPr/olcBqNpdRiEgqy6dCQT49X0/Ns4MrCF/786Pg/FJDIEGBkJAhmNVHWIZ0SZPUAMvHZ813f3mi8TzC1F4qPClWZ67yyHgCLGzT481t6AAbrEdCK4NlnPwRPnQMcESds+8eHaUOAXPj4evn8lh5AvOL0AFRDgF5XD5lPx7l0Op/OWzQUg7qoLDrBm4Uv7Plh13/VpdPJix0CsEadFy0bGUeUrz8WeGztMamJvlhD6vQlV3+UCJryeekscQW5Aqh7iLJr1JDphgQiiuGzCY3E+0ROzakBU8vEBTDq8ztKjY9fifjRYXkPZwL6e0ZgXEu1cBZAL1//SJ9Hs/QAaiw9ALPqARiFR8d/+N7t5H19ex3sfHE3mNUsPYCApQdgZj2Ascaj82MAEKcAHZEYDHemK8no4uMbjbf0ABSz9ABKWA/ASDzGAPB1wZXz4ZSVsyCaCBeHj2803tIDUMzSAyhxPQCj8Dj+pzEArAQ2v31IGAQ0nVl6ACqz9ABKVA/AcHyywsBhAI0DZBoGmMIsPQChWXoAJagHYDTe39itJAFhHkDQF4X+LXksW8YWsAL4/Hrxlh5AjaUHYDSf3+x47PpfeMlccg1yAUaWtkPnK3vBbdNe6481PXx+vXhLDyBgaj0AB0tKGUj0ZyS18NNX2MKx11ciHo1i+qBXEyvCk2cfkIcM9FxHhyzrjZmADlvmFWCpFer4xcDzayeIxEDQaoMJCDqj0LhUXheAX5wjF8JLrvntfJIM6yD8+bjgnvngc+nWU1MtH5ZUE+bXBRjrz+/QmqvOlw9fyfi8MAIOBbXH730fbPUSdK/vJESgUMIEdOAC1YqVlXje7iQillQstFDTcgRRBZMru07KAS+a2mN7AJgRSBcJ0VoXwMjP71BW0M0yz80WXL4QVzo+F8NuPo71Rfbkfe9D0BYmQ4juFzrJsXITBAniUuaYEvzPLrIkOs1Tx8Us/KNhUhHY3Yy6LWOodR92x9OkxDIZW/j51XO1jhWCz9YDYFcIymVloHz/v5blipfy4bOPG22B1tF2aA63pF9T4Xj2WpHRqT5acWCFQK/t3HgQqurc5FWW5ojD/3lMXhiEyFYnFwhBQ6VgNGdy8VNUs0VDOWt0fHyh5ev8Y8Wn9yXH9KgGzC/2kSsXwMjPb+kBFFHPgGb2UcdGJ//Nj94iWzxO36M9eOcH5NgDv94IwYBcKEZ9qYVKqSZguZi3rhqkcJxQgpGoggttIjkFlzQ/8+p5EAgPk+XWXSGJ9BJQzrq6th78fb0EQ00kKW7pASRUz8PSAzBIzwCP4Vw+pvRiVh+1X931Hpx4+lSIDAXhF996BxyNTtLdf+i+bdD3ajeJ9u97YY/qXouOnwwece+wdO1wbWohFT5I6IjD6m+eBg/f/jK4wAXxAyPk/Dm3yklP195xBjz24y2Q6E9lQfoSh6DKWaX0CLTorZYegK1gPQApHz47zm9j5BtfojFwpePRMKefqvtitz/e54DuVzvB3zFC1H5xjh/38TWtJZUYRMf7bpsdzj77WGhpVTtSLlReNlefv24s8KylyZNHJYhV+eGCmz4CtnFykMwjqYddt3x9KdStmAwnrZ5EXhd+6QQYjYxCWIpD8L0+UglEB6OaS2QRPnyHj8QT8Nq8LZA/Pt9ZAH4tQaM/v0oWHFswZyxVyzbFWkgLyI6PMb/da/cqAhesVTqeWve2MPzme38hLTvtxlMHZ7v1fDcfJcAzzclnS9TJNp9/JPBpsuDMqka4XgA/Tbhu3VZobRkH3T3ydOeZZ6R6SjGfE9b87W1lv7bZAf7eKLz2hBwYxSFE3CUpS4yzU1zKrMKLO8AetUO0OkHWICTH3u6ERGCEDDswwMhPQUo68I07+lLPh64OHJdI7j8bAERFILe3SuX0eH1HcmEQoz6/pQdQBD4/VfXFFv+Zh7fA9RcvJ/P4mZyf3We1/zPNyZtFD4Aa7/zKMudRCV5/x09EQlQ5BHURuOLCM+T3URfsHNlL3r/298MQ6/KhrhiJGWSKgLvnTYDQIR+OsMh1uEYemq2mWjW7UCx8nYYiEOv8+cwCjPXnV/UAtBa7yGfOu1LxKOmFabxoqOuHY3ve0OEXHz8V3nk3Nd4v9YU/irUwiG6twb4quPrqX5IhgsgBsJXDlrf6RLUuIQk0hhJkFiFTxTFYIH5B1J3Wrcf7iDQBaQ+ArQSwB2Dk55fMzqc3Gk/Te89dMRMSGRa9pK09ju3R6ekrHzOlHoDOJcqp86PFE/K4VuQEqIEXHhom04as5BW2enQKke0y8zMH9QXieefPNROQjwEY9fmlcuDTG4nHYCB2//F18SXzYGpbA8njZ40u8YXBPT1mOj0AtMOFVTZ8PGH1TXcBuN0kCMgbKdB0UUwnkPUH0z47p0NYLLxPwAXgW380Sw+gTPF84s/LD29WSDzo+Oz6fnqcz5R6AJ2TUtOC7DLsOeIxiNgbGIIu20G48ptLyPg/8Fb6WvfKeBzHuNhJGPCTsS/p8voiyvSYlsV14Hmdf60egKUHUMZ8fgz+PfaLrSTRh3X8chjjZzXWsfE9fXHTqejMjTGZLp2PNdc0gLMlCpOnNMI5/ynnDGCiEOEQCMyzsIlscdyLjo0JRbFdMkOzZqpM30bTGkt78sTz3XrMCNQySw+gTPFIAT5/9Xx46P6NMHXZRNi5PiXJXOp8fr14MtUHcsCTLhNOFwMZbD2YGRtqg2ifA4baDygKQrjcOcE74tDnkO9DMwnPPPajsDa8F2J9AWg8JxV8VI2HaVe+RiLHY1UJcEE9xCBBViSSh3fpefGF4nmnxm9cDWI6sNYsgJGf34HJL0bz4c2Mx/hAE7RA3NUHN994Cvz23reIph9OA+ZK5jGSz18MPHV8YQJQFsPnrgQJm6LQPTIgpBRHBp3w1asfhvqlU9MyAo3k0/tMrgegmgYsdH37SsezacGYAYgZfzTJp+yHADrttP+amZ1SHJXgGyufhqCzSpUEhDaxMyRsWY3cVmv0AA4PDaRdPzx3XFoyUzamH2uiZKi88EVZ377S8cneAdriZTNg2epFZUfnLUU9AXxlc0aWpVfIdmIBeNbYFYIyxQDyWQxUNBtRKN7SA9CpB0Adn13c48CrHWRbTmy+UtUTyOaMOCbX06IfLACfjx5AfLyHfCfkO/Dr+bGOSrvyNOGHdXw9eEsPoIh6AEgEwjwASu+17MjrCWjx8fkWOdv+xCLjRSbC4zQjOi+u5xcaCqpac5yJkA6qST14HWoooCOj4+vFW3oARdQDoFx/qutvDQGOvJ4AbXEPDvapWmC+Rc62f7DIeJGJ8MNv7CFiKJLNCYm9ARg94CMvOs1Jsh97YiTDD78vXofPAR0ZTS/eUUw+fCXi6fifSnsjD8CysdMTqB4/Xom6020oPkoIOS6QVNvxXq/qumqNrV485v2LuAD8/XBrt1fDJz57HKx9+B2IhaIA2+VZKCyaUXsQTrl8GmFD4rlofxBOXz0NtvTboO/vuyA66geHXrze9e0rHU8rAiQDoa6/I+KEbf/4kEwD8lNtdIntXOi2aOx1lYBnDacTsQIW6Qn88dGtAH2RND0BaqJU3HzMqxOfz30bjmkEaO6F//nlqXD7l9Yqx5HSe9tdZ8HmA7vhkzdOIbRoSpFegukns2QR1Td3xHThLT0AnXoAlApMDTMCo0477H1xNxkCnHSKzF4rVT6/2fUE+jaIA62sGm8h5tWBx9ZepAcgqgCazpDbYPxOwU51hbbohKnwwcF9UNPggMefPwQfO64KTl4sO+66DVtU1xaKt/QAiqAHQAU/sSLo7xmBcS0pLkAp8fVL/XxBegIapsf5xxJPvk/SNkEXLGibQYZB2APCpdYXNMtJUktmJenlyefB4vTgHcVY377S8ewUYH17Hex8cbf4H1iW1bDQZjVHHE5eIqvdPLlhU9k81QUL0Vn90AfpFaXI4YuBd+TCh0dGHL+KjpZVGh6dHwOAOAX49ANbSA+gnHL9SwGPqcKUX5CLYXdbz9h+QCc+3/tmMyRRDSYGC06ayoRXKgAazFIx4SIJsEspPnymxTAqGU+n/1AJeOv2QXhm88G0IKDRS3iZFo96Ao0ZTg8NpM+zS+nz7nOOmqJM1aVdX2Q8Rvd5w5iACJ/NCIMSBVFac+gZFYCXzM7HNxqP438aA8CKYPPbh5Q8AMuOvJ6AUfP8dVmu5233ngPC6zN9f+z54EwILsBakJ5CDnjJcD692fHJCgOHATQOMNypL4BUUaZTT6AUcv/riqgHwD+T2JBdCY7mrKeQB96ByS9G8+nNjPc3ditJQJgHgMKgqP1fiJl1jG6knkAp5P77OLyWia4n8Q27+PsTPYQU01qomESu04G39ACKoCeAXf8LL5lLrnlrXSeMLG0nuoBUGqzU+fxm1hMoNHef8vF9RwAvigGgifD89+8b9APksrAPBvRi+vGWHoBOPYBoCLOHbEoyEA4DMAkI5b9Nt7SXAbbLP6CLT/+RibI+gGW5WUc9wOVXz1FWqrb0AHTqAWBiEHV8XPATx/+YAbjxXZkSbFlmE3WLC+HTW5bZNry6HbYOyT203z+2S5m5IhVATvPjTNeXD5JVOh5b/0s+ewz4hwLQvfmgShTUssyml09vWW52xtLZpGz2b+mFlStnKjNXjnz48ImwrIGHUfH+KnWgq5LxpDtli8N1X1kC3798DTmGQwDLshvLp6cBuFw09aweQP62ZPFsmHBWuyrnxdIDKJIeAO0VTDnl6AJ+mso1vXx6y3K33iYbfLith8x40UrA0gMogp4Aff/4I++DVCORGABd/88SBc1som498vFFfPo6b40q+m7FAHK3/ZAAVyQOQR/AM3/eDqsunU56rpYeQBH0BND5kQeADzMctgnH/2bg4xuBF8UAUCxDZMIpuVqvqb//WOF3v7oDaqQqqDlmHHhme0nQGvkrqiFAr6uHzIfjXDidD+cNp73qovXCc5WMv/TGeTD35Emw/zX1uoDU6I+Hlm1xTdESYuWK15xnZ6L/+cYAzPT9xwqP4/9QIgaRoSBp/TFvBXuuaYIg3ngq3dWfCEDMpRYVpNeJiDGVjkejy4PRbEBrCJB/HgD2AERDABS/tPIACrO+cBAitS6ygpU6rlUGfPxSwaPd+O3FJB+gO3GQdLksy2z8mD6XTDorDyA/63LFIVpTBY5ILK3sWnoAOvUA+N4ABlaGd4dg2tJZMLBf5hKwtXCf2wZNoQQ0uTxp5/hj5ZDrnw0/0DeUVwwgLQ+AiQEY8fmNwPNYLDusseUInT/iwQo1AatWLYJEIqZuzPhpLJrvTl5BeXRA+fCZrFLxot7ANd9eRGYDvv71C8gPgOmXM0+fASPNHqiqc0PA5YYtu4NwzudPJtfjNXgOt7mM7QrNuS9FvCgGIBLeQD693jyAUvz++Rji9vb2woEaG3H6U66bR16j3ipSpj5103Gw4ppFpLzhedyiNY53kvTfiF1mtQp7ACwfHg0dAPnwlHBA5g4ZcgxvlYznewGYHnzpqgXgiDnh+ouXw29efAnaZnvgugWLwe+PwOY9PbBh/yaAmjCcu/p0CDQfJplZVF24uSs97lCulmu3HjMC9fYAzG7//tc+mHTODMD2PRBwk3TeiN8Bq6+bTYadZD/hgIsvmUfK0Q3LT1ZyVrqGO4WNlYNd4JKKXvCtHcuHp9Nh1Cy8BGBPrTFIa1gSPEz2ZDHq6ol4wBGohkYbwLzZEZj3vdMg6PRDqGoEICA7P/6A7jqAvv3ZhwPlYiI+vZagZqXHANqWyArTqy9cSBqSUCBCuvBEku7qYyDiT05RJyQ4d8VMsMUTEAOZXUmC21VhGAqnJOvwOtvza+9KIP8dd3g+PK0QaAVBQHYxn75S8Zg7QNOCcR+Th7qrOoXrB3qrqsE+JBdaxJAhhpOu6Jqchaiqhl//9l3o+6AHFk6RP5/Zxqj54IvJBjTj988Hj13/Cz8zB7z1NaQCSDhjpMzS8krLV1qae7Iss7J2tLxbegA69QAwaQjXDJSqhiEetSl8dt750bD2lTxBpZfgcNuVyoVWGNgrQOcnAcQcKwCj+fx68KIYQC5cAJZPb+bvnysex/M2dGS3HXyhIETjMaiqTUCi10bKL7EwyOVYFNtC5iqjeYll2+b0WXoAD975ii4FGGtb/Odg6QGk2w5bCKqrPdDQ7oDlp88UjucL0bOoeD2AbIWxFDTmKg3PmqUHINushBsOrd0HgX0hWPPch8CaLj0L+sbMfHw9+GyFkWWpFbK18Pk/P9YsPYCUOT0J2Ll+H3mP3BMq6qGn/Fe8HoCIj47Gt0jZ9i188Z6fpQcgtsnzZbG/Cy+V11OkU8d69CwqXg+gVNeXr3S8yET4SrG+ZBap65i6NOfXo2ehIgPRaS0RHx4ZcA5wKOeROcd/ADPin7rj7ZJbWsrCp6+kq/VM5k1uh0qwLlecUM1t9TaS2XfWx2amXVNI+bf0AEpwfflKxxd631Lm49fpxG/7x4cKn7+q2ktiALgUnV49C0sPQMNEfPR8zMIb9/zKlc9PDTNLUX+CD4YXomdR8XoAoiGAZcaa1hBA1AOYUFtTMTGAkWYPrFo1T5XQww6DC9GzsPQALLPMJDbqC8EzD6e6/mlBwAL0LCw9AIFZQThjg5j53DefHkCp5/pnMiSHbX5lO1SdMxsev/d9uOS6Y4qiZ5HKA2C0whWLJMAupfjwmZRwzIovxfXlKx0vUgRCPQARPh8rNFe/VPC4uIf3uHZYdFw9jA7Lx3hl6nzLvyTiw9P3yIfH2gONMuO0zKx4s86Tlzuet917DlR0HkCXK06kvVHXv5jlX1LGCDEmp5iLLrJ6AGk3MDm+GLnrFr64z0/LRNdXirWFJSLtjYaS3iytV0/5d1A+MdYQPB8exw3k5knK6oA0qOqcsXx6s+JLcX35Ssdrmeh6rXUBzDbGzwWPQ4Adh/1EVg4Vf65aOR8SkTpd5b/i9QBoN7KU1pevdHw2VWAWbxY+fzHwb248APXTGmHVVYvk5egDcvKPLj0LNhW4ED4xP+VQCnz+fPjkX7x9uaGfvxh4dl737q+9DL4OeYlyXKHIWpegvKyjHojAJ1mQlrOK1AMQdgvz5JOb+fsTPBP9XbxsBixbvYg4P1YClpWHbXh1O2wdknsIv39sl0IFhkrXAygGn9zM359267BL+OQjH8CeriF45akt5JxojULLzGlnLJ0N3ZsPQv+WXli5ciZhA1KraD2AYvHJzfr9WcPFHt9a1wk7A9vAYRM/A8vMa0sWz4YJZ7Wr5vwrXg9Aa55ZZOx50XChED51KeFpt3DGJ+eQrTUEKC/rbbKRPACyRoVgfcpCyo9qkIjTCFp84ih2Jx0pyqHoAxiBx4AfbfHpVotMgtFlXHaK3Rr9+fXiaUuAQSEcAoyMqJeJsqw8bD8kwBWJQ9AH8MyftxNGIB8ILKT8lJUeQDbLlotu9OcvBE9/SJwX9tQ5wBFxEu44PwQwms9u4Wt1PT9MAqJ6AJ7ZXpIMhEM+1ipeD0Avn7wQPnUp4LHrjy0CvtghQCnx2S28X7ceQCgRg8hQkPzOF14ytyh6AGnzRLW21Bi6z96TFpzCde8GYuqMolLCU9NaXiqbGf35C8HTiDDOBPT3jMC4lmrhLEC2RBPrvL9kn09ACsKMZUfB+avnEyKQFjEu3/JTVnoAes3oz18oHh0fu4Ro9e11sPPF3bl9YctMQwSK1lSBIxLLWPYtPYACeep6+NRG49H5yeKQl80lOnHYAzBrrnul4H0cFtV+WGMXhkXnj3iwEUjAqlWLIJGIZZ4yrjQ9ABGfvxA+uVm/Pzv9h0oxW7cPwjObDwrzAIzms1t4P3H2UW8VVA2MwqduOo48F5y9iQfiROQDF4z9/TMfQHWvLAHmDAJRAV557nQYHY5oBr8rVg+gWHxys35/HP/TGABWBJvfPiQMAlpmvP37X/sgMaWOzNYEXG7ye+EQb/V1suAn7uPinxdfMo9cd8N5p8P1Fy+H1SedLlwHgLWK1QPQyyc3+vPrxid/cBwG0DjAcGdhAVDLjqy1LZlMtqsvXAiXXfkRZR6fDOGuPgYifrlDjmXg3BUzyXQwrjaNLxT7bHDJwV1qbLJPxeoB6OWTm/37+xu7lSQgbFmCvij0bxGrxphljFyu+KjTDud/coayj85Kyx/Buz1gH6ohad5YqffZ5eP422P5iI6muvEUi1bRegB6+eRm//6064jzwngNcgFGlrZD5yt7wW1Ttxhm58ObGd9RD2BDR3bbwRcKQjQeg6raBCR65fJHLAxyOWCM/t6EuceM8bFs2Jw+iI/WV7YeQKXjMbEDnDZZICIpF7X3xd2w+Pip4EkFky0rUz5/XGf5Mb0eQKXjMbGDOv6Dd35Axv9IAtr4bkde97LMnHx+qHQ9AAsv5wJc8tljwD8UIJxxzAC0tAAqg8+vF68aAmTlo0cz89EtvLHPD1uB71++hry3hgClZ8EgED7/nBmNaXx+o8qPVEp8dgtf+POjtfqUU47OuWBYZn4+P1S6HoCFTz2Lxx95H6QaicQA3nl3D3k0lihoefP5Wat4PYBKxWNBQB4A1ubhsE04/rf4+OXJ52et4vUAKhmP68XPPXkS7H9trxBn8fHLk8+vF68KAhayvjh/3MIb9/zQfvOjt8iWZgNaQ4DSsL5wECK1LsLnRysV/ykrPYBKx6Pd+O3FJB+gO3GQdDktK28+P2uWHkAF4vnWAANLw7tDMG3pLBjYL+eCs61Qn9sGTaGEwjnPxEXPJeW10vFG8/n14pUwpJJjHGNeQXl0QPnEGf+xhTfk+Ylag2u+vYjMBnz96xeQAojppzNPn0H45biwJFJRt+wOwjmfPxk+94WPka4pvpCf3tvmJK8dthBcfPXV5EUNC/7e3l7V8UrHn3LdPMLvx2eK+BXXLCLPGysF3KIhnx/TfyN2mZVXzN9fL14zEQhv0BxuUW6A0xH5pBpa+LF7fqIxoT3shKaYjP/Niy/B+Z+aTdhmfn8ENu/pgQ0Pb4L/+fFZyvVP/vU9OGfZbHDWyjMID923DRYc166c/+dL8rRidDACt996M3kfCu+FUMNgReN7PV0Eg8OuK748l1B68XdCleYrl5+szLl3uTrzkrIbK/+xPbr+GwlKF6SiAbS2oDdAw8wh5BPT6QhqNAfZwhv7/Pj3aK2jcgEeaj4AnkgtOAIyO5DSTzEfHY8PjMoyYlhA8RgtxPiZKMkIHeLSi+eTSoQUqkA1uQ9y1CsZLwl+P/obYvadso9TszVhGAqPCMf3RvmP7fm1dyXoF+H5xPSG9B/QhyTis1t4Y54fzv3StE7cx+SR7qpOVa+AYr1V1YRvTgsEdhGPcp4CHfbXlXtOjp0Mw1X/JgWVlZmi2oN8QTsKTq5ofEu8Wfm96PNNW/aN8vkZWS7+9zbKf0yvB1DpeEwaGTfaAlLVMMSjNqIew/7Q7PVYqCVPUOklIDcd/wWtSPAz7LO/DpJ8CxX/nCWv8PpylYxPJP2HmAF8fjQ9+P8PFtX9B+q/PTAAAAAASUVORK5CYII=";
 window.MUSIC_BOOKS = "data:image/png;base64,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";
+window.GUITAR_ICON = "data:image/png;base64,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";
 window.KEEPER_ART = {"1": "data:image/png;base64,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", "2": "data:image/png;base64,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", "3": "data:image/png;base64,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", "4": "data:image/png;base64,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", "5": "data:image/png;base64,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", "6": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAFX0lEQVR4nO2dX2gVRxTGN/FqIiJGaFGDUaMhbbzUJFL/G0RR8A/RgkWEvBR9kUKlLyLSh9IKioig4ougL0JQaRU1rSKB1hDxb9ArkkbjShKM2EIFi5Z6tZI+nxOZ6bB7787m+35vH3t37z58nHNm5uxMSenYMQHBpTTpFyDJQgOAQwOAkwlGPkMR7y8JRjCMAODQAODQAOBkRnqOXzp/hdDTJ1UbH9bdc1foXHhnaCTXCIwA4NAA4NAA4JSkcC1A5OTZ2YXiYuPMrND51+aHlZW7/fl7aoRU1wSMAODQAODQAOCkfh5gdmVhc74mW9doqwFSBSMAODQAODQAOJm0j/t1TrfVALbrrjXDgk+WCX3zfsdQmuYFGAHAoQHAoQHASUMNEGncH/c8gKZmRo3QN+93BGmCEQAcGgAcGgAcH/sBjOP+8aVlQldNljlY82P78Ugv09K81ak/QON7vwAjADg0ADg0ADjezwPonG8jas7XtLYdd6oJ0gYjADg0ADg0ADje1wAaPe6PO+dHrQls8wK+wQgADg0ADg0Ajg9rAUOmHjsbev09135P6G1frhP6xqNBp+e3XegVunl9rdANdXPlDW/VA0ZLmevxa22AEQAcGgAcGgAc7+cBdM+dHofbqP+wQug9a8w1xl5VQzTVTzf+Xuf0YfMCod/zAowA4NAA4NAA4HhfA9j4ZXuL0FUD54Xes2WT0/NOzflI6Hft+4z/t+Jwa5BmGAHAoQHAoQHA8a4GmFo1JdK4P2laLf0C71kLSBRGAHBoAHBoAHC8qwFc0ePw58e+N/6+t/Oa8Xpt02Kn/0s7jADg0ADg0ADgeFcD9Az0C71x7Wahz1w8Zby/8+5toZsa5znleM2Dh92BC/p9w/4w8BlGAHBoAHBoAHB8+C7A+J2A7rufVV3rVBOc3tos9MpFsiaw5fwl+08HLjl/8Mkz276B3COI+ANTADg0ADje1wCaqDVBVFrU+r4e5/+PvYJZAxB/YAoAhwYAx4cawLg3sOa37htO4/LyUeOcegw3Rrx/2H4BCu4PQLyCKQAcGgCcjG85v3GmPBPIxpj8G+M8gM7JOsdrHvf1GnO2Lcdna+TZwsNQewjlwjuJnjPICAAODQAODQBOJm3nAbjWCLYcb0PnfGuOTxmMAODQAODQAOBkkh73630A9fq6vm4jW2fO0bZ9+7Ix53h9foDt/Yo9L8AIAA4NAA4NAE7G93F/1JpAU+hxfLflzKD868ArGAHAoQHAoQHAKXoN4Dru1z14+X9fejU3H6r3z4Wyf+DzVfI7grLywDgvoO8vNIwA4NAA4NAA4CTeD+CK7tGzndkTN2HEPX/inteICiMAODQAODQAOJmkzwK2zQtoBq9dFfpV11GhP95u3q8/7pwdWt73ye9uNcPyT9cI/WvXpYL2BzACgEMDgEMDgFPweQDXnKl/r/fcmbp4qdP/6x5A29rBwB99Quf/kWsPriQ9zrfBCAAODQAODQBO4v0Aer3fts/e181ynHyw7ZLT9/u27wI0ZWPHR9oX0NYjOLFiktCVUyqDYsIIAA4NAA4NAE4c+wQa5/5dx8FpOyvYRkPNXKdvAzV/vfhT6J86zwdxrg0wAoBDA4BDA4AT+zyAa863rQ3c+3at8Xrpht1CP718SOjVu04IvXvHTqF/PifPAj70zWdCHzhyRej+538b3+dWn1xLiMqEig+CQsIIAA4NAA4NAE7R1wJc++rrv7so9PWOB0J3/bBP6K/2ypzfMGua0GfOnhQ693hQ6AVfHHF6v/nV1cbro96VG9cG9FpDsfsHGAHAoQHAoQHA8eHMIJIgjADg0ADg0ADg/Ae5CGWMdkzTpQAAAABJRU5ErkJggg==", "7": "data:image/png;base64,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", "8": "data:image/png;base64,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"};
 </script>
 <script>
@@ -2835,6 +3308,122 @@ window.SOUNDTRACK = SOUNDTRACK;
     return { deg: best, cents: Math.round(bestDiff * 100) };
   }
 
+  // src/boss.mjs
+  var BOSS = {
+    // Verda — Staircase Meadows (node 1, diatonic major, the free funnel entry). Tuned
+    // gentle: this is most players' FIRST boss, and losing kicks them to the map, so it
+    // must stay winnable. 4 clean first-try hits fell her; 4 hearts of slack.
+    1: {
+      hp: 100,
+      hearts: 4,
+      dmgFirst: 25,
+      // a first-try correct answer — a clean strike
+      dmgRecover: 10,
+      // correct, but only after a miss — a glancing blow
+      name: "Verda",
+      title: "the Meadow Keeper",
+      // Escalating tempo: seconds to name each note, shrinking as she weakens (the fight
+      // speeds toward a frenzied climax). Gentle for the first keeper.
+      timer: { full: 8, mid: 6, low: 4 },
+      // Short duel-flavored lines (the modal greeting/win already live in HARMONIA;
+      // these are the in-fight beats).
+      taunts: {
+        intro: "Up the steps, friend — I love you too much to go easy.",
+        // `hits` — she reacts to being struck; picked in turn so it varies each correct answer.
+        hits: [
+          "Oh! Well heard — you took that step like you built it.",
+          "That's the one — clean as a bell.",
+          "Ha! Right underfoot, just like home.",
+          "Yes — the meadow's singing your name now.",
+          "Mm! That step rang true.",
+          "There — you didn't even look down."
+        ],
+        low: "Almost home now — I can hear it ringing under your feet.",
+        playerHurt: "Just a stumble. Home hasn't moved — listen for it.",
+        win: "There it is. Take my mark — you climbed all the way home.",
+        lose: "The steps will keep, dear. Rest your ears, then climb again."
+      }
+    },
+    // Rue — Lowmoor Fen (node 2, la-based MINOR, home lives at 6). Second keeper; content is
+    // harder (minor), so tuned the same-gentle as Verda rather than piling on. Gruff-kind old
+    // fen-keeper: the dark isn't sad, home just settled down low.
+    2: {
+      hp: 100,
+      hearts: 4,
+      dmgFirst: 25,
+      dmgRecover: 10,
+      timer: { full: 8, mid: 6, low: 4 },
+      name: "Rue",
+      title: "of the Fen",
+      taunts: {
+        intro: "The fen sounds sad, but nothing moved. Find 6 and you're home.",
+        hits: [
+          "Aye — there's 6, soft in the dark.",
+          "Heard it. The mist can't hide home from you.",
+          "That's the low road, walked true.",
+          "Mm. You felt the floor of it.",
+          "Good ear. Nothing sad about that.",
+          "There now — down here that's exactly right."
+        ],
+        low: "Nearly through the mist now — home's been under you all along.",
+        playerHurt: "Easy. The dark's friendly here — listen again.",
+        win: "You found 6 in the dark. That's the whole trick.",
+        lose: "The fen keeps its own time. Rest, then wade back in."
+      }
+    }
+  };
+  var DEFAULT_BOSS = {
+    hp: 120,
+    hearts: 3,
+    dmgFirst: 25,
+    dmgRecover: 10,
+    timer: { full: 7, mid: 5, low: 3 },
+    name: "Keeper",
+    title: "",
+    taunts: {
+      intro: "Show me your ears.",
+      hits: ["A clean hit.", "Well struck.", "You heard that true.", "Sharp — again."],
+      low: "You're nearly through my guard…",
+      playerHurt: "You faltered. Listen again.",
+      win: "Well heard.",
+      lose: "Not yet. Come back sharper."
+    }
+  };
+  var ENABLED = /* @__PURE__ */ new Set([1, 2]);
+  var isBossRegion = (id) => ENABLED.has(id);
+  function bossConfigFor(id) {
+    return BOSS[id] || DEFAULT_BOSS;
+  }
+  function bossDamage(firstTry, cfg) {
+    return firstTry ? cfg.dmgFirst : cfg.dmgRecover;
+  }
+  var DEFAULT_TIMER = { full: 7, mid: 5, low: 3 };
+  function bossTimer(hpPct, cfg) {
+    const t = cfg && cfg.timer || DEFAULT_TIMER;
+    if (hpPct > 66) return t.full;
+    if (hpPct > 33) return t.mid;
+    return t.low;
+  }
+  function evalBoss(results, misses, cfg) {
+    let damage = 0;
+    for (const r of results) damage += bossDamage(r.firstTry, cfg);
+    const hp = Math.max(0, cfg.hp - damage);
+    const hearts = Math.max(0, cfg.hearts - (misses || 0));
+    let outcome = "ongoing";
+    if (hp <= 0) outcome = "win";
+    else if (hearts <= 0) outcome = "lose";
+    return {
+      hp,
+      hpMax: cfg.hp,
+      hpPct: Math.round(hp / cfg.hp * 100),
+      hearts,
+      heartsMax: cfg.hearts,
+      damage,
+      misses: misses || 0,
+      outcome
+    };
+  }
+
   // src/app-flow.mjs
   function qCountForLevel(lvl, opts = {}) {
     const { testMode = false, jojoMode = false, defaultSessionLen = 20 } = opts;
@@ -3344,7 +3933,9 @@ window.SOUNDTRACK = SOUNDTRACK;
       );
     }, [ensure]);
     const sfxRef = useRef(null);
+    const lastSfxRef = useRef(0);
     const sfx = useCallback(async (name) => {
+      lastSfxRef.current = typeof performance !== "undefined" ? performance.now() : 0;
       await ensure();
       if (!sfxRef.current) sfxRef.current = new Tone.Synth({ envelope: { attack: 6e-3, decay: 0.08, sustain: 0, release: 0.05 }, volume: -17 }).toDestination();
       const s = sfxRef.current, now = Tone.now() + 0.05;
@@ -3368,6 +3959,12 @@ window.SOUNDTRACK = SOUNDTRACK;
         beep(1319, 0.1, 0.09, "triangle");
       } else if (name === "victory") [659, 784, 1047, 1319].forEach((f, i) => beep(f, 0.18, i * 0.095, "triangle"));
       else if (name === "twinkle") [2093, 2637, 3136, 2349, 1760].forEach((fr, i) => beep(fr, 0.11, i * 0.05, "triangle"));
+      else if (name === "deflate") [330, 277, 220, 165].forEach((fr, i) => beep(fr, i === 3 ? 0.5 : 0.17, i * 0.16, "sawtooth"));
+      else if (name === "dojo") {
+        beep(392, 0.55, 0, "triangle");
+        beep(587, 0.6, 0.01, "triangle");
+        beep(1175, 0.28, 0.14, "triangle");
+      }
     }, [ensure]);
     const fanfareRef = useRef(null);
     const fanfare = useCallback(async () => {
@@ -3760,7 +4357,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         padRef.current = synthRef.current;
       }
     }, []);
-    return { playCadence, setCadenceSpeed, playDegree, playChord, playChordWR, playProgression, playSemi, sing, singMinor, minorShift, minorVoiceRef, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm: ensure };
+    return { playCadence, setCadenceSpeed, playDegree, playChord, playChordWR, playProgression, playSemi, sing, singMinor, minorShift, minorVoiceRef, sfx, lastSfxRef, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm: ensure };
   }
   function useMusic() {
     const busRef = useRef(null);
@@ -4489,7 +5086,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       last ? onClose() : setStep(step + 1);
     } }, last ? "Let's go!" : "Next ▸")))));
   }
-  function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, burst, boringMode, celebrateNode, onCelebrateDone, skinId, onReady }) {
+  function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, onOffer, showOffer, sfx, burst, boringMode, celebrateNode, onCelebrateDone, skinId, onReady }) {
     const H = window.HARMONIA;
     const mapRef = useRef(null);
     const swordRef = useRef(null);
@@ -4755,8 +5352,15 @@ window.SOUNDTRACK = SOUNDTRACK;
       if (dojoD < 22 * 22 && dojoD <= bd) {
         const c0 = codaRef.current;
         const atDojo = c0 && Math.round(c0.c) === DOJO.c && Math.round(c0.r) === DOJO.r;
-        if (boringMode || atDojo) onFree();
-        else walkTo(DOJO, () => onFree());
+        const enterDojo = () => {
+          try {
+            sfx && sfx("dojo");
+          } catch (e2) {
+          }
+          onFree();
+        };
+        if (boringMode || atDojo) enterDojo();
+        else walkTo(DOJO, enterDojo);
         return;
       }
       if (!best || bd >= 16 * 16) return;
@@ -4768,10 +5372,10 @@ window.SOUNDTRACK = SOUNDTRACK;
     const have = collected.size;
     const restored = have >= 8;
     const next = nodes.find((n) => !collected.has(H.stageFrag[n.id]));
-    return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" + (restored ? " restored" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top", role: "navigation", "aria-label": "Map controls" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", width: "32", height: "24", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG"), restored && /* @__PURE__ */ React.createElement("em", { className: "adv-restored-tag" }, " · restored")), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear gear-settings", onClick: onSettings, "aria-label": "Settings" }, "⚙")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), celebrateNode && H.nodes[celebrateNode - 1] && /* @__PURE__ */ React.createElement("div", { className: "map-cleared", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "map-cleared-star" }, "★"), /* @__PURE__ */ React.createElement("span", { className: "map-cleared-text" }, H.nodes[celebrateNode - 1].name, /* @__PURE__ */ React.createElement("em", null, "region cleared"))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("div", { className: "adv-forge-chip" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost shop-btn", onClick: onShop, "aria-label": "Shop" }, "★"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"))));
+    return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" + (restored ? " restored" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top", role: "navigation", "aria-label": "Map controls" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", width: "32", height: "24", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG"), restored && /* @__PURE__ */ React.createElement("em", { className: "adv-restored-tag" }, " · restored")), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear gear-settings", onClick: onSettings, "aria-label": "Settings" }, "⚙")), showOffer && /* @__PURE__ */ React.createElement("button", { className: "adv-offer-badge", onClick: onOffer, "aria-label": "Learn to really play — the full program" }, /* @__PURE__ */ React.createElement("img", { className: "adv-offer-glyph", src: typeof window !== "undefined" ? window.GUITAR_ICON : "", alt: "", "aria-hidden": "true", width: "30", height: "30" }), /* @__PURE__ */ React.createElement("span", { className: "adv-offer-label" }, "Play for real")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": "Harmonia world map" })), celebrateNode && H.nodes[celebrateNode - 1] && /* @__PURE__ */ React.createElement("div", { className: "map-cleared", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "map-cleared-star" }, "★"), /* @__PURE__ */ React.createElement("span", { className: "map-cleared-text" }, H.nodes[celebrateNode - 1].name, /* @__PURE__ */ React.createElement("em", null, "region cleared"))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, /* @__PURE__ */ React.createElement("div", { className: "adv-forge-chip" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost shop-btn", onClick: onShop, "aria-label": "Shop" }, "★"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"))));
   }
   function NumberEarTrainer() {
-    const { playCadence, setCadenceSpeed, playDegree, playChord, playChordWR, playProgression, playSemi, sing, singMinor, minorShift, minorVoiceRef, sfx, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm } = useAudio();
+    const { playCadence, setCadenceSpeed, playDegree, playChord, playChordWR, playProgression, playSemi, sing, singMinor, minorShift, minorVoiceRef, sfx, lastSfxRef, fanfare, grandFanfare, bootChime, startDrone, stopDrone, setDroneVolume, startPathLoop, stopPathLoop, setSustainVoice, holdNote, releaseNote, releaseAllNotes, stopAll, warm } = useAudio();
     const { playTheme, stopMusic, setMusicOn } = useMusic();
     const [musicPref, setMusicPref] = useState(() => loadPref("music", "1") === "1");
     const [boringMode, setBoringMode] = useState(() => loadPref("boring", "0") === "1");
@@ -4905,13 +5509,13 @@ window.SOUNDTRACK = SOUNDTRACK;
       track("lead_submit", { outcome: delivered ? "sent" : "saved" });
       setLeadStatus(delivered ? "done" : "saved");
     };
-    const openUpsell = () => {
+    const openUpsell = (source) => {
       try {
         sfx("select");
       } catch (e) {
       }
       setUpsellOpen(true);
-      track("upsell_open");
+      track("upsell_open", source ? { where: source } : {});
     };
     const tryUnlock = () => {
       const code = codeInput.trim().toLowerCase();
@@ -5251,6 +5855,14 @@ window.SOUNDTRACK = SOUNDTRACK;
     const [mapCelebrateNode, setMapCelebrateNode] = useState(null);
     const [swordBurst, setSwordBurst] = useState(false);
     const sessWasClearedRef = useRef(false);
+    const [bossState, setBossState] = useState(null);
+    const [bossFx, setBossFx] = useState("");
+    const [bossOutcome, setBossOutcome] = useState(null);
+    const [duelWinRegion, setDuelWinRegion] = useState(null);
+    const [duelSay, setDuelSay] = useState("");
+    const bossFxTimerRef = useRef(null);
+    const [duelTurn, setDuelTurn] = useState(0);
+    const duelTimerIdRef = useRef(null);
     const [melTab, setMelTab] = useState("stages");
     const [sessLvl, setSessLvl] = useState(null);
     const [cuMode, setCuMode] = useState("major");
@@ -5496,6 +6108,22 @@ window.SOUNDTRACK = SOUNDTRACK;
       phaseRef.current = phase;
       busyRef.current = busy;
     }, [phase, busy]);
+    useEffect(() => {
+      const NO_TICK = ".num, .explore-pad, .pk, .rung, .chip, .cu-note, .path-note, .bi-pad";
+      const onDocClick = (e) => {
+        const btn = e.target.closest && e.target.closest("button");
+        if (!btn || btn.disabled) return;
+        if (btn.matches(NO_TICK) || btn.closest(".numpad")) return;
+        const now = typeof performance !== "undefined" ? performance.now() : 0;
+        if (now - lastSfxRef.current < 80) return;
+        try {
+          sfx("move");
+        } catch (err) {
+        }
+      };
+      document.addEventListener("click", onDocClick);
+      return () => document.removeEventListener("click", onDocClick);
+    }, [sfx]);
     const [feedback, setFeedback] = useState(null);
     const [srMsg, setSrMsg] = useState("");
     const [chPicked, setChPicked] = useState([]);
@@ -5517,6 +6145,14 @@ window.SOUNDTRACK = SOUNDTRACK;
       sessGenRef.current++;
       sessTimersRef.current.forEach(clearTimeout);
       sessTimersRef.current = [];
+      if (bossFxTimerRef.current) {
+        clearTimeout(bossFxTimerRef.current);
+        bossFxTimerRef.current = null;
+      }
+      if (duelTimerIdRef.current) {
+        clearTimeout(duelTimerIdRef.current);
+        duelTimerIdRef.current = null;
+      }
       stopAll();
     };
     useEffect(() => {
@@ -5576,6 +6212,19 @@ window.SOUNDTRACK = SOUNDTRACK;
         }
       };
     }, [upsellOpen, forgeOpen, encounterNode]);
+    useEffect(() => {
+      const onClick = (e) => {
+        const b = e.target && e.target.closest && e.target.closest("button.back, button.dismiss");
+        if (b && !b.disabled) {
+          try {
+            sfx("back");
+          } catch (err) {
+          }
+        }
+      };
+      document.addEventListener("click", onClick, true);
+      return () => document.removeEventListener("click", onClick, true);
+    }, [sfx]);
     const [guidePage, setGuidePage] = useState(0);
     const playPhrase = (degs) => {
       if (busy) return;
@@ -5987,6 +6636,128 @@ window.SOUNDTRACK = SOUNDTRACK;
       setScreen("session");
       sessTimer(() => nextQuestionRef.current(true), 350);
     };
+    const startBossSession = (regionId) => {
+      killSession();
+      const stage = ADV_STAGES[regionId - 1];
+      if (!stage) return;
+      const lv = advGroupOf(stage).levels;
+      const li = lv[lv.length - 1].idx;
+      const cfg = bossConfigFor(regionId);
+      track("boss_start", { region: regionId });
+      const lvl = resolveSessionLevel({
+        mode: stage.mode,
+        levelIdx: li,
+        customLvl: null,
+        chordSevenths,
+        levelsByMode: { melody: MELODY_LEVELS, chords: CHORD_LEVELS, progressions: PROG_LEVELS }
+      });
+      setMode(stage.mode);
+      setLevelIdx(li);
+      setSessLvl(lvl);
+      if (stage.mode === "melody") setMelGroup(groupIndexOf(li));
+      if (stage.mode === "chords") setChordChapter(chordChapterIndexOf(li));
+      if (stage.mode === "progressions") setProgChapter(progChapterIndexOf(li));
+      const key = chooseSessionKey({ mode: stage.mode, lvl, musicKey, randKey });
+      setSessKey(key);
+      sess.current = buildSessionState({ mode: stage.mode, lvl, levelIdx: li, key, chordSevenths, qCount: 999 });
+      sess.current.boss = cfg;
+      sess.current.bossRegion = regionId;
+      sess.current.bossMisses = 0;
+      setBossState(evalBoss([], 0, cfg));
+      setBossFx("");
+      setDuelSay(cfg.taunts.intro);
+      setQNum(0);
+      setScore(0);
+      setStreak(0);
+      setSessionResults([]);
+      setChPicked([]);
+      setProgAnswer([]);
+      setProgWrong([]);
+      clearLadder();
+      setFeedback(null);
+      setPhase("idle");
+      setScreen("session");
+      sessTimer(() => nextQuestionRef.current(true), 350);
+    };
+    const bossAdvance = () => {
+      const s = sess.current;
+      const state = evalBoss(s.results, s.bossMisses, s.boss);
+      if (state.outcome === "win") {
+        finishSession();
+        return;
+      }
+      s.qNum = (s.qNum || 0) + 1;
+      setQNum(s.qNum);
+      sessTimer(() => nextQuestionRef.current(false), 1150);
+    };
+    const bossOnCorrect = () => {
+      const s = sess.current;
+      if (!s.boss) return;
+      setBossState(evalBoss(s.results, s.bossMisses, s.boss));
+      const hits = s.boss.taunts.hits || [];
+      if (hits.length) setDuelSay(hits[(s.results.length - 1) % hits.length]);
+      flashBoss("hit");
+    };
+    const flashBoss = (kind) => {
+      setBossFx(kind);
+      if (bossFxTimerRef.current) clearTimeout(bossFxTimerRef.current);
+      bossFxTimerRef.current = setTimeout(() => setBossFx(""), 520);
+    };
+    const bossOnWrong = () => {
+      const s = sess.current;
+      if (!s.boss) return false;
+      s.bossMisses = (s.bossMisses || 0) + 1;
+      const state = evalBoss(s.results, s.bossMisses, s.boss);
+      setBossState(state);
+      setDuelSay(s.boss.taunts.playerHurt);
+      flashBoss("hurt");
+      if (state.outcome === "lose") {
+        bossLose();
+        return true;
+      }
+      return false;
+    };
+    const onDuelTimeout = () => {
+      const s = sess.current;
+      if (!s.boss || phaseRef.current !== "answer") return;
+      s.attempted = true;
+      s.misses = (s.misses || 0) + 1;
+      setStreak(0);
+      if (bossOnWrong()) return;
+      if (s.mode === "melody") setRevealPc(s.target);
+      setFeedback("Too slow — " + s.boss.name + " strikes! Hear it again…");
+      sessTimer(() => replayTarget(), 500);
+      setDuelTurn((t) => t + 1);
+    };
+    useEffect(() => {
+      if (screen !== "session" || phase !== "answer") return;
+      const s = sess.current;
+      if (!s || !s.boss) return;
+      const st = evalBoss(s.results, s.bossMisses, s.boss);
+      const secs = bossTimer(st.hpPct, s.boss);
+      const id = setTimeout(onDuelTimeout, secs * 1e3);
+      duelTimerIdRef.current = id;
+      return () => {
+        clearTimeout(id);
+        if (duelTimerIdRef.current === id) duelTimerIdRef.current = null;
+      };
+    }, [screen, phase, duelTurn]);
+    const bossLose = () => {
+      const region = sess.current.bossRegion;
+      track("boss_lose", { region, hp: bossState ? bossState.hp : null });
+      killSession();
+      try {
+        sfx("deflate");
+        haptic(false);
+      } catch (e) {
+      }
+      setPhase("idle");
+      setBusy(false);
+      setBossState(null);
+      setBossFx("");
+      setBossOutcome({ region });
+      setScreen("adventure");
+    };
     const nextQuestion = async (isFirst = false) => {
       const s = sess.current;
       const gen = sessGenRef.current;
@@ -5998,6 +6769,10 @@ window.SOUNDTRACK = SOUNDTRACK;
       setFeedback(null);
       s.attempted = false;
       s.misses = 0;
+      if (s.boss) {
+        const st = evalBoss(s.results, s.bossMisses, s.boss);
+        setDuelSay(st.hpPct <= 34 ? s.boss.taunts.low : s.boss.taunts.intro);
+      }
       setPhase("playing");
       setBusy(true);
       try {
@@ -6065,6 +6840,10 @@ window.SOUNDTRACK = SOUNDTRACK;
     nextQuestionRef.current = nextQuestion;
     const advance = () => {
       const s = sess.current;
+      if (s.boss) {
+        bossAdvance();
+        return;
+      }
       const { nextQNum, isComplete } = nextQuestionProgress(s.qNum, s.qCount);
       s.qNum = nextQNum;
       if (isComplete) {
@@ -6076,7 +6855,10 @@ window.SOUNDTRACK = SOUNDTRACK;
     };
     const finishSession = () => {
       const s = sess.current;
-      const firstTries = countFirstTries(s.results);
+      const bossWon = !!s.boss;
+      const firstTries = bossWon ? Math.max(countFirstTries(s.results), passCountFor(s.lvl)) : countFirstTries(s.results);
+      setDuelWinRegion(bossWon ? s.bossRegion : null);
+      if (bossWon) track("boss_win", { region: s.bossRegion, questions: s.results.length, hearts: bossState ? bossState.hearts : null });
       track("session_finish", { mode: s.mode, level: s.levelIdx, first_tries: firstTries, questions: s.results.length, passed: firstTries >= passCountFor(s.lvl) });
       sessWasClearedRef.current = fromAdventure && advStageId != null ? stageClearedAdv(advStageId) : false;
       if (s.levelIdx != null) {
@@ -6169,6 +6951,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         const first = !s.attempted;
         s.results.push({ target: s.target, firstTry: first });
         setSessionResults([...s.results]);
+        bossOnCorrect();
         if (first) {
           setScore((sc) => sc + 1);
           setStreak((x) => x + 1);
@@ -6202,6 +6985,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         setLitWrong([pc]);
         setSrMsg("Not quite — that was a " + spokenNote(pc) + ".");
         playSemi(s.key, pc, 0, s.octave);
+        if (bossOnWrong()) return;
         if (tutorialActive) {
           setTutReveal(true);
           setFeedback("Almost — hear it again, then tap the glowing number.");
@@ -6236,6 +7020,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         const first = !s.attempted;
         s.results.push({ target: s.target.roman, firstTry: first });
         setSessionResults([...s.results]);
+        bossOnCorrect();
         if (first) {
           setScore((sc) => sc + 1);
           setStreak((x) => x + 1);
@@ -6257,6 +7042,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         setStreak(0);
         setLitWrong(chPicked.filter((d) => !t.has(d)));
         setSrMsg("Not quite.");
+        if (bossOnWrong()) return;
         setFeedback("Close — the marked degrees aren't in it. Adjust and check again.");
       }
     };
@@ -6281,6 +7067,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         const first = !s.attempted;
         s.results.push({ target: s.target.join("–"), firstTry: first, prog: [...s.target] });
         setSessionResults([...s.results]);
+        bossOnCorrect();
         if (first) {
           setScore((sc) => sc + 1);
           setStreak((x) => x + 1);
@@ -6302,6 +7089,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         setStreak(0);
         setProgWrong(wrong);
         setSrMsg("Not quite.");
+        if (bossOnWrong()) return;
         setFeedback("Not quite — the marked chords are off. Fix them and check again.");
       }
     };
@@ -6413,7 +7201,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         (c, i) => c.gap ? /* @__PURE__ */ React.createElement("div", { key: i, className: "bi-cl bi-gap" }, /* @__PURE__ */ React.createElement("i", { className: "bi-st" }), /* @__PURE__ */ React.createElement("span", { className: "bi-mid" }, /* @__PURE__ */ React.createElement("s", null)), /* @__PURE__ */ React.createElement("u", { className: "bi-sol" })) : /* @__PURE__ */ React.createElement("div", { key: i, className: "bi-cl " + c.d + (c.tonic ? " tonic" : "") }, /* @__PURE__ */ React.createElement("i", { className: "bi-st" }, c.tonic ? "✱" : ""), /* @__PURE__ */ React.createElement("b", { className: "bi-pad" }, c.n), /* @__PURE__ */ React.createElement("u", { className: "bi-sol" }, c.sol))
       ))), /* @__PURE__ */ React.createElement("div", { className: "bi-wave" }, Array.from({ length: 24 }).map((_, i) => /* @__PURE__ */ React.createElement("i", { key: i })))), /* @__PURE__ */ React.createElement("img", { className: "bi-coda", src: typeof window !== "undefined" ? window.CODA_VICTORY : "", alt: "", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("button", { className: "bi-cta", onClick: bootAdvance }, "START YOUR EAR QUEST"), /* @__PURE__ */ React.createElement("div", { className: "bi-foot" }, "EVERY NOTE IS ON THE MAP"));
     }
-    const upsellModal = upsellOpen ? /* @__PURE__ */ React.createElement("div", { className: "forge-modal upsell-modal", onClick: () => setUpsellOpen(false) }, /* @__PURE__ */ React.createElement("div", { className: "forge-panel upsell-panel", role: "dialog", "aria-modal": "true", "aria-label": "Keep going — the full program", tabIndex: -1, ref: upsellPanelRef, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("span", { className: "forge-kicker" }, "✦ Keep going ✦"), /* @__PURE__ */ React.createElement("h2", { className: "forge-title" }, "This is where it gets good"), /* @__PURE__ */ React.createElement("p", { className: "upsell-copy" }, "You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program."), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setUpsellOpen(false) }, "Maybe later"), /* @__PURE__ */ React.createElement("a", { className: "primary offer-link", href: OFFER_URL, target: "_blank", rel: "noopener noreferrer", onClick: () => track("offer_click", { where: "upsell" }) }, "Show me how →")))) : null;
+    const upsellModal = upsellOpen ? /* @__PURE__ */ React.createElement("div", { className: "forge-modal upsell-modal", onClick: () => setUpsellOpen(false) }, /* @__PURE__ */ React.createElement("div", { className: "forge-panel upsell-panel", role: "dialog", "aria-modal": "true", "aria-label": "Keep going — the full program", tabIndex: -1, ref: upsellPanelRef, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("span", { className: "forge-kicker" }, "✦ Keep going ✦"), /* @__PURE__ */ React.createElement("h2", { className: "forge-title" }, "This is where it gets good"), /* @__PURE__ */ React.createElement("p", { className: "upsell-copy" }, "You've got the ears. Next is turning them into real playing — hearing any chord, finding any melody, soloing over songs you love. That's what we build together in the full program for guitarists."), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost dismiss", onClick: () => setUpsellOpen(false) }, "Maybe later"), /* @__PURE__ */ React.createElement("a", { className: "primary offer-link", href: OFFER_URL, target: "_blank", rel: "noopener noreferrer", onClick: () => track("offer_click", { where: "upsell" }) }, "Show me how →")))) : null;
     if (screen === "menu") {
       const item = (icon, label, go) => /* @__PURE__ */ React.createElement("button", { className: "menu-item", onClick: () => {
         sfx("select");
@@ -6450,10 +7238,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         { chapter: "chordsMinor", flag: "tut4", icon: "🕯", title: "Undertone Caves", sub: "Bassil · minor chords — 6 · 2 · 3 · 4" }
       ];
       const passed = TUTS.filter((t) => loadPref(t.flag, "0") === "1");
-      return /* @__PURE__ */ React.createElement("div", { className: "app menu-screen" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
-        sfx("back");
-        setScreen("menu");
-      } }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Tutorials")), /* @__PURE__ */ React.createElement("div", { className: "menu-list" }, passed.length === 0 ? /* @__PURE__ */ React.createElement("p", { className: "set-desc", style: { textAlign: "center", padding: "20px 8px" } }, "No lessons yet — a keeper teaches you the first time you reach a new kind of world.") : passed.map((t) => /* @__PURE__ */ React.createElement("button", { key: t.chapter, className: "menu-item", onClick: () => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app menu-screen" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => setScreen("menu") }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Tutorials")), /* @__PURE__ */ React.createElement("div", { className: "menu-list" }, passed.length === 0 ? /* @__PURE__ */ React.createElement("p", { className: "set-desc", style: { textAlign: "center", padding: "20px 8px" } }, "No lessons yet — a keeper teaches you the first time you reach a new kind of world.") : passed.map((t) => /* @__PURE__ */ React.createElement("button", { key: t.chapter, className: "menu-item", onClick: () => {
         sfx("select");
         startTutorial(t.chapter);
       }, onMouseEnter: () => sfx("move") }, /* @__PURE__ */ React.createElement("span", { className: "mi-icon" }, t.icon), /* @__PURE__ */ React.createElement("span", { className: "tut-lib-txt" }, /* @__PURE__ */ React.createElement("b", null, t.title), /* @__PURE__ */ React.createElement("span", { className: "tut-lib-sub" }, t.sub))))), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Replay any lesson you've cleared."));
@@ -6463,10 +7248,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         sfx("select");
         go();
       } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, title), /* @__PURE__ */ React.createElement("span", { className: "card-desc" }, desc));
-      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
-        sfx("back");
-        setScreen("menu");
-      } }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Basic Training")), /* @__PURE__ */ React.createElement("div", { className: "cards" }, sec("Single notes", `Hear a note, name its degree. ${MELODY_GROUPS.length} stages.`, () => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => setScreen("menu") }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Basic Training")), /* @__PURE__ */ React.createElement("div", { className: "cards" }, sec("Single notes", `Hear a note, name its degree. ${MELODY_GROUPS.length} stages.`, () => {
         setMode("melody");
         setMelGroup(null);
         setScreen("levels");
@@ -6533,9 +7315,18 @@ window.SOUNDTRACK = SOUNDTRACK;
             setFpTab("notes");
             setScreen("learn");
           },
+          onOffer: () => openUpsell("map_corner"),
+          showOffer: gated,
+          sfx,
           onReady: () => setMapReady(true)
         }
-      ), en && /* @__PURE__ */ React.createElement("div", { className: "encounter-modal", onClick: () => setEncounterNode(null) }, /* @__PURE__ */ React.createElement("div", { className: "encounter mood-" + en.mood, role: "dialog", "aria-modal": "true", "aria-label": "Keeper of " + en.name, tabIndex: -1, ref: encPanelRef, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "enc-head" }, /* @__PURE__ */ React.createElement("span", { className: "enc-emblem", "aria-hidden": "true" }, window.KEEPER_ART && window.KEEPER_ART[encounterNode] ? /* @__PURE__ */ React.createElement("img", { src: window.KEEPER_ART[encounterNode], alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block", imageRendering: "pixelated" } }) : en.emblem), /* @__PURE__ */ React.createElement("div", { className: "enc-titles" }, /* @__PURE__ */ React.createElement("span", { className: "kicker" }, "Region ", encounterNode, " · Harmonia"), /* @__PURE__ */ React.createElement("h2", { className: "encounter-title" }, en.name), /* @__PURE__ */ React.createElement("span", { className: "encounter-sub" }, enTitle)), /* @__PURE__ */ React.createElement("span", { className: "enc-frag" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), enFrag)), /* @__PURE__ */ React.createElement("p", { className: "keeper-line" }, /* @__PURE__ */ React.createElement("b", { className: "keeper-name" }, en.keeper), /* @__PURE__ */ React.createElement("q", null, en.greet)), /* @__PURE__ */ React.createElement("p", { className: "stage-goal" }, stageGoal(enMode, enTitle)), /* @__PURE__ */ React.createElement("span", { className: "stage-meta" }, enLevels, " levels · ", enModeLabel, " · earn ", en.short, "'s mark → ◆"), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => setEncounterNode(null) }, "Not yet"), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => {
+      ), en && /* @__PURE__ */ React.createElement("div", { className: "encounter-modal", onClick: () => setEncounterNode(null) }, /* @__PURE__ */ React.createElement("div", { className: "encounter mood-" + en.mood, role: "dialog", "aria-modal": "true", "aria-label": "Keeper of " + en.name, tabIndex: -1, ref: encPanelRef, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "enc-head" }, /* @__PURE__ */ React.createElement("span", { className: "enc-emblem", "aria-hidden": "true" }, window.KEEPER_ART && window.KEEPER_ART[encounterNode] ? /* @__PURE__ */ React.createElement("img", { src: window.KEEPER_ART[encounterNode], alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block", imageRendering: "pixelated" } }) : en.emblem), /* @__PURE__ */ React.createElement("div", { className: "enc-titles" }, /* @__PURE__ */ React.createElement("span", { className: "kicker" }, "Region ", encounterNode, " · Harmonia"), /* @__PURE__ */ React.createElement("h2", { className: "encounter-title" }, en.name), /* @__PURE__ */ React.createElement("span", { className: "encounter-sub" }, enTitle)), /* @__PURE__ */ React.createElement("span", { className: "enc-frag" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), enFrag)), /* @__PURE__ */ React.createElement("p", { className: "keeper-line" }, /* @__PURE__ */ React.createElement("b", { className: "keeper-name" }, en.keeper), /* @__PURE__ */ React.createElement("q", null, en.greet)), /* @__PURE__ */ React.createElement("p", { className: "stage-goal" }, stageGoal(enMode, enTitle)), /* @__PURE__ */ React.createElement("span", { className: "stage-meta" }, enLevels, " levels · ", enModeLabel, " · earn ", en.short, "'s mark → ◆"), /* @__PURE__ */ React.createElement("div", { className: "enc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost dismiss", onClick: () => {
+        try {
+          sfx("back");
+        } catch (e) {
+        }
+        setEncounterNode(null);
+      } }, "Not yet"), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => {
         const id = encounterNode;
         sfx("select");
         setEncounterNode(null);
@@ -6544,7 +7335,26 @@ window.SOUNDTRACK = SOUNDTRACK;
         const fid = window.HARMONIA.stageFrag[nd.id];
         const have = advCollected.has(fid);
         return /* @__PURE__ */ React.createElement("li", { key: nd.id, className: "frag-row" + (have ? " got" : " locked") }, /* @__PURE__ */ React.createElement("span", { className: "frag-mark" }, have ? "◆" : "◇"), /* @__PURE__ */ React.createElement("span", { className: "frag-name" }, window.HARMONIA.fragLabel[fid]), /* @__PURE__ */ React.createElement("em", { className: "frag-src" }, have ? nd.name : "— locked"));
-      })), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => setForgeOpen(false) }, "Close"))), upsellModal, mapTour && mapReady && /* @__PURE__ */ React.createElement(MapTour, { onClose: () => setMapTour(false), onSfx: sfx }), /* @__PURE__ */ React.createElement(AdvSplash, { ready: mapReady }));
+      })), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => setForgeOpen(false) }, "Close"))), bossOutcome && window.HARMONIA && (() => {
+        const region = bossOutcome.region;
+        const cfg = bossConfigFor(region);
+        const kp = window.HARMONIA.nodes[region - 1];
+        const art = window.KEEPER_ART ? window.KEEPER_ART[region] : null;
+        return /* @__PURE__ */ React.createElement("div", { className: "forge-modal boss-defeat-modal", onClick: () => setBossOutcome(null) }, /* @__PURE__ */ React.createElement("div", { className: "forge-panel boss-defeat", role: "dialog", "aria-modal": "true", "aria-label": "Duel lost", tabIndex: -1, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("span", { className: "boss-defeat-face", "aria-hidden": "true" }, art ? /* @__PURE__ */ React.createElement("img", { src: art, alt: "" }) : /* @__PURE__ */ React.createElement("span", { className: "boss-emblem" }, kp ? kp.emblem : "⚔")), /* @__PURE__ */ React.createElement("span", { className: "forge-kicker" }, "Duel lost"), /* @__PURE__ */ React.createElement("h2", { className: "forge-title" }, kp ? kp.short : cfg.name, " holds the line"), /* @__PURE__ */ React.createElement("p", { className: "boss-defeat-line" }, "“", cfg.taunts.lose, "”"), /* @__PURE__ */ React.createElement("div", { className: "boss-defeat-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => {
+          try {
+            sfx("select");
+          } catch (e) {
+          }
+          setBossOutcome(null);
+          startBossSession(region);
+        } }, "Challenge again →"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: () => {
+          try {
+            sfx("back");
+          } catch (e) {
+          }
+          setBossOutcome(null);
+        } }, "Back to the map"))));
+      })(), upsellModal, mapTour && mapReady && /* @__PURE__ */ React.createElement(MapTour, { onClose: () => setMapTour(false), onSfx: sfx }), /* @__PURE__ */ React.createElement(AdvSplash, { ready: mapReady }));
     }
     if (screen === "home") {
       return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top" }, /* @__PURE__ */ React.createElement("div", { className: "brand-row" }, brand, /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: () => {
@@ -6789,15 +7599,23 @@ window.SOUNDTRACK = SOUNDTRACK;
         const best = bestOf(mode, lvl.idx);
         const passed = isPassed(mode, lvl.idx);
         const locked = gated && !fromAdventure && !(mode === "melody" && isMelodyFree(lvl.idx));
+        const isDuelRow = fromAdventure && advStageId && isBossRegion(advStageId) && i === list.length - 1;
+        const duelKeeper = isDuelRow && window.HARMONIA ? window.HARMONIA.nodes[advStageId - 1] : null;
         return /* @__PURE__ */ React.createElement(
           "button",
           {
             key: lvl.idx,
-            className: "level" + (locked ? " locked" : ""),
-            onClick: () => locked ? openUpsell() : startSession(mode, lvl.idx)
+            className: "level" + (locked ? " locked" : "") + (isDuelRow ? " duel" : ""),
+            onClick: () => {
+              try {
+                sfx(isDuelRow && !locked ? "boot" : "select");
+              } catch (e) {
+              }
+              locked ? openUpsell() : isDuelRow ? startBossSession(advStageId) : startSession(mode, lvl.idx);
+            }
           },
-          /* @__PURE__ */ React.createElement("span", { className: "level-num" }, i + 1),
-          /* @__PURE__ */ React.createElement("span", { className: "level-body" }, /* @__PURE__ */ React.createElement("span", { className: "level-name" }, lvl.name), mode === "melody" ? /* @__PURE__ */ React.createElement("span", { className: "level-tags" }, levelTags(lvl).map((t, ti) => /* @__PURE__ */ React.createElement("span", { key: ti, className: "tag" }, t))) : /* @__PURE__ */ React.createElement("span", { className: "level-desc" }, lvl.desc), /* @__PURE__ */ React.createElement(ProgressSquares, { best, total: qCountOf(lvl) })),
+          /* @__PURE__ */ React.createElement("span", { className: "level-num" }, isDuelRow ? "⚔" : i + 1),
+          /* @__PURE__ */ React.createElement("span", { className: "level-body" }, /* @__PURE__ */ React.createElement("span", { className: "level-name" }, isDuelRow ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : lvl.name), mode === "melody" ? /* @__PURE__ */ React.createElement("span", { className: "level-tags" }, levelTags(lvl).map((t, ti) => /* @__PURE__ */ React.createElement("span", { key: ti, className: "tag" }, t))) : /* @__PURE__ */ React.createElement("span", { className: "level-desc" }, lvl.desc), /* @__PURE__ */ React.createElement(ProgressSquares, { best, total: qCountOf(lvl) })),
           /* @__PURE__ */ React.createElement("span", { className: "level-state" }, /* @__PURE__ */ React.createElement("span", { className: "level-stars" }, [1, 2, 3].map((n) => /* @__PURE__ */ React.createElement("span", { key: n, className: "lvl-star" + (starsFor(mode, lvl.idx) >= n ? " on" : "") }, "★"))), /* @__PURE__ */ React.createElement("span", { className: "level-pct" + (passed ? " pass" : "") }, Math.round(best / qCountOf(lvl) * 100), "%"))
         );
       })), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, SESSION_LEN, " questions per session · ", Math.round(PASS_RATE * 100), "% on first tries earns the ✓"), upsellModal);
@@ -6813,12 +7631,26 @@ window.SOUNDTRACK = SOUNDTRACK;
       const chromOrder = ALL12.map((i) => mod12(tonicPc + i));
       const tutCoach = tutorialActive && mode === "melody";
       const tutTarget = tutCoach && tutReveal && sess.current ? sess.current.target : null;
-      return /* @__PURE__ */ React.createElement("div", { className: "app app-wide" + (lvl.mode === "minor" ? " sess-minor" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement(Confetti, { show: tutCelebrate }), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
+      const isDuel = !!(sess.current && sess.current.boss && bossState);
+      const duelCfg = isDuel ? sess.current.boss : null;
+      const duelRegion = isDuel ? sess.current.bossRegion : null;
+      const duelKeeper = isDuel && window.HARMONIA ? window.HARMONIA.nodes[duelRegion - 1] : null;
+      const duelArt = isDuel && window.KEEPER_ART ? window.KEEPER_ART[duelRegion] : null;
+      const duelEnemyImg = isDuel ? duelArt : null;
+      const duelHeroImg = isDuel && typeof window !== "undefined" ? window.CODA_SPRITE || null : null;
+      const duelWindowSecs = isDuel ? bossTimer(bossState.hpPct, duelCfg) : 0;
+      const duelTaunt = !isDuel ? "" : duelSay || duelCfg.taunts.intro;
+      return /* @__PURE__ */ React.createElement("div", { className: "app app-wide" + (lvl.mode === "minor" ? " sess-minor" : "") + (isDuel ? " sess-duel" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement(Confetti, { show: tutCelebrate }), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
+        try {
+          sfx("back");
+        } catch (e) {
+        }
         killSession();
         setPhase("idle");
         setBusy(false);
+        setBossState(null);
         setScreen("levels");
-      } }, "← Quit"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, lvl.name), /* @__PURE__ */ React.createElement("span", { className: "session-score" }, streak >= 2 && /* @__PURE__ */ React.createElement("span", { key: streak, className: "streak" }, "🔥", streak), score, " ✓"), /* @__PURE__ */ React.createElement(
+      } }, "← ", isDuel ? "Flee" : "Quit"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, isDuel ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : lvl.name), /* @__PURE__ */ React.createElement("span", { className: "session-score" }, streak >= 2 && /* @__PURE__ */ React.createElement("span", { key: streak, className: "streak" }, "🔥", streak), score, " ✓"), /* @__PURE__ */ React.createElement(
         "button",
         {
           className: "sess-gear",
@@ -6827,7 +7659,9 @@ window.SOUNDTRACK = SOUNDTRACK;
           style: { background: "none", border: 0, color: "var(--text)", fontSize: "1.15rem", lineHeight: 1, cursor: "pointer", padding: "2px 6px" }
         },
         "⚙"
-      )), testCfgOpen && /* @__PURE__ */ React.createElement("div", { className: "test-cfg-backdrop", onClick: () => setTestCfgOpen(false) }, /* @__PURE__ */ React.createElement("style", null, `
+      )), isDuel && /* @__PURE__ */ React.createElement("div", { className: "duel-arena fx-" + (bossFx || "idle"), "aria-live": "polite" }, /* @__PURE__ */ React.createElement("div", { className: "duel-enemy" }, /* @__PURE__ */ React.createElement("div", { className: "duel-enemy-info" }, /* @__PURE__ */ React.createElement("div", { className: "boss-name" }, duelKeeper ? duelKeeper.keeper : duelCfg.name + (duelCfg.title ? ", " + duelCfg.title : "")), /* @__PURE__ */ React.createElement("div", { className: "boss-hpbar", role: "progressbar", "aria-label": "Keeper resolve", "aria-valuenow": bossState.hpPct, "aria-valuemin": 0, "aria-valuemax": 100 }, /* @__PURE__ */ React.createElement("span", { className: "boss-hpfill", style: { width: bossState.hpPct + "%" } })), /* @__PURE__ */ React.createElement("span", { className: "boss-hearts", "aria-label": bossState.hearts + " of " + bossState.heartsMax + " ears left" }, Array.from({ length: bossState.heartsMax }).map(
+        (_, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "boss-heart" + (i < bossState.hearts ? "" : " spent"), "aria-hidden": "true" }, i < bossState.hearts ? "♥" : "♡")
+      ))), /* @__PURE__ */ React.createElement("span", { className: "duel-sprite enemy", "aria-hidden": "true" }, duelEnemyImg ? /* @__PURE__ */ React.createElement("img", { src: duelEnemyImg, alt: "" }) : /* @__PURE__ */ React.createElement("span", { className: "boss-emblem" }, duelKeeper ? duelKeeper.emblem : "⚔"))), /* @__PURE__ */ React.createElement("div", { className: "duel-say" }, duelTaunt), /* @__PURE__ */ React.createElement("div", { className: "duel-hero" }, /* @__PURE__ */ React.createElement("span", { className: "duel-sprite hero", "aria-hidden": "true" }, duelHeroImg ? /* @__PURE__ */ React.createElement("img", { src: duelHeroImg, alt: "" }) : /* @__PURE__ */ React.createElement("span", { className: "boss-emblem" }, "🎧")), window.HARMONIA && /* @__PURE__ */ React.createElement("span", { className: "duel-stake", "aria-label": "At stake: " + (window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[duelRegion]] || "a fragment") }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "duel-stake-sword" }), /* @__PURE__ */ React.createElement("span", { className: "duel-stake-label" }, /* @__PURE__ */ React.createElement("em", null, "At stake"), /* @__PURE__ */ React.createElement("b", null, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[duelRegion]])))), (phase === "playing" || phase === "answer" || bossFx) && /* @__PURE__ */ React.createElement("div", { key: qNum, className: "duel-shots " + (bossFx ? "fx-" + bossFx : "incoming"), "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "duel-note enemy" }, "♪"), /* @__PURE__ */ React.createElement("span", { className: "duel-note hero" }, "♪"), /* @__PURE__ */ React.createElement("span", { className: "duel-burst" })), /* @__PURE__ */ React.createElement("div", { className: "duel-timer", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { key: duelTurn + "-" + qNum + "-" + phase, className: "duel-timer-fill" + (phase === "answer" ? " draining" : ""), style: { animationDuration: duelWindowSecs + "s" } }))), testCfgOpen && /* @__PURE__ */ React.createElement("div", { className: "test-cfg-backdrop", onClick: () => setTestCfgOpen(false) }, /* @__PURE__ */ React.createElement("style", null, `
               .test-cfg-backdrop{ position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,.55); }
               .test-cfg{ width:100%; max-width:380px; max-height:85vh; overflow-y:auto; background:var(--card,#424845); color:var(--text,#EDF2EE); border-radius:14px; padding:18px 18px 20px; display:flex; flex-direction:column; gap:16px; }
               .retro .test-cfg{ clip-path:var(--notch); border-radius:0; box-shadow:inset 0 0 0 2px var(--line),inset 0 0 0 4px rgba(0,0,0,.25); }
@@ -6876,11 +7710,11 @@ window.SOUNDTRACK = SOUNDTRACK;
           }
         },
         s.label
-      )))), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Theme"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "Light currently reskins Boring mode; the Adventure skin stays dark."), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: theme === "dark" ? "on" : "", onClick: () => setTheme("dark") }, "Dark"), /* @__PURE__ */ React.createElement("button", { className: theme === "light" ? "on" : "", onClick: () => setTheme("light") }, "Light"))), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => setTestCfgOpen(false) }, "Done"))), /* @__PURE__ */ React.createElement("div", { className: "progressbar" }, /* @__PURE__ */ React.createElement("div", { className: "fill", style: { width: `${qNum / qCountOf(lvl) * 100}%` } })), !boringMode && /* @__PURE__ */ React.createElement("div", { className: "hpbar" }, /* @__PURE__ */ React.createElement("span", { className: "hp-label" }, "Trial"), /* @__PURE__ */ React.createElement("div", { className: "trial-cells" }, Array.from({ length: qCountOf(lvl) }).map((_, i) => {
+      )))), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Theme"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "Light currently reskins Boring mode; the Adventure skin stays dark."), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: theme === "dark" ? "on" : "", onClick: () => setTheme("dark") }, "Dark"), /* @__PURE__ */ React.createElement("button", { className: theme === "light" ? "on" : "", onClick: () => setTheme("light") }, "Light"))), /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => setTestCfgOpen(false) }, "Done"))), !isDuel && /* @__PURE__ */ React.createElement("div", { className: "progressbar" }, /* @__PURE__ */ React.createElement("div", { className: "fill", style: { width: `${qNum / qCountOf(lvl) * 100}%` } })), !boringMode && !isDuel && /* @__PURE__ */ React.createElement("div", { className: "hpbar" }, /* @__PURE__ */ React.createElement("span", { className: "hp-label" }, "Trial"), /* @__PURE__ */ React.createElement("div", { className: "trial-cells" }, Array.from({ length: qCountOf(lvl) }).map((_, i) => {
         const r = sessionResults[i];
         const cls = "cell" + (r ? r.firstTry ? " hit" : " miss" : "") + (i === passCountFor(lvl) - 1 ? " mark" : "") + (streak >= 2 && i === sessionResults.length - 1 && r && r.firstTry ? " hot" : "");
         return /* @__PURE__ */ React.createElement("i", { key: i, className: cls });
-      })), streak >= 2 && /* @__PURE__ */ React.createElement("span", { className: "combo" }, "×", streak)), /* @__PURE__ */ React.createElement("p", { className: "qcount" }, "Question ", Math.min(qNum + 1, qCountOf(lvl)), " of ", qCountOf(lvl), " · ", displayKey, lvl.keyMode === "random" ? " (changes every question)" : ""), /* @__PURE__ */ React.createElement("div", { className: "drill-stage drill-" + mode }, mode === "melody" && /* @__PURE__ */ React.createElement(
+      })), streak >= 2 && /* @__PURE__ */ React.createElement("span", { className: "combo" }, "×", streak)), !isDuel && /* @__PURE__ */ React.createElement("p", { className: "qcount" }, "Question ", Math.min(qNum + 1, qCountOf(lvl)), " of ", qCountOf(lvl), " · ", displayKey, lvl.keyMode === "random" ? " (changes every question)" : ""), isDuel && /* @__PURE__ */ React.createElement("p", { className: "qcount duel-key" }, displayKey, lvl.keyMode === "random" ? " · new key each strike" : ""), /* @__PURE__ */ React.createElement("div", { className: "drill-stage drill-" + mode }, mode === "melody" && /* @__PURE__ */ React.createElement(
         DegreeLadder,
         {
           active: litActive,
@@ -7034,6 +7868,9 @@ window.SOUNDTRACK = SOUNDTRACK;
       const justCleared = advNode && !sessWasClearedRef.current && stageClearedAdv(advStageId);
       const finale = justCleared && advCollected.size >= 8;
       const fragName = advNode ? window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[advStageId]] : "";
+      const duelWin = duelWinRegion ? bossConfigFor(duelWinRegion) : null;
+      const duelWinKeeper = duelWinRegion && window.HARMONIA ? window.HARMONIA.nodes[duelWinRegion - 1] : null;
+      const duelWinArt = duelWin && window.KEEPER_ART ? window.KEEPER_ART[duelWinRegion] : null;
       const hasNext = !isCustom && levelIdx + 1 < lvls.length;
       let bestStreak = 0, run = 0;
       sessionResults.forEach((r) => {
@@ -7055,17 +7892,29 @@ window.SOUNDTRACK = SOUNDTRACK;
         setScreen("adventure");
       } }, /* @__PURE__ */ React.createElement("div", { className: "finale-rays", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", { className: "finale-inner" }, /* @__PURE__ */ React.createElement("span", { className: "finale-kicker" }, "✦ The blade is whole ✦"), /* @__PURE__ */ React.createElement("div", { className: "finale-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "finale-sword" }), /* @__PURE__ */ React.createElement("span", { className: "finale-shine", "aria-hidden": "true" }), typeof window !== "undefined" && window.CODA_VICTORY && /* @__PURE__ */ React.createElement("img", { className: "finale-coda", src: window.CODA_VICTORY, alt: "Coda, victorious", "aria-hidden": "true" })), /* @__PURE__ */ React.createElement("h2", { className: "finale-title" }, "EXCALIBAR", /* @__PURE__ */ React.createElement("br", null), "REFORGED"), /* @__PURE__ */ React.createElement("span", { className: "finale-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("button", { className: "primary finale-btn", onClick: (e) => {
         e.stopPropagation();
+        try {
+          sfx("victory");
+        } catch (er) {
+        }
         setSwordBurst(true);
         setScreen("adventure");
       } }, "Return to Harmonia →"))), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
+        try {
+          sfx("back");
+        } catch (e) {
+        }
         if (fromAdventure) {
           setSwordBurst(!!justCleared);
           setScreen("adventure");
         } else {
           setScreen("levels");
         }
-      } }, fromAdventure ? "← To the map" : "← Levels"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, resultName)), /* @__PURE__ */ React.createElement("div", { className: "results" }, justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "victory" }, /* @__PURE__ */ React.createElement("div", { className: "victory-rays", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", { className: "victory-glow", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Fragment forged ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, advNode.winTitle), /* @__PURE__ */ React.createElement("div", { className: "victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" }), /* @__PURE__ */ React.createElement("div", { className: "forge-sparks", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null))), /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), fragName, " — forged into Excalibar"), /* @__PURE__ */ React.createElement("span", { className: "victory-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("span", { className: "forge-count" }, advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments")), justCleared && !finale && /* @__PURE__ */ React.createElement("button", { className: "primary map-return", onClick: () => {
-        setSwordBurst(true);
+      } }, fromAdventure ? "← To the map" : "← Levels"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, resultName)), /* @__PURE__ */ React.createElement("div", { className: "results" }, justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "victory" }, /* @__PURE__ */ React.createElement("div", { className: "victory-rays", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", { className: "victory-glow", "aria-hidden": "true" }), duelWin && /* @__PURE__ */ React.createElement("span", { className: "duel-victory-face", "aria-hidden": "true" }, duelWinArt ? /* @__PURE__ */ React.createElement("img", { src: duelWinArt, alt: "" }) : /* @__PURE__ */ React.createElement("span", { className: "boss-emblem" }, duelWinKeeper ? duelWinKeeper.emblem : "⚔")), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Fragment forged ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, advNode.winTitle), /* @__PURE__ */ React.createElement("div", { className: "victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" }), /* @__PURE__ */ React.createElement("div", { className: "forge-sparks", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null))), /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), fragName, " — forged into Excalibar"), duelWin ? /* @__PURE__ */ React.createElement("span", { className: "victory-quote duel-quote" }, "“", duelWin.taunts.win, "”", /* @__PURE__ */ React.createElement("em", { className: "duel-quote-by" }, "— ", duelWin.name, ", ", duelWin.title)) : /* @__PURE__ */ React.createElement("span", { className: "victory-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("span", { className: "forge-count" }, advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments")), duelWin && !justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "duel-victory" }, /* @__PURE__ */ React.createElement("span", { className: "duel-victory-face", "aria-hidden": "true" }, duelWinArt ? /* @__PURE__ */ React.createElement("img", { src: duelWinArt, alt: "" }) : /* @__PURE__ */ React.createElement("span", { className: "boss-emblem" }, duelWinKeeper ? duelWinKeeper.emblem : "⚔")), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Duel won ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, duelWinKeeper ? duelWinKeeper.winTitle : "The keeper yields!"), /* @__PURE__ */ React.createElement("div", { className: "duel-victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" })), duelWinKeeper && /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[duelWinRegion]], " — held in Excalibar"), /* @__PURE__ */ React.createElement("span", { className: "victory-quote duel-quote" }, "“", duelWin.taunts.win, "”", /* @__PURE__ */ React.createElement("em", { className: "duel-quote-by" }, "— ", duelWin.name, ", ", duelWin.title))), (justCleared || duelWin && !finale) && /* @__PURE__ */ React.createElement("button", { className: "primary map-return", onClick: () => {
+        try {
+          sfx("select");
+        } catch (e) {
+        }
+        setSwordBurst(!!justCleared);
         setScreen("adventure");
       } }, "← Return to the map"), /* @__PURE__ */ React.createElement("div", { className: "score-big" + (passed ? " pass" : "") }, pct, "%"), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, isCustom ? passed ? "Strong run. Custom sessions aren't scored toward stages." : "Custom sessions aren't scored toward stages — tweak the notes and go again." : passed ? hasNext ? "Passed! This level is checked off." : "Passed — that's the top level. Your ears are working." : `${Math.round(passRate * 100)}% on first tries earns the check. Every rep counts.`), /* @__PURE__ */ React.createElement("div", { className: "stat-row" }, /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, firstTries, "/", total), " first try"), /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, bestStreak >= 2 ? "🔥" : "", bestStreak), " best streak")), showBars && /* @__PURE__ */ React.createElement("div", { className: "bars" }, Object.entries(byTarget).map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, className: "bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "bar-label" }, k), /* @__PURE__ */ React.createElement("div", { className: "bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "bar-fill", style: { width: `${v.right / v.total * 100}%` } })), /* @__PURE__ */ React.createElement("span", { className: "bar-count" }, v.right, "/", v.total)))), !onboarded && (passed || justCleared) && /* @__PURE__ */ React.createElement("div", { className: "lead-card" }, leadStatus === "done" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✓ You're in"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Check your inbox to confirm — your Chords-by-Numbers PDF lands right after. Your progress is saved, too."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement(
         "a",
@@ -7101,7 +7950,19 @@ window.SOUNDTRACK = SOUNDTRACK;
             if (e.key === "Enter") submitLead();
           }
         }
-      ), leadStatus === "error" && /* @__PURE__ */ React.createElement("span", { className: "lead-err" }, "Enter a valid email, or tap Maybe later."), /* @__PURE__ */ React.createElement("span", { className: "lead-consent" }, "We'll email you the free PDF. No spam — unsubscribe anytime."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: submitLead, disabled: leadStatus === "sending" }, leadStatus === "sending" ? "Sending…" : "Send me the PDF"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: finishOnboarding }, "Maybe later")))), /* @__PURE__ */ React.createElement("div", { className: "results-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => isCustom ? startSession(mode, null, sessLvl) : startSession(mode, levelIdx) }, "Try again"), hasNext && /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => gated && !fromAdventure && !(mode === "melody" && isMelodyFree(levelIdx + 1)) ? openUpsell() : startSession(mode, levelIdx + 1) }, "Next level →"))));
+      ), leadStatus === "error" && /* @__PURE__ */ React.createElement("span", { className: "lead-err" }, "Enter a valid email, or tap Maybe later."), /* @__PURE__ */ React.createElement("span", { className: "lead-consent" }, "We'll email you the free PDF. No spam — unsubscribe anytime."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: submitLead, disabled: leadStatus === "sending" }, leadStatus === "sending" ? "Sending…" : "Send me the PDF"), /* @__PURE__ */ React.createElement("button", { className: "ghost dismiss", onClick: finishOnboarding }, "Maybe later")))), /* @__PURE__ */ React.createElement("div", { className: "results-actions" }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => {
+        try {
+          sfx("select");
+        } catch (e) {
+        }
+        isCustom ? startSession(mode, null, sessLvl) : startSession(mode, levelIdx);
+      } }, "Try again"), hasNext && /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => {
+        try {
+          sfx("select");
+        } catch (e) {
+        }
+        setScreen("levels");
+      } }, "Pick a level →"))));
     }
     if (screen === "shop") {
       const bal = starBalance();
@@ -7545,7 +8406,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         killSession();
         setBusy(false);
         setScreen(auxReturn || (boringMode ? "home" : "menu"));
-      } }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "How music works")), /* @__PURE__ */ React.createElement("section", { className: "panel" }, pages[guidePage]), /* @__PURE__ */ React.createElement("div", { className: "pager" }, /* @__PURE__ */ React.createElement("button", { className: "ghost", disabled: guidePage === 0, onClick: () => setGuidePage((p) => p - 1) }, "← Back"), /* @__PURE__ */ React.createElement("div", { className: "dots" }, pages.map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "dot" + (i === guidePage ? " on" : "") }))), guidePage < pages.length - 1 ? /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => setGuidePage((p) => p + 1) }, "Next →") : /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => startSession("melody", 0) }, "Start training →")));
+      } }, auxReturn === "adventure" ? "← Map" : boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "How music works")), /* @__PURE__ */ React.createElement("section", { className: "panel" }, pages[guidePage]), /* @__PURE__ */ React.createElement("div", { className: "pager" }, /* @__PURE__ */ React.createElement("button", { className: "ghost dismiss", disabled: guidePage === 0, onClick: () => setGuidePage((p) => p - 1) }, "← Back"), /* @__PURE__ */ React.createElement("div", { className: "dots" }, pages.map((_, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "dot" + (i === guidePage ? " on" : "") }))), guidePage < pages.length - 1 ? /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => setGuidePage((p) => p + 1) }, "Next →") : /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => startSession("melody", 0) }, "Start training →")));
     }
     const stageLabels = ["Numbers on", "Blank pads"];
     const pathCurTones = fpTab === "paths" && pathPlaying && pathIdx >= 0 && pathProg[pathIdx] ? chordTones(chordByRoman(pathProg[pathIdx]), pathSevenths) : [];
@@ -7811,6 +8672,80 @@ button { touch-action: manipulation; }
   margin: 0; flex: 1;
 }
 .session-score { color: var(--green); font-weight: 700; font-size: 0.95rem; }
+
+/* ── Keeper Duel (boss) — Pokémon-style battle arena. FUNCTIONAL base layout only;
+   the retro/GBA juice (drain flash, hit/hurt reel, sprite flinch, pixel frames) is
+   layered in retro/retro.css. Keep this block correct + legible; leave feel to the skin. */
+.duel-arena { position: relative; margin: 6px 0 12px; padding: 12px; min-height: 150px; overflow: hidden;
+  background: linear-gradient(180deg, #414d46 0%, var(--card) 72%); border: 1.5px solid var(--line); border-radius: 12px; }
+.duel-enemy { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.duel-enemy-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.boss-name { font-weight: 800; font-size: 0.9rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.boss-hpbar { height: 12px; border-radius: 7px; background: var(--bg); overflow: hidden; border: 1px solid var(--line); }
+.boss-hpfill { display: block; height: 100%; width: 100%; background: var(--wrong, #E07856);
+  border-radius: 7px; transition: width .45s cubic-bezier(.2,.7,.3,1); }
+.boss-hearts { display: inline-flex; gap: 2px; }
+.boss-heart { color: var(--wrong-text, #E07856); font-size: 1rem; line-height: 1; }
+.boss-heart.spent { color: var(--line); opacity: .6; }
+.duel-sprite { flex: 0 0 auto; display: flex; align-items: flex-end; justify-content: center; }
+.duel-sprite img { image-rendering: pixelated; display: block; object-fit: contain; }
+.duel-sprite.enemy { width: 84px; height: 84px; }
+.duel-sprite.enemy img { width: 100%; height: 100%; }
+.duel-sprite.hero { width: 62px; height: 62px; }
+.duel-sprite.hero img { width: 100%; height: 100%; }
+.boss-emblem { font-size: 2rem; line-height: 1; }
+.duel-say { margin: 8px 0 6px; padding: 6px 10px; background: var(--bg); border: 1.5px solid var(--line);
+  border-radius: 10px; font-size: 0.82rem; color: var(--text); font-style: italic; min-height: 1.2em; }
+.duel-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.duel-stake { display: flex; align-items: center; gap: 7px; padding: 4px 8px; background: var(--bg); border: 1.5px solid var(--line); border-radius: 10px; }
+.duel-stake-sword { width: 20px; height: 60px; image-rendering: pixelated; display: block; }
+.duel-stake-label { display: flex; flex-direction: column; line-height: 1.2; }
+.duel-stake-label em { font-style: normal; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-soft); opacity: 0.8; }
+.duel-stake-label b { font-size: 0.75rem; color: var(--text); font-weight: 800; }
+.duel-stake-label .gem { color: var(--teal, #57C6C4); margin-right: 3px; }
+.duel-victory-forge { margin: 4px 0 2px; }
+.duel-timer { margin-top: 8px; height: 8px; border-radius: 5px; background: var(--bg); overflow: hidden; border: 1px solid var(--line); }
+.duel-timer-fill { display: block; height: 100%; width: 100%; background: var(--teal, #57C6C4); border-radius: 5px; }
+/* Projectile layer — ♪ notes travel across the arena (positions are % of the arena so it's
+   responsive). Functional base; the retro skin refines the glyph/trail/burst feel. */
+.duel-shots { position: absolute; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; }
+.duel-note { position: absolute; font-size: 1.4rem; line-height: 1; color: var(--teal, #57C6C4);
+  text-shadow: 0 0 7px currentColor; opacity: 0; }
+.duel-burst { position: absolute; width: 22px; height: 22px; border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle, var(--text, #EDF2EE) 0%, transparent 70%); }
+/* incoming: keeper's ♪ flies from her (top-right) toward Coda (bottom-left), then hovers */
+.duel-shots.incoming .duel-note.enemy { animation: duel-note-in .5s ease-out forwards, duel-note-hover 1.2s ease-in-out .5s infinite; }
+@keyframes duel-note-in { from { left: 76%; top: 20%; opacity: 0; transform: scale(.6); }
+  to { left: 26%; top: 60%; opacity: 1; transform: scale(1); } }
+@keyframes duel-note-hover { 0%,100% { left: 26%; top: 60%; } 50% { left: 25%; top: 64%; } }
+/* strike: Coda's ♪ flies from him (bottom-left) up into the keeper (top-right) */
+.duel-shots.fx-hit .duel-note.hero { animation: duel-note-strike .3s ease-in forwards; }
+@keyframes duel-note-strike { from { left: 20%; top: 66%; opacity: 1; transform: scale(.8); }
+  to { left: 74%; top: 22%; opacity: .3; transform: scale(1.15); } }
+.duel-shots.fx-hit .duel-note.enemy { animation: duel-note-gone .26s ease-out forwards; } /* intercepted */
+.duel-shots.fx-hit .duel-burst { left: 72%; top: 20%; animation: duel-burst .32s ease-out .22s forwards; }
+/* land: the hovering ♪ lunges the last stretch into Coda */
+.duel-shots.fx-hurt .duel-note.enemy { animation: duel-note-land .3s ease-in forwards; }
+@keyframes duel-note-land { from { left: 26%; top: 60%; opacity: 1; } to { left: 16%; top: 74%; opacity: 0; transform: scale(.7); } }
+.duel-shots.fx-hurt .duel-burst { left: 16%; top: 70%; animation: duel-burst .3s ease-out .2s forwards; }
+@keyframes duel-note-gone { from { opacity: 1; } to { opacity: 0; transform: scale(.3); } }
+@keyframes duel-burst { 0% { opacity: 0; transform: scale(.3); } 40% { opacity: .9; transform: scale(1.2); } 100% { opacity: 0; transform: scale(1.6); } }
+.duel-timer-fill.draining { animation-name: duel-drain; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes duel-drain { from { width: 100%; } to { width: 0%; } }
+.level.duel .level-num { color: var(--wrong-text, #E07856); }
+.duel-victory { text-align: center; padding: 16px 14px; margin-bottom: 12px; background: var(--card);
+  border: 1.5px solid var(--green, #6ABF5E); border-radius: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.duel-victory-face { width: 64px; height: 64px; margin-bottom: 4px; border-radius: 10px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1.5px solid var(--line); }
+.duel-victory-face img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.duel-quote-by { display: block; margin-top: 4px; font-style: normal; font-size: 0.75rem; color: var(--text-soft); opacity: 0.85; }
+.boss-defeat { text-align: center; }
+.boss-defeat-face { width: 64px; height: 64px; margin: 0 auto 4px; border-radius: 10px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1.5px solid var(--line); }
+.boss-defeat-face img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.boss-defeat-line { color: var(--text-soft); font-style: italic; margin: 6px 0 14px; }
+.boss-defeat-actions { display: flex; flex-direction: column; gap: 8px; }
+
 .back {
   background: transparent; border: 1.5px solid var(--line); color: var(--text-soft);
   border-radius: 10px; padding: 7px 14px; font-size: 0.85rem; min-height: 44px;
@@ -8255,6 +9190,31 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .adv-forge-txt b { font-family: 'Archivo Black', sans-serif; font-size: 0.9rem; color: var(--teal); }
 .adv-hud-actions { display: flex; gap: 8px; }
 .adv-hud-actions .ghost { padding: 8px 11px; font-size: 1.1rem; background: rgba(20,24,22,.82); min-width: 44px; min-height: 44px; }
+/* Floating "offer" quest badge — top-left over the map (gated players only).
+   Reads like an in-world quest giver, not an ad; opens the upsell prompt → VSL. */
+.adv-offer-badge {
+  position: absolute; z-index: 4; left: 10px;
+  top: calc(env(safe-area-inset-top, 0px) + 62px);
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 12px 6px 7px; border-radius: 999px;
+  background: rgba(20,24,22,.9); border: 1.5px solid var(--teal); color: var(--text);
+  font-family: 'Archivo', sans-serif; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  animation: advOfferPulse 2.6s ease-in-out infinite;
+  -webkit-tap-highlight-color: transparent;
+}
+.adv-offer-badge:hover { border-color: var(--green); }
+.adv-offer-badge:active { transform: translateY(1px); }
+.adv-offer-glyph {
+  width: 30px; height: 30px; flex-shrink: 0; image-rendering: pixelated;
+  display: block; object-fit: contain;
+}
+.adv-offer-label { color: var(--teal); letter-spacing: 0.02em; white-space: nowrap; }
+/* Glow via filter (not box-shadow) so it survives the retro skin's inset-shadow border. */
+@keyframes advOfferPulse {
+  0%, 100% { filter: drop-shadow(0 0 2px rgba(87,198,196,.45)); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 8px rgba(87,198,196,.9)); transform: scale(1.04); }
+}
+@media (prefers-reduced-motion: reduce) { .adv-offer-badge { animation: none; } }
 .settings { display: flex; flex-direction: column; gap: 20px; }
 .set-block {
   display: flex; flex-direction: column; gap: 10px;
