@@ -3011,7 +3011,9 @@ export default function NumberEarTrainer() {
     s.misses = (s.misses || 0) + 1;
     setStreak(0);
     if (bossOnWrong()) return;                 // heart spent; if that emptied them, we're out
-    if (s.mode === "melody") setRevealPc(s.target); // help them land the next window
+    // help them land the next window: melody lights the pad, chords light the stack tones
+    if (s.mode === "melody") setRevealPc(s.target);
+    else if (s.mode === "chords") setLitCorrect(chordTones(s.target, s.sevenths));
     setFeedback("Too slow — " + s.boss.name + " strikes! Hear it again…");
     sessTimer(() => replayTarget(), 500);
     setDuelTurn((t) => t + 1);                 // restart the drain
@@ -3302,11 +3304,17 @@ export default function NumberEarTrainer() {
       sessTimer(() => { setBusy(false); advance(); }, (dur + 1.4) * 1000);
     } else {
       s.attempted = true;
+      s.misses = (s.misses || 0) + 1;
       setStreak(0);
       setLitWrong(chPicked.filter((d) => !t.has(d)));
       setSrMsg("Not quite.");
       if (bossOnWrong()) return; // duel: heart spent immediately; if that emptied them, bail
-      setFeedback("Close — the marked degrees aren't in it. Adjust and check again.");
+      if (s.boss && s.misses >= 2) {
+        // duel: don't leave them stuck brute-forcing the stack — reveal the chord (mirrors melody)
+        setLitCorrect(tones);
+        setFeedback("It's " + chordSymbol(s.target.roman, s.sevenths) + " — hear it, then tap those.");
+        sessTimer(() => replayTarget(), 650);
+      } else setFeedback("Close — the marked degrees aren't in it. Adjust and check again.");
     }
   };
 

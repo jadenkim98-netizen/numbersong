@@ -81,6 +81,59 @@ export const BOSS = {
       lose: "The fen keeps its own time. Rest, then wade back in.",
     },
   },
+  // Sylva — Glasswood (node 3, CHORDS major 1·4·5·6). First chord keeper: identifying a
+  // whole chord by ear + tapping the stack is harder than a single note, so tuned gentler
+  // (hp 80 ≈ 3 clean strikes) with a longer clock for the multi-tap Check.
+  3: {
+    hp: 80,
+    hearts: 4,
+    dmgFirst: 25,
+    dmgRecover: 10,
+    timer: { full: 12, mid: 9, low: 6 },
+    name: "Sylva",
+    title: "of the Glasswood",
+    taunts: {
+      intro: "Look through the chord like glass — I'll not make it easy.",
+      hits: [
+        "Yes — all three voices, each in its own pane.",
+        "Clear! You saw right through it.",
+        "There — three notes, and you named every one.",
+        "Mm, luminous. Nothing hidden from that ear.",
+        "You held the whole chord like a windowpane.",
+        "Bright — each voice standing clear.",
+      ],
+      low: "So clear now — I can almost see through myself.",
+      playerHurt: "Don't grab. Let the chord settle, then look through it.",
+      win: "Every voice, clear and true. The mark is yours.",
+      lose: "The glass will hold. Come back and look again.",
+    },
+  },
+  // Bassil — Undertone Caves (node 4, CHORDS MINOR 6·2·3·4). Second chord keeper; minor
+  // chords gathered around 6. Same gentle chord tuning as Sylva.
+  4: {
+    hp: 80,
+    hearts: 4,
+    dmgFirst: 25,
+    dmgRecover: 10,
+    timer: { full: 12, mid: 9, low: 6 },
+    name: "Bassil",
+    title: "the Deep",
+    taunts: {
+      intro: "The chords go dark down here. Find 6 and listen deep.",
+      hits: [
+        "Aye — you felt all four, gathered 'round 6.",
+        "Heard it, low and whole. That's the floor.",
+        "Mm. The dark chord, named true.",
+        "There — deep, but every voice landed.",
+        "Good. You sank right to the root of it.",
+        "That one rang in the stone. Well heard.",
+      ],
+      low: "Nearly to bedrock now — I can feel you coming down.",
+      playerHurt: "Steady. The dark's not sad, just deep — listen again.",
+      win: "Deep ears. Take my mark — the caves will remember.",
+      lose: "The caves keep their time. Rest, then come back down.",
+    },
+  },
 };
 
 // Sensible default for regions whose duel isn't hand-tuned yet (so enabling one later
@@ -104,8 +157,8 @@ export const DEFAULT_BOSS = {
 };
 
 // Which nodes currently launch a Keeper Duel instead of a normal capstone session.
-// Start with Verda only; add ids here (and tune in BOSS) to roll the duel out.
-const ENABLED = new Set([1, 2]);
+// The free "lite version" = regions 1–4 (Verda, Rue, Sylva, Bassil).
+const ENABLED = new Set([1, 2, 3, 4]);
 export const isBossRegion = (id) => ENABLED.has(id);
 
 export function bossConfigFor(id) {
