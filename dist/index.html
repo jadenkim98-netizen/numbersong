@@ -1206,6 +1206,13 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .melody-guitar-land .neck-arrow { flex: 0 0 auto; min-width: 40px; height: 44px; padding: 0; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; }
   .app-wide .melody-guitar-land .neck-arrow:disabled { opacity: 0.35; }
   .app-wide .melody-guitar-land .fretboard.fb-land { flex: 1 1 auto; min-height: 0; }
+  /* progressions answered on GUITAR (landscape): slot stacks stay left, the movable neck fills the
+     right column (sizes by width via its aspect ratio, like the chord surface). */
+  .app-wide .prog-guitar-land { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .app-wide .prog-guitar-land .mini-neck-row { display: flex; align-items: center; gap: 8px; height: 48px; }
+  .app-wide .prog-guitar-land .mini-neck-row .mini-neck { flex: 1 1 auto; height: 100%; min-width: 0; }
+  .app-wide .prog-guitar-land .neck-arrow { flex: 0 0 auto; min-width: 40px; height: 44px; padding: 0; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; }
+  .app-wide .prog-guitar-land .neck-arrow:disabled { opacity: 0.35; }
   /* chords: a 3-column landscape layout — controls+reference | stack | pads+Check — so the
      tall vertical content fits a short phone WITHOUT cramping. A CSS grid places the panel's
      existing children into columns, so no markup changes; :has() scopes it to the chord panel. */
@@ -8338,6 +8345,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       const chordMinor = mode === "chords" && lvl.mode === "minor";
       const degToPc = (d) => DEGREE_TO_PC[(d - 1) % 7 + 1];
       const chordFb = mode === "chords" ? { picked: chPicked.map(degToPc), wrong: litWrong.map(degToPc), reveal: litCorrect.map(degToPc) } : null;
+      const progRootMap = mode === "progressions" ? Object.fromEntries(lvl.pool.map((r) => [chordTones(chordByRoman(r), false)[0], r])) : null;
       const displayKey = lvl.mode === "minor" ? `${KEYS[mod12(KEYS.indexOf(sessKey) + 9)]} minor` : `${sessKey} major`;
       const diaOrder = isMinor ? [6, 7, 1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, 6, 7];
       const chromOrder = ALL12.map((i) => mod12(tonicPc + i));
@@ -8618,7 +8626,22 @@ window.SOUNDTRACK = SOUNDTRACK;
             active: revealing && progActive === i
           }
         );
-      })), /* @__PURE__ */ React.createElement("div", { className: "prog-right" }, /* @__PURE__ */ React.createElement("div", { className: "numpad chordpad" }, lvl.pool.map((r) => /* @__PURE__ */ React.createElement(
+      })), /* @__PURE__ */ React.createElement("div", { className: "prog-right" }, instrument === "guitar" ? (() => {
+        const gm = lvl.mode === "minor" ? "minor" : "major";
+        const pickRoot = (c) => {
+          if (!c.inKey || phase !== "answer" || busy || progAnswer.length >= lvl.len) return;
+          const roman = progRootMap[c.degree];
+          if (roman) tapChord(roman);
+          else setFeedback("Tap the number of the chord you heard.");
+        };
+        const disabled = phase !== "answer" || busy || progAnswer.length >= lvl.len;
+        if (landscape) {
+          const gb = guitarFret == null ? positionBox(sessKey, gm, { minFret: 2 }) : positionBox(sessKey, gm, { startFret: guitarFret });
+          const cur = gb.startFret, nudge = (d) => setGuitarFret(Math.max(0, Math.min(cur + d, MININECK_MAX_START)));
+          return /* @__PURE__ */ React.createElement("div", { className: "prog-guitar-land" }, /* @__PURE__ */ React.createElement("div", { className: "mini-neck-row" }, /* @__PURE__ */ React.createElement("button", { className: "ghost neck-arrow", onClick: () => nudge(-1), disabled: cur <= 0, "aria-label": "Move position toward the nut" }, "◀"), /* @__PURE__ */ React.createElement(MiniNeck, { startFret: gb.startFret, endFret: gb.endFret, onMove: setGuitarFret }), /* @__PURE__ */ React.createElement("button", { className: "ghost neck-arrow", onClick: () => nudge(1), disabled: cur >= MININECK_MAX_START, "aria-label": "Move position toward the body" }, "▶")), /* @__PURE__ */ React.createElement(Fretboard, { landscape: true, posStart: cur, musicKey: sessKey, mode: gm, disabled, onAnswer: pickRoot }));
+        }
+        return /* @__PURE__ */ React.createElement("div", { className: "chord-guitar prog-guitar" }, /* @__PURE__ */ React.createElement(Fretboard, { boxKind: "answer", musicKey: sessKey, mode: gm, disabled, onAnswer: pickRoot }));
+      })() : /* @__PURE__ */ React.createElement("div", { className: "numpad chordpad" }, lvl.pool.map((r) => /* @__PURE__ */ React.createElement(
         "button",
         {
           key: r,
@@ -10254,6 +10277,13 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .melody-guitar-land .neck-arrow { flex: 0 0 auto; min-width: 40px; height: 44px; padding: 0; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; }
   .app-wide .melody-guitar-land .neck-arrow:disabled { opacity: 0.35; }
   .app-wide .melody-guitar-land .fretboard.fb-land { flex: 1 1 auto; min-height: 0; }
+  /* progressions answered on GUITAR (landscape): slot stacks stay left, the movable neck fills the
+     right column (sizes by width via its aspect ratio, like the chord surface). */
+  .app-wide .prog-guitar-land { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .app-wide .prog-guitar-land .mini-neck-row { display: flex; align-items: center; gap: 8px; height: 48px; }
+  .app-wide .prog-guitar-land .mini-neck-row .mini-neck { flex: 1 1 auto; height: 100%; min-width: 0; }
+  .app-wide .prog-guitar-land .neck-arrow { flex: 0 0 auto; min-width: 40px; height: 44px; padding: 0; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; }
+  .app-wide .prog-guitar-land .neck-arrow:disabled { opacity: 0.35; }
   /* chords: a 3-column landscape layout — controls+reference | stack | pads+Check — so the
      tall vertical content fits a short phone WITHOUT cramping. A CSS grid places the panel's
      existing children into columns, so no markup changes; :has() scopes it to the chord panel. */
