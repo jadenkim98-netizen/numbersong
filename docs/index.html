@@ -1127,6 +1127,10 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 }
 .chord-layout { display: flex; gap: 16px; align-items: flex-start; }
 .chord-right { flex: 1; display: flex; flex-direction: column; }
+/* Guitar as the chord answer surface (portrait = compact 1-octave box). Tap the chord's notes
+   in any order; every instance of a picked degree lights blue, then Check. */
+.chord-guitar { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 10px; }
+.chord-guitar .fretboard { width: 100%; }
 /* Chord duel: Repeat + quip sit in the right column above the numpad, so the stack rises */
 .chord-duel-bar { margin-bottom: 8px; align-items: center; gap: 8px; }
 .chord-duel-bar .hint.grow { font-size: 0.82rem; min-width: 0; }
@@ -5766,12 +5770,13 @@ window.SOUNDTRACK = SOUNDTRACK;
 .fretboard.fb-land svg { margin:auto; width:100%; height:100%; max-width:100%; }
 `;
   function Fretboard({ musicKey, mode = "major", boxKind = "position", active = [], fb, disabled = false, landscape = false, posStart = null, onDown, onUp, onAnswer }) {
-    const answer = boxKind === "answer";
-    const land = landscape && !answer;
-    const box = answer ? answerBox(musicKey, mode) : positionBox(musicKey, mode, posStart != null ? { startFret: posStart } : { minFret: 2 });
+    const shapeAnswer = boxKind === "answer";
+    const answerMode = !!onAnswer;
+    const land = landscape && !shapeAnswer;
+    const box = shapeAnswer ? answerBox(musicKey, mode) : positionBox(musicKey, mode, posStart != null ? { startFret: posStart } : { minFret: 2 });
     const strings = box.strings, frets = box.frets, startFret = box.startFret;
     const nS = strings.length, nWin = frets.length;
-    const fw = land ? 150 : answer ? 84 : 76, sh = land ? 50 : answer ? 54 : 36, padX = land ? 30 : 24, padTop = land ? 26 : 22, padBot = land ? 62 : 48;
+    const fw = land ? 150 : shapeAnswer ? 84 : 76, sh = land ? 50 : shapeAnswer ? 54 : 36, padX = land ? 30 : 24, padTop = land ? 26 : 22, padBot = land ? 62 : 48;
     const W = padX * 2 + nWin * fw, H = padTop + padBot + (nS - 1) * sh;
     const rowOf = (s) => nS - 1 - strings.indexOf(s);
     const wireX = (i) => padX + i * fw;
@@ -5782,7 +5787,8 @@ window.SOUNDTRACK = SOUNDTRACK;
     const hit = fb && fb.hit != null ? fb.hit : null;
     const wrong = new Set(fb && fb.wrong || []);
     const reveal = new Set(fb && fb.reveal || []);
-    const dot = land ? 25 : answer ? 21 : 17;
+    const picked = new Set(fb && fb.picked || []);
+    const dot = land ? 25 : shapeAnswer ? 21 : 17;
     const els = [];
     els.push(/* @__PURE__ */ React.createElement("rect", { key: "bd", x: padX - 14, y: padTop - 14, width: W - padX * 2 + 28, height: (nS - 1) * sh + 28, rx: "9", fill: "#26302c", stroke: "#121815", strokeWidth: "2" }));
     [3, 5, 7, 9, 12].filter((f) => frets.includes(f)).forEach((f) => {
@@ -5799,25 +5805,27 @@ window.SOUNDTRACK = SOUNDTRACK;
     box.cells.forEach((c) => {
       const id = c.string + ":" + c.fret, x = spaceX(c.fret), y = strY(c.string);
       let fill = c.isTonic ? "#57C6C4" : "#f2f5f1", mark = null;
-      if (answer && hit != null && c.pc === hit) {
+      if (answerMode && hit != null && c.pc === hit) {
         fill = "#6ABF5E";
         mark = "✓";
-      } else if (answer && wrong.has(c.pc)) {
+      } else if (answerMode && wrong.has(c.pc)) {
         fill = "#E07856";
         mark = "✕";
-      } else if (answer && reveal.has(c.pc)) {
+      } else if (answerMode && reveal.has(c.pc)) {
         fill = "#57C6C4";
-      } else if (!answer && held.has(id)) {
+      } else if (answerMode && picked.has(c.pc)) {
+        fill = "#7CADD1";
+      } else if (!answerMode && held.has(id)) {
         fill = "#6ABF5E";
       }
       if (c.inKey) {
         els.push(/* @__PURE__ */ React.createElement("circle", { key: "n" + id, cx: x, cy: y, r: dot, fill, stroke: "#121815", strokeWidth: "1.5" }));
-        els.push(/* @__PURE__ */ React.createElement("text", { key: "t" + id, x, y: y + (land ? 7 : 5), textAnchor: "middle", fontSize: land ? 22 : answer ? 19 : 15, fontWeight: "800", fill: "#16201f", fontFamily: "'Archivo Black',sans-serif", style: { pointerEvents: "none" } }, c.degree));
+        els.push(/* @__PURE__ */ React.createElement("text", { key: "t" + id, x, y: y + (land ? 7 : 5), textAnchor: "middle", fontSize: land ? 22 : shapeAnswer ? 19 : 15, fontWeight: "800", fill: "#16201f", fontFamily: "'Archivo Black',sans-serif", style: { pointerEvents: "none" } }, c.degree));
         if (mark) els.push(/* @__PURE__ */ React.createElement("text", { key: "m" + id, x, y: y - dot - 3, textAnchor: "middle", fontSize: "14", fontWeight: "800", fill: mark === "✓" ? "#6ABF5E" : "#E07856", style: { pointerEvents: "none" } }, mark));
         else if (c.isTonic) els.push(/* @__PURE__ */ React.createElement("text", { key: "st" + id, x, y: y - dot - 3, textAnchor: "middle", fontSize: land ? 16 : 13, fill: "#57C6C4", style: { pointerEvents: "none" } }, "★"));
       } else {
-        const dfill = answer && wrong.has(c.pc) ? "#E07856" : answer && reveal.has(c.pc) ? "#57C6C4" : !answer && held.has(id) ? "#6ABF5E" : "#8b958c";
-        els.push(/* @__PURE__ */ React.createElement("circle", { key: "c" + id, cx: x, cy: y, r: answer ? 6 : 4, fill: dfill }));
+        const dfill = answerMode && wrong.has(c.pc) ? "#E07856" : answerMode && reveal.has(c.pc) ? "#57C6C4" : !answerMode && held.has(id) ? "#6ABF5E" : "#8b958c";
+        els.push(/* @__PURE__ */ React.createElement("circle", { key: "c" + id, cx: x, cy: y, r: shapeAnswer ? 6 : 4, fill: dfill }));
       }
       const evts = disabled ? {} : onAnswer ? {
         onPointerDown: (e) => {
@@ -8314,6 +8322,9 @@ window.SOUNDTRACK = SOUNDTRACK;
       const isMinor = mode === "melody" && lvl.mode === "minor";
       const tonicPc = isMinor ? 9 : 0;
       const chordTonic = lvl.mode === "minor" ? 6 : 1;
+      const chordMinor = mode === "chords" && lvl.mode === "minor";
+      const degToPc = (d) => DEGREE_TO_PC[(d - 1) % 7 + 1];
+      const chordFb = mode === "chords" ? { picked: chPicked.map(degToPc), wrong: litWrong.map(degToPc), reveal: litCorrect.map(degToPc) } : null;
       const displayKey = lvl.mode === "minor" ? `${KEYS[mod12(KEYS.indexOf(sessKey) + 9)]} minor` : `${sessKey} major`;
       const diaOrder = isMinor ? [6, 7, 1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, 6, 7];
       const chromOrder = ALL12.map((i) => mod12(tonicPc + i));
@@ -8517,7 +8528,37 @@ window.SOUNDTRACK = SOUNDTRACK;
           wrong: litWrong,
           label: feedback && feedback.roman ? feedback.sym : null
         }
-      ), /* @__PURE__ */ React.createElement("div", { className: "chord-right" }, chordDuel && /* @__PURE__ */ React.createElement("div", { className: "quiz-bar chord-duel-bar" }, replayControls, answerHint, /* @__PURE__ */ React.createElement("div", { className: "sr-only", role: "status", "aria-live": "polite" }, srMsg)), /* @__PURE__ */ React.createElement("div", { className: "numpad" }, [1, 2, 3, 4, 5, 6, 7].map((d) => /* @__PURE__ */ React.createElement(
+      ), /* @__PURE__ */ React.createElement("div", { className: "chord-right" }, chordDuel && /* @__PURE__ */ React.createElement("div", { className: "quiz-bar chord-duel-bar" }, replayControls, answerHint, /* @__PURE__ */ React.createElement("div", { className: "sr-only", role: "status", "aria-live": "polite" }, srMsg)), instrument === "guitar" && !lvl.chromatic ? landscape ? (() => {
+        const gm = chordMinor ? "minor" : "major";
+        const gb = guitarFret == null ? positionBox(sessKey, gm, { minFret: 2 }) : positionBox(sessKey, gm, { startFret: guitarFret });
+        const cur = gb.startFret, nudge = (d) => setGuitarFret(Math.max(0, Math.min(cur + d, MININECK_MAX_START)));
+        return /* @__PURE__ */ React.createElement("div", { className: "chord-guitar chord-guitar-land" }, /* @__PURE__ */ React.createElement("div", { className: "mini-neck-row" }, /* @__PURE__ */ React.createElement("button", { className: "ghost neck-arrow", onClick: () => nudge(-1), disabled: cur <= 0, "aria-label": "Move position toward the nut" }, "◀"), /* @__PURE__ */ React.createElement(MiniNeck, { startFret: gb.startFret, endFret: gb.endFret, onMove: setGuitarFret }), /* @__PURE__ */ React.createElement("button", { className: "ghost neck-arrow", onClick: () => nudge(1), disabled: cur >= MININECK_MAX_START, "aria-label": "Move position toward the body" }, "▶")), /* @__PURE__ */ React.createElement(
+          Fretboard,
+          {
+            landscape: true,
+            posStart: cur,
+            musicKey: sessKey,
+            mode: gm,
+            disabled: phase !== "answer",
+            fb: chordFb,
+            onAnswer: (c) => {
+              if (c.inKey) toggleChordPick(c.degree);
+            }
+          }
+        ));
+      })() : /* @__PURE__ */ React.createElement("div", { className: "chord-guitar" }, /* @__PURE__ */ React.createElement(
+        Fretboard,
+        {
+          boxKind: "answer",
+          musicKey: sessKey,
+          mode: chordMinor ? "minor" : "major",
+          disabled: phase !== "answer",
+          fb: chordFb,
+          onAnswer: (c) => {
+            if (c.inKey) toggleChordPick(c.degree);
+          }
+        }
+      )) : /* @__PURE__ */ React.createElement("div", { className: "numpad" }, [1, 2, 3, 4, 5, 6, 7].map((d) => /* @__PURE__ */ React.createElement(
         "button",
         {
           key: d,
@@ -10105,6 +10146,10 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 }
 .chord-layout { display: flex; gap: 16px; align-items: flex-start; }
 .chord-right { flex: 1; display: flex; flex-direction: column; }
+/* Guitar as the chord answer surface (portrait = compact 1-octave box). Tap the chord's notes
+   in any order; every instance of a picked degree lights blue, then Check. */
+.chord-guitar { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 10px; }
+.chord-guitar .fretboard { width: 100%; }
 /* Chord duel: Repeat + quip sit in the right column above the numpad, so the stack rises */
 .chord-duel-bar { margin-bottom: 8px; align-items: center; gap: 8px; }
 .chord-duel-bar .hint.grow { font-size: 0.82rem; min-width: 0; }
