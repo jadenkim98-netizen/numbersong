@@ -4686,7 +4686,7 @@ export default function NumberEarTrainer() {
         {isDuel && <p className="qcount duel-key">{displayKey}{lvl.keyMode === "random" ? " · new key each strike" : ""}</p>}
 
         {/* drill-stage = display:contents in portrait (no change); a two-column flex row in phone-landscape */}
-        <div className={"drill-stage drill-" + mode}>
+        <div className={"drill-stage drill-" + mode + (mode === "melody" && instrument === "guitar" && !lvl.chromatic ? " drill-guitar" : "")}>
         {mode === "melody" && (
           <DegreeLadder active={litActive} correct={litCorrect} wrong={litWrong}
             tonicPc={tonicPc} pool={pool} showChrom={lvl.chromatic} />
@@ -4715,10 +4715,31 @@ export default function NumberEarTrainer() {
           )}
           {mode === "melody" ? (
             instrument === "guitar" && !lvl.chromatic ? (
-              <Fretboard boxKind="answer" musicKey={sessKey} mode={isMinor ? "minor" : "major"}
-                disabled={phase !== "answer"}
-                fb={{ hit: hitPad, wrong: litWrong, reveal: revealPc != null ? [revealPc] : [] }}
-                onAnswer={(c) => answerMelodySession(c.pc)} />
+              landscape ? (() => {
+                const gm = isMinor ? "minor" : "major";
+                const gb = guitarFret == null
+                  ? positionBox(sessKey, gm, { minFret: 2 })
+                  : positionBox(sessKey, gm, { startFret: guitarFret });
+                const cur = gb.startFret, nudge = (d) => setGuitarFret(Math.max(0, Math.min(cur + d, MININECK_MAX_START)));
+                return (
+                  <div className="melody-guitar-land">
+                    <div className="mini-neck-row">
+                      <button className="ghost neck-arrow" onClick={() => nudge(-1)} disabled={cur <= 0} aria-label="Move position toward the nut">◀</button>
+                      <MiniNeck startFret={gb.startFret} endFret={gb.endFret} onMove={setGuitarFret} />
+                      <button className="ghost neck-arrow" onClick={() => nudge(1)} disabled={cur >= MININECK_MAX_START} aria-label="Move position toward the body">▶</button>
+                    </div>
+                    <Fretboard landscape posStart={cur} musicKey={sessKey} mode={gm}
+                      disabled={phase !== "answer"}
+                      fb={{ hit: hitPad, wrong: litWrong, reveal: revealPc != null ? [revealPc] : [] }}
+                      onAnswer={(c) => answerMelodySession(c.pc)} />
+                  </div>
+                );
+              })() : (
+                <Fretboard boxKind="answer" musicKey={sessKey} mode={isMinor ? "minor" : "major"}
+                  disabled={phase !== "answer"}
+                  fb={{ hit: hitPad, wrong: litWrong, reveal: revealPc != null ? [revealPc] : [] }}
+                  onAnswer={(c) => answerMelodySession(c.pc)} />
+              )
             ) : instrument === "keyboard" ? (
               <PianoMap start={1} count={8} stage={0} world={null} musicKey={sessKey} active={[]}
                 singDeg={null} singInTune={false}
@@ -6647,6 +6668,19 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .drill-melody .quiz-bar .hint.grow {
     position: absolute; left: 0; bottom: 0; width: 44%; min-height: 0; margin: 0;
   }
+  /* melody answered on GUITAR: drop the tonal map (the melody is still audible) and let the big
+     movable neck fill the width like Free Play. The floated feedback would overlap the neck with
+     the map gone, so pin it back to normal flow. */
+  .app-wide .drill-guitar > .ladder { display: none; }
+  .app-wide .drill-guitar > .panel { flex: 1 1 auto; max-width: none; display: flex; flex-direction: column; min-height: 0; }
+  .app-wide .drill-guitar > .panel > .quiz-bar { flex: 0 0 auto; }
+  .app-wide .drill-guitar .quiz-bar .hint.grow { position: static; width: auto; }
+  .app-wide .melody-guitar-land { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-height: 0; }
+  .app-wide .melody-guitar-land .mini-neck-row { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; height: 50px; }
+  .app-wide .melody-guitar-land .mini-neck-row .mini-neck { flex: 1 1 auto; height: 100%; min-width: 0; }
+  .app-wide .melody-guitar-land .neck-arrow { flex: 0 0 auto; min-width: 40px; height: 44px; padding: 0; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; }
+  .app-wide .melody-guitar-land .neck-arrow:disabled { opacity: 0.35; }
+  .app-wide .melody-guitar-land .fretboard.fb-land { flex: 1 1 auto; min-height: 0; }
   /* chords: a 3-column landscape layout — controls+reference | stack | pads+Check — so the
      tall vertical content fits a short phone WITHOUT cramping. A CSS grid places the panel's
      existing children into columns, so no markup changes; :has() scopes it to the chord panel. */
