@@ -2016,17 +2016,18 @@ function Fretboard({ musicKey, mode = "major", boxKind = "position", active = []
   // Box-driven: "position" = the ~5-fret Free Play window (6 strings); "answer" = the compact
   // 3-string × 4-fret test box (big finger targets). Play mode (onDown/onUp + `active` ids) vs
   // answer mode (onAnswer + pc-based `fb` feedback {hit, wrong[], reveal[]}).
-  const answer = boxKind === "answer";
-  const land = landscape && !answer;   // wide horizontal neck for phone-landscape Free Play
+  const shapeAnswer = boxKind === "answer"; // compact 3×4 test box vs the ~5-fret position window
+  const answerMode = !!onAnswer;            // tap-to-select + fb feedback (vs play-mode onDown/onUp)
+  const land = landscape && !shapeAnswer;   // wide horizontal neck (the position box, phone-landscape)
   // posStart (movable position) drives the window directly when set; else auto-anchor near fret 2.
-  const box = answer ? answerBox(musicKey, mode)
+  const box = shapeAnswer ? answerBox(musicKey, mode)
     : positionBox(musicKey, mode, posStart != null ? { startFret: posStart } : { minFret: 2 });
   const strings = box.strings, frets = box.frets, startFret = box.startFret;
   const nS = strings.length, nWin = frets.length;
   // Landscape stretches the fret spacing (fw) well past the string spacing (sh) so a 5-fret ×
   // 6-string neck reads WIDE and fills the screen — not a tall neck pillarboxed with margins.
   // Extra padBot in landscape so the bottom row's big note circles clear the fret-number labels.
-  const fw = land ? 150 : answer ? 84 : 76, sh = land ? 50 : answer ? 54 : 36, padX = land ? 30 : 24, padTop = land ? 26 : 22, padBot = land ? 62 : 48;
+  const fw = land ? 150 : shapeAnswer ? 84 : 76, sh = land ? 50 : shapeAnswer ? 54 : 36, padX = land ? 30 : 24, padTop = land ? 26 : 22, padBot = land ? 62 : 48;
   const W = padX * 2 + nWin * fw, H = padTop + padBot + (nS - 1) * sh;
   const rowOf = (s) => nS - 1 - strings.indexOf(s);       // lowest string index → bottom row
   const wireX = (i) => padX + i * fw;                     // i: 0..nWin
@@ -2037,7 +2038,8 @@ function Fretboard({ musicKey, mode = "major", boxKind = "position", active = []
   const hit = fb && fb.hit != null ? fb.hit : null;
   const wrong = new Set((fb && fb.wrong) || []);
   const reveal = new Set((fb && fb.reveal) || []);
-  const dot = land ? 25 : answer ? 21 : 17;
+  const picked = new Set((fb && fb.picked) || []); // chord answer: pcs currently selected (blue)
+  const dot = land ? 25 : shapeAnswer ? 21 : 17;
   const els = [];
   els.push(<rect key="bd" x={padX - 14} y={padTop - 14} width={W - padX * 2 + 28} height={(nS - 1) * sh + 28} rx="9" fill="#26302c" stroke="#121815" strokeWidth="2" />);
   [3, 5, 7, 9, 12].filter((f) => frets.includes(f)).forEach((f) => {
@@ -2051,18 +2053,19 @@ function Fretboard({ musicKey, mode = "major", boxKind = "position", active = []
   box.cells.forEach((c) => {
     const id = c.string + ":" + c.fret, x = spaceX(c.fret), y = strY(c.string);
     let fill = c.isTonic ? "#57C6C4" : "#f2f5f1", mark = null;
-    if (answer && hit != null && c.pc === hit) { fill = "#6ABF5E"; mark = "✓"; }
-    else if (answer && wrong.has(c.pc)) { fill = "#E07856"; mark = "✕"; }
-    else if (answer && reveal.has(c.pc)) { fill = "#57C6C4"; }
-    else if (!answer && held.has(id)) { fill = "#6ABF5E"; }
+    if (answerMode && hit != null && c.pc === hit) { fill = "#6ABF5E"; mark = "✓"; }
+    else if (answerMode && wrong.has(c.pc)) { fill = "#E07856"; mark = "✕"; }
+    else if (answerMode && reveal.has(c.pc)) { fill = "#57C6C4"; }
+    else if (answerMode && picked.has(c.pc)) { fill = "#7CADD1"; }
+    else if (!answerMode && held.has(id)) { fill = "#6ABF5E"; }
     if (c.inKey) {
       els.push(<circle key={"n" + id} cx={x} cy={y} r={dot} fill={fill} stroke="#121815" strokeWidth="1.5" />);
-      els.push(<text key={"t" + id} x={x} y={y + (land ? 7 : 5)} textAnchor="middle" fontSize={land ? 22 : answer ? 19 : 15} fontWeight="800" fill="#16201f" fontFamily="'Archivo Black',sans-serif" style={{ pointerEvents: "none" }}>{c.degree}</text>);
+      els.push(<text key={"t" + id} x={x} y={y + (land ? 7 : 5)} textAnchor="middle" fontSize={land ? 22 : shapeAnswer ? 19 : 15} fontWeight="800" fill="#16201f" fontFamily="'Archivo Black',sans-serif" style={{ pointerEvents: "none" }}>{c.degree}</text>);
       if (mark) els.push(<text key={"m" + id} x={x} y={y - dot - 3} textAnchor="middle" fontSize="14" fontWeight="800" fill={mark === "✓" ? "#6ABF5E" : "#E07856"} style={{ pointerEvents: "none" }}>{mark}</text>);
       else if (c.isTonic) els.push(<text key={"st" + id} x={x} y={y - dot - 3} textAnchor="middle" fontSize={land ? 16 : 13} fill="#57C6C4" style={{ pointerEvents: "none" }}>★</text>);
     } else {
-      const dfill = (answer && wrong.has(c.pc)) ? "#E07856" : (answer && reveal.has(c.pc)) ? "#57C6C4" : (!answer && held.has(id)) ? "#6ABF5E" : "#8b958c";
-      els.push(<circle key={"c" + id} cx={x} cy={y} r={answer ? 6 : 4} fill={dfill} />);
+      const dfill = (answerMode && wrong.has(c.pc)) ? "#E07856" : (answerMode && reveal.has(c.pc)) ? "#57C6C4" : (!answerMode && held.has(id)) ? "#6ABF5E" : "#8b958c";
+      els.push(<circle key={"c" + id} cx={x} cy={y} r={shapeAnswer ? 6 : 4} fill={dfill} />);
     }
     const evts = disabled ? {} : onAnswer ? {
       onPointerDown: (e) => { e.preventDefault(); onAnswer(c); },
@@ -4479,6 +4482,11 @@ export default function NumberEarTrainer() {
     const isMinor = mode === "melody" && lvl.mode === "minor";
     const tonicPc = isMinor ? 9 : 0;
     const chordTonic = lvl.mode === "minor" ? 6 : 1; // home degree for chord chapters
+    const chordMinor = mode === "chords" && lvl.mode === "minor"; // chord chapters carry their own minor flag
+    // Guitar chord answer: mirror the numpad's degree set onto the fretboard as pitch-classes.
+    // picked = blue selection (every instance of a picked degree lights), wrong = orange, reveal = teal.
+    const degToPc = (d) => DEGREE_TO_PC[((d - 1) % 7) + 1];
+    const chordFb = mode === "chords" ? { picked: chPicked.map(degToPc), wrong: litWrong.map(degToPc), reveal: litCorrect.map(degToPc) } : null;
     const displayKey = lvl.mode === "minor" ? `${KEYS[mod12(KEYS.indexOf(sessKey) + 9)]} minor` : `${sessKey} major`;
     // pads climb from home: minor starts on 6, major on 1 (matches the tonal map)
     const diaOrder = isMinor ? [6, 7, 1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, 6, 7];
@@ -4778,6 +4786,33 @@ export default function NumberEarTrainer() {
                     <div className="sr-only" role="status" aria-live="polite">{srMsg}</div>
                   </div>
                 )}
+                {instrument === "guitar" && !lvl.chromatic ? (
+                  landscape ? (() => {
+                    const gm = chordMinor ? "minor" : "major";
+                    const gb = guitarFret == null
+                      ? positionBox(sessKey, gm, { minFret: 2 })
+                      : positionBox(sessKey, gm, { startFret: guitarFret });
+                    const cur = gb.startFret, nudge = (d) => setGuitarFret(Math.max(0, Math.min(cur + d, MININECK_MAX_START)));
+                    return (
+                      <div className="chord-guitar chord-guitar-land">
+                        <div className="mini-neck-row">
+                          <button className="ghost neck-arrow" onClick={() => nudge(-1)} disabled={cur <= 0} aria-label="Move position toward the nut">◀</button>
+                          <MiniNeck startFret={gb.startFret} endFret={gb.endFret} onMove={setGuitarFret} />
+                          <button className="ghost neck-arrow" onClick={() => nudge(1)} disabled={cur >= MININECK_MAX_START} aria-label="Move position toward the body">▶</button>
+                        </div>
+                        <Fretboard landscape posStart={cur} musicKey={sessKey} mode={gm}
+                          disabled={phase !== "answer"} fb={chordFb}
+                          onAnswer={(c) => { if (c.inKey) toggleChordPick(c.degree); }} />
+                      </div>
+                    );
+                  })() : (
+                    <div className="chord-guitar">
+                      <Fretboard boxKind="answer" musicKey={sessKey} mode={chordMinor ? "minor" : "major"}
+                        disabled={phase !== "answer"} fb={chordFb}
+                        onAnswer={(c) => { if (c.inKey) toggleChordPick(c.degree); }} />
+                    </div>
+                  )
+                ) : (
                 <div className="numpad">
                   {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                     <button key={d}
@@ -4788,6 +4823,7 @@ export default function NumberEarTrainer() {
                     </button>
                   ))}
                 </div>
+                )}
                 <button className="primary wide" onClick={checkChordSession}
                   disabled={phase !== "answer" || chPicked.length !== (lvl.sevenths ? 4 : 3) || busy}>
                   Check answer
@@ -6545,6 +6581,10 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 }
 .chord-layout { display: flex; gap: 16px; align-items: flex-start; }
 .chord-right { flex: 1; display: flex; flex-direction: column; }
+/* Guitar as the chord answer surface (portrait = compact 1-octave box). Tap the chord's notes
+   in any order; every instance of a picked degree lights blue, then Check. */
+.chord-guitar { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 10px; }
+.chord-guitar .fretboard { width: 100%; }
 /* Chord duel: Repeat + quip sit in the right column above the numpad, so the stack rises */
 .chord-duel-bar { margin-bottom: 8px; align-items: center; gap: 8px; }
 .chord-duel-bar .hint.grow { font-size: 0.82rem; min-width: 0; }
