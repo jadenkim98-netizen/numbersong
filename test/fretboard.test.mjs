@@ -153,6 +153,25 @@ test("positionBox: 5 frets, 30 cells, contains the tonic, and all 7 degrees appe
   }
 });
 
+test("positionBox: explicit startFret drives the window (movable position) and still holds all 7 degrees", () => {
+  for (const start of [0, 3, 7, 11]) {
+    const box = positionBox("C", "major", { startFret: start });
+    assert.equal(box.startFret, start, `start ${start}`);
+    assert.equal(box.endFret, start + 4);
+    assert.equal(box.cells.length, 30);
+    const degs = new Set(box.cells.map((c) => c.degree).filter((d) => d !== null));
+    for (let d = 1; d <= 7; d++) assert.ok(degs.has(d), `degree ${d} missing at start ${start}`);
+  }
+});
+
+test("positionBox: explicit startFret clamps so the span always fits the neck", () => {
+  const box = positionBox("C", "major", { startFret: 99 });
+  assert.equal(box.endFret, FRET_COUNT);
+  assert.equal(box.startFret, FRET_COUNT - 4);
+  const lo = positionBox("C", "major", { startFret: -5 });
+  assert.equal(lo.startFret, 0);
+});
+
 test("inlay data is present and sane", () => {
   assert.ok(INLAYS.includes(3) && INLAYS.includes(5) && INLAYS.includes(7) && INLAYS.includes(9));
   assert.ok(DOUBLE_INLAYS.includes(12));

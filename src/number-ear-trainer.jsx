@@ -1996,18 +1996,21 @@ const FRETBOARD_CSS = `
 .fretboard.fb-land { overflow:hidden; width:100%; height:100%; min-height:0; display:flex; }
 .fretboard.fb-land svg { margin:auto; width:100%; height:100%; max-width:100%; }
 `;
-function Fretboard({ musicKey, mode = "major", boxKind = "position", active = [], fb, disabled = false, landscape = false, onDown, onUp, onAnswer }) {
+function Fretboard({ musicKey, mode = "major", boxKind = "position", active = [], fb, disabled = false, landscape = false, posStart = null, onDown, onUp, onAnswer }) {
   // Box-driven: "position" = the ~5-fret Free Play window (6 strings); "answer" = the compact
   // 3-string × 4-fret test box (big finger targets). Play mode (onDown/onUp + `active` ids) vs
   // answer mode (onAnswer + pc-based `fb` feedback {hit, wrong[], reveal[]}).
   const answer = boxKind === "answer";
   const land = landscape && !answer;   // wide horizontal neck for phone-landscape Free Play
-  const box = answer ? answerBox(musicKey, mode) : positionBox(musicKey, mode, { minFret: 2 });
+  // posStart (movable position) drives the window directly when set; else auto-anchor near fret 2.
+  const box = answer ? answerBox(musicKey, mode)
+    : positionBox(musicKey, mode, posStart != null ? { startFret: posStart } : { minFret: 2 });
   const strings = box.strings, frets = box.frets, startFret = box.startFret;
   const nS = strings.length, nWin = frets.length;
   // Landscape stretches the fret spacing (fw) well past the string spacing (sh) so a 5-fret ×
   // 6-string neck reads WIDE and fills the screen — not a tall neck pillarboxed with margins.
-  const fw = land ? 150 : answer ? 84 : 76, sh = land ? 50 : answer ? 54 : 36, padX = land ? 30 : 24, padTop = land ? 26 : 22, padBot = land ? 42 : 48;
+  // Extra padBot in landscape so the bottom row's big note circles clear the fret-number labels.
+  const fw = land ? 150 : answer ? 84 : 76, sh = land ? 50 : answer ? 54 : 36, padX = land ? 30 : 24, padTop = land ? 26 : 22, padBot = land ? 62 : 48;
   const W = padX * 2 + nWin * fw, H = padTop + padBot + (nS - 1) * sh;
   const rowOf = (s) => nS - 1 - strings.indexOf(s);       // lowest string index → bottom row
   const wireX = (i) => padX + i * fw;                     // i: 0..nWin
@@ -2058,27 +2061,51 @@ function Fretboard({ musicKey, mode = "major", boxKind = "position", active = []
 }
 
 /* ── MiniNeck: a slim full-length position indicator (Chet-style) shown above the big
-   landscape neck. Schematic — the whole neck 0→15 with inlay dots, and a teal box over the
-   active [startFret,endFret] window so you can see where on the neck you're playing. Display
-   only for now (movable-position is a later follow-on: it'd take an onMove/drag handler). ── */
+   landscape neck. Schematic — the whole neck 0→15 with inlay dots + fret ticks, and a teal box
+   over the active [startFret,endFret] window. With `onMove`, it's the MOVABLE control: tap or
+   drag anywhere on the strip to slide the position box along the neck (finger = box center). ── */
 const MININECK_CSS = `
 .mini-neck { width:100%; height:100%; display:flex; }
 .mini-neck svg { margin:auto; width:100%; height:100%; max-width:100%; display:block; }
 `;
-function MiniNeck({ startFret, endFret, maxFret = 15 }) {
-  const W = 720, H = 82, padX = 18, padTop = 12, padBot = 14;
+const MININECK_MAX = 15;                 // frets shown on the strip
+const MININECK_SPAN = 5;                  // position-box width
+export const MININECK_MAX_START = MININECK_MAX - MININECK_SPAN + 1; // 11 — max box start (box stays on strip)
+function MiniNeck({ startFret, endFret, maxFret = MININECK_MAX, onMove, span = MININECK_SPAN }) {
+  const W = 720, H = 88, padX = 18, padTop = 12, padBot = 20;
   const strTop = padTop, strBot = H - padBot, midY = (strTop + strBot) / 2;
   const usableW = W - padX * 2;
   const fx = (f) => padX + (f / maxFret) * usableW;   // f=0 = nut, linear schematic spacing
+  const svgRef = useRef(null);
+  const dragRef = useRef(false);
+  const moveTo = (clientX) => {
+    const svg = svgRef.current; if (!svg || !onMove) return;
+    let vbx;
+    try { const pt = svg.createSVGPoint(); pt.x = clientX; pt.y = 0; vbx = pt.matrixTransform(svg.getScreenCTM().inverse()).x; }
+    catch (e) { const r = svg.getBoundingClientRect(); vbx = (clientX - r.left) / r.width * W; }
+    const fret = (vbx - padX) / usableW * maxFret;
+    const ns = Math.max(0, Math.min(Math.round(fret - span / 2), maxFret - span + 1));
+    onMove(ns);
+  };
+  const evts = onMove ? {
+    onPointerDown: (e) => { e.preventDefault(); dragRef.current = true; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (x) {} moveTo(e.clientX); },
+    onPointerMove: (e) => { if (dragRef.current) moveTo(e.clientX); },
+    onPointerUp: () => { dragRef.current = false; },
+    onPointerCancel: () => { dragRef.current = false; },
+    style: { cursor: "grab", touchAction: "none" },
+  } : {};
   const els = [];
   els.push(<rect key="bg" x={padX - 8} y={strTop - 7} width={usableW + 16} height={strBot - strTop + 14} rx="6" fill="#26302c" stroke="#121815" strokeWidth="1.5" />);
   INLAYS.filter((f) => f <= maxFret).forEach((f) => els.push(<circle key={"i" + f} cx={(fx(f - 1) + fx(f)) / 2} cy={midY} r="3.5" fill="#46524a" />));
   DOUBLE_INLAYS.filter((f) => f <= maxFret).forEach((f) => { const cx = (fx(f - 1) + fx(f)) / 2; els.push(<circle key={"d" + f + "a"} cx={cx} cy={strTop + (strBot - strTop) * 0.28} r="3.5" fill="#46524a" />, <circle key={"d" + f + "b"} cx={cx} cy={strTop + (strBot - strTop) * 0.72} r="3.5" fill="#46524a" />); });
   for (let s = 0; s < 6; s++) { const y = strTop + s * (strBot - strTop) / 5; els.push(<line key={"s" + s} x1={fx(0)} y1={y} x2={fx(maxFret)} y2={y} stroke="#8b958c" strokeWidth={0.7 + s * 0.22} />); }
   for (let f = 0; f <= maxFret; f++) { const x = fx(f); els.push(<line key={"f" + f} x1={x} y1={strTop} x2={x} y2={strBot} stroke={f === 0 ? "#cdd3cb" : "#59635c"} strokeWidth={f === 0 ? 4 : 1.4} />); }
+  [3, 5, 7, 9, 12, 15].filter((f) => f <= maxFret).forEach((f) => els.push(<text key={"fn" + f} x={(fx(f - 1) + fx(f)) / 2} y={H - 6} textAnchor="middle" fontSize="10" fontWeight="700" fill="#6b756d" fontFamily="ui-monospace,monospace">{f}</text>));
   const bx1 = fx(Math.max(0, startFret - 1)), bx2 = fx(Math.min(maxFret, endFret));
-  els.push(<rect key="box" x={bx1} y={strTop - 5} width={bx2 - bx1} height={strBot - strTop + 10} rx="5" fill="rgba(87,198,196,0.16)" stroke="#57C6C4" strokeWidth="2.5" />);
-  return <div className="mini-neck"><style>{MININECK_CSS}</style><svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-label={"Neck position, frets " + startFret + " to " + endFret}>{els}</svg></div>;
+  els.push(<rect key="box" x={bx1} y={strTop - 5} width={bx2 - bx1} height={strBot - strTop + 10} rx="5" fill="rgba(87,198,196,0.18)" stroke="#57C6C4" strokeWidth="2.5" style={{ pointerEvents: "none" }} />);
+  // grip dots on the box → hint it's draggable
+  if (onMove) { const cx = (bx1 + bx2) / 2; [-5, 0, 5].forEach((dx) => els.push(<circle key={"g" + dx} cx={cx + dx} cy={strTop - 5 + 4} r="1.3" fill="#57C6C4" style={{ pointerEvents: "none" }} />)); }
+  return <div className="mini-neck"><style>{MININECK_CSS}</style><svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%" height="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-label={"Neck position, frets " + startFret + " to " + endFret + (onMove ? " — tap or drag to move" : "")} {...evts}>{els}</svg></div>;
 }
 
 /* Top-level error boundary: if a render throws — most likely a browser auto-translate
@@ -3675,6 +3702,8 @@ export default function NumberEarTrainer() {
   // sings its number. Lit via fretActive ("<string>:<fret>" ids).
   const [fretActive, setFretActive] = useState([]);
   const landscape = useLandscape();   // phone held sideways → big horizontal Guitar Mode neck
+  const [guitarFret, setGuitarFret] = useState(null); // movable-position box start; null = auto-anchor
+  useEffect(() => { setGuitarFret(null); }, [musicKey]); // new key → re-anchor the box to its home position
   const fretNote = (c) => Tone.Frequency(STANDARD_TUNING[c.string].midi + c.fret, "midi").toNote();
   const fretDown = (c) => {
     const id = c.string + ":" + c.fret;
@@ -5687,10 +5716,19 @@ export default function NumberEarTrainer() {
       <div className={"fp-main" + (exView === "guitar" && landscape ? " fp-guitar-land" : "")}>
       {exView === "guitar"
         ? (landscape
-            ? (() => { const gb = positionBox(musicKey, "major", { minFret: 2 }); return (
+            ? (() => {
+                const gb = guitarFret == null
+                  ? positionBox(musicKey, "major", { minFret: 2 })
+                  : positionBox(musicKey, "major", { startFret: guitarFret });
+                const cur = gb.startFret, nudge = (d) => setGuitarFret(Math.max(0, Math.min(cur + d, MININECK_MAX_START)));
+                return (
                 <>
-                  <MiniNeck startFret={gb.startFret} endFret={gb.endFret} />
-                  <Fretboard landscape musicKey={musicKey} mode="major" active={fretActive} onDown={fretDown} onUp={fretUp} />
+                  <div className="mini-neck-row">
+                    <button className="ghost neck-arrow" onClick={() => nudge(-1)} disabled={cur <= 0} aria-label="Move position toward the nut">◀</button>
+                    <MiniNeck startFret={gb.startFret} endFret={gb.endFret} onMove={setGuitarFret} />
+                    <button className="ghost neck-arrow" onClick={() => nudge(1)} disabled={cur >= MININECK_MAX_START} aria-label="Move position toward the body">▶</button>
+                  </div>
+                  <Fretboard landscape posStart={cur} musicKey={musicKey} mode="major" active={fretActive} onDown={fretDown} onUp={fretUp} />
                 </>
               ); })()
             : <Fretboard musicKey={musicKey} mode="major" active={fretActive} onDown={fretDown} onUp={fretUp} />)
@@ -6598,7 +6636,10 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   /* Guitar Mode landscape (Chet-style): a slim position-indicator strip on top, the big
      playable neck filling the rest of the freed height. */
   .app-wide .fp-guitar-land { gap: 6px; }
-  .app-wide .fp-guitar-land .mini-neck { flex: 0 0 auto; height: 52px; }
+  .app-wide .fp-guitar-land .mini-neck-row { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; height: 54px; }
+  .app-wide .fp-guitar-land .mini-neck-row .mini-neck { flex: 1 1 auto; height: 100%; min-width: 0; }
+  .app-wide .fp-guitar-land .neck-arrow { flex: 0 0 auto; min-width: 40px; height: 44px; padding: 0; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; }
+  .app-wide .fp-guitar-land .neck-arrow:disabled { opacity: 0.35; }
   .app-wide .fp-guitar-land .fretboard.fb-land { flex: 1 1 auto; min-height: 0; }
   /* Paths tab landscape: show the chord-name strip + the light-up map, hide the portrait
      solo columns, and tuck the setup (Build / Tempo / presets) behind the ⚙. */

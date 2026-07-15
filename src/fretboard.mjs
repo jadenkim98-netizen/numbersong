@@ -79,15 +79,24 @@ export function positionsOfDegree(degree, key, window) {
 // so the "all degrees present" guarantee holds for any anchor — asserted in the tests.
 export function positionBox(key, mode, opts = {}) {
   const span = opts.span ?? 5;
-  const minFret = opts.minFret ?? 0;
-  const tonicPc = tonicPcOf(mode);
-  let anchor = null;
-  for (let f = minFret; f <= FRET_COUNT && anchor === null; f++) {
-    if (pcOf(0, f, key) === tonicPc || pcOf(1, f, key) === tonicPc) anchor = f;
+  let startFret;
+  if (opts.startFret != null) {
+    // Explicit window (the movable-position box in landscape Free Play): the caller drives the
+    // window directly. Clamp so the span still fits on the neck; every 5-fret window holds all 7
+    // degrees, so any position stays fully labeled.
+    startFret = Math.max(0, Math.min(opts.startFret, FRET_COUNT - span + 1));
+  } else {
+    // Auto-anchor: lowest fret >= minFret where the tonic sits on the low-E or A string.
+    const minFret = opts.minFret ?? 0;
+    const tonicPc = tonicPcOf(mode);
+    let anchor = null;
+    for (let f = minFret; f <= FRET_COUNT && anchor === null; f++) {
+      if (pcOf(0, f, key) === tonicPc || pcOf(1, f, key) === tonicPc) anchor = f;
+    }
+    if (anchor === null) anchor = minFret;
+    startFret = Math.max(0, anchor - 1);
+    if (startFret + span - 1 > FRET_COUNT) startFret = FRET_COUNT - span + 1;
   }
-  if (anchor === null) anchor = minFret;
-  let startFret = Math.max(0, anchor - 1);
-  if (startFret + span - 1 > FRET_COUNT) startFret = FRET_COUNT - span + 1;
   const endFret = startFret + span - 1;
   const frets = [];
   for (let f = startFret; f <= endFret; f++) frets.push(f);
