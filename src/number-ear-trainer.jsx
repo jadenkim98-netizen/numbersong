@@ -4487,6 +4487,11 @@ export default function NumberEarTrainer() {
     // picked = blue selection (every instance of a picked degree lights), wrong = orange, reveal = teal.
     const degToPc = (d) => DEGREE_TO_PC[((d - 1) % 7) + 1];
     const chordFb = mode === "chords" ? { picked: chPicked.map(degToPc), wrong: litWrong.map(degToPc), reveal: litCorrect.map(degToPc) } : null;
+    // Progressions on guitar: each pool chord's ROOT degree (= its number) names it. Map a tapped
+    // root degree → its roman, so tapping the chord's number on the neck fills the next slot.
+    const progRootMap = mode === "progressions"
+      ? Object.fromEntries(lvl.pool.map((r) => [chordTones(chordByRoman(r), false)[0], r]))
+      : null;
     const displayKey = lvl.mode === "minor" ? `${KEYS[mod12(KEYS.indexOf(sessKey) + 9)]} minor` : `${sessKey} major`;
     // pads climb from home: minor starts on 6, major on 1 (matches the tonal map)
     const diaOrder = isMinor ? [6, 7, 1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, 6, 7];
@@ -4867,6 +4872,37 @@ export default function NumberEarTrainer() {
                 })}
               </div>
               <div className="prog-right">
+              {instrument === "guitar" ? (() => {
+                const gm = lvl.mode === "minor" ? "minor" : "major";
+                const pickRoot = (c) => {
+                  if (!c.inKey || phase !== "answer" || busy || progAnswer.length >= lvl.len) return;
+                  const roman = progRootMap[c.degree];
+                  if (roman) tapChord(roman);
+                  else setFeedback("Tap the number of the chord you heard.");
+                };
+                const disabled = phase !== "answer" || busy || progAnswer.length >= lvl.len;
+                if (landscape) {
+                  const gb = guitarFret == null
+                    ? positionBox(sessKey, gm, { minFret: 2 })
+                    : positionBox(sessKey, gm, { startFret: guitarFret });
+                  const cur = gb.startFret, nudge = (d) => setGuitarFret(Math.max(0, Math.min(cur + d, MININECK_MAX_START)));
+                  return (
+                    <div className="prog-guitar-land">
+                      <div className="mini-neck-row">
+                        <button className="ghost neck-arrow" onClick={() => nudge(-1)} disabled={cur <= 0} aria-label="Move position toward the nut">◀</button>
+                        <MiniNeck startFret={gb.startFret} endFret={gb.endFret} onMove={setGuitarFret} />
+                        <button className="ghost neck-arrow" onClick={() => nudge(1)} disabled={cur >= MININECK_MAX_START} aria-label="Move position toward the body">▶</button>
+                      </div>
+                      <Fretboard landscape posStart={cur} musicKey={sessKey} mode={gm} disabled={disabled} onAnswer={pickRoot} />
+                    </div>
+                  );
+                }
+                return (
+                  <div className="chord-guitar prog-guitar">
+                    <Fretboard boxKind="answer" musicKey={sessKey} mode={gm} disabled={disabled} onAnswer={pickRoot} />
+                  </div>
+                );
+              })() : (
               <div className="numpad chordpad">
                 {lvl.pool.map((r) => (
                   <button key={r} className="num chordbtn"
@@ -4876,6 +4912,7 @@ export default function NumberEarTrainer() {
                   </button>
                 ))}
               </div>
+              )}
               <div className="prog-actions">
                 <button className="ghost" onClick={backspaceChord}
                   disabled={phase !== "answer" || busy || !progAnswer.length}>⌫ Undo</button>
@@ -6681,6 +6718,13 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .melody-guitar-land .neck-arrow { flex: 0 0 auto; min-width: 40px; height: 44px; padding: 0; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; }
   .app-wide .melody-guitar-land .neck-arrow:disabled { opacity: 0.35; }
   .app-wide .melody-guitar-land .fretboard.fb-land { flex: 1 1 auto; min-height: 0; }
+  /* progressions answered on GUITAR (landscape): slot stacks stay left, the movable neck fills the
+     right column (sizes by width via its aspect ratio, like the chord surface). */
+  .app-wide .prog-guitar-land { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .app-wide .prog-guitar-land .mini-neck-row { display: flex; align-items: center; gap: 8px; height: 48px; }
+  .app-wide .prog-guitar-land .mini-neck-row .mini-neck { flex: 1 1 auto; height: 100%; min-width: 0; }
+  .app-wide .prog-guitar-land .neck-arrow { flex: 0 0 auto; min-width: 40px; height: 44px; padding: 0; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; }
+  .app-wide .prog-guitar-land .neck-arrow:disabled { opacity: 0.35; }
   /* chords: a 3-column landscape layout — controls+reference | stack | pads+Check — so the
      tall vertical content fits a short phone WITHOUT cramping. A CSS grid places the panel's
      existing children into columns, so no markup changes; :has() scopes it to the chord panel. */
