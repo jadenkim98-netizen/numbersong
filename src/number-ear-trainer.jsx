@@ -3745,11 +3745,13 @@ export default function NumberEarTrainer() {
     setFretActive((a) => (a.includes(id) ? a : [...a, id]));
     holdNote(fretNote(c));
     if (c.degree != null) {
-      // Sing at the fret's REAL octave (was hardcoded 0 → low notes sang too high). The low-E 6
-      // is a low A, so its voice comes out at the low A instead of the middle.
-      const midi = STANDARD_TUNING[c.string].midi + c.fret;
-      const up = Math.round((midi - (Tone.Frequency(musicKey + "4").toMidi() + DEGREE_SEMITONES[c.degree])) / 12);
-      singOct(String(c.degree), up, voiceOn);
+      // Sing the number in the voice's OWN octave, not the fret's. The recorded voice covers one
+      // octave and the key-match already spends its whole budget (≤2 semitones), but the neck runs
+      // from 2 octaves below that reference (low E) to 1 above — so tracking the fret's real octave
+      // repitched the clip to a 0.25× playbackRate: the "super low and slow" voice. A teacher
+      // demonstrating a low note sings its number in their own range too, so matching the neck
+      // exactly was never worth the artifact.
+      singOct(String(c.degree), 0, voiceOn);
     }
   };
   const fretUp = (c) => {

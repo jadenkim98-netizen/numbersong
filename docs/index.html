@@ -7826,9 +7826,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       setFretActive((a) => a.includes(id) ? a : [...a, id]);
       holdNote(fretNote(c));
       if (c.degree != null) {
-        const midi = STANDARD_TUNING[c.string].midi + c.fret;
-        const up = Math.round((midi - (Tone.Frequency(musicKey + "4").toMidi() + DEGREE_SEMITONES[c.degree])) / 12);
-        singOct(String(c.degree), up, voiceOn);
+        singOct(String(c.degree), 0, voiceOn);
       }
     };
     const fretUp = (c) => {
