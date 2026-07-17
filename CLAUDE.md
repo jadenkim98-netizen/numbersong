@@ -126,7 +126,7 @@ First-run flow (new game-mode player): animated boot/intro ("The Map Sings" + Co
 `bootAdvance()` routes a fresh public player into **Verda's tutorial** (`screen==="tutorial"`,
 gated on the `numbersong-tut` flag; unlocked students & returning players skip to
 `adventure`). The tutorial (Fable "JRPG Cutscene" look; `VERDA_SPRITE` = green-robe
-`verda.png`, inlined by build.sh) = 6 teaching beats reusing the guide widgets
+`verda.png`, inlined by build.sh) = 9 teaching beats reusing the guide widgets
 (`DegreeLadder`/`GuideStack`/`playPhrase`/`playTwoFiveOne`) → **3 coached in-cutscene
 drills** (`tutMode==="drill"`: play a note via `playCadence`+`playSemi`, listen→feel→
 name, forgiving reveal, celebration) → out to the **map**. Then the normal loop: play a

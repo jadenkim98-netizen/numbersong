@@ -2205,6 +2205,7 @@ export default function NumberEarTrainer() {
   const tutTimerRef = useRef(null);
   const tutGenRef = useRef(0); // bumped when the tutorial is skipped/graduated — an in-flight startTutDrill await checks it and bails (no note/timer leaking onto the map)
   const tutChordRomanRef = useRef(null); // last chord drilled (avoid an immediate repeat)
+  const tutMaxStepRef = useRef(-1); // furthest beat reached this run — Back/Next must not re-fire tutorial_beat (see trackTutBeat)
   const [tutorialActive, setTutorialActive] = useState(false); // (legacy) session Q1 coaching — unused now
   const [tutReveal, setTutReveal] = useState(false);  // reveal the target pad after a wrong tap
   const [revealPc, setRevealPc] = useState(null);     // real-drill: pc of the target, revealed after repeated misses so a stuck learner isn't left guessing
@@ -2349,6 +2350,15 @@ export default function NumberEarTrainer() {
     const node = tutThenEnterRef.current; tutThenEnterRef.current = null;
     if (node != null) enterStage({ id: node }); else setScreen("adventure");
   };
+  // One event per dialogue beat, fired only on the FURTHEST beat reached so Back→Next can't
+  // inflate the count. Without this the whole 9-beat cutscene is a telemetry void: a player who
+  // reads every beat and quits looks identical to one who bounces on sight (both emit only
+  // boot_advance). Beat titles live in the render branch, so `step` is the identifier.
+  const trackTutBeat = (chapter, step) => {
+    if (step <= tutMaxStepRef.current) return;
+    tutMaxStepRef.current = step;
+    track("tutorial_beat", { chapter, step });
+  };
   const skipTutorial = () => { tutGenRef.current++; savePref(tutCfg.flag, "1"); if (tutTimerRef.current) clearTimeout(tutTimerRef.current); try { sfx("select"); } catch (e) {} track("tutorial_skip", { chapter: tutChapter, step: tutStep }); finishTut(); };
   const graduateTutorial = () => { tutGenRef.current++; savePref(tutCfg.flag, "1"); setTutMode("teach"); if (tutTimerRef.current) clearTimeout(tutTimerRef.current); try { sfx("select"); } catch (e) {} track("tutorial_complete", { chapter: tutChapter }); finishTut(); };
   // Enter a tutorial fresh (resets its cutscene state). thenEnter = node id to open after it (Rue), or null (Verda → map).
@@ -2357,6 +2367,8 @@ export default function NumberEarTrainer() {
     setTutChapter(chapter); tutThenEnterRef.current = thenEnter;
     setTutStep(0); setTutMode("teach"); setTutDrillN(0);
     setTutDrillTarget(null); setTutDrillPhase("play"); setTutReveal(false);
+    tutMaxStepRef.current = -1; // fresh run (incl. a menu replay) → beat 0 counts again
+    trackTutBeat(chapter, 0);   // `chapter`, not tutChapter: the setState above hasn't landed yet
     setScreen("tutorial");
   };
   // Replay the current chapter's tutorial from the top (from the menu) — don't touch its flag.
@@ -2427,8 +2439,12 @@ export default function NumberEarTrainer() {
         setTutCelebrate(false);
         if (tutDrillN + 1 < TUT_DRILLS) { setTutDrillN((k) => k + 1); startTutDrill(tutDrillN + 1); }
         else {
-          // done — a short graduation beat (the keeper's send-off) before entering
+          // done — a short graduation beat (the keeper's send-off) before entering.
+          // The flag is set HERE but tutorial_complete only fires on the send-off button, and
+          // Skip is hidden on that screen — so anyone who closes the tab here has finished the
+          // tutorial for good yet never fires it. This event is the honest completion marker.
           savePref(tutCfg.flag, "1"); setTutDrillN(0); setTutMode("done");
+          track("tutorial_drills_done", { chapter: tutChapter });
         }
       }, resMs + (tutDrillN + 1 < TUT_DRILLS ? 500 : 200));
     } else {
@@ -2456,7 +2472,7 @@ export default function NumberEarTrainer() {
         if (gen !== tutGenRef.current) return; // skipped/graduated during the celebration
         setTutCelebrate(false);
         if (tutDrillN + 1 < TUT_DRILLS) { setTutDrillN((k) => k + 1); startTutDrill(tutDrillN + 1); }
-        else { savePref(tutCfg.flag, "1"); setTutDrillN(0); setTutMode("done"); }
+        else { savePref(tutCfg.flag, "1"); setTutDrillN(0); setTutMode("done"); track("tutorial_drills_done", { chapter: tutChapter }); }
       }, 1900);
     } else {
       // wrong → glow the true tones, re-walk the chord, then clear picks to retry
@@ -5537,7 +5553,7 @@ export default function NumberEarTrainer() {
               <button className="btn ghost" disabled={step === 0} onClick={() => { sfx("back"); setTutStep((s) => Math.max(0, s - 1)); }}>◂ Back</button>
               {last
                 ? <button className="btn next" onClick={enterTutDrills}>Begin →</button>
-                : <button className="btn next" onClick={() => { sfx("move"); setTutStep((s) => Math.min(s + 1, beats.length - 1)); }}>Next →</button>}
+                : <button className="btn next" onClick={() => { sfx("move"); const n = Math.min(step + 1, beats.length - 1); trackTutBeat(tutChapter, n); setTutStep(n); }}>Next →</button>}
             </div>
           )}
         </div>

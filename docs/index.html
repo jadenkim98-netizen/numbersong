@@ -6014,6 +6014,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const tutTimerRef = useRef(null);
     const tutGenRef = useRef(0);
     const tutChordRomanRef = useRef(null);
+    const tutMaxStepRef = useRef(-1);
     const [tutorialActive, setTutorialActive] = useState(false);
     const [tutReveal, setTutReveal] = useState(false);
     const [revealPc, setRevealPc] = useState(null);
@@ -6230,6 +6231,11 @@ window.SOUNDTRACK = SOUNDTRACK;
       if (node != null) enterStage({ id: node });
       else setScreen("adventure");
     };
+    const trackTutBeat = (chapter, step) => {
+      if (step <= tutMaxStepRef.current) return;
+      tutMaxStepRef.current = step;
+      track("tutorial_beat", { chapter, step });
+    };
     const skipTutorial = () => {
       tutGenRef.current++;
       savePref(tutCfg.flag, "1");
@@ -6263,6 +6269,8 @@ window.SOUNDTRACK = SOUNDTRACK;
       setTutDrillTarget(null);
       setTutDrillPhase("play");
       setTutReveal(false);
+      tutMaxStepRef.current = -1;
+      trackTutBeat(chapter, 0);
       setScreen("tutorial");
     };
     const replayTutorial = () => {
@@ -6381,6 +6389,7 @@ window.SOUNDTRACK = SOUNDTRACK;
             savePref(tutCfg.flag, "1");
             setTutDrillN(0);
             setTutMode("done");
+            track("tutorial_drills_done", { chapter: tutChapter });
           }
         }, resMs + (tutDrillN + 1 < TUT_DRILLS ? 500 : 200));
       } else {
@@ -6423,6 +6432,7 @@ window.SOUNDTRACK = SOUNDTRACK;
             savePref(tutCfg.flag, "1");
             setTutDrillN(0);
             setTutMode("done");
+            track("tutorial_drills_done", { chapter: tutChapter });
           }
         }, 1900);
       } else {
@@ -9189,7 +9199,9 @@ window.SOUNDTRACK = SOUNDTRACK;
         setTutStep((s) => Math.max(0, s - 1));
       } }, "◂ Back"), last ? /* @__PURE__ */ React.createElement("button", { className: "btn next", onClick: enterTutDrills }, "Begin →") : /* @__PURE__ */ React.createElement("button", { className: "btn next", onClick: () => {
         sfx("move");
-        setTutStep((s) => Math.min(s + 1, beats.length - 1));
+        const n = Math.min(step + 1, beats.length - 1);
+        trackTutBeat(tutChapter, n);
+        setTutStep(n);
       } }, "Next →"))), /* @__PURE__ */ React.createElement("div", { className: "vig" }), /* @__PURE__ */ React.createElement("div", { className: "scan" }), /* @__PURE__ */ React.createElement("div", { className: "flicker" }));
     }
     if (screen === "guide") {
