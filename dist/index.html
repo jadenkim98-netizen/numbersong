@@ -690,6 +690,11 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .fp-pathchords { display: none; }  /* shown only in landscape */
 .fp-paths-map { display: none; }   /* shown only in landscape */
 .explore-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+/* Reserve the width of the ON label. Without it the row rewrapped the instant Sing
+   turned on ("🎤 Sing" → "🎤 Sing on" is ~30px wider), the button dropped to the next
+   line, and a second tap in the same spot hit whatever slid into its place (the Guitar
+   view) — so the mic could never be turned back off. */
+.ghost.fp-sing { min-width: 132px; }
 
 /* piano view */
 .piano {
@@ -1176,6 +1181,9 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .fp-sing { display: none; }                   /* Sing → behind ⚙ (settings) */
   .app-wide.fp-opts-open .key-row { display: flex; }
   .app-wide.fp-opts-open .fp-sing { display: inline-flex; }
+  /* …but a LIVE mic always keeps its off-switch in the bar: closing the ⚙ used to hide
+     the only way to stop listening, leaving the mic open with no visible control. */
+  .app-wide .ghost.fp-sing.on { display: inline-flex; }
   .app-wide .panel { padding: 12px 14px; }
   .app-wide .num { min-height: 48px; }
   /* keep the feedback line on the SAME row as Repeat/♪/Voice (it otherwise wraps to its
@@ -6971,7 +6979,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     });
     const [micOn, setMicOn] = useState(false);
     const [micReq, setMicReq] = useState(false);
-    const [micErr, setMicErr] = useState(false);
+    const [micErr, setMicErr] = useState(null);
     const [singDeg, setSingDeg] = useState(null);
     const [singCents, setSingCents] = useState(0);
     const [singInTune, setSingInTune] = useState(false);
@@ -7030,6 +7038,16 @@ window.SOUNDTRACK = SOUNDTRACK;
       setSingCents(0);
       setSingLevel(0);
     }, []);
+    const micErrMessage = (e) => {
+      const name = e && e.name;
+      if (name === "NotAllowedError" || name === "SecurityError")
+        return "Mic blocked for this site — allow it in your browser (tap the 🔒 in the address bar, or “aA” on iPhone → Microphone), then reload.";
+      if (name === "NotFoundError" || name === "DevicesNotFoundError" || name === "OverconstrainedError")
+        return "No microphone found on this device.";
+      if (name === "NotReadableError" || name === "TrackStartError")
+        return "Another app is using the mic — close it, then tap 🎤 Sing again.";
+      return "Couldn't open the mic" + (name ? " (" + name + ")" : "") + " — tap 🎤 Sing to try again.";
+    };
     const toggleMic = useCallback(async () => {
       if (micBusyRef.current) {
         micWantRef.current = false;
@@ -7040,9 +7058,13 @@ window.SOUNDTRACK = SOUNDTRACK;
         stopMic();
         return;
       }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setMicErr(typeof window !== "undefined" && window.isSecureContext === false ? "The mic needs a secure page — open Numbersong over https:// (or localhost)." : "This browser won't give the page a microphone.");
+        return;
+      }
       micWantRef.current = true;
       micBusyRef.current = true;
-      setMicErr(false);
+      setMicErr(null);
       setMicReq(true);
       try {
         await Tone.start();
@@ -7067,7 +7089,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         micRef.current = { stream, source, gain, analyser, buf: new Float32Array(analyser.fftSize), raf: 0, last: 0 };
         setMicOn(true);
       } catch (e) {
-        setMicErr(true);
+        setMicErr(micErrMessage(e));
         setMicOn(false);
       } finally {
         micBusyRef.current = false;
@@ -9381,7 +9403,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       const heard = singLevel > 0.03;
       let coach, state;
       if (micErr) {
-        coach = "Mic's off — tap 🎤 Sing and choose Allow.";
+        coach = micErr;
         state = "off";
       } else if (micReq) {
         coach = "Asking for mic access — tap Allow…";
@@ -9771,6 +9793,11 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .fp-pathchords { display: none; }  /* shown only in landscape */
 .fp-paths-map { display: none; }   /* shown only in landscape */
 .explore-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+/* Reserve the width of the ON label. Without it the row rewrapped the instant Sing
+   turned on ("🎤 Sing" → "🎤 Sing on" is ~30px wider), the button dropped to the next
+   line, and a second tap in the same spot hit whatever slid into its place (the Guitar
+   view) — so the mic could never be turned back off. */
+.ghost.fp-sing { min-width: 132px; }
 
 /* piano view */
 .piano {
@@ -10257,6 +10284,9 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .fp-sing { display: none; }                   /* Sing → behind ⚙ (settings) */
   .app-wide.fp-opts-open .key-row { display: flex; }
   .app-wide.fp-opts-open .fp-sing { display: inline-flex; }
+  /* …but a LIVE mic always keeps its off-switch in the bar: closing the ⚙ used to hide
+     the only way to stop listening, leaving the mic open with no visible control. */
+  .app-wide .ghost.fp-sing.on { display: inline-flex; }
   .app-wide .panel { padding: 12px 14px; }
   .app-wide .num { min-height: 48px; }
   /* keep the feedback line on the SAME row as Repeat/♪/Voice (it otherwise wraps to its

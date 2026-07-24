@@ -2938,7 +2938,7 @@ export default function NumberEarTrainer() {
   // Sing tuner (7-worlds tab): live mic pitch → the number you're singing.
   const [micOn, setMicOn] = useState(false);
   const [micReq, setMicReq] = useState(false);    // asking for permission (await in flight)
-  const [micErr, setMicErr] = useState(false);    // permission denied / no device
+  const [micErr, setMicErr] = useState(null);     // why the mic didn't open (string), or null
   const [singDeg, setSingDeg] = useState(null);   // 1..7 you're currently singing, or null
   const [singCents, setSingCents] = useState(0);  // ± cents off that degree (− flat, + sharp)
   const [singInTune, setSingInTune] = useState(false);
@@ -2995,6 +2995,21 @@ export default function NumberEarTrainer() {
     setMicOn(false); setSingDeg(null); setSingInTune(false); setSingCents(0); setSingLevel(0);
   }, []);
 
+  // Why the mic didn't open, in words the player can act on. Once a browser has been
+  // told "no" it remembers, so tapping Sing again NEVER re-prompts — the old copy
+  // ("tap Sing and choose Allow") sent people into a dead end where nothing happened.
+  // Point at the browser's own permission UI instead.
+  const micErrMessage = (e) => {
+    const name = e && e.name;
+    if (name === "NotAllowedError" || name === "SecurityError")
+      return "Mic blocked for this site — allow it in your browser (tap the 🔒 in the address bar, or “aA” on iPhone → Microphone), then reload.";
+    if (name === "NotFoundError" || name === "DevicesNotFoundError" || name === "OverconstrainedError")
+      return "No microphone found on this device.";
+    if (name === "NotReadableError" || name === "TrackStartError")
+      return "Another app is using the mic — close it, then tap 🎤 Sing again.";
+    return "Couldn't open the mic" + (name ? " (" + name + ")" : "") + " — tap 🎤 Sing to try again.";
+  };
+
   // Toggle listening. Must run on the user's tap so iOS grants mic access; the
   // analyser hangs off Tone's own AudioContext and is never routed to the
   // speakers, so there's no feedback loop.
@@ -3005,8 +3020,17 @@ export default function NumberEarTrainer() {
     // Sing during the prompt leaks a live mic track (OS indicator stays on).
     if (micBusyRef.current) { micWantRef.current = false; setMicReq(false); return; }
     if (micRef.current) { stopMic(); return; }
+    // Served over plain http:// (a LAN IP, or a file:// copy)? The browser hides
+    // getUserMedia entirely outside a secure context — there's no prompt to allow,
+    // so say what's actually wrong instead of blaming permissions.
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setMicErr(typeof window !== "undefined" && window.isSecureContext === false
+        ? "The mic needs a secure page — open Numbersong over https:// (or localhost)."
+        : "This browser won't give the page a microphone.");
+      return;
+    }
     micWantRef.current = true; micBusyRef.current = true;
-    setMicErr(false); setMicReq(true);
+    setMicErr(null); setMicReq(true);
     try {
       await Tone.start();
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -3028,7 +3052,7 @@ export default function NumberEarTrainer() {
       micRef.current = { stream, source, gain, analyser, buf: new Float32Array(analyser.fftSize), raf: 0, last: 0 };
       setMicOn(true);
     } catch (e) {
-      setMicErr(true); setMicOn(false);
+      setMicErr(micErrMessage(e)); setMicOn(false);
     } finally {
       micBusyRef.current = false;
       setMicReq(false);
@@ -5814,7 +5838,7 @@ export default function NumberEarTrainer() {
         // sharp drifts right; clamp to ±50¢ so wild misses don't fly off-screen).
         const heard = singLevel > 0.03;
         let coach, state;
-        if (micErr) { coach = "Mic's off — tap 🎤 Sing and choose Allow."; state = "off"; }
+        if (micErr) { coach = micErr; state = "off"; }
         else if (micReq) { coach = "Asking for mic access — tap Allow…"; state = "idle"; }
         else if (singDeg == null) { coach = heard ? "Almost — hold one steady note" : "Listening… sing a number"; state = "idle"; }
         else if (singInTune) { coach = `Nice — right on ${singDeg}`; state = "in"; }
@@ -6220,6 +6244,11 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .fp-pathchords { display: none; }  /* shown only in landscape */
 .fp-paths-map { display: none; }   /* shown only in landscape */
 .explore-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+/* Reserve the width of the ON label. Without it the row rewrapped the instant Sing
+   turned on ("🎤 Sing" → "🎤 Sing on" is ~30px wider), the button dropped to the next
+   line, and a second tap in the same spot hit whatever slid into its place (the Guitar
+   view) — so the mic could never be turned back off. */
+.ghost.fp-sing { min-width: 132px; }
 
 /* piano view */
 .piano {
@@ -6706,6 +6735,9 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .fp-sing { display: none; }                   /* Sing → behind ⚙ (settings) */
   .app-wide.fp-opts-open .key-row { display: flex; }
   .app-wide.fp-opts-open .fp-sing { display: inline-flex; }
+  /* …but a LIVE mic always keeps its off-switch in the bar: closing the ⚙ used to hide
+     the only way to stop listening, leaving the mic open with no visible control. */
+  .app-wide .ghost.fp-sing.on { display: inline-flex; }
   .app-wide .panel { padding: 12px 14px; }
   .app-wide .num { min-height: 48px; }
   /* keep the feedback line on the SAME row as Repeat/♪/Voice (it otherwise wraps to its
