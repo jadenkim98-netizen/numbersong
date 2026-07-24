@@ -1,8 +1,8 @@
 // Numbersong service worker — makes the installed app boot and run with ZERO
 // internet after one successful load. The VERSION string is injected at build
-// time (build.sh replaces 20260724082450), so every deploy makes a fresh cache
+// time (build.sh replaces 20260724083715), so every deploy makes a fresh cache
 // and students automatically pick up the new build on their next launch.
-const VERSION = "20260724082450";
+const VERSION = "20260724083715";
 const CACHE = "numbersong-" + VERSION;
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon.png"];
 

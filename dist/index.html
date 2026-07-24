@@ -7058,9 +7058,29 @@ window.SOUNDTRACK = SOUNDTRACK;
         return "No microphone found on this device.";
       if (name === "NotReadableError" || name === "TrackStartError")
         return "Another app is using the mic — close it and try again.";
-      return "Couldn't open the mic" + (name ? " (" + name + ")" : "") + ".";
+      return "Couldn't open the mic" + (name ? " (" + name + (e && e.stage ? " @" + e.stage : "") + ")" : "") + ".";
     };
-    const buildMicChain = (stream) => {
+    const reportMicFailure = (e) => {
+      try {
+        if (!window.Sentry || !window.Sentry.captureException) return;
+        let shared = null;
+        try {
+          shared = Tone.getContext().rawContext;
+        } catch (_) {
+        }
+        window.Sentry.captureException(e, {
+          tags: { feature: "sing-mic", mic_stage: e && e.stage || "?", mic_error: e && e.name || "?" },
+          extra: {
+            sharedState: shared && shared.state,
+            sharedRate: shared && shared.sampleRate,
+            secure: typeof window !== "undefined" && window.isSecureContext,
+            standalone: !!(window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches)
+          }
+        });
+      } catch (_) {
+      }
+    };
+    const buildMicChain = async (stream) => {
       const wire = (ctx) => {
         const source = ctx.createMediaStreamSource(stream);
         const gain = ctx.createGain();
@@ -7071,29 +7091,60 @@ window.SOUNDTRACK = SOUNDTRACK;
         gain.connect(analyser);
         return { ctx, stream, source, gain, analyser, buf: new Float32Array(analyser.fftSize), raf: 0, last: 0 };
       };
+      let lastErr = null;
+      const fail = (e, stage) => {
+        if (e && !e.stage) {
+          try {
+            e.stage = stage;
+          } catch (_) {
+          }
+        }
+        lastErr = e;
+      };
       let shared = null;
       try {
         shared = Tone.getContext().rawContext;
       } catch (_) {
       }
       if (shared) {
-        if (shared.state !== "running") {
-          try {
-            shared.resume();
-          } catch (_) {
-          }
+        try {
+          if (shared.state !== "running") await shared.resume();
+        } catch (_) {
         }
         try {
           return wire(shared);
-        } catch (_) {
+        } catch (e) {
+          fail(e, "shared");
         }
       }
-      const own = new (window.AudioContext || window.webkitAudioContext)();
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) {
+        const e = lastErr || new Error("no AudioContext");
+        throw e;
+      }
+      let micRate = 0;
       try {
-        own.resume();
+        micRate = (stream.getAudioTracks()[0].getSettings() || {}).sampleRate || 0;
       } catch (_) {
       }
-      return { ...wire(own), owned: true };
+      const attempts = micRate ? [{ sampleRate: micRate }, null] : [null];
+      for (const opts of attempts) {
+        let own = null;
+        try {
+          own = opts ? new AC(opts) : new AC();
+          if (own.state !== "running") await own.resume();
+          return { ...wire(own), owned: true };
+        } catch (e) {
+          fail(e, opts ? "private@" + micRate : "private");
+          if (own) {
+            try {
+              own.close();
+            } catch (_) {
+            }
+          }
+        }
+      }
+      throw lastErr || new Error("no audio context would take the mic");
     };
     const toggleMic = useCallback(async () => {
       if (micBusyRef.current) {
@@ -7133,13 +7184,28 @@ window.SOUNDTRACK = SOUNDTRACK;
           }
           return;
         }
-        micRef.current = buildMicChain(stream);
+        const rig = await buildMicChain(stream);
+        if (!micWantRef.current) {
+          try {
+            stream.getTracks().forEach((t) => t.stop());
+          } catch (_) {
+          }
+          if (rig.owned) {
+            try {
+              rig.ctx.close();
+            } catch (_) {
+            }
+          }
+          return;
+        }
+        micRef.current = rig;
         setMicOn(true);
       } catch (e) {
         try {
           stream && stream.getTracks().forEach((t) => t.stop());
         } catch (_) {
         }
+        reportMicFailure(e);
         setMicErr(micErrMessage(e));
         setMicOn(false);
       } finally {

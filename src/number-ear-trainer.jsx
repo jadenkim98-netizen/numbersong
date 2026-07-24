@@ -3015,7 +3015,9 @@ export default function NumberEarTrainer() {
       return "No microphone found on this device.";
     if (name === "NotReadableError" || name === "TrackStartError")
       return "Another app is using the mic — close it and try again.";
-    return "Couldn't open the mic" + (name ? " (" + name + ")" : "") + ".";
+    // Unknown failure: name the STAGE it died at too. Phones can't open a console, so
+    // this line is the only bug report we get — and it's what Sentry gets tagged with.
+    return "Couldn't open the mic" + (name ? " (" + name + (e && e.stage ? " @" + e.stage : "") + ")" : "") + ".";
   };
 
   // Wire a live mic stream into an analyser. iOS Safari flips the audio session into
@@ -3024,7 +3026,34 @@ export default function NumberEarTrainer() {
   // throws InvalidStateError (the failure Sing was dying on). So: nudge the shared
   // context awake first, and if it still refuses, listen on a private context of our
   // own. The analyser is never routed to a destination, so a second context is free.
-  const buildMicChain = (stream) => {
+  // A mic that won't open is invisible to us otherwise — it happens on the player's
+  // phone, where there's no console to read. Ship the shape of the failure (which stage,
+  // what the contexts were doing, the rates involved) so it's fixable from Sentry.
+  const reportMicFailure = (e) => {
+    try {
+      if (!window.Sentry || !window.Sentry.captureException) return;
+      let shared = null; try { shared = Tone.getContext().rawContext; } catch (_) {}
+      window.Sentry.captureException(e, {
+        tags: { feature: "sing-mic", mic_stage: (e && e.stage) || "?", mic_error: (e && e.name) || "?" },
+        extra: {
+          sharedState: shared && shared.state, sharedRate: shared && shared.sampleRate,
+          secure: typeof window !== "undefined" && window.isSecureContext,
+          standalone: !!(window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches),
+        },
+      });
+    } catch (_) {}
+  };
+
+  // Safari is fussy about WHEN and WHERE a mic source may be created, and answers every
+  // objection with the same opaque InvalidStateError. So try the ways it can work, in
+  // order, and tag whichever one finally throws so the failure is diagnosable:
+  //   1. the shared Tone context, resumed and AWAITED (Safari refuses a suspended one)
+  //   2. a private context locked to the mic's OWN sample rate (a rate mismatch between
+  //      context and stream is the classic iOS InvalidStateError)
+  //   3. a private context at the default rate
+  // Every failed private context is closed immediately — Safari caps how many a page may
+  // hold, so leaking one per tap would turn a soft failure into a permanent one.
+  const buildMicChain = async (stream) => {
     const wire = (ctx) => {
       const source = ctx.createMediaStreamSource(stream);
       // Boost the input so a normal voice at arm's length registers — no need to
@@ -3037,15 +3066,34 @@ export default function NumberEarTrainer() {
       gain.connect(analyser);
       return { ctx, stream, source, gain, analyser, buf: new Float32Array(analyser.fftSize), raf: 0, last: 0 };
     };
+    let lastErr = null;
+    const fail = (e, stage) => { if (e && !e.stage) { try { e.stage = stage; } catch (_) {} } lastErr = e; };
+
     let shared = null;
     try { shared = Tone.getContext().rawContext; } catch (_) {}
     if (shared) {
-      if (shared.state !== "running") { try { shared.resume(); } catch (_) {} }
-      try { return wire(shared); } catch (_) {} // fall through to a private context
+      try { if (shared.state !== "running") await shared.resume(); } catch (_) {}
+      try { return wire(shared); } catch (e) { fail(e, "shared"); }
     }
-    const own = new (window.AudioContext || window.webkitAudioContext)();
-    try { own.resume(); } catch (_) {}
-    return { ...wire(own), owned: true };
+
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) { const e = lastErr || new Error("no AudioContext"); throw e; }
+    // The mic's real rate, when the browser will tell us (Safari 15+ does).
+    let micRate = 0;
+    try { micRate = (stream.getAudioTracks()[0].getSettings() || {}).sampleRate || 0; } catch (_) {}
+    const attempts = micRate ? [{ sampleRate: micRate }, null] : [null];
+    for (const opts of attempts) {
+      let own = null;
+      try {
+        own = opts ? new AC(opts) : new AC();
+        if (own.state !== "running") await own.resume();
+        return { ...wire(own), owned: true };
+      } catch (e) {
+        fail(e, opts ? "private@" + micRate : "private");
+        if (own) { try { own.close(); } catch (_) {} }
+      }
+    }
+    throw lastErr || new Error("no audio context would take the mic");
   };
 
   // Toggle listening. Must run on the user's tap so iOS grants mic access; the
@@ -3085,12 +3133,20 @@ export default function NumberEarTrainer() {
       // If we were toggled off (or the component unmounted) during the await, don't
       // wire up or store the stream — just release it, or it leaks as a live mic track.
       if (!micWantRef.current) { try { stream.getTracks().forEach((t) => t.stop()); } catch (_) {} return; }
-      micRef.current = buildMicChain(stream);
+      const rig = await buildMicChain(stream);
+      // Toggled off while the contexts were being coaxed awake? Same rule as above.
+      if (!micWantRef.current) {
+        try { stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
+        if (rig.owned) { try { rig.ctx.close(); } catch (_) {} }
+        return;
+      }
+      micRef.current = rig;
       setMicOn(true);
     } catch (e) {
       // The permission was granted and only the wiring failed? The track is live and
       // ours — stop it, or the OS mic indicator stays lit with nothing listening.
       try { stream && stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
+      reportMicFailure(e);
       setMicErr(micErrMessage(e)); setMicOn(false);
     } finally {
       micBusyRef.current = false;
