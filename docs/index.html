@@ -7019,6 +7019,13 @@ window.SOUNDTRACK = SOUNDTRACK;
     }, [droneVol, setDroneVolume]);
     const micWantRef = useRef(false);
     const micBusyRef = useRef(false);
+    const releaseCaptureSession = useCallback(() => {
+      try {
+        const sess2 = typeof navigator !== "undefined" ? navigator.audioSession : null;
+        if (sess2 && sess2.type === "play-and-record") sess2.type = "auto";
+      } catch (_) {
+      }
+    }, []);
     const stopMic = useCallback(() => {
       micWantRef.current = false;
       const m = micRef.current;
@@ -7044,12 +7051,13 @@ window.SOUNDTRACK = SOUNDTRACK;
         }
         micRef.current = null;
       }
+      releaseCaptureSession();
       setMicOn(false);
       setSingDeg(null);
       setSingInTune(false);
       setSingCents(0);
       setSingLevel(0);
-    }, []);
+    }, [releaseCaptureSession]);
     const micErrMessage = (e) => {
       const name = e && e.name;
       if (name === "NotAllowedError" || name === "SecurityError")
@@ -7058,7 +7066,41 @@ window.SOUNDTRACK = SOUNDTRACK;
         return "No microphone found on this device.";
       if (name === "NotReadableError" || name === "TrackStartError")
         return "Another app is using the mic — close it and try again.";
+      if (name === "InvalidStateError" && /audiosession/i.test(e && e.message || ""))
+        return "iOS wouldn't share the mic while sound was playing — turn Drone and Voice off, then tap 🎤 Sing again.";
       return "Couldn't open the mic" + (name ? " (" + name + (e && e.stage ? " @" + e.stage : "") + ")" : "") + ".";
+    };
+    const micStreamRequest = async (constraints) => {
+      const sess2 = typeof navigator !== "undefined" ? navigator.audioSession : null;
+      if (sess2) {
+        try {
+          sess2.type = "play-and-record";
+        } catch (_) {
+        }
+      }
+      try {
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (e) {
+        if (!e || e.name !== "InvalidStateError") throw e;
+        let shared = null;
+        try {
+          shared = Tone.getContext().rawContext;
+        } catch (_) {
+        }
+        if (!shared) throw e;
+        try {
+          await shared.suspend();
+        } catch (_) {
+        }
+        try {
+          return await navigator.mediaDevices.getUserMedia(constraints);
+        } finally {
+          try {
+            await shared.resume();
+          } catch (_) {
+          }
+        }
+      }
     };
     const reportMicFailure = (e) => {
       try {
@@ -7169,14 +7211,17 @@ window.SOUNDTRACK = SOUNDTRACK;
       setMicErr(null);
       setMicReq(true);
       let stream = null;
+      let stage = "start";
       try {
         try {
           await Tone.start();
         } catch (_) {
         }
-        stream = await navigator.mediaDevices.getUserMedia({
+        stage = "getusermedia";
+        stream = await micStreamRequest({
           audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
         });
+        stage = "wire";
         if (!micWantRef.current) {
           try {
             stream.getTracks().forEach((t) => t.stop());
@@ -7205,6 +7250,13 @@ window.SOUNDTRACK = SOUNDTRACK;
           stream && stream.getTracks().forEach((t) => t.stop());
         } catch (_) {
         }
+        if (e && !e.stage) {
+          try {
+            e.stage = stage;
+          } catch (_) {
+          }
+        }
+        releaseCaptureSession();
         reportMicFailure(e);
         setMicErr(micErrMessage(e));
         setMicOn(false);

@@ -2989,6 +2989,15 @@ export default function NumberEarTrainer() {
   // mic warm after you leave.
   const micWantRef = useRef(false); // false = mic no longer wanted (toggled off / unmounting)
   const micBusyRef = useRef(false); // true while a getUserMedia request is in flight
+  // Hand the audio session back when we're done listening. iOS routes output to the
+  // earpiece and drops the volume while a page holds "play-and-record", so leaving it
+  // set would quietly ruin playback for the rest of the session.
+  const releaseCaptureSession = useCallback(() => {
+    try {
+      const sess = typeof navigator !== "undefined" ? navigator.audioSession : null;
+      if (sess && sess.type === "play-and-record") sess.type = "auto";
+    } catch (_) {}
+  }, []);
   const stopMic = useCallback(() => {
     micWantRef.current = false;
     const m = micRef.current;
@@ -3000,8 +3009,9 @@ export default function NumberEarTrainer() {
       if (m.owned) { try { m.ctx.close(); } catch (_) {} } // our private listening context — ours to close
       micRef.current = null;
     }
+    releaseCaptureSession();
     setMicOn(false); setSingDeg(null); setSingInTune(false); setSingCents(0); setSingLevel(0);
-  }, []);
+  }, [releaseCaptureSession]);
 
   // Why the mic didn't open, in words the player can act on. Once a browser has been
   // told "no" it remembers, so tapping Sing again NEVER re-prompts — the old copy
@@ -3015,6 +3025,11 @@ export default function NumberEarTrainer() {
       return "No microphone found on this device.";
     if (name === "NotReadableError" || name === "TrackStartError")
       return "Another app is using the mic — close it and try again.";
+    // iOS won't start capture while the page's audio session is in a playback category.
+    // We ask for the combined category (and stand the engine down) first, so this only
+    // shows if that failed too — in which case silence is the thing that helps.
+    if (name === "InvalidStateError" && /audiosession/i.test((e && e.message) || ""))
+      return "iOS wouldn't share the mic while sound was playing — turn Drone and Voice off, then tap 🎤 Sing again.";
     // Unknown failure: name the STAGE it died at too. Phones can't open a console, so
     // this line is the only bug report we get — and it's what Sentry gets tagged with.
     return "Couldn't open the mic" + (name ? " (" + name + (e && e.stage ? " @" + e.stage : "") + ")" : "") + ".";
@@ -3026,6 +3041,30 @@ export default function NumberEarTrainer() {
   // throws InvalidStateError (the failure Sing was dying on). So: nudge the shared
   // context awake first, and if it still refuses, listen on a private context of our
   // own. The analyser is never routed to a destination, so a second context is free.
+  // iOS/WebKit puts the page's AudioSession in a PLAYBACK category as soon as the app
+  // makes a sound — and then refuses to start capture from it: "AudioSession category is
+  // not compatible with audio capture." That's what was killing Sing on iPhone, before
+  // any of the audio wiring ran. Safari 17+ lets us ask for the combined category; older
+  // WebKit only responds to the audio engine actually standing down, so fall back to
+  // suspending the shared context for the length of the request.
+  const micStreamRequest = async (constraints) => {
+    const sess = typeof navigator !== "undefined" ? navigator.audioSession : null;
+    if (sess) { try { sess.type = "play-and-record"; } catch (_) {} }
+    try {
+      return await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (e) {
+      if (!e || e.name !== "InvalidStateError") throw e;
+      let shared = null; try { shared = Tone.getContext().rawContext; } catch (_) {}
+      if (!shared) throw e;
+      try { await shared.suspend(); } catch (_) {}
+      try {
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      } finally {
+        try { await shared.resume(); } catch (_) {} // the app must keep its voice either way
+      }
+    }
+  };
+
   // A mic that won't open is invisible to us otherwise — it happens on the player's
   // phone, where there's no console to read. Ship the shape of the failure (which stage,
   // what the contexts were doing, the rates involved) so it's fixable from Sentry.
@@ -3123,13 +3162,16 @@ export default function NumberEarTrainer() {
     micWantRef.current = true; micBusyRef.current = true;
     setMicErr(null); setMicReq(true);
     let stream = null;
+    let stage = "start"; // which step a failure died at — the on-screen line and Sentry both carry it
     try {
       // Nice-to-have (keeps the app's own playback alive), but listening doesn't need
       // Tone at all — never let a sulking shared context stop the mic from opening.
       try { await Tone.start(); } catch (_) {}
-      stream = await navigator.mediaDevices.getUserMedia({
+      stage = "getusermedia";
+      stream = await micStreamRequest({
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
       });
+      stage = "wire";
       // If we were toggled off (or the component unmounted) during the await, don't
       // wire up or store the stream — just release it, or it leaks as a live mic track.
       if (!micWantRef.current) { try { stream.getTracks().forEach((t) => t.stop()); } catch (_) {} return; }
@@ -3146,6 +3188,8 @@ export default function NumberEarTrainer() {
       // The permission was granted and only the wiring failed? The track is live and
       // ours — stop it, or the OS mic indicator stays lit with nothing listening.
       try { stream && stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
+      if (e && !e.stage) { try { e.stage = stage; } catch (_) {} }
+      releaseCaptureSession();
       reportMicFailure(e);
       setMicErr(micErrMessage(e)); setMicOn(false);
     } finally {
