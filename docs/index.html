@@ -1181,9 +1181,10 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .fp-sing { display: none; }                   /* Sing → behind ⚙ (settings) */
   .app-wide.fp-opts-open .key-row { display: flex; }
   .app-wide.fp-opts-open .fp-sing { display: inline-flex; }
-  /* …but a LIVE mic always keeps its off-switch in the bar: closing the ⚙ used to hide
-     the only way to stop listening, leaving the mic open with no visible control. */
-  .app-wide .ghost.fp-sing.on { display: inline-flex; }
+  /* …but a LIVE mic (or a mic error the player needs to dismiss) always keeps its button
+     in the bar: closing the ⚙ used to hide the only way to stop listening / clear the
+     panel, leaving it on screen with no visible control. */
+  .app-wide .ghost.fp-sing.on, .app-wide .ghost.fp-sing.has-err { display: inline-flex; }
   .app-wide .panel { padding: 12px 14px; }
   .app-wide .num { min-height: 48px; }
   /* keep the feedback line on the SAME row as Repeat/♪/Voice (it otherwise wraps to its
@@ -5797,7 +5798,7 @@ window.SOUNDTRACK = SOUNDTRACK;
 .fretboard.fb-land { overflow:hidden; width:100%; height:100%; min-height:0; display:flex; }
 .fretboard.fb-land svg { margin:auto; width:100%; height:100%; max-width:100%; }
 `;
-  function Fretboard({ musicKey, mode = "major", boxKind = "position", active = [], fb, disabled = false, landscape = false, posStart = null, onDown, onUp, onAnswer }) {
+  function Fretboard({ musicKey, mode = "major", boxKind = "position", active = [], fb, disabled = false, landscape = false, posStart = null, singDeg = null, singInTune = false, onDown, onUp, onAnswer }) {
     const shapeAnswer = boxKind === "answer";
     const answerMode = !!onAnswer;
     const land = landscape && !shapeAnswer;
@@ -5846,8 +5847,13 @@ window.SOUNDTRACK = SOUNDTRACK;
       } else if (!answerMode && held.has(id)) {
         fill = "#6ABF5E";
       }
+      const singing = c.inKey && singDeg != null && c.degree === singDeg;
       if (c.inKey) {
-        els.push(/* @__PURE__ */ React.createElement("circle", { key: "n" + id, cx: x, cy: y, r: dot, fill, stroke: "#121815", strokeWidth: "1.5" }));
+        if (singing) {
+          const ring = singInTune ? "#6ABF5E" : "#E07856";
+          els.push(/* @__PURE__ */ React.createElement("circle", { key: "sg" + id, cx: x, cy: y, r: dot + 5, fill: "none", stroke: ring, strokeWidth: "3.5", opacity: "0.95", style: { pointerEvents: "none" } }));
+        }
+        els.push(/* @__PURE__ */ React.createElement("circle", { key: "n" + id, cx: x, cy: y, r: dot, fill, stroke: singing ? singInTune ? "#6ABF5E" : "#E07856" : "#121815", strokeWidth: singing ? 3 : 1.5 }));
         els.push(/* @__PURE__ */ React.createElement("text", { key: "t" + id, x, y: y + (land ? 7 : 5), textAnchor: "middle", fontSize: land ? 22 : shapeAnswer ? 19 : 15, fontWeight: "800", fill: "#16201f", fontFamily: "'Archivo Black',sans-serif", style: { pointerEvents: "none" } }, c.degree));
         if (mark) els.push(/* @__PURE__ */ React.createElement("text", { key: "m" + id, x, y: y - dot - 3, textAnchor: "middle", fontSize: "14", fontWeight: "800", fill: mark === "✓" ? "#6ABF5E" : "#E07856", style: { pointerEvents: "none" } }, mark));
         else if (c.isTonic) els.push(/* @__PURE__ */ React.createElement("text", { key: "st" + id, x, y: y - dot - 3, textAnchor: "middle", fontSize: land ? 16 : 13, fill: "#57C6C4", style: { pointerEvents: "none" } }, "★"));
@@ -7030,6 +7036,12 @@ window.SOUNDTRACK = SOUNDTRACK;
           m.stream.getTracks().forEach((t) => t.stop());
         } catch (_) {
         }
+        if (m.owned) {
+          try {
+            m.ctx.close();
+          } catch (_) {
+          }
+        }
         micRef.current = null;
       }
       setMicOn(false);
@@ -7045,8 +7057,43 @@ window.SOUNDTRACK = SOUNDTRACK;
       if (name === "NotFoundError" || name === "DevicesNotFoundError" || name === "OverconstrainedError")
         return "No microphone found on this device.";
       if (name === "NotReadableError" || name === "TrackStartError")
-        return "Another app is using the mic — close it, then tap 🎤 Sing again.";
-      return "Couldn't open the mic" + (name ? " (" + name + ")" : "") + " — tap 🎤 Sing to try again.";
+        return "Another app is using the mic — close it and try again.";
+      return "Couldn't open the mic" + (name ? " (" + name + ")" : "") + ".";
+    };
+    const buildMicChain = (stream) => {
+      const wire = (ctx) => {
+        const source = ctx.createMediaStreamSource(stream);
+        const gain = ctx.createGain();
+        gain.gain.value = 2.5;
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
+        source.connect(gain);
+        gain.connect(analyser);
+        return { ctx, stream, source, gain, analyser, buf: new Float32Array(analyser.fftSize), raf: 0, last: 0 };
+      };
+      let shared = null;
+      try {
+        shared = Tone.getContext().rawContext;
+      } catch (_) {
+      }
+      if (shared) {
+        if (shared.state !== "running") {
+          try {
+            shared.resume();
+          } catch (_) {
+          }
+        }
+        try {
+          return wire(shared);
+        } catch (_) {
+        }
+      }
+      const own = new (window.AudioContext || window.webkitAudioContext)();
+      try {
+        own.resume();
+      } catch (_) {
+      }
+      return { ...wire(own), owned: true };
     };
     const toggleMic = useCallback(async () => {
       if (micBusyRef.current) {
@@ -7058,6 +7105,10 @@ window.SOUNDTRACK = SOUNDTRACK;
         stopMic();
         return;
       }
+      if (micErr) {
+        setMicErr(null);
+        return;
+      }
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setMicErr(typeof window !== "undefined" && window.isSecureContext === false ? "The mic needs a secure page — open Numbersong over https:// (or localhost)." : "This browser won't give the page a microphone.");
         return;
@@ -7066,9 +7117,13 @@ window.SOUNDTRACK = SOUNDTRACK;
       micBusyRef.current = true;
       setMicErr(null);
       setMicReq(true);
+      let stream = null;
       try {
-        await Tone.start();
-        const stream = await navigator.mediaDevices.getUserMedia({
+        try {
+          await Tone.start();
+        } catch (_) {
+        }
+        stream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
         });
         if (!micWantRef.current) {
@@ -7078,29 +7133,25 @@ window.SOUNDTRACK = SOUNDTRACK;
           }
           return;
         }
-        const ctx = Tone.getContext().rawContext;
-        const source = ctx.createMediaStreamSource(stream);
-        const gain = ctx.createGain();
-        gain.gain.value = 2.5;
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 2048;
-        source.connect(gain);
-        gain.connect(analyser);
-        micRef.current = { stream, source, gain, analyser, buf: new Float32Array(analyser.fftSize), raf: 0, last: 0 };
+        micRef.current = buildMicChain(stream);
         setMicOn(true);
       } catch (e) {
+        try {
+          stream && stream.getTracks().forEach((t) => t.stop());
+        } catch (_) {
+        }
         setMicErr(micErrMessage(e));
         setMicOn(false);
       } finally {
         micBusyRef.current = false;
         setMicReq(false);
       }
-    }, [stopMic]);
+    }, [stopMic, micErr]);
     useEffect(() => {
       if (!micOn) return;
       const m = micRef.current;
       if (!m) return;
-      const sr = Tone.getContext().rawContext.sampleRate;
+      const sr = m.ctx && m.ctx.sampleRate || Tone.getContext().rawContext.sampleRate;
       let alive = true;
       const tick = (t) => {
         const mm = micRef.current;
@@ -7108,6 +7159,12 @@ window.SOUNDTRACK = SOUNDTRACK;
         mm.raf = requestAnimationFrame(tick);
         if (t - mm.last < 55) return;
         mm.last = t;
+        if (mm.ctx && mm.ctx.state === "suspended") {
+          try {
+            mm.ctx.resume();
+          } catch (_) {
+          }
+        }
         mm.analyser.getFloatTimeDomainData(mm.buf);
         let sum = 0;
         for (let i = 0; i < mm.buf.length; i++) sum += mm.buf[i] * mm.buf[i];
@@ -9394,7 +9451,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     ), /* @__PURE__ */ React.createElement(
       "button",
       {
-        className: "ghost voice fp-sing" + (micOn ? " on" : ""),
+        className: "ghost voice fp-sing" + (micOn ? " on" : "") + (micErr ? " has-err" : ""),
         onClick: toggleMic,
         "aria-pressed": micOn
       },
@@ -9403,7 +9460,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       const heard = singLevel > 0.03;
       let coach, state;
       if (micErr) {
-        coach = micErr;
+        coach = micErr + " Tap 🎤 Sing to dismiss.";
         state = "off";
       } else if (micReq) {
         coach = "Asking for mic access — tap Allow…";
@@ -9426,8 +9483,32 @@ window.SOUNDTRACK = SOUNDTRACK;
     })()), /* @__PURE__ */ React.createElement("div", { className: "fp-main" + (exView === "guitar" && landscape ? " fp-guitar-land" : "") }, exView === "guitar" ? landscape ? (() => {
       const gb = guitarFret == null ? positionBox(musicKey, "major", { minFret: 2 }) : positionBox(musicKey, "major", { startFret: guitarFret });
       const cur = gb.startFret, nudge = (d) => setGuitarFret(Math.max(0, Math.min(cur + d, MININECK_MAX_START)));
-      return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "mini-neck-row" }, /* @__PURE__ */ React.createElement("button", { className: "ghost neck-arrow", onClick: () => nudge(-1), disabled: cur <= 0, "aria-label": "Move position toward the nut" }, "◀"), /* @__PURE__ */ React.createElement(MiniNeck, { startFret: gb.startFret, endFret: gb.endFret, onMove: setGuitarFret }), /* @__PURE__ */ React.createElement("button", { className: "ghost neck-arrow", onClick: () => nudge(1), disabled: cur >= MININECK_MAX_START, "aria-label": "Move position toward the body" }, "▶")), /* @__PURE__ */ React.createElement(Fretboard, { landscape: true, posStart: cur, musicKey, mode: "major", active: fretActive, onDown: fretDown, onUp: fretUp }));
-    })() : /* @__PURE__ */ React.createElement(Fretboard, { musicKey, mode: "major", active: fretActive, onDown: fretDown, onUp: fretUp }) : exView === "map" ? /* @__PURE__ */ React.createElement(
+      return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "mini-neck-row" }, /* @__PURE__ */ React.createElement("button", { className: "ghost neck-arrow", onClick: () => nudge(-1), disabled: cur <= 0, "aria-label": "Move position toward the nut" }, "◀"), /* @__PURE__ */ React.createElement(MiniNeck, { startFret: gb.startFret, endFret: gb.endFret, onMove: setGuitarFret }), /* @__PURE__ */ React.createElement("button", { className: "ghost neck-arrow", onClick: () => nudge(1), disabled: cur >= MININECK_MAX_START, "aria-label": "Move position toward the body" }, "▶")), /* @__PURE__ */ React.createElement(
+        Fretboard,
+        {
+          landscape: true,
+          posStart: cur,
+          musicKey,
+          mode: "major",
+          active: fretActive,
+          singDeg: micOn ? singDeg : null,
+          singInTune,
+          onDown: fretDown,
+          onUp: fretUp
+        }
+      ));
+    })() : /* @__PURE__ */ React.createElement(
+      Fretboard,
+      {
+        musicKey,
+        mode: "major",
+        active: fretActive,
+        singDeg: micOn ? singDeg : null,
+        singInTune,
+        onDown: fretDown,
+        onUp: fretUp
+      }
+    ) : exView === "map" ? /* @__PURE__ */ React.createElement(
       ExploreMap,
       {
         start: exStart,
@@ -10284,9 +10365,10 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .fp-sing { display: none; }                   /* Sing → behind ⚙ (settings) */
   .app-wide.fp-opts-open .key-row { display: flex; }
   .app-wide.fp-opts-open .fp-sing { display: inline-flex; }
-  /* …but a LIVE mic always keeps its off-switch in the bar: closing the ⚙ used to hide
-     the only way to stop listening, leaving the mic open with no visible control. */
-  .app-wide .ghost.fp-sing.on { display: inline-flex; }
+  /* …but a LIVE mic (or a mic error the player needs to dismiss) always keeps its button
+     in the bar: closing the ⚙ used to hide the only way to stop listening / clear the
+     panel, leaving it on screen with no visible control. */
+  .app-wide .ghost.fp-sing.on, .app-wide .ghost.fp-sing.has-err { display: inline-flex; }
   .app-wide .panel { padding: 12px 14px; }
   .app-wide .num { min-height: 48px; }
   /* keep the feedback line on the SAME row as Repeat/♪/Voice (it otherwise wraps to its

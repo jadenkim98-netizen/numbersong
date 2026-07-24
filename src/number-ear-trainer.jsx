@@ -2012,7 +2012,7 @@ const FRETBOARD_CSS = `
 .fretboard.fb-land { overflow:hidden; width:100%; height:100%; min-height:0; display:flex; }
 .fretboard.fb-land svg { margin:auto; width:100%; height:100%; max-width:100%; }
 `;
-function Fretboard({ musicKey, mode = "major", boxKind = "position", active = [], fb, disabled = false, landscape = false, posStart = null, onDown, onUp, onAnswer }) {
+function Fretboard({ musicKey, mode = "major", boxKind = "position", active = [], fb, disabled = false, landscape = false, posStart = null, singDeg = null, singInTune = false, onDown, onUp, onAnswer }) {
   // Box-driven: "position" = the ~5-fret Free Play window (6 strings); "answer" = the compact
   // 3-string × 4-fret test box (big finger targets). Play mode (onDown/onUp + `active` ids) vs
   // answer mode (onAnswer + pc-based `fb` feedback {hit, wrong[], reveal[]}).
@@ -2058,8 +2058,15 @@ function Fretboard({ musicKey, mode = "major", boxKind = "position", active = []
     else if (answerMode && reveal.has(c.pc)) { fill = "#57C6C4"; }
     else if (answerMode && picked.has(c.pc)) { fill = "#7CADD1"; }
     else if (!answerMode && held.has(id)) { fill = "#6ABF5E"; }
+    // Sing tuner: the number you're singing lights up EVERY place it lives in the box
+    // (octave-agnostic, same as the map and piano) — green ring in tune, orange off.
+    const singing = c.inKey && singDeg != null && c.degree === singDeg;
     if (c.inKey) {
-      els.push(<circle key={"n" + id} cx={x} cy={y} r={dot} fill={fill} stroke="#121815" strokeWidth="1.5" />);
+      if (singing) {
+        const ring = singInTune ? "#6ABF5E" : "#E07856";
+        els.push(<circle key={"sg" + id} cx={x} cy={y} r={dot + 5} fill="none" stroke={ring} strokeWidth="3.5" opacity="0.95" style={{ pointerEvents: "none" }} />);
+      }
+      els.push(<circle key={"n" + id} cx={x} cy={y} r={dot} fill={fill} stroke={singing ? (singInTune ? "#6ABF5E" : "#E07856") : "#121815"} strokeWidth={singing ? 3 : 1.5} />);
       els.push(<text key={"t" + id} x={x} y={y + (land ? 7 : 5)} textAnchor="middle" fontSize={land ? 22 : shapeAnswer ? 19 : 15} fontWeight="800" fill="#16201f" fontFamily="'Archivo Black',sans-serif" style={{ pointerEvents: "none" }}>{c.degree}</text>);
       if (mark) els.push(<text key={"m" + id} x={x} y={y - dot - 3} textAnchor="middle" fontSize="14" fontWeight="800" fill={mark === "✓" ? "#6ABF5E" : "#E07856"} style={{ pointerEvents: "none" }}>{mark}</text>);
       else if (c.isTonic) els.push(<text key={"st" + id} x={x} y={y - dot - 3} textAnchor="middle" fontSize={land ? 16 : 13} fill="#57C6C4" style={{ pointerEvents: "none" }}>★</text>);
@@ -2990,6 +2997,7 @@ export default function NumberEarTrainer() {
       try { m.source.disconnect(); } catch (_) {}
       try { m.gain?.disconnect(); } catch (_) {}
       try { m.stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
+      if (m.owned) { try { m.ctx.close(); } catch (_) {} } // our private listening context — ours to close
       micRef.current = null;
     }
     setMicOn(false); setSingDeg(null); setSingInTune(false); setSingCents(0); setSingLevel(0);
@@ -3006,8 +3014,38 @@ export default function NumberEarTrainer() {
     if (name === "NotFoundError" || name === "DevicesNotFoundError" || name === "OverconstrainedError")
       return "No microphone found on this device.";
     if (name === "NotReadableError" || name === "TrackStartError")
-      return "Another app is using the mic — close it, then tap 🎤 Sing again.";
-    return "Couldn't open the mic" + (name ? " (" + name + ")" : "") + " — tap 🎤 Sing to try again.";
+      return "Another app is using the mic — close it and try again.";
+    return "Couldn't open the mic" + (name ? " (" + name + ")" : "") + ".";
+  };
+
+  // Wire a live mic stream into an analyser. iOS Safari flips the audio session into
+  // record mode when the mic opens, which suspends/interrupts the AudioContext the rest
+  // of the app is playing through — and createMediaStreamSource on THAT context then
+  // throws InvalidStateError (the failure Sing was dying on). So: nudge the shared
+  // context awake first, and if it still refuses, listen on a private context of our
+  // own. The analyser is never routed to a destination, so a second context is free.
+  const buildMicChain = (stream) => {
+    const wire = (ctx) => {
+      const source = ctx.createMediaStreamSource(stream);
+      // Boost the input so a normal voice at arm's length registers — no need to
+      // sing right into the mic. Feeds the analyser only, never the speakers.
+      const gain = ctx.createGain();
+      gain.gain.value = 2.5;
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048;
+      source.connect(gain);
+      gain.connect(analyser);
+      return { ctx, stream, source, gain, analyser, buf: new Float32Array(analyser.fftSize), raf: 0, last: 0 };
+    };
+    let shared = null;
+    try { shared = Tone.getContext().rawContext; } catch (_) {}
+    if (shared) {
+      if (shared.state !== "running") { try { shared.resume(); } catch (_) {} }
+      try { return wire(shared); } catch (_) {} // fall through to a private context
+    }
+    const own = new (window.AudioContext || window.webkitAudioContext)();
+    try { own.resume(); } catch (_) {}
+    return { ...wire(own), owned: true };
   };
 
   // Toggle listening. Must run on the user's tap so iOS grants mic access; the
@@ -3020,6 +3058,11 @@ export default function NumberEarTrainer() {
     // Sing during the prompt leaks a live mic track (OS indicator stays on).
     if (micBusyRef.current) { micWantRef.current = false; setMicReq(false); return; }
     if (micRef.current) { stopMic(); return; }
+    // An error panel is showing: this tap DISMISSES it. A blocked/failed mic fails the
+    // same way every time, so retrying on tap looked like the button did nothing and
+    // left the panel stuck on screen forever. Sing is a real toggle in every state —
+    // tap again after this to actually retry.
+    if (micErr) { setMicErr(null); return; }
     // Served over plain http:// (a LAN IP, or a file:// copy)? The browser hides
     // getUserMedia entirely outside a secure context — there's no prompt to allow,
     // so say what's actually wrong instead of blaming permissions.
@@ -3031,33 +3074,29 @@ export default function NumberEarTrainer() {
     }
     micWantRef.current = true; micBusyRef.current = true;
     setMicErr(null); setMicReq(true);
+    let stream = null;
     try {
-      await Tone.start();
-      const stream = await navigator.mediaDevices.getUserMedia({
+      // Nice-to-have (keeps the app's own playback alive), but listening doesn't need
+      // Tone at all — never let a sulking shared context stop the mic from opening.
+      try { await Tone.start(); } catch (_) {}
+      stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
       });
       // If we were toggled off (or the component unmounted) during the await, don't
       // wire up or store the stream — just release it, or it leaks as a live mic track.
       if (!micWantRef.current) { try { stream.getTracks().forEach((t) => t.stop()); } catch (_) {} return; }
-      const ctx = Tone.getContext().rawContext;
-      const source = ctx.createMediaStreamSource(stream);
-      // Boost the input so a normal voice at arm's length registers — no need to
-      // sing right into the mic. Feeds the analyser only, never the speakers.
-      const gain = ctx.createGain();
-      gain.gain.value = 2.5;
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 2048;
-      source.connect(gain);
-      gain.connect(analyser);
-      micRef.current = { stream, source, gain, analyser, buf: new Float32Array(analyser.fftSize), raf: 0, last: 0 };
+      micRef.current = buildMicChain(stream);
       setMicOn(true);
     } catch (e) {
+      // The permission was granted and only the wiring failed? The track is live and
+      // ours — stop it, or the OS mic indicator stays lit with nothing listening.
+      try { stream && stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
       setMicErr(micErrMessage(e)); setMicOn(false);
     } finally {
       micBusyRef.current = false;
       setMicReq(false);
     }
-  }, [stopMic]);
+  }, [stopMic, micErr]);
 
   // The detection loop: while listening, sample the mic ~18×/s, find the pitch,
   // and map it to the number you're singing in the current key.
@@ -3065,7 +3104,10 @@ export default function NumberEarTrainer() {
     if (!micOn) return;
     const m = micRef.current;
     if (!m) return;
-    const sr = Tone.getContext().rawContext.sampleRate;
+    // Read the rate off the context the mic is actually wired into — the fallback
+    // context can run at a different rate than Tone's, and the wrong rate would put
+    // every detected pitch out by a couple of semitones.
+    const sr = (m.ctx && m.ctx.sampleRate) || Tone.getContext().rawContext.sampleRate;
     let alive = true;
     const tick = (t) => {
       const mm = micRef.current;
@@ -3073,6 +3115,9 @@ export default function NumberEarTrainer() {
       mm.raf = requestAnimationFrame(tick);
       if (t - mm.last < 55) return; // throttle: ACF is O(n²), don't run every frame
       mm.last = t;
+      // iOS can suspend the context again mid-listen (a call, a background dip); an
+      // analyser on a suspended context just reads silence, so nudge it awake.
+      if (mm.ctx && mm.ctx.state === "suspended") { try { mm.ctx.resume(); } catch (_) {} }
       mm.analyser.getFloatTimeDomainData(mm.buf);
       // input loudness (so the meter reacts to any sound — proves the mic is live)
       let sum = 0;
@@ -5828,7 +5873,7 @@ export default function NumberEarTrainer() {
           onClick={() => setVoiceOn((v) => !v)} aria-pressed={voiceOn}>
           {voiceOn ? "Voice on" : "Voice off"}
         </button>
-        <button className={"ghost voice fp-sing" + (micOn ? " on" : "")}
+        <button className={"ghost voice fp-sing" + (micOn ? " on" : "") + (micErr ? " has-err" : "")}
           onClick={toggleMic} aria-pressed={micOn}>
           {micOn ? "🎤 Sing on" : "🎤 Sing"}
         </button>
@@ -5838,7 +5883,9 @@ export default function NumberEarTrainer() {
         // sharp drifts right; clamp to ±50¢ so wild misses don't fly off-screen).
         const heard = singLevel > 0.03;
         let coach, state;
-        if (micErr) { coach = micErr; state = "off"; }
+        // Every failure ends the same way: the button dismisses the panel (and a further
+        // tap retries), so the copy says so once instead of each message guessing.
+        if (micErr) { coach = micErr + " Tap 🎤 Sing to dismiss."; state = "off"; }
         else if (micReq) { coach = "Asking for mic access — tap Allow…"; state = "idle"; }
         else if (singDeg == null) { coach = heard ? "Almost — hold one steady note" : "Listening… sing a number"; state = "idle"; }
         else if (singInTune) { coach = `Nice — right on ${singDeg}`; state = "in"; }
@@ -5880,10 +5927,12 @@ export default function NumberEarTrainer() {
                     <MiniNeck startFret={gb.startFret} endFret={gb.endFret} onMove={setGuitarFret} />
                     <button className="ghost neck-arrow" onClick={() => nudge(1)} disabled={cur >= MININECK_MAX_START} aria-label="Move position toward the body">▶</button>
                   </div>
-                  <Fretboard landscape posStart={cur} musicKey={musicKey} mode="major" active={fretActive} onDown={fretDown} onUp={fretUp} />
+                  <Fretboard landscape posStart={cur} musicKey={musicKey} mode="major" active={fretActive}
+                    singDeg={micOn ? singDeg : null} singInTune={singInTune} onDown={fretDown} onUp={fretUp} />
                 </>
               ); })()
-            : <Fretboard musicKey={musicKey} mode="major" active={fretActive} onDown={fretDown} onUp={fretUp} />)
+            : <Fretboard musicKey={musicKey} mode="major" active={fretActive}
+                singDeg={micOn ? singDeg : null} singInTune={singInTune} onDown={fretDown} onUp={fretUp} />)
         : exView === "map"
         ? <ExploreMap start={exStart} count={exCount} stage={exStage}
             octaves={exOctaves} world={exWorld} singDeg={micOn ? singDeg : null} singInTune={singInTune}
@@ -6735,9 +6784,10 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   .app-wide .fp-sing { display: none; }                   /* Sing → behind ⚙ (settings) */
   .app-wide.fp-opts-open .key-row { display: flex; }
   .app-wide.fp-opts-open .fp-sing { display: inline-flex; }
-  /* …but a LIVE mic always keeps its off-switch in the bar: closing the ⚙ used to hide
-     the only way to stop listening, leaving the mic open with no visible control. */
-  .app-wide .ghost.fp-sing.on { display: inline-flex; }
+  /* …but a LIVE mic (or a mic error the player needs to dismiss) always keeps its button
+     in the bar: closing the ⚙ used to hide the only way to stop listening / clear the
+     panel, leaving it on screen with no visible control. */
+  .app-wide .ghost.fp-sing.on, .app-wide .ghost.fp-sing.has-err { display: inline-flex; }
   .app-wide .panel { padding: 12px 14px; }
   .app-wide .num { min-height: 48px; }
   /* keep the feedback line on the SAME row as Repeat/♪/Voice (it otherwise wraps to its
