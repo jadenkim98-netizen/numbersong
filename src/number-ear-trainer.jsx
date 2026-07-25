@@ -2562,7 +2562,12 @@ export default function NumberEarTrainer() {
   });
   const saveShop = (v) => { setShop(v); savePref("shop", JSON.stringify(v)); };
   const spentStars = () => shop.owned.reduce((a, id) => a + ((SHOP.find((x) => x.id === id) || {}).cost || 0), 0);
-  const starBalance = () => totalStars() - spentStars();
+  // Never let the balance read negative. It can go < 0 whenever `spent` outruns `total`
+  // — resetting progress (shop is kept), or a gated player buying a skin then reloading
+  // (the shop persists but their unsaved progress doesn't). A negative "★ -12 to spend"
+  // is nonsense and would lock buying forever; clamp so the UI reads 0 and the buy-guards
+  // (balance < cost) still block correctly.
+  const starBalance = () => Math.max(0, totalStars() - spentStars());
   const buyItem = (item) => {
     if (shop.owned.includes(item.id) || starBalance() < item.cost) return;
     saveShop({ ...shop, owned: [...shop.owned, item.id], skin: item.type === "skin" ? item.id : shop.skin });
@@ -4430,12 +4435,15 @@ export default function NumberEarTrainer() {
           </div>
           <div className="set-block">
             <span className="set-label">Progress</span>
-            <p className="set-desc">Clears your ✓ marks and best scores on this device.</p>
+            <p className="set-desc">Clears your ✓ marks, best scores, and earned Coda skins on this device.</p>
             <button className="ghost" style={{ alignSelf: "flex-start" }}
               onClick={() => {
-                if (window.confirm("Reset all progress on this device? This can't be undone.")) {
+                if (window.confirm("Reset all progress on this device? This clears your scores and earned skins, and can't be undone.")) {
                   try { window.localStorage.removeItem("numbersong-progress"); } catch (e) {}
                   setProgress({ melody: {}, chords: {}, progressions: {} });
+                  // Skins are bought with stars, so they have to go too — otherwise `spent`
+                  // outruns the now-zero `total` and the balance breaks (see starBalance).
+                  saveShop({ owned: [], skin: "default" });
                 }
               }}>
               Reset progress

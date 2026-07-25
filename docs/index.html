@@ -6530,7 +6530,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       savePref("shop", JSON.stringify(v));
     };
     const spentStars = () => shop.owned.reduce((a, id) => a + ((SHOP.find((x) => x.id === id) || {}).cost || 0), 0);
-    const starBalance = () => totalStars() - spentStars();
+    const starBalance = () => Math.max(0, totalStars() - spentStars());
     const buyItem = (item) => {
       if (shop.owned.includes(item.id) || starBalance() < item.cost) return;
       saveShop({ ...shop, owned: [...shop.owned, item.id], skin: item.type === "skin" ? item.id : shop.skin });
@@ -8386,18 +8386,19 @@ window.SOUNDTRACK = SOUNDTRACK;
           disabled: busy
         },
         "♪ Hear a progression"
-      )), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Progress"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "Clears your ✓ marks and best scores on this device."), /* @__PURE__ */ React.createElement(
+      )), /* @__PURE__ */ React.createElement("div", { className: "set-block" }, /* @__PURE__ */ React.createElement("span", { className: "set-label" }, "Progress"), /* @__PURE__ */ React.createElement("p", { className: "set-desc" }, "Clears your ✓ marks, best scores, and earned Coda skins on this device."), /* @__PURE__ */ React.createElement(
         "button",
         {
           className: "ghost",
           style: { alignSelf: "flex-start" },
           onClick: () => {
-            if (window.confirm("Reset all progress on this device? This can't be undone.")) {
+            if (window.confirm("Reset all progress on this device? This clears your scores and earned skins, and can't be undone.")) {
               try {
                 window.localStorage.removeItem("numbersong-progress");
               } catch (e) {
               }
               setProgress({ melody: {}, chords: {}, progressions: {} });
+              saveShop({ owned: [], skin: "default" });
             }
           }
         },
