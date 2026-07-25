@@ -775,29 +775,38 @@ function useAudio() {
     let curTones = null;
     // One quarter-note clock drives both drums and chord changes (locked, no drift).
     // A bar = 4 quarters = 1 chord. Count-in = one bar of clicks.
-    let q = -countIn, ci = 0;
+    let q = -countIn, ci = 0, lastT = 0;
+    // Guard each audio trigger. If the AudioContext clock stalls — suspended in a
+    // backgrounded tab, or briefly frozen — Tone.now() repeats a value, and handing a
+    // NoiseSynth/MetalSynth two equal (or decreasing) start times throws "Start time
+    // must be strictly greater than previous start time". A bare throw here used to kill
+    // the whole jam, because it skipped the q++/reschedule at the end of the tick. So:
+    // clamp the schedule time strictly upward (fixes the throw at its source) AND wrap
+    // every trigger so any residual failure drops one hit instead of stopping the loop.
+    const play = (fn) => { try { fn(); } catch (e) {} };
     const tick = () => {
       if (!p.active) return;
       const qDur = B() / 4;
-      const t = Tone.now();
+      const t = Math.max(Tone.now(), lastT + 0.001);
+      lastT = t;
       if (q < 0) {
-        click.triggerAttackRelease(q === -countIn ? "C6" : "C5", 0.05, t);
+        play(() => click.triggerAttackRelease(q === -countIn ? "C6" : "C5", 0.05, t));
         cb({ phase: "count", n: -q });
       } else {
         if (getDrums()) {
-          hat.triggerAttackRelease("32n", t, 0.5);
-          if (q % 4 === 0 || q % 4 === 2) kick.triggerAttackRelease("C1", "8n", t);
-          if (q % 4 === 1 || q % 4 === 3) snare.triggerAttackRelease("8n", t);
+          play(() => hat.triggerAttackRelease("32n", t, 0.5));
+          if (q % 4 === 0 || q % 4 === 2) play(() => kick.triggerAttackRelease("C1", "8n", t));
+          if (q % 4 === 1 || q % 4 === 3) play(() => snare.triggerAttackRelease("8n", t));
         }
         if (q % 4 === 0) {
           const idx = ci % chordsTones.length;
           curTones = chordsTones[idx];
-          pad.triggerAttackRelease(notesFor(curTones), qDur * 4 * 0.95, t);
-          bass.triggerAttackRelease(bassNote(curTones[0]), qDur * 2 * 0.9, t); // root on beat 1
+          play(() => pad.triggerAttackRelease(notesFor(curTones), qDur * 4 * 0.95, t));
+          play(() => bass.triggerAttackRelease(bassNote(curTones[0]), qDur * 2 * 0.9, t)); // root on beat 1
           cb({ phase: "play", i: idx });
           ci++;
         } else if (q % 4 === 2 && curTones) {
-          bass.triggerAttackRelease(bassNote(curTones[2] || curTones[0]), qDur * 2 * 0.9, t); // fifth on beat 3
+          play(() => bass.triggerAttackRelease(bassNote(curTones[2] || curTones[0]), qDur * 2 * 0.9, t)); // fifth on beat 3
         }
       }
       q++;

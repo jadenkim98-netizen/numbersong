@@ -4556,29 +4556,36 @@ window.SOUNDTRACK = SOUNDTRACK;
       };
       const bassNote = (d) => Tone.Frequency(Tone.Frequency(key + 2).toMidi() + DEGREE_SEMITONES[d], "midi").toNote();
       let curTones = null;
-      let q = -countIn, ci = 0;
+      let q = -countIn, ci = 0, lastT = 0;
+      const play = (fn) => {
+        try {
+          fn();
+        } catch (e) {
+        }
+      };
       const tick = () => {
         if (!p.active) return;
         const qDur = B() / 4;
-        const t = Tone.now();
+        const t = Math.max(Tone.now(), lastT + 1e-3);
+        lastT = t;
         if (q < 0) {
-          click.triggerAttackRelease(q === -countIn ? "C6" : "C5", 0.05, t);
+          play(() => click.triggerAttackRelease(q === -countIn ? "C6" : "C5", 0.05, t));
           cb({ phase: "count", n: -q });
         } else {
           if (getDrums()) {
-            hat.triggerAttackRelease("32n", t, 0.5);
-            if (q % 4 === 0 || q % 4 === 2) kick.triggerAttackRelease("C1", "8n", t);
-            if (q % 4 === 1 || q % 4 === 3) snare.triggerAttackRelease("8n", t);
+            play(() => hat.triggerAttackRelease("32n", t, 0.5));
+            if (q % 4 === 0 || q % 4 === 2) play(() => kick.triggerAttackRelease("C1", "8n", t));
+            if (q % 4 === 1 || q % 4 === 3) play(() => snare.triggerAttackRelease("8n", t));
           }
           if (q % 4 === 0) {
             const idx = ci % chordsTones.length;
             curTones = chordsTones[idx];
-            pad.triggerAttackRelease(notesFor(curTones), qDur * 4 * 0.95, t);
-            bass.triggerAttackRelease(bassNote(curTones[0]), qDur * 2 * 0.9, t);
+            play(() => pad.triggerAttackRelease(notesFor(curTones), qDur * 4 * 0.95, t));
+            play(() => bass.triggerAttackRelease(bassNote(curTones[0]), qDur * 2 * 0.9, t));
             cb({ phase: "play", i: idx });
             ci++;
           } else if (q % 4 === 2 && curTones) {
-            bass.triggerAttackRelease(bassNote(curTones[2] || curTones[0]), qDur * 2 * 0.9, t);
+            play(() => bass.triggerAttackRelease(bassNote(curTones[2] || curTones[0]), qDur * 2 * 0.9, t));
           }
         }
         q++;
