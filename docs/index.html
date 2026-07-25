@@ -7029,7 +7029,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const releaseCaptureSession = useCallback(() => {
       try {
         const sess2 = typeof navigator !== "undefined" ? navigator.audioSession : null;
-        if (sess2 && sess2.type === "play-and-record") sess2.type = "auto";
+        if (sess2 && sess2.type === "play-and-record") sess2.type = "playback";
       } catch (_) {
       }
     }, []);

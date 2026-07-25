@@ -3000,11 +3000,14 @@ export default function NumberEarTrainer() {
   const micBusyRef = useRef(false); // true while a getUserMedia request is in flight
   // Hand the audio session back when we're done listening. iOS routes output to the
   // earpiece and drops the volume while a page holds "play-and-record", so leaving it
-  // set would quietly ruin playback for the rest of the session.
+  // set would quietly ruin playback. Restore the app's BASELINE ("playback"), NOT "auto":
+  // unlockIOSMediaAudio sets "playback" once (so the game ignores the ringer/mute switch)
+  // and never re-asserts it — dropping to "auto" here would silence the whole app on a
+  // muted iPhone for the rest of the session, unrecoverable short of a reload.
   const releaseCaptureSession = useCallback(() => {
     try {
       const sess = typeof navigator !== "undefined" ? navigator.audioSession : null;
-      if (sess && sess.type === "play-and-record") sess.type = "auto";
+      if (sess && sess.type === "play-and-record") sess.type = "playback";
     } catch (_) {}
   }, []);
   const stopMic = useCallback(() => {
