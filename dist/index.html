@@ -1098,6 +1098,32 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .bar-track { flex: 1; height: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
 .bar-fill { height: 100%; background: var(--green); border-radius: 99px; }
 .bar-count { min-width: 2.6em; font-size: 0.8rem; color: var(--text-soft); }
+
+/* "Your cracked note" — the weak-link diagnosis card (results + Basic Training) */
+.cracked {
+  width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 16px 14px; background: var(--card);
+  border: 1px solid var(--line); border-left: 3px solid var(--wrong); border-radius: 12px;
+}
+.cracked.compact { margin-bottom: 14px; }
+.cracked-kicker {
+  font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--wrong); font-weight: 700;
+}
+.cracked-main { display: flex; align-items: center; gap: 14px; text-align: left; }
+.cracked-target {
+  font-family: 'Archivo Black', sans-serif; font-size: 2.6rem; line-height: 1;
+  color: var(--wrong); min-width: 1.4em; text-align: center;
+}
+.cracked-say { font-size: 0.92rem; color: var(--text); line-height: 1.45; }
+.cracked-say b { color: var(--teal); }
+.cracked-btn { width: 100%; }
+.cracked-foot { font-size: 0.72rem; color: var(--text-soft); text-align: center; }
+.qphase {
+  margin: 2px 0 0; font-size: 0.76rem; text-align: center;
+  color: var(--teal); letter-spacing: 0.02em;
+}
+
 .results-actions { display: flex; gap: 10px; }
 
 .foot { text-align: center; font-size: 0.8rem; color: var(--text-soft); line-height: 1.5; padding: 0 12px; margin-top: auto; }
@@ -3634,12 +3660,16 @@ window.SOUNDTRACK = SOUNDTRACK;
     if (jojoMode) return 1;
     return Math.ceil(passRateForLevel(lvl, opts) * qCountForLevel(lvl, opts));
   }
+  var STAR3_RATE = 0.9;
   function starsForLevelBest(best, lvl, opts = {}) {
     const pass = passCountForLevel(lvl, opts);
     const qCount = qCountForLevel(lvl, opts);
     if (best < pass) return 0;
-    if (best >= qCount) return 3;
-    if (best >= qCount - 1) return 2;
+    const three = Math.min(qCount, Math.max(pass, Math.ceil(STAR3_RATE * qCount)));
+    if (best >= three) return 3;
+    const star2Rate = (passRateForLevel(lvl, opts) + STAR3_RATE) / 2;
+    const two = Math.min(three - 1, Math.max(pass, Math.ceil(star2Rate * qCount)));
+    if (best >= two) return 2;
     return 1;
   }
   function totalStarsForProgress(progress, levelsByMode, opts = {}) {
@@ -3803,6 +3833,177 @@ window.SOUNDTRACK = SOUNDTRACK;
     return { key, mode, strings, startFret, endFret: startFret + 3, frets, cells, markers, name: key + " " + mode + " answer" };
   }
 
+  // src/practice.mjs
+  var EAR_VERSION = 1;
+  var EAR_DECAY_AT = 40;
+  var WEAK_MIN_SEEN = 8;
+  var WEAK_MAX_RATE = 0.85;
+  var BUCKETS = { melody: "n", chords: "c" };
+  var bucketFor = (mode) => BUCKETS[mode] || null;
+  function emptyEar() {
+    return { v: EAR_VERSION, n: {}, c: {}, p: {} };
+  }
+  function normalizeEar(raw) {
+    if (!raw || typeof raw !== "object") return emptyEar();
+    const stats = (m) => {
+      if (!m || typeof m !== "object") return {};
+      const out = {};
+      for (const [k, v] of Object.entries(m)) {
+        if (!v || typeof v !== "object") continue;
+        const seen = Number(v.seen) || 0;
+        if (seen <= 0) continue;
+        const miss = {};
+        if (v.miss && typeof v.miss === "object") {
+          for (const [mk, mv] of Object.entries(v.miss)) {
+            const n = Number(mv) || 0;
+            if (n > 0) miss[mk] = n;
+          }
+        }
+        out[k] = { seen, first: Math.min(Number(v.first) || 0, seen), miss, last: Number(v.last) || 0 };
+      }
+      return out;
+    };
+    return { v: EAR_VERSION, n: stats(raw.n), c: stats(raw.c), p: stats(raw.p) };
+  }
+  function decay(st) {
+    if (st.seen < EAR_DECAY_AT) return;
+    st.seen = Math.floor(st.seen / 2);
+    st.first = Math.floor(st.first / 2);
+    for (const k of Object.keys(st.miss)) {
+      const n = Math.floor(st.miss[k] / 2);
+      if (n > 0) st.miss[k] = n;
+      else delete st.miss[k];
+    }
+  }
+  function recordSession(ear, mode, results, now = 0) {
+    const bucket = bucketFor(mode);
+    if (!bucket || !Array.isArray(results) || !results.length) return ear;
+    const next = normalizeEar(ear);
+    const map = next[bucket];
+    for (const r of results) {
+      if (!r || r.target == null) continue;
+      const key = String(r.target);
+      const st = map[key] || (map[key] = { seen: 0, first: 0, miss: {}, last: 0 });
+      st.seen += 1;
+      if (r.firstTry) st.first += 1;
+      if (!r.firstTry && r.wrong != null) {
+        const wk = String(r.wrong);
+        st.miss[wk] = (st.miss[wk] || 0) + 1;
+      }
+      st.last = now;
+      decay(st);
+    }
+    return next;
+  }
+  function weakLink(ear, mode) {
+    const bucket = bucketFor(mode);
+    if (!bucket) return null;
+    const map = normalizeEar(ear)[bucket];
+    let best = null;
+    for (const [key, st] of Object.entries(map)) {
+      if (st.seen < WEAK_MIN_SEEN) continue;
+      const rate = st.first / st.seen;
+      if (rate >= WEAK_MAX_RATE) continue;
+      if (!best || rate < best.rate || rate === best.rate && st.seen > best.seen) {
+        best = { key, seen: st.seen, first: st.first, rate, miss: st.miss };
+      }
+    }
+    if (!best) return null;
+    let confuser = null, confuserCount = 0;
+    for (const [k, n] of Object.entries(best.miss)) {
+      if (n > confuserCount) {
+        confuser = k;
+        confuserCount = n;
+      }
+    }
+    return {
+      key: best.key,
+      target: mode === "melody" ? Number(best.key) : best.key,
+      confuser: confuser == null ? null : mode === "melody" ? Number(confuser) : confuser,
+      seen: best.seen,
+      first: best.first,
+      rate: best.rate,
+      // first-try rate on this target
+      confuserCount,
+      confuserRate: confuserCount / best.seen
+      // share of ALL askings, not of misses
+    };
+  }
+  function weakLabel(value, mode) {
+    if (value == null) return "";
+    if (mode === "melody") {
+      const pc = Number(value);
+      const deg = PC_TO_DEGREE[pc];
+      return deg != null ? String(deg) : NOTE_LABELS[pc];
+    }
+    return chordNumber(value, false);
+  }
+  var pcDist = (a, b) => {
+    const d = Math.abs(((a - b) % 12 + 12) % 12);
+    return Math.min(d, 12 - d);
+  };
+  function splitPhases(qCount) {
+    const n = Math.max(1, Math.floor(qCount) || 0);
+    if (n < 3) return n === 1 ? [1] : [1, 1];
+    let isolate = Math.max(1, Math.round(n * 0.6));
+    let integrate = Math.max(1, Math.round(n * 0.3));
+    while (n - isolate - integrate < 1) {
+      if (isolate >= integrate) isolate -= 1;
+      else integrate -= 1;
+    }
+    return [isolate, integrate, n - isolate - integrate];
+  }
+  function buildWeakDrill(weak, baseLvl, qCount) {
+    if (!weak || !baseLvl) return null;
+    const basePool = Array.isArray(baseLvl.pool) ? baseLvl.pool : [];
+    const isMelody = typeof weak.target === "number";
+    const t = weak.target;
+    const c = weak.confuser;
+    let pair = [t];
+    if (c != null && c !== t) pair.push(c);
+    else {
+      const alt = basePool.filter((x) => x !== t).sort((a, b) => isMelody ? pcDist(a, t) - pcDist(b, t) : 0)[0];
+      if (alt != null) pair.push(alt);
+    }
+    const extras = basePool.filter((x) => !pair.includes(x)).sort((a, b) => isMelody ? pcDist(a, t) - pcDist(b, t) : 0).slice(0, 2);
+    const mid = [...pair, ...extras];
+    const whole = basePool.length ? basePool : mid;
+    const sortPool = (p) => isMelody ? [...new Set(p)].sort((a, b) => a - b) : [...new Set(p)];
+    const pools = [pair, mid, whole];
+    const labels = ["isolate", "integrate", "whole"];
+    const counts = splitPhases(qCount);
+    return {
+      ...baseLvl,
+      name: "Mending " + weakLabel(t, isMelody ? "melody" : "chords"),
+      desc: "60/30/10 — isolate, integrate, whole",
+      group: null,
+      weakDrill: true,
+      pool: sortPool(pair),
+      // fallback for any path that reads .pool directly
+      qCount: counts.reduce((a, b) => a + b, 0),
+      phases: counts.map((n, i) => ({ n, pool: sortPool(pools[i]), label: labels[i] }))
+    };
+  }
+  function poolForQuestion(lvl, qNum) {
+    if (!lvl) return [];
+    if (!Array.isArray(lvl.phases) || !lvl.phases.length) return lvl.pool;
+    let acc = 0;
+    for (const ph of lvl.phases) {
+      acc += ph.n;
+      if (qNum < acc) return ph.pool;
+    }
+    return lvl.phases[lvl.phases.length - 1].pool;
+  }
+  function phaseForQuestion(lvl, qNum) {
+    if (!lvl || !Array.isArray(lvl.phases) || !lvl.phases.length) return null;
+    let acc = 0;
+    for (const ph of lvl.phases) {
+      acc += ph.n;
+      if (qNum < acc) return ph.label;
+    }
+    return lvl.phases[lvl.phases.length - 1].label;
+  }
+
   // src/.app.jsx
   var { useState, useRef, useEffect, useLayoutEffect, useCallback } = React;
   var OFFER_URL = "https://wejamimprovisation.com/strategy?utm_source=numbersong";
@@ -3843,10 +4044,10 @@ window.SOUNDTRACK = SOUNDTRACK;
   var passRateOf = (lvl) => passRateForLevel(lvl, flowOpts());
   var passCountFor = (lvl) => passCountForLevel(lvl, flowOpts());
   var SHOP = [
-    { id: "gold", type: "skin", name: "Gilded Coda", cost: 12, tint: "#D9B45B", desc: "A hero forged in gold." },
-    { id: "shadow", type: "skin", name: "Shadow Coda", cost: 8, tint: "#2f3b45", desc: "Cloaked in dusk." },
-    { id: "crimson", type: "skin", name: "Crimson Coda", cost: 8, tint: "#E07856", desc: "Ember-touched." },
-    { id: "violet", type: "skin", name: "Violet Coda", cost: 8, tint: "#9b8ec4", desc: "Crystal-kissed." }
+    { id: "gold", type: "skin", name: "Gilded Coda", cost: 18, tint: "#D9B45B", desc: "A hero forged in gold." },
+    { id: "shadow", type: "skin", name: "Shadow Coda", cost: 12, tint: "#2f3b45", desc: "Cloaked in dusk." },
+    { id: "crimson", type: "skin", name: "Crimson Coda", cost: 12, tint: "#E07856", desc: "Ember-touched." },
+    { id: "violet", type: "skin", name: "Violet Coda", cost: 12, tint: "#9b8ec4", desc: "Crystal-kissed." }
   ];
   function loadProgress() {
     try {
@@ -3861,6 +4062,33 @@ window.SOUNDTRACK = SOUNDTRACK;
   function saveProgress(p) {
     try {
       window.localStorage.setItem("numbersong-progress", JSON.stringify(p));
+    } catch (e) {
+    }
+  }
+  function loadEar() {
+    try {
+      return normalizeEar(JSON.parse(window.localStorage.getItem("numbersong-ear")));
+    } catch (e) {
+      return emptyEar();
+    }
+  }
+  function saveEar(e) {
+    try {
+      window.localStorage.setItem("numbersong-ear", JSON.stringify(e));
+    } catch (er) {
+    }
+  }
+  function loadWeakBase() {
+    try {
+      const p = JSON.parse(window.localStorage.getItem("numbersong-earbase"));
+      return p && typeof p === "object" ? p : {};
+    } catch (e) {
+      return {};
+    }
+  }
+  function saveWeakBase(b) {
+    try {
+      window.localStorage.setItem("numbersong-earbase", JSON.stringify(b));
     } catch (e) {
     }
   }
@@ -5297,6 +5525,13 @@ window.SOUNDTRACK = SOUNDTRACK;
     color: ["var(--gold)", "var(--teal)", "var(--green)", "var(--blue)", "#fff", "var(--wrong)"][i % 6],
     drift: (i * 17 % 13 - 6) * 16
   }));
+  function CrackedNote({ weak, mode, onDrill, compact }) {
+    if (!weak) return null;
+    const target = weakLabel(weak.target, mode);
+    const confuser = weak.confuser == null ? null : weakLabel(weak.confuser, mode);
+    const noun = mode === "chords" ? "chord" : "note";
+    return /* @__PURE__ */ React.createElement("div", { className: "cracked" + (compact ? " compact" : "") }, /* @__PURE__ */ React.createElement("span", { className: "cracked-kicker" }, "⚠ Your cracked ", noun), /* @__PURE__ */ React.createElement("div", { className: "cracked-main" }, /* @__PURE__ */ React.createElement("span", { className: "cracked-target" }, target), /* @__PURE__ */ React.createElement("span", { className: "cracked-say" }, confuser ? /* @__PURE__ */ React.createElement(React.Fragment, null, "You hear it as ", /* @__PURE__ */ React.createElement("b", null, confuser), " — ", /* @__PURE__ */ React.createElement("b", null, Math.round(weak.confuserRate * 100), "%"), " of the time.") : /* @__PURE__ */ React.createElement(React.Fragment, null, "You name it right only ", /* @__PURE__ */ React.createElement("b", null, Math.round(weak.rate * 100), "%"), " of the time."))), onDrill && /* @__PURE__ */ React.createElement("button", { className: "primary cracked-btn", onClick: onDrill }, "Mend it →"), /* @__PURE__ */ React.createElement("span", { className: "cracked-foot" }, "Isolate · integrate · whole — this run isn’t scored."));
+  }
   function Confetti({ show }) {
     const [render, setRender] = useState(show);
     const [out, setOut] = useState(false);
@@ -6554,6 +6789,18 @@ window.SOUNDTRACK = SOUNDTRACK;
       } catch (e) {
       }
     };
+    const [ear, setEar] = useState(loadEar);
+    const weakMelody = weakLink(ear, "melody");
+    const weakChords = weakLink(ear, "chords");
+    const [weakBase, setWeakBase] = useState(loadWeakBase);
+    const earRef = useRef(ear);
+    useEffect(() => {
+      earRef.current = ear;
+    }, [ear]);
+    const weakBaseRef = useRef(weakBase);
+    useEffect(() => {
+      weakBaseRef.current = weakBase;
+    }, [weakBase]);
     const [musicKey, setMusicKey] = useState("C");
     const [voiceOn, setVoiceOn] = useState(true);
     const [busy, setBusy] = useState(false);
@@ -7509,6 +7756,22 @@ window.SOUNDTRACK = SOUNDTRACK;
       setScreen("session");
       sessTimer(() => nextQuestionRef.current(true), 350);
     };
+    const weakFor = (m) => m === "melody" ? weakMelody : m === "chords" ? weakChords : null;
+    const canDrillWeak = (m) => !!(weakFor(m) && weakBase[m]);
+    const startWeakDrill = (m) => {
+      const w = weakFor(m), base = weakBase[m];
+      if (!w || !base) return;
+      const drill = buildWeakDrill(w, base, qCountForLevel(null, flowOpts()));
+      if (!drill) return;
+      track("weak_drill_start", {
+        mode: m,
+        target: String(w.target),
+        confuser: w.confuser == null ? null : String(w.confuser),
+        rate: Math.round(w.rate * 100)
+      });
+      setFromAdventure(false);
+      startSession(m, null, drill);
+    };
     const startBossSession = (regionId) => {
       killSession();
       const stage = ADV_STAGES[regionId - 1];
@@ -7618,9 +7881,36 @@ window.SOUNDTRACK = SOUNDTRACK;
         if (duelTimerIdRef.current === id) duelTimerIdRef.current = null;
       };
     }, [screen, phase, duelTurn]);
+    const foldEarLog = (s) => {
+      try {
+        if (!s || !s.results || !s.results.length) return;
+        const nextEar = recordSession(earRef.current, s.mode, s.results, Date.now());
+        if (nextEar !== earRef.current) {
+          earRef.current = nextEar;
+          setEar(nextEar);
+          saveEar(nextEar);
+        }
+        if (s.lvl && !s.lvl.weakDrill && (s.mode === "melody" || s.mode === "chords")) {
+          const base = {
+            mode: s.lvl.mode,
+            chromatic: !!s.lvl.chromatic,
+            pool: s.lvl.pool,
+            keyMode: s.lvl.keyMode,
+            octaves: s.lvl.octaves,
+            sevenths: !!s.lvl.sevenths
+          };
+          const nextBase = { ...weakBaseRef.current, [s.mode]: base };
+          weakBaseRef.current = nextBase;
+          setWeakBase(nextBase);
+          saveWeakBase(nextBase);
+        }
+      } catch (e) {
+      }
+    };
     const bossLose = () => {
       const region = sess.current.bossRegion;
       track("boss_lose", { region, hp: bossState ? bossState.hp : null });
+      foldEarLog(sess.current);
       killSession();
       try {
         sfx("deflate");
@@ -7645,6 +7935,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       setFeedback(null);
       s.attempted = false;
       s.misses = 0;
+      s.firstWrong = null;
       if (s.boss) {
         const st = evalBoss(s.results, s.bossMisses, s.boss);
         setDuelSay(st.hpPct <= 34 ? s.boss.taunts.low : s.boss.taunts.intro);
@@ -7678,7 +7969,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           }
           const oct = pickOctave(lvl.octaves);
           s.octave = oct;
-          const pc = pickMelodyTarget(lvl.pool, s.target);
+          const pc = pickMelodyTarget(poolForQuestion(lvl, s.qNum), s.target);
           s.target = pc;
           const t = await playCadence(s.key, lvl.mode) + 0.25;
           if (gen !== sessGenRef.current) return;
@@ -7694,7 +7985,7 @@ window.SOUNDTRACK = SOUNDTRACK;
             s.key = key;
             setSessKey(s.key);
           }
-          const pick = pickChordRoman(lvl.pool, s.target && s.target.roman);
+          const pick = pickChordRoman(poolForQuestion(lvl, s.qNum), s.target && s.target.roman);
           const c = CHORDS.find((x) => x.roman === pick);
           s.target = c;
           const cad = await playCadence(s.key, lvl.mode) + 0.25;
@@ -7736,6 +8027,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       setDuelWinRegion(bossWon ? s.bossRegion : null);
       if (bossWon) track("boss_win", { region: s.bossRegion, questions: s.results.length, hearts: bossState ? bossState.hearts : null });
       track("session_finish", { mode: s.mode, level: s.levelIdx, first_tries: firstTries, questions: s.results.length, passed: firstTries >= passCountFor(s.lvl) });
+      foldEarLog(s);
       sessWasClearedRef.current = fromAdventure && advStageId != null ? stageClearedAdv(advStageId) : false;
       if (s.levelIdx != null) {
         setProgress((prev) => {
@@ -7825,7 +8117,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       const lvl = s.lvl;
       if (pc === s.target) {
         const first = !s.attempted;
-        s.results.push({ target: s.target, firstTry: first });
+        s.results.push({ target: s.target, firstTry: first, wrong: s.firstWrong });
         setSessionResults([...s.results]);
         bossOnCorrect();
         if (first) {
@@ -7857,6 +8149,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       } else {
         s.attempted = true;
         s.misses = (s.misses || 0) + 1;
+        if (s.firstWrong == null) s.firstWrong = pc;
         setStreak(0);
         setLitWrong([pc]);
         setSrMsg("Not quite — that was a " + spokenNote(pc) + ".");
@@ -7894,7 +8187,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       const right = chPicked.every((d) => t.has(d));
       if (right) {
         const first = !s.attempted;
-        s.results.push({ target: s.target.roman, firstTry: first });
+        s.results.push({ target: s.target.roman, firstTry: first, wrong: s.firstWrong });
         setSessionResults([...s.results]);
         bossOnCorrect();
         if (first) {
@@ -7916,6 +8209,15 @@ window.SOUNDTRACK = SOUNDTRACK;
       } else {
         s.attempted = true;
         s.misses = (s.misses || 0) + 1;
+        if (s.firstWrong == null) {
+          const picked = new Set(chPicked.map((d) => d === 8 ? 1 : d));
+          const heard = CHORDS.find((c) => {
+            if (c.roman === s.target.roman) return false;
+            const ct = chordTones(c, s.sevenths).map((d) => d === 8 ? 1 : d);
+            return ct.length === picked.size && ct.every((d) => picked.has(d));
+          });
+          if (heard) s.firstWrong = heard.roman;
+        }
         setStreak(0);
         setLitWrong(chPicked.filter((d) => !t.has(d)));
         setSrMsg("Not quite.");
@@ -8167,7 +8469,25 @@ window.SOUNDTRACK = SOUNDTRACK;
         sfx("select");
         go();
       } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, title), /* @__PURE__ */ React.createElement("span", { className: "card-desc" }, desc));
-      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => setScreen("menu") }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Basic Training")), /* @__PURE__ */ React.createElement("div", { className: "cards" }, sec("Single notes", `Hear a note, name its degree. ${MELODY_GROUPS.length} stages.`, () => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => setScreen("menu") }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Basic Training")), (() => {
+        const m = canDrillWeak("melody") && canDrillWeak("chords") ? weakMelody.rate <= weakChords.rate ? "melody" : "chords" : canDrillWeak("melody") ? "melody" : canDrillWeak("chords") ? "chords" : null;
+        if (!m) return null;
+        return /* @__PURE__ */ React.createElement(
+          CrackedNote,
+          {
+            weak: weakFor(m),
+            mode: m,
+            compact: true,
+            onDrill: () => {
+              try {
+                sfx("select");
+              } catch (e) {
+              }
+              startWeakDrill(m);
+            }
+          }
+        );
+      })(), /* @__PURE__ */ React.createElement("div", { className: "cards" }, sec("Single notes", `Hear a note, name its degree. ${MELODY_GROUPS.length} stages.`, () => {
         setMode("melody");
         setMelGroup(null);
         setScreen("levels");
@@ -8447,7 +8767,7 @@ window.SOUNDTRACK = SOUNDTRACK;
             /* @__PURE__ */ React.createElement("span", { className: "level-body" }, /* @__PURE__ */ React.createElement("span", { className: "level-name" }, g.name), /* @__PURE__ */ React.createElement("span", { className: "level-desc" }, done, " of ", g.levels.length, " passed")),
             /* @__PURE__ */ React.createElement("span", { className: "level-state" }, locked ? "🔒" : done === g.levels.length ? "✓" : "›")
           );
-        })), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, SESSION_LEN, " questions per session · ", Math.round(PASS_RATE * 100), "% on first tries earns the ✓")) : /* @__PURE__ */ React.createElement("div", { className: "custom-builder" }, /* @__PURE__ */ React.createElement("div", { className: "cu-row" }, /* @__PURE__ */ React.createElement("span", { className: "cu-label" }, "Feel"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: cuMode === "major" ? "on" : "", onClick: () => setCuMode("major") }, "Major"), /* @__PURE__ */ React.createElement("button", { className: cuMode === "minor" ? "on" : "", onClick: () => setCuMode("minor") }, "Minor"))), /* @__PURE__ */ React.createElement("div", { className: "cu-row" }, /* @__PURE__ */ React.createElement("span", { className: "cu-label" }, "Key"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: cuKey === "c" ? "on" : "", onClick: () => setCuKey("c") }, cuMode === "minor" ? "A minor" : "C major"), /* @__PURE__ */ React.createElement("button", { className: cuKey === "not-c" ? "on" : "", onClick: () => setCuKey("not-c") }, "New key"), /* @__PURE__ */ React.createElement("button", { className: cuKey === "random" ? "on" : "", onClick: () => setCuKey("random") }, "Every key"))), /* @__PURE__ */ React.createElement("div", { className: "cu-row" }, /* @__PURE__ */ React.createElement("span", { className: "cu-label" }, "Octaves"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: !cuOct ? "on" : "", onClick: () => setCuOct(false) }, "One"), /* @__PURE__ */ React.createElement("button", { className: cuOct ? "on" : "", onClick: () => setCuOct(true) }, "Many"))), /* @__PURE__ */ React.createElement("div", { className: "cu-notes-head" }, /* @__PURE__ */ React.createElement("span", { className: "cu-label" }, "Notes (", cuNotes.length, ")"), /* @__PURE__ */ React.createElement("div", { className: "cu-presets" }, /* @__PURE__ */ React.createElement("button", { onClick: () => setCuNotes([...NAT_PCS]) }, "Scale"), /* @__PURE__ */ React.createElement("button", { onClick: () => setCuNotes([...ALL12]) }, "All 12"))), /* @__PURE__ */ React.createElement("div", { className: "cu-notes" }, ALL12.map((pc) => {
+        })), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, SESSION_LEN, " questions per session · ", Math.round(PASS_RATE * 100), "% on first tries earns the ✓ · ", Math.round(STAR3_RATE * 100), "% earns ★★★ — then climb, don’t polish")) : /* @__PURE__ */ React.createElement("div", { className: "custom-builder" }, /* @__PURE__ */ React.createElement("div", { className: "cu-row" }, /* @__PURE__ */ React.createElement("span", { className: "cu-label" }, "Feel"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: cuMode === "major" ? "on" : "", onClick: () => setCuMode("major") }, "Major"), /* @__PURE__ */ React.createElement("button", { className: cuMode === "minor" ? "on" : "", onClick: () => setCuMode("minor") }, "Minor"))), /* @__PURE__ */ React.createElement("div", { className: "cu-row" }, /* @__PURE__ */ React.createElement("span", { className: "cu-label" }, "Key"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: cuKey === "c" ? "on" : "", onClick: () => setCuKey("c") }, cuMode === "minor" ? "A minor" : "C major"), /* @__PURE__ */ React.createElement("button", { className: cuKey === "not-c" ? "on" : "", onClick: () => setCuKey("not-c") }, "New key"), /* @__PURE__ */ React.createElement("button", { className: cuKey === "random" ? "on" : "", onClick: () => setCuKey("random") }, "Every key"))), /* @__PURE__ */ React.createElement("div", { className: "cu-row" }, /* @__PURE__ */ React.createElement("span", { className: "cu-label" }, "Octaves"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: !cuOct ? "on" : "", onClick: () => setCuOct(false) }, "One"), /* @__PURE__ */ React.createElement("button", { className: cuOct ? "on" : "", onClick: () => setCuOct(true) }, "Many"))), /* @__PURE__ */ React.createElement("div", { className: "cu-notes-head" }, /* @__PURE__ */ React.createElement("span", { className: "cu-label" }, "Notes (", cuNotes.length, ")"), /* @__PURE__ */ React.createElement("div", { className: "cu-presets" }, /* @__PURE__ */ React.createElement("button", { onClick: () => setCuNotes([...NAT_PCS]) }, "Scale"), /* @__PURE__ */ React.createElement("button", { onClick: () => setCuNotes([...ALL12]) }, "All 12"))), /* @__PURE__ */ React.createElement("div", { className: "cu-notes" }, ALL12.map((pc) => {
           const on = cuNotes.includes(pc);
           return /* @__PURE__ */ React.createElement(
             "button",
@@ -8547,11 +8867,12 @@ window.SOUNDTRACK = SOUNDTRACK;
           /* @__PURE__ */ React.createElement("span", { className: "level-body" }, /* @__PURE__ */ React.createElement("span", { className: "level-name" }, isDuelRow ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : lvl.name), mode === "melody" ? /* @__PURE__ */ React.createElement("span", { className: "level-tags" }, levelTags(lvl).map((t, ti) => /* @__PURE__ */ React.createElement("span", { key: ti, className: "tag" }, t))) : /* @__PURE__ */ React.createElement("span", { className: "level-desc" }, lvl.desc), /* @__PURE__ */ React.createElement(ProgressSquares, { best, total: qCountOf(lvl) })),
           /* @__PURE__ */ React.createElement("span", { className: "level-state" }, /* @__PURE__ */ React.createElement("span", { className: "level-stars" }, [1, 2, 3].map((n) => /* @__PURE__ */ React.createElement("span", { key: n, className: "lvl-star" + (starsFor(mode, lvl.idx) >= n ? " on" : "") }, "★"))), /* @__PURE__ */ React.createElement("span", { className: "level-pct" + (passed ? " pass" : "") }, Math.round(best / qCountOf(lvl) * 100), "%"))
         );
-      })), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, SESSION_LEN, " questions per session · ", Math.round(PASS_RATE * 100), "% on first tries earns the ✓"), upsellModal);
+      })), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, SESSION_LEN, " questions per session · ", Math.round(PASS_RATE * 100), "% on first tries earns the ✓ · ", Math.round(STAR3_RATE * 100), "% earns ★★★ — then climb, don’t polish"), upsellModal);
     }
     if (screen === "session") {
       const lvl = sessLvl || levels[levelIdx];
-      const pool = mode === "melody" ? lvl.pool : null;
+      const qPool = poolForQuestion(lvl, qNum);
+      const pool = mode === "melody" ? qPool : null;
       const isMinor = mode === "melody" && lvl.mode === "minor";
       const tonicPc = isMinor ? 9 : 0;
       const chordTonic = lvl.mode === "minor" ? 6 : 1;
@@ -8659,7 +8980,11 @@ window.SOUNDTRACK = SOUNDTRACK;
         const r = sessionResults[i];
         const cls = "cell" + (r ? r.firstTry ? " hit" : " miss" : "") + (i === passCountFor(lvl) - 1 ? " mark" : "") + (streak >= 2 && i === sessionResults.length - 1 && r && r.firstTry ? " hot" : "");
         return /* @__PURE__ */ React.createElement("i", { key: i, className: cls });
-      })), streak >= 2 && /* @__PURE__ */ React.createElement("span", { className: "combo" }, "×", streak)), !isDuel && /* @__PURE__ */ React.createElement("p", { className: "qcount" }, "Question ", Math.min(qNum + 1, qCountOf(lvl)), " of ", qCountOf(lvl), " · ", displayKey, lvl.keyMode === "random" ? " (changes every question)" : ""), isDuel && /* @__PURE__ */ React.createElement("p", { className: "qcount duel-key" }, displayKey, lvl.keyMode === "random" ? " · new key each strike" : ""), /* @__PURE__ */ React.createElement("div", { className: "drill-stage drill-" + mode + (mode === "melody" && instrument === "guitar" && !lvl.chromatic ? " drill-guitar" : "") }, mode === "melody" && /* @__PURE__ */ React.createElement(
+      })), streak >= 2 && /* @__PURE__ */ React.createElement("span", { className: "combo" }, "×", streak)), !isDuel && /* @__PURE__ */ React.createElement("p", { className: "qcount" }, "Question ", Math.min(qNum + 1, qCountOf(lvl)), " of ", qCountOf(lvl), " · ", displayKey, lvl.keyMode === "random" ? " (changes every question)" : ""), !isDuel && lvl.weakDrill && /* @__PURE__ */ React.createElement("p", { className: "qphase" }, {
+        isolate: "Isolating — just the two you confuse",
+        integrate: "Integrating — putting it back with its neighbours",
+        whole: "Whole — the full level again"
+      }[phaseForQuestion(lvl, qNum)]), isDuel && /* @__PURE__ */ React.createElement("p", { className: "qcount duel-key" }, displayKey, lvl.keyMode === "random" ? " · new key each strike" : ""), /* @__PURE__ */ React.createElement("div", { className: "drill-stage drill-" + mode + (mode === "melody" && instrument === "guitar" && !lvl.chromatic ? " drill-guitar" : "") }, mode === "melody" && /* @__PURE__ */ React.createElement(
         DegreeLadder,
         {
           active: litActive,
@@ -8767,7 +9092,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           hitPad === pc && /* @__PURE__ */ React.createElement("span", { className: "num-mark", "aria-hidden": "true" }, "✓"),
           litWrong.includes(pc) && /* @__PURE__ */ React.createElement("span", { className: "num-mark", "aria-hidden": "true" }, "✕")
         );
-      })) : mode === "chords" ? /* @__PURE__ */ React.createElement(React.Fragment, null, showRef && !isDuel && /* @__PURE__ */ React.createElement("div", { className: "chord-ref" }, lvl.pool.map((r) => {
+      })) : mode === "chords" ? /* @__PURE__ */ React.createElement(React.Fragment, null, showRef && !isDuel && /* @__PURE__ */ React.createElement("div", { className: "chord-ref" }, qPool.map((r) => {
         const tones = chordTones(chordByRoman(r), lvl.sevenths);
         return /* @__PURE__ */ React.createElement("div", { key: r, className: "cr-row" }, /* @__PURE__ */ React.createElement("span", { className: "cr-sym" }, chordSymbol(r, lvl.sevenths)), /* @__PURE__ */ React.createElement("span", { className: "cr-num" }, chordNumber(r, lvl.sevenths)), /* @__PURE__ */ React.createElement("span", { className: "cr-tones" }, tones.map(degreeLabel).join(" · ")));
       })), /* @__PURE__ */ React.createElement("div", { className: "chord-layout" + (chordDuel ? " chord-layout-duel" : "") }, /* @__PURE__ */ React.createElement(
@@ -8906,6 +9231,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           bestStreak = Math.max(bestStreak, run);
         } else run = 0;
       });
+      const showLead = !onboarded && (passed || justCleared);
       const showBars = mode !== "progressions";
       const byTarget = {};
       sessionResults.forEach((r) => {
@@ -8943,7 +9269,20 @@ window.SOUNDTRACK = SOUNDTRACK;
         }
         setSwordBurst(!!justCleared);
         setScreen("adventure");
-      } }, "← Return to the map"), /* @__PURE__ */ React.createElement("div", { className: "score-big" + (passed ? " pass" : "") }, pct, "%"), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, isCustom ? passed ? "Strong run. Custom sessions aren't scored toward stages." : "Custom sessions aren't scored toward stages — tweak the notes and go again." : passed ? hasNext ? "Passed! This level is checked off." : "Passed — that's the top level. Your ears are working." : `${Math.round(passRate * 100)}% on first tries earns the check. Every rep counts.`), /* @__PURE__ */ React.createElement("div", { className: "stat-row" }, /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, firstTries, "/", total), " first try"), /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, bestStreak >= 2 ? "🔥" : "", bestStreak), " best streak")), showBars && /* @__PURE__ */ React.createElement("div", { className: "bars" }, Object.entries(byTarget).map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, className: "bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "bar-label" }, k), /* @__PURE__ */ React.createElement("div", { className: "bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "bar-fill", style: { width: `${v.right / v.total * 100}%` } })), /* @__PURE__ */ React.createElement("span", { className: "bar-count" }, v.right, "/", v.total)))), !onboarded && (passed || justCleared) && /* @__PURE__ */ React.createElement("div", { className: "lead-card" }, leadStatus === "done" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✓ You're in"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Check your inbox to confirm — your Chords-by-Numbers PDF lands right after. Your progress is saved, too."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement(
+      } }, "← Return to the map"), /* @__PURE__ */ React.createElement("div", { className: "score-big" + (passed ? " pass" : "") }, pct, "%"), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, sessLvl && sessLvl.weakDrill ? passed ? "That's the crack closing. Come back to it tomorrow — it sticks faster than it feels." : "Mending runs aren't scored — this is the note doing the work. Run it again." : isCustom ? passed ? "Strong run. Custom sessions aren't scored toward stages." : "Custom sessions aren't scored toward stages — tweak the notes and go again." : passed ? hasNext ? "Passed! This level is checked off." : "Passed — that's the top level. Your ears are working." : `${Math.round(passRate * 100)}% on first tries earns the check. Every rep counts.`), /* @__PURE__ */ React.createElement("div", { className: "stat-row" }, /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, firstTries, "/", total), " first try"), /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, bestStreak >= 2 ? "🔥" : "", bestStreak), " best streak")), showBars && /* @__PURE__ */ React.createElement("div", { className: "bars" }, Object.entries(byTarget).map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, className: "bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "bar-label" }, k), /* @__PURE__ */ React.createElement("div", { className: "bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "bar-fill", style: { width: `${v.right / v.total * 100}%` } })), /* @__PURE__ */ React.createElement("span", { className: "bar-count" }, v.right, "/", v.total)))), !showLead && /* @__PURE__ */ React.createElement(
+        CrackedNote,
+        {
+          weak: weakFor(mode),
+          mode,
+          onDrill: canDrillWeak(mode) ? () => {
+            try {
+              sfx("select");
+            } catch (e) {
+            }
+            startWeakDrill(mode);
+          } : null
+        }
+      ), showLead && /* @__PURE__ */ React.createElement("div", { className: "lead-card" }, leadStatus === "done" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✓ You're in"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Check your inbox to confirm — your Chords-by-Numbers PDF lands right after. Your progress is saved, too."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement(
         "a",
         {
           className: "primary offer-link",
@@ -10408,6 +10747,32 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .bar-track { flex: 1; height: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
 .bar-fill { height: 100%; background: var(--green); border-radius: 99px; }
 .bar-count { min-width: 2.6em; font-size: 0.8rem; color: var(--text-soft); }
+
+/* "Your cracked note" — the weak-link diagnosis card (results + Basic Training) */
+.cracked {
+  width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 16px 14px; background: var(--card);
+  border: 1px solid var(--line); border-left: 3px solid var(--wrong); border-radius: 12px;
+}
+.cracked.compact { margin-bottom: 14px; }
+.cracked-kicker {
+  font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--wrong); font-weight: 700;
+}
+.cracked-main { display: flex; align-items: center; gap: 14px; text-align: left; }
+.cracked-target {
+  font-family: 'Archivo Black', sans-serif; font-size: 2.6rem; line-height: 1;
+  color: var(--wrong); min-width: 1.4em; text-align: center;
+}
+.cracked-say { font-size: 0.92rem; color: var(--text); line-height: 1.45; }
+.cracked-say b { color: var(--teal); }
+.cracked-btn { width: 100%; }
+.cracked-foot { font-size: 0.72rem; color: var(--text-soft); text-align: center; }
+.qphase {
+  margin: 2px 0 0; font-size: 0.76rem; text-align: center;
+  color: var(--teal); letter-spacing: 0.02em;
+}
+
 .results-actions { display: flex; gap: 10px; }
 
 .foot { text-align: center; font-size: 0.8rem; color: var(--text-soft); line-height: 1.5; padding: 0 12px; margin-top: auto; }
