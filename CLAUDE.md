@@ -13,6 +13,13 @@ never as an interval from a chord root. "Home never moves."
 - `src/theory.mjs` — the pure music-theory model + level/session data: note/chord/
   cadence tables, `resolutionSemis`, the melody/chord/progression level builders,
   PATH data, `levelsFor`, … No React/Tone/window, so it's unit-tested directly.
+- `src/practice.mjs` — the weak-link engine ("your cracked note"). Pure: the rolling
+  **ear log** aggregate (`recordSession`/`normalizeEar`), the diagnosis (`weakLink` →
+  "you hear 6 as 5, 41% of the time"), and the 60/30/10 deconstruction drill
+  (`buildWeakDrill` → a phased `customLvl`, `poolForQuestion`). Applies *The Art of
+  Practice*'s Skill Deconstruction: the weak component is trained alone (60%), then
+  integrated (30%), then whole (10%) — practising the whole skill lets strengths mask
+  the real problem. Unit-tested in `test/practice.test.mjs`.
 - `src/pitch.mjs` — the Sing-tuner pitch math: autocorrelation `detectPitch` +
   `pitchToDegree`, also pure (Tone-free). Both `.mjs` modules are inlined into the
   app by build.sh (esbuild `--bundle`) and imported straight by the node:test suite.
@@ -66,6 +73,26 @@ no dev server, no package.json — deliberately. Tests run on Node's built-in
 - Screens: home | guide | levels | session | results | learn (= "Free play").
 - Progress persists in localStorage key `numbersong-progress` (wrapped in
   try/catch; must degrade gracefully where storage is unavailable).
+- The **ear log** (`numbersong-ear`, plus `numbersong-earbase` for the level context a
+  drill inherits) is written by `foldEarLog()` on every exit from a session that has
+  answers — *including a lost duel*, which is the most diagnostic data the app
+  collects. Deliberately NOT gated on `canSave()`: it isn't progress (no stars, no
+  clears), and a free player getting a real diagnosis is the best argument for the
+  paid roadmap. It's an aggregate, never an event list — counts halve past
+  `EAR_DECAY_AT` so it stays a few KB forever and reflects the player's ear *now*.
+- **Stars follow the 90% rule**, not perfection: `STAR3_RATE = 0.9` in `app-flow.mjs`
+  puts ★★★ at 90% (18/20), ★★ halfway between the pass bar and that, ★ at the 80%
+  pass. A perfect run earns nothing over 90% — the old curve paid players to grind the
+  last 10%, which is exactly what causes plateaus. Stars are also Shop currency and
+  `starBalance()` is derived from progress, so `STAR3_RATE` and `SHOP` prices are
+  coupled: this change raised income +50%, and prices rose to match. Retune both or
+  neither.
+- Difficulty is a function of question index, not a constant: `poolForQuestion(lvl,
+  qNum)` returns `lvl.pool` for every ordinary level and walks `lvl.phases` for a
+  phased one. **Anything that reads the pool during a session must use the same
+  per-question pool** — the session `qPool` drives both the target generator and the
+  answer-pad enablement, because a mismatch disables the pad the answer lives on and
+  wedges the question.
 - Melody levels follow the FET-style progression: C-major-only → any octave →
   one random non-C key per session → new random key every question.
 - Chord sessions display "stack notation" (degrees 7→1 vertically, chord tones

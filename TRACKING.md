@@ -30,10 +30,19 @@ protection is on by default).
 
 ## Events captured
 
-`boot_advance` (→ tutorial|adventure) · `tutorial_drills_start` · `tutorial_skip` ·
-`tutorial_complete` · `region_enter` · `session_start` · `session_finish`
-(first_tries, passed) · `lead_submit` (outcome: sent|saved|invalid_email — **never the
-email**) · `upsell_open` · `offer_click` · `unlock`. Errors are auto-captured by Sentry.
+**Onboarding:** `boot_advance` (→ tutorial|adventure) · `tutorial_beat` (chapter, step —
+furthest beat only, so Back→Next can't inflate it) · `tutorial_drills_start` ·
+`tutorial_drills_done` (the honest completion marker; `tutorial_complete` only fires on
+the send-off button) · `tutorial_skip` · `tutorial_complete`.
+
+**Play:** `region_enter` · `session_start` · `session_finish` (first_tries, passed) ·
+`boss_start` · `boss_win` (hearts) · `boss_lose` (hp) · `weak_drill_start` (mode, target,
+confuser, rate — the "cracked note" the player chose to mend).
+
+**Funnel:** `lead_submit` (outcome: sent|saved|invalid_email — **never the email**) ·
+`upsell_open` · `offer_click` · `unlock`.
+
+Errors are auto-captured by Sentry.
 
 ## Letting a Claude read it (the point)
 

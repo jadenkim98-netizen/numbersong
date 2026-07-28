@@ -24,12 +24,23 @@ export function isPassedBest(best, lvl, opts = {}) {
   return best >= passCountForLevel(lvl, opts);
 }
 
+// The 90% Consistency Rule (The Art of Practice §4): a skill is DONE at ~90%, and the
+// last 10% takes 2–3× longer while no longer forcing adaptation. Third star lands at
+// 90%, not at a perfect run — the old curve paid players to grind the exact stretch
+// that causes plateaus. STAR2 sits halfway between the pass bar and 90%.
+export const STAR3_RATE = 0.9;
+
 export function starsForLevelBest(best, lvl, opts = {}) {
   const pass = passCountForLevel(lvl, opts);
   const qCount = qCountForLevel(lvl, opts);
   if (best < pass) return 0;
-  if (best >= qCount) return 3;
-  if (best >= qCount - 1) return 2;
+  // clamped so the thresholds stay ordered (pass ≤ two < three ≤ qCount) even on the
+  // short 3-question TEST_MODE/JOJO_MODE sessions, where the rates collide
+  const three = Math.min(qCount, Math.max(pass, Math.ceil(STAR3_RATE * qCount)));
+  if (best >= three) return 3;
+  const star2Rate = (passRateForLevel(lvl, opts) + STAR3_RATE) / 2;
+  const two = Math.min(three - 1, Math.max(pass, Math.ceil(star2Rate * qCount)));
+  if (best >= two) return 2;
   return 1;
 }
 

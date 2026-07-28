@@ -30,13 +30,41 @@ test("question/pass helpers respect test and jojo overrides", () => {
   assert.equal(passCountForLevel(lvl, { jojoMode: true, defaultSessionLen: 20, defaultPassRate: 0.8 }), 1);
 });
 
-test("star calculation keeps the existing 0/1/2/3 thresholds", () => {
-  const lvl = { qCount: 20, pass: 0.8 }; // pass=16
+test("the third star lands at 90%, not at a perfect run", () => {
+  const lvl = { qCount: 20, pass: 0.8 }; // pass=16, star2=17, star3=18
   const opts = { defaultSessionLen: 20, defaultPassRate: 0.8 };
   assert.equal(starsForLevelBest(15, lvl, opts), 0);
   assert.equal(starsForLevelBest(16, lvl, opts), 1);
-  assert.equal(starsForLevelBest(19, lvl, opts), 2);
+  assert.equal(starsForLevelBest(17, lvl, opts), 2);
+  assert.equal(starsForLevelBest(18, lvl, opts), 3); // 90% — the skill is done
+  assert.equal(starsForLevelBest(19, lvl, opts), 3); // polishing earns nothing extra
   assert.equal(starsForLevelBest(20, lvl, opts), 3);
+});
+
+test("the 90% curve scales to the 30-question capstones", () => {
+  const lvl = { qCount: 30, pass: 0.8 }; // pass=24, star2=26, star3=27
+  const opts = { defaultSessionLen: 20, defaultPassRate: 0.8 };
+  assert.equal(starsForLevelBest(23, lvl, opts), 0);
+  assert.equal(starsForLevelBest(24, lvl, opts), 1);
+  assert.equal(starsForLevelBest(26, lvl, opts), 2);
+  assert.equal(starsForLevelBest(27, lvl, opts), 3);
+  assert.equal(starsForLevelBest(30, lvl, opts), 3);
+});
+
+test("star thresholds stay ordered on short TEST/JOJO sessions", () => {
+  // 3-question sessions make the pass/star2/star3 rates collide — the clamps must
+  // still yield a monotonic 0→3 curve rather than skipping or inverting a tier
+  for (const opts of [
+    { testMode: true, defaultSessionLen: 20, defaultPassRate: 0.8 },
+    { jojoMode: true, defaultSessionLen: 20, defaultPassRate: 0.8 },
+  ]) {
+    const seen = [0, 1, 2, 3].map((b) => starsForLevelBest(b, null, opts));
+    for (let i = 1; i < seen.length; i++) {
+      assert.ok(seen[i] >= seen[i - 1], `stars must never go down as score rises: ${seen}`);
+    }
+    assert.equal(seen[3], 3, "a perfect short session must still be 3 stars");
+    assert.ok(seen.every((s) => s >= 0 && s <= 3), `stars out of range: ${seen}`);
+  }
 });
 
 test("total stars aggregates all modes from progress map", () => {
@@ -47,11 +75,11 @@ test("total stars aggregates all modes from progress map", () => {
   };
   const progress = {
     melody: { 0: 20, 1: 16 }, // 3 + 1
-    chords: { 0: 19 },        // 2
+    chords: { 0: 19 },        // 3 (≥90% — was 2 under the old perfect-run curve)
     progressions: { 0: 12 },  // 0
   };
   const total = totalStarsForProgress(progress, levelsByMode, { defaultSessionLen: 20, defaultPassRate: 0.8 });
-  assert.equal(total, 6);
+  assert.equal(total, 7);
 });
 
 test("mergeBestProgress only writes strictly better scores", () => {

@@ -74,6 +74,7 @@ import {
   passRateForLevel,
   passCountForLevel,
   starsForLevelBest,
+  STAR3_RATE,
   totalStarsForProgress,
   mergeBestProgress,
   countFirstTries,
@@ -88,6 +89,16 @@ import {
   shouldCelebrateStageClear,
 } from "./app-flow.mjs";
 import { positionBox, answerBox, STANDARD_TUNING, INLAYS, DOUBLE_INLAYS, FRET_COUNT } from "./fretboard.mjs";
+import {
+  emptyEar,
+  normalizeEar,
+  recordSession,
+  weakLink,
+  weakLabel,
+  buildWeakDrill,
+  poolForQuestion,
+  phaseForQuestion,
+} from "./practice.mjs";
 
 
 
@@ -148,11 +159,15 @@ const passRateOf = (lvl) => passRateForLevel(lvl, flowOpts());
 const passCountFor = (lvl) => passCountForLevel(lvl, flowOpts());
 
 // Shop: spend earned stars on Coda skins. "default" is free/always-equipped.
+// Prices are tuned against the star curve in app-flow.mjs. When the third star moved
+// from a perfect run to 90%, a typical passing score (17–19 of 20) started earning
+// about one extra star per level — call it +50% income — so these rose with it to keep
+// a skin a goal rather than a formality. Retune both together or neither.
 const SHOP = [
-  { id: "gold",    type: "skin", name: "Gilded Coda",  cost: 12, tint: "#D9B45B", desc: "A hero forged in gold." },
-  { id: "shadow",  type: "skin", name: "Shadow Coda",  cost: 8,  tint: "#2f3b45", desc: "Cloaked in dusk." },
-  { id: "crimson", type: "skin", name: "Crimson Coda", cost: 8,  tint: "#E07856", desc: "Ember-touched." },
-  { id: "violet",  type: "skin", name: "Violet Coda",  cost: 8,  tint: "#9b8ec4", desc: "Crystal-kissed." },
+  { id: "gold",    type: "skin", name: "Gilded Coda",  cost: 18, tint: "#D9B45B", desc: "A hero forged in gold." },
+  { id: "shadow",  type: "skin", name: "Shadow Coda",  cost: 12, tint: "#2f3b45", desc: "Cloaked in dusk." },
+  { id: "crimson", type: "skin", name: "Crimson Coda", cost: 12, tint: "#E07856", desc: "Ember-touched." },
+  { id: "violet",  type: "skin", name: "Violet Coda",  cost: 12, tint: "#9b8ec4", desc: "Crystal-kissed." },
 ];
 
 // Progress is a per-level best-score map: { melody: {levelIdx: bestFirstTries}, chords: {…} }.
@@ -168,6 +183,31 @@ function loadProgress() {
 }
 function saveProgress(p) {
   try { window.localStorage.setItem("numbersong-progress", JSON.stringify(p)); } catch (e) {}
+}
+
+/* The ear log — a small rolling aggregate of what you hear well and what you don't
+   (see src/practice.mjs). Deliberately NOT behind canSave(): it isn't "progress"
+   (no stars, no stage clears, nothing to lose) and a free player getting a real
+   diagnosis of their own ear is the single best argument for the paid roadmap. */
+function loadEar() {
+  try { return normalizeEar(JSON.parse(window.localStorage.getItem("numbersong-ear"))); }
+  catch (e) { return emptyEar(); }
+}
+function saveEar(e) {
+  try { window.localStorage.setItem("numbersong-ear", JSON.stringify(e)); } catch (er) {}
+}
+
+/* The last real level played in each mode, so a drill launched later (from the Dojo,
+   after a reload) still inherits the key/octave context the player struggles in
+   rather than defaulting to an easy one. Weak drills themselves are never stored. */
+function loadWeakBase() {
+  try {
+    const p = JSON.parse(window.localStorage.getItem("numbersong-earbase"));
+    return p && typeof p === "object" ? p : {};
+  } catch (e) { return {}; }
+}
+function saveWeakBase(b) {
+  try { window.localStorage.setItem("numbersong-earbase", JSON.stringify(b)); } catch (e) {}
 }
 
 // Preferences (theme + how fast the "walk home" resolution plays), persisted.
@@ -1532,6 +1572,31 @@ const CONFETTI = Array.from({ length: 140 }, (_, i) => ({
 
 // Confetti overlay that FADES OUT before unmounting (instead of vanishing mid-fall
 // when the celebration state clears). Keeps itself mounted for a short fade.
+/* "Your cracked note" — the weak-link diagnosis, and the one button that acts on it.
+   Renders nothing when there isn't enough evidence to say something true; a made-up
+   diagnosis is worse than none. See src/practice.mjs for how `weak` is derived. */
+function CrackedNote({ weak, mode, onDrill, compact }) {
+  if (!weak) return null;
+  const target = weakLabel(weak.target, mode);
+  const confuser = weak.confuser == null ? null : weakLabel(weak.confuser, mode);
+  const noun = mode === "chords" ? "chord" : "note";
+  return (
+    <div className={"cracked" + (compact ? " compact" : "")}>
+      <span className="cracked-kicker">⚠ Your cracked {noun}</span>
+      <div className="cracked-main">
+        <span className="cracked-target">{target}</span>
+        <span className="cracked-say">
+          {confuser
+            ? <>You hear it as <b>{confuser}</b> — <b>{Math.round(weak.confuserRate * 100)}%</b> of the time.</>
+            : <>You name it right only <b>{Math.round(weak.rate * 100)}%</b> of the time.</>}
+        </span>
+      </div>
+      {onDrill && <button className="primary cracked-btn" onClick={onDrill}>Mend it →</button>}
+      <span className="cracked-foot">Isolate · integrate · whole — this run isn’t scored.</span>
+    </div>
+  );
+}
+
 function Confetti({ show }) {
   const [render, setRender] = useState(show);
   const [out, setOut] = useState(false);
@@ -2584,6 +2649,21 @@ export default function NumberEarTrainer() {
   const canSave = () => unlocked || loadPref("saveok", "0") === "1";
   const enableSaves = () => { savePref("saveok", "1"); try { saveProgress(progressRef.current); } catch (e) {} };
 
+  // The ear log + the current diagnosis ("your cracked note"). `ear` only changes at
+  // the end of a session, so deriving the weak link on render is cheap.
+  const [ear, setEar] = useState(loadEar);
+  const weakMelody = weakLink(ear, "melody");
+  const weakChords = weakLink(ear, "chords");
+  // The drill is built from the level the diagnosis came from, so it keeps the key
+  // and octave context the player actually struggles in.
+  const [weakBase, setWeakBase] = useState(loadWeakBase);
+  // Refs so finishSession can fold in results without depending on render order
+  // (mirrors progressRef above).
+  const earRef = useRef(ear);
+  useEffect(() => { earRef.current = ear; }, [ear]);
+  const weakBaseRef = useRef(weakBase);
+  useEffect(() => { weakBaseRef.current = weakBase; }, [weakBase]);
+
   const [musicKey, setMusicKey] = useState("C");
   const [voiceOn, setVoiceOn] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -3416,6 +3496,28 @@ export default function NumberEarTrainer() {
     sessTimer(() => nextQuestionRef.current(true), 350);
   };
 
+  /* "Mend the cracked note" — the 60/30/10 deconstruction drill built from the
+     current diagnosis (see src/practice.mjs). Runs as a custom level, so it is
+     deliberately UNSCORED toward stages: the point is to fix the weak component, not
+     to farm stars. It still feeds the ear log, which is how the player proves the
+     crack has closed. */
+  const weakFor = (m) => (m === "melody" ? weakMelody : m === "chords" ? weakChords : null);
+  const canDrillWeak = (m) => !!(weakFor(m) && weakBase[m]);
+  const startWeakDrill = (m) => {
+    const w = weakFor(m), base = weakBase[m];
+    if (!w || !base) return;
+    const drill = buildWeakDrill(w, base, qCountForLevel(null, flowOpts()));
+    if (!drill) return;
+    track("weak_drill_start", {
+      mode: m,
+      target: String(w.target),
+      confuser: w.confuser == null ? null : String(w.confuser),
+      rate: Math.round(w.rate * 100),
+    });
+    setFromAdventure(false);
+    startSession(m, null, drill);
+  };
+
   // Launch a Keeper Duel: a boss variant that REPLACES a region's final capstone level.
   // Identical content/audio/grading to that level — but it loops until the keeper's HP or
   // the player's hearts hit 0 (see advance() → bossAdvance / evalBoss). Winning force-passes
@@ -3544,9 +3646,33 @@ export default function NumberEarTrainer() {
   // The player's hearts ran out — Verda's meadow keeps its mark. No progress recorded;
   // kicked back to the map to try again (per design). Kill the session so no scheduled
   // audio/advance fires on the dead duel.
+  /* Fold a finished session into the ear log (see src/practice.mjs). Called on every
+     way OUT of a session that has real answers in it — including a LOST duel, which
+     is the most diagnostic data the app ever collects and was previously discarded.
+     Never allowed to throw: a broken ear log must not be able to trap a player in a
+     session that won't end. */
+  const foldEarLog = (s) => {
+    try {
+      if (!s || !s.results || !s.results.length) return;
+      const nextEar = recordSession(earRef.current, s.mode, s.results, Date.now());
+      if (nextEar !== earRef.current) { earRef.current = nextEar; setEar(nextEar); saveEar(nextEar); }
+      // Remember the context this was played in, so a drill launched later (from the
+      // Dojo, after a reload) inherits the key/octave the player struggles in.
+      if (s.lvl && !s.lvl.weakDrill && (s.mode === "melody" || s.mode === "chords")) {
+        const base = {
+          mode: s.lvl.mode, chromatic: !!s.lvl.chromatic, pool: s.lvl.pool,
+          keyMode: s.lvl.keyMode, octaves: s.lvl.octaves, sevenths: !!s.lvl.sevenths,
+        };
+        const nextBase = { ...weakBaseRef.current, [s.mode]: base };
+        weakBaseRef.current = nextBase; setWeakBase(nextBase); saveWeakBase(nextBase);
+      }
+    } catch (e) {}
+  };
+
   const bossLose = () => {
     const region = sess.current.bossRegion;
     track("boss_lose", { region, hp: bossState ? bossState.hp : null });
+    foldEarLog(sess.current); // a loss is failure-point analysis — keep what it taught us
     killSession();
     try { sfx("deflate"); haptic(false); } catch (e) {} // sad, deflated failure sound
     setPhase("idle"); setBusy(false);
@@ -3559,7 +3685,7 @@ export default function NumberEarTrainer() {
     const s = sess.current;
     const gen = sessGenRef.current; // capture; if the session is quit/restarted mid-await this goes stale
     clearLadder(); setChPicked([]); setProgAnswer([]); setProgWrong([]); setProgActive(-1); setFeedback(null);
-    s.attempted = false; s.misses = 0;
+    s.attempted = false; s.misses = 0; s.firstWrong = null;
     // duel: the next question is starting → clear the keeper's reaction back to her resting line
     if (s.boss) { const st = evalBoss(s.results, s.bossMisses, s.boss); setDuelSay(st.hpPct <= 34 ? s.boss.taunts.low : s.boss.taunts.intro); }
     setPhase("playing"); setBusy(true);
@@ -3582,7 +3708,9 @@ export default function NumberEarTrainer() {
       if (key !== s.key) { s.key = key; setSessKey(s.key); }
       const oct = pickOctave(lvl.octaves);
       s.octave = oct;
-      const pc = pickMelodyTarget(lvl.pool, s.target);
+      // poolForQuestion === lvl.pool for every ordinary level; only a phased level
+      // (the 60/30/10 weak-link drill) narrows or widens as the session runs.
+      const pc = pickMelodyTarget(poolForQuestion(lvl, s.qNum), s.target);
       s.target = pc;
       const t = (await playCadence(s.key, lvl.mode)) + 0.25;
       if (gen !== sessGenRef.current) return; // quit during audio load → bail before the target note leaks
@@ -3594,7 +3722,7 @@ export default function NumberEarTrainer() {
       const lvl = s.lvl;
       const key = nextRandomSessionKey({ lvl, isFirst, currentKey: s.key, randKey });
       if (key !== s.key) { s.key = key; setSessKey(s.key); }
-      const pick = pickChordRoman(lvl.pool, s.target && s.target.roman);
+      const pick = pickChordRoman(poolForQuestion(lvl, s.qNum), s.target && s.target.roman);
       const c = CHORDS.find((x) => x.roman === pick);
       s.target = c;
       const cad = (await playCadence(s.key, lvl.mode)) + 0.25;
@@ -3640,6 +3768,11 @@ export default function NumberEarTrainer() {
     setDuelWinRegion(bossWon ? s.bossRegion : null);
     if (bossWon) track("boss_win", { region: s.bossRegion, questions: s.results.length, hearts: bossState ? bossState.hearts : null });
     track("session_finish", { mode: s.mode, level: s.levelIdx, first_tries: firstTries, questions: s.results.length, passed: firstTries >= passCountFor(s.lvl) });
+    // Fold this session into the ear log. Unlike progress this is NOT gated on
+    // canSave() (see loadEar) and it DOES include custom/drill sessions — a weak-link
+    // drill that didn't count toward the diagnosis it was built from would never let
+    // the player prove they'd fixed it.
+    foldEarLog(s);
     // snapshot region-clear state BEFORE saving this session's progress (for the victory flourish)
     sessWasClearedRef.current = (fromAdventure && advStageId != null) ? stageClearedAdv(advStageId) : false;
     if (s.levelIdx != null) { // custom sessions aren't recorded
@@ -3729,7 +3862,9 @@ export default function NumberEarTrainer() {
     const lvl = s.lvl;
     if (pc === s.target) {
       const first = !s.attempted;
-      s.results.push({ target: s.target, firstTry: first });
+      // `wrong` = the FIRST wrong answer only — the honest instinct, and it keeps the
+      // ear log's confusion counts ≤ times-asked so the "41% of the time" reads true.
+      s.results.push({ target: s.target, firstTry: first, wrong: s.firstWrong });
       setSessionResults([...s.results]);
       bossOnCorrect(); // duel: strike the keeper immediately, don't wait for the resolution
       if (first) { setScore((sc) => sc + 1); setStreak((x) => x + 1); }
@@ -3757,6 +3892,7 @@ export default function NumberEarTrainer() {
     } else {
       s.attempted = true;
       s.misses = (s.misses || 0) + 1;
+      if (s.firstWrong == null) s.firstWrong = pc; // for the ear log (see the correct branch)
       setStreak(0);
       setLitWrong([pc]);
       setSrMsg("Not quite — that was a " + spokenNote(pc) + ".");
@@ -3797,7 +3933,7 @@ export default function NumberEarTrainer() {
     const right = chPicked.every((d) => t.has(d));
     if (right) {
       const first = !s.attempted;
-      s.results.push({ target: s.target.roman, firstTry: first });
+      s.results.push({ target: s.target.roman, firstTry: first, wrong: s.firstWrong });
       setSessionResults([...s.results]);
       bossOnCorrect(); // duel: strike the keeper immediately, don't wait for the resolution
       if (first) { setScore((sc) => sc + 1); setStreak((x) => x + 1); }
@@ -3813,6 +3949,18 @@ export default function NumberEarTrainer() {
     } else {
       s.attempted = true;
       s.misses = (s.misses || 0) + 1;
+      // Ear log: only count it as a chord CONFUSION when the stack they built is
+      // exactly some other chord ("you heard 6- as 1"). A near-miss stack isn't a
+      // confusion with anything nameable, so it stays an uncredited miss.
+      if (s.firstWrong == null) {
+        const picked = new Set(chPicked.map((d) => (d === 8 ? 1 : d)));
+        const heard = CHORDS.find((c) => {
+          if (c.roman === s.target.roman) return false;
+          const ct = chordTones(c, s.sevenths).map((d) => (d === 8 ? 1 : d));
+          return ct.length === picked.size && ct.every((d) => picked.has(d));
+        });
+        if (heard) s.firstWrong = heard.roman;
+      }
       setStreak(0);
       setLitWrong(chPicked.filter((d) => !t.has(d)));
       setSrMsg("Not quite.");
@@ -4164,6 +4312,17 @@ export default function NumberEarTrainer() {
           <button className="back" onClick={() => setScreen("menu")}>← Menu</button>
           <h2 className="screen-title">Basic Training</h2>
         </header>
+        {/* The training hall's first question is "what should I actually work on?" —
+            answer it before the menu of everything. Melody first, chords if that's
+            where the worse crack is. */}
+        {(() => {
+          const m = canDrillWeak("melody") && canDrillWeak("chords")
+            ? (weakMelody.rate <= weakChords.rate ? "melody" : "chords")
+            : canDrillWeak("melody") ? "melody" : canDrillWeak("chords") ? "chords" : null;
+          if (!m) return null;
+          return <CrackedNote weak={weakFor(m)} mode={m} compact
+            onDrill={() => { try { sfx("select"); } catch (e) {} startWeakDrill(m); }} />;
+        })()}
         <div className="cards">
           {sec("Single notes", `Hear a note, name its degree. ${MELODY_GROUPS.length} stages.`, () => { setMode("melody"); setMelGroup(null); setScreen("levels"); })}
           {sec("Chord tones", `Hear a chord, find its degrees. ${CHORD_CHAPTERS.length} chapters.`, () => { setMode("chords"); setChordChapter(null); setScreen("levels"); })}
@@ -4511,7 +4670,7 @@ export default function NumberEarTrainer() {
                   );
                 })}
               </div>
-              <p className="hint center">{SESSION_LEN} questions per session · {Math.round(PASS_RATE * 100)}% on first tries earns the ✓</p>
+              <p className="hint center">{SESSION_LEN} questions per session · {Math.round(PASS_RATE * 100)}% on first tries earns the ✓ · {Math.round(STAR3_RATE * 100)}% earns ★★★ — then climb, don’t polish</p>
             </>
           ) : (
             <div className="custom-builder">
@@ -4677,7 +4836,7 @@ export default function NumberEarTrainer() {
             );
           })}
         </div>
-        <p className="hint center">{SESSION_LEN} questions per session · {Math.round(PASS_RATE * 100)}% on first tries earns the ✓</p>
+        <p className="hint center">{SESSION_LEN} questions per session · {Math.round(PASS_RATE * 100)}% on first tries earns the ✓ · {Math.round(STAR3_RATE * 100)}% earns ★★★ — then climb, don’t polish</p>
         {upsellModal}
       </div>
     );
@@ -4685,7 +4844,11 @@ export default function NumberEarTrainer() {
 
   if (screen === "session") {
     const lvl = sessLvl || levels[levelIdx];
-    const pool = mode === "melody" ? lvl.pool : null;
+    // MUST be the same per-question pool the target was drawn from — the pads are
+    // enabled from this, so using the static lvl.pool on a phased (weak-link) level
+    // would disable the pad the answer lives on and wedge the question.
+    const qPool = poolForQuestion(lvl, qNum);
+    const pool = mode === "melody" ? qPool : null;
     const isMinor = mode === "melody" && lvl.mode === "minor";
     const tonicPc = isMinor ? 9 : 0;
     const chordTonic = lvl.mode === "minor" ? 6 : 1; // home degree for chord chapters
@@ -4895,6 +5058,15 @@ export default function NumberEarTrainer() {
           </div>
         )}
         {!isDuel && <p className="qcount">Question {Math.min(qNum + 1, qCountOf(lvl))} of {qCountOf(lvl)} · {displayKey}{lvl.keyMode === "random" ? " (changes every question)" : ""}</p>}
+        {/* weak-link drill: name the phase, so the 60/30/10 is visible rather than
+            feeling like the pool randomly changed mid-session */}
+        {!isDuel && lvl.weakDrill && (
+          <p className="qphase">{({
+            isolate: "Isolating — just the two you confuse",
+            integrate: "Integrating — putting it back with its neighbours",
+            whole: "Whole — the full level again",
+          })[phaseForQuestion(lvl, qNum)]}</p>
+        )}
         {isDuel && <p className="qcount duel-key">{displayKey}{lvl.keyMode === "random" ? " · new key each strike" : ""}</p>}
 
         {/* drill-stage = display:contents in portrait (no change); a two-column flex row in phone-landscape */}
@@ -4996,7 +5168,7 @@ export default function NumberEarTrainer() {
             <>
             {showRef && !isDuel && (
               <div className="chord-ref">
-                {lvl.pool.map((r) => {
+                {qPool.map((r) => {   // phase-aware, so the reference matches what's being asked
                   const tones = chordTones(chordByRoman(r), lvl.sevenths);
                   return (
                     <div key={r} className="cr-row">
@@ -5162,6 +5334,8 @@ export default function NumberEarTrainer() {
     let bestStreak = 0, run = 0;
     sessionResults.forEach((r) => { if (r.firstTry) { run += 1; bestStreak = Math.max(bestStreak, run); } else run = 0; });
 
+    // the one-time email card wins the screen when it shows (single CTA)
+    const showLead = !onboarded && (passed || justCleared);
     // per-target breakdown (progressions have long, mostly-unique labels — skip the bars)
     const showBars = mode !== "progressions";
     const byTarget = {};
@@ -5242,7 +5416,11 @@ export default function NumberEarTrainer() {
           )}
           <div className={"score-big" + (passed ? " pass" : "")}>{pct}%</div>
           <p className="hint center">
-            {isCustom
+            {sessLvl && sessLvl.weakDrill
+              ? (passed
+                  ? "That's the crack closing. Come back to it tomorrow — it sticks faster than it feels."
+                  : "Mending runs aren't scored — this is the note doing the work. Run it again.")
+              : isCustom
               ? (passed ? "Strong run. Custom sessions aren't scored toward stages." : "Custom sessions aren't scored toward stages — tweak the notes and go again.")
               : passed
                 ? (hasNext ? "Passed! This level is checked off." : "Passed — that's the top level. Your ears are working.")
@@ -5263,7 +5441,16 @@ export default function NumberEarTrainer() {
               ))}
             </div>
           )}
-          {!onboarded && (passed || justCleared) && (
+          {/* The cross-session verdict, under this session's bars. Hidden on the one
+              run that shows the email card — that moment gets a single CTA. */}
+          {!showLead && (
+            <CrackedNote
+              weak={weakFor(mode)}
+              mode={mode}
+              onDrill={canDrillWeak(mode) ? () => { try { sfx("select"); } catch (e) {} startWeakDrill(mode); } : null}
+            />
+          )}
+          {showLead && (
             <div className="lead-card">
               {leadStatus === "done" ? (
                 <>
@@ -6821,6 +7008,32 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .bar-track { flex: 1; height: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
 .bar-fill { height: 100%; background: var(--green); border-radius: 99px; }
 .bar-count { min-width: 2.6em; font-size: 0.8rem; color: var(--text-soft); }
+
+/* "Your cracked note" — the weak-link diagnosis card (results + Basic Training) */
+.cracked {
+  width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 16px 14px; background: var(--card);
+  border: 1px solid var(--line); border-left: 3px solid var(--wrong); border-radius: 12px;
+}
+.cracked.compact { margin-bottom: 14px; }
+.cracked-kicker {
+  font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--wrong); font-weight: 700;
+}
+.cracked-main { display: flex; align-items: center; gap: 14px; text-align: left; }
+.cracked-target {
+  font-family: 'Archivo Black', sans-serif; font-size: 2.6rem; line-height: 1;
+  color: var(--wrong); min-width: 1.4em; text-align: center;
+}
+.cracked-say { font-size: 0.92rem; color: var(--text); line-height: 1.45; }
+.cracked-say b { color: var(--teal); }
+.cracked-btn { width: 100%; }
+.cracked-foot { font-size: 0.72rem; color: var(--text-soft); text-align: center; }
+.qphase {
+  margin: 2px 0 0; font-size: 0.76rem; text-align: center;
+  color: var(--teal); letter-spacing: 0.02em;
+}
+
 .results-actions { display: flex; gap: 10px; }
 
 .foot { text-align: center; font-size: 0.8rem; color: var(--text-soft); line-height: 1.5; padding: 0 12px; margin-top: auto; }
