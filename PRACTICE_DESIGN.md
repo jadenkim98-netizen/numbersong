@@ -410,13 +410,19 @@ and the grinding nudge are still open). **Step-backs (D)** remain — small, and
 
 **Phase 5 — flow-zone escalation (E) + the monthly view (F).**
 
-**Next up, and the highest-value remaining use of the ear log:** weight *ordinary*
-sessions toward weak notes, not just drills. Same `drawPoolForQuestion` mechanism
-with a gentle share (~15–20%), applied to every level. No new UI — sessions just
-quietly ask you 6 more often until 6 stops being a problem, which turns the ear log
-from a report you visit into something that shapes practice on its own. After that:
-Keeper Duels drawing their questions from your weak notes, and a scheduled *recheck*
-a few days after a drill (§4's step-back, applied to notes instead of levels).
+**Ambient weighting ✅ BUILT.** Ordinary sessions — not just drills — lean toward
+your weak numbers, via `withSessionFocus` in `startSession`. Gentle
+(`SESSION_FOCUS_SHARE = 0.18`, so a weak note goes from ~14% of questions to ~30%
+in a 7-note level), scoped to what the level already teaches, and silent. This is
+what makes the ear log matter to the ~everyone who never opens a stats screen.
+Deliberately excluded: **Keeper Duels**, because `boss.mjs`'s HP/hearts numbers are
+tuned against expected accuracy and systematically harder questions would break
+that balance without a retune.
+
+**Still open, in order:** a scheduled *recheck* a few days after a drill (§4's
+step-back, applied to notes instead of levels — the ear log already stores `last`
+per target, so the data is there); duels drawing from weak notes *with* a matching
+HP retune; then D/E/F above.
 
 C is the cheapest and could jump the queue if we want a quick win — it's the only
 item that removes an incentive currently working *against* the goal.

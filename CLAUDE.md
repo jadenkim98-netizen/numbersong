@@ -101,6 +101,14 @@ no dev server, no package.json — deliberately. Tests run on Node's built-in
     phased level draws from the phase's `focus` set `share` of the time and from the
     full pool otherwise.
 
+  `startSession` runs every ordinary level through `withSessionFocus`, which attaches
+  a single whole-session phase weighted (gently — `SESSION_FOCUS_SHARE`) toward the
+  weak numbers **that level's own pool already teaches**: "First steps" stays 1·2·3
+  even if your worst note is 6. It's silent — no caption — so the "Your ear" screen
+  says it out loud instead. Drills keep their own stronger schedule, and Keeper Duels
+  build their level separately and are deliberately left unweighted so `boss.mjs`'s
+  HP/hearts tuning still holds.
+
   A weak-link drill therefore asks you 6 far more often while all seven pads stay
   answerable. An earlier version narrowed `lvl.pool` per phase, which shrank both at
   once: the drill offered two notes and two pads, so a coin flip scored 50% and the

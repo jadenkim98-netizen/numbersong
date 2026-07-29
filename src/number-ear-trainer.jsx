@@ -96,6 +96,7 @@ import {
   weakLink,
   weakLabel,
   earRows,
+  withSessionFocus,
   buildWeakDrill,
   drawPoolForQuestion,
   phaseForQuestion,
@@ -3477,13 +3478,20 @@ export default function NumberEarTrainer() {
   const startSession = (m, li, customLvl = null) => {
     killSession();
     track("session_start", { mode: m, level: li, custom: !!customLvl });
-    const lvl = resolveSessionLevel({
+    const lvl0 = resolveSessionLevel({
       mode: m,
       levelIdx: li,
       customLvl,
       chordSevenths,
       levelsByMode: { melody: MELODY_LEVELS, chords: CHORD_LEVELS, progressions: PROG_LEVELS },
     });
+    // Ambient weighting: an ordinary session leans a little toward the weak numbers
+    // this level actually teaches, so the ear log shapes practice for players who
+    // never open a stats screen. Gentle (SESSION_FOCUS_SHARE), pool-scoped, and it
+    // never touches the answer surface. Drills keep their own stronger schedule; the
+    // duel builds its level separately and is deliberately left unweighted so its
+    // HP/hearts tuning still holds.
+    const lvl = withSessionFocus(lvl0, earRef.current, m, qCountOf(lvl0));
     setMode(m); setLevelIdx(li); setSessLvl(lvl);
     if (m === "melody" && li != null) setMelGroup(groupIndexOf(li));
     if (m === "chords" && li != null) setChordChapter(chordChapterIndexOf(li));
@@ -4397,6 +4405,14 @@ export default function NumberEarTrainer() {
           <h2 className="screen-title">Your ear</h2>
         </header>
         <div className="ear-screen">
+          {/* the weighting is silent in play, so say it here rather than let it feel
+              like the shuffle is broken */}
+          {secs.length > 0 && (
+            <p className="ear-intro">
+              These come up a little more often in normal sessions — you don’t have to
+              do anything. Mend one to work it properly.
+            </p>
+          )}
           {secs.length ? secs : (
             <p className="set-desc" style={{ textAlign: "center", padding: "24px 8px" }}>
               Nothing here yet. Play a few sessions and here you'll find exactly which
@@ -7114,6 +7130,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 
 /* "Your ear" — the full per-target breakdown behind the cracked-note headline */
 .ear-screen { display: flex; flex-direction: column; gap: 22px; padding: 4px 0 20px; }
+.ear-intro { margin: 0; font-size: 0.82rem; color: var(--text-soft); line-height: 1.5; }
 .ear-sec { display: flex; flex-direction: column; gap: 10px; }
 .ear-sec-title { margin: 0; font-family: 'Archivo Black', sans-serif; font-size: 1rem; }
 .ear-sec-blurb { margin: -6px 0 4px; font-size: 0.78rem; color: var(--text-soft); }

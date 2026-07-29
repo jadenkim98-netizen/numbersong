@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   emptyEar, normalizeEar, recordSession, weakLink, weakLabel, earRows,
   buildWeakDrill, splitPhases, drawPoolForQuestion, phaseForQuestion,
+  sessionFocus, withSessionFocus, SESSION_FOCUS_SHARE, SESSION_FOCUS_MAX,
   EAR_DECAY_AT, WEAK_MIN_SEEN,
 } from "../src/practice.mjs";
 
@@ -228,6 +229,78 @@ test("buildWeakDrill handles chord pools (romans, no semitone sorting)", () => {
 test("buildWeakDrill returns null without a diagnosis", () => {
   assert.equal(buildWeakDrill(null, BASE, 20), null);
   assert.equal(buildWeakDrill({ target: 9 }, null, 20), null);
+});
+
+/* ── always-on weighting in ordinary sessions ── */
+
+test("sessionFocus only reaches for weak notes the level actually teaches", () => {
+  let ear = recordSession(emptyEar(), "melody", runs(9, 20, 10, 7));  // 6 is weak
+  ear = recordSession(ear, "melody", runs(4, 20, 1, 2));              // 3 is fine
+  // a level that teaches 1·2·3 must not start asking 6
+  assert.deepEqual(sessionFocus(ear, "melody", [0, 2, 4]), []);
+  // the full key does include it
+  assert.deepEqual(sessionFocus(ear, "melody", BASE.pool), [9]);
+});
+
+test("sessionFocus is worst-first and capped", () => {
+  let ear = emptyEar();
+  for (const [pc, miss] of [[9, 12], [7, 10], [5, 8], [2, 6]]) {
+    ear = recordSession(ear, "melody", runs(pc, 20, miss, 0));
+  }
+  const focus = sessionFocus(ear, "melody", BASE.pool);
+  assert.equal(focus.length, SESSION_FOCUS_MAX);
+  assert.deepEqual(focus, [9, 7, 5]);   // worst three, in order
+});
+
+test("sessionFocus ignores thin evidence and notes that aren't weak", () => {
+  let ear = recordSession(emptyEar(), "melody", runs(9, 4, 4, 7));   // too few asks
+  ear = recordSession(ear, "melody", runs(4, 20, 1, 2));             // 95% — not weak
+  assert.deepEqual(sessionFocus(ear, "melody", BASE.pool), []);
+});
+
+test("withSessionFocus weights an ordinary level without touching its answer pool", () => {
+  const ear = recordSession(emptyEar(), "melody", runs(9, 20, 10, 7));
+  const lvl = withSessionFocus(BASE, ear, "melody", 20);
+  assert.deepEqual(lvl.pool, BASE.pool, "the answer surface must never change");
+  assert.equal(lvl.phases.length, 1);
+  assert.deepEqual(lvl.phases[0].focus, [9]);
+  assert.equal(lvl.phases[0].share, SESSION_FOCUS_SHARE);
+  // and it actually drives the draw
+  assert.deepEqual(drawPoolForQuestion(lvl, 0, () => 0.1), [9]);
+  assert.deepEqual(drawPoolForQuestion(lvl, 0, () => 0.9), BASE.pool);
+  assert.deepEqual(drawPoolForQuestion(lvl, 19, () => 0.1), [9]); // whole session
+});
+
+test("withSessionFocus leaves a level alone when there's nothing to weight", () => {
+  assert.equal(withSessionFocus(BASE, emptyEar(), "melody", 20), BASE);
+  assert.equal(withSessionFocus(BASE, emptyEar(), "progressions", 20), BASE);
+  assert.equal(withSessionFocus(null, emptyEar(), "melody", 20), null);
+});
+
+test("withSessionFocus never overrides a drill's own schedule", () => {
+  const ear = recordSession(emptyEar(), "melody", runs(9, 20, 10, 7));
+  const drill = buildWeakDrill({ target: 9, confuser: 7 }, BASE, 20);
+  assert.equal(withSessionFocus(drill, ear, "melody", 20), drill);
+  assert.equal(drill.phases[0].share, 0.75, "the drill keeps its stronger weighting");
+});
+
+test("ambient weighting is gentle — the level still plays like itself", () => {
+  const ear = recordSession(emptyEar(), "melody", runs(9, 20, 10, 7));
+  const lvl = withSessionFocus(BASE, ear, "melody", 20);
+  let seq = 7;
+  const rng = () => { seq = (seq * 9301 + 49297) % 233280; return seq / 233280; };
+  const counts = {};
+  const N = 6000;
+  for (let i = 0; i < N; i++) {
+    const pool = drawPoolForQuestion(lvl, 0, rng);
+    for (const pc of pool) counts[pc] = (counts[pc] || 0) + 1 / pool.length;
+  }
+  const share9 = counts[9] / N;
+  // unweighted it would be 1/7 ≈ 0.143; weighted ≈ 0.18 + 0.82/7 ≈ 0.30
+  assert.ok(share9 > 0.22 && share9 < 0.38, `expected a nudge, got ${share9}`);
+  for (const pc of BASE.pool) {
+    assert.ok(counts[pc] / N > 0.08, `note ${pc} must stay common, got ${counts[pc] / N}`);
+  }
 });
 
 /* ── the per-question difficulty primitive ── */

@@ -246,6 +246,39 @@ export function buildWeakDrill(weak, baseLvl, qCount) {
   };
 }
 
+/* ───────────────────  ALWAYS-ON WEIGHTING (ordinary sessions)  ─────────────────── */
+
+// How often an ordinary session reaches for one of your weak targets, and how many
+// of them are in play. Deliberately gentle: a normal level should still feel like
+// that level, just with your problem notes turning up a bit more than chance. The
+// drill is the deliberate version of this; this is the ambient one.
+export const SESSION_FOCUS_SHARE = 0.18;
+export const SESSION_FOCUS_MAX = 3;
+
+// Your weak targets that are actually IN this level's pool, worst first. A level that
+// doesn't teach your weak note shouldn't start teaching it — "First steps" stays
+// 1·2·3 even if your worst note is 6.
+export function sessionFocus(ear, mode, pool) {
+  if (!Array.isArray(pool) || !pool.length) return [];
+  const inPool = new Set(pool.map(String));
+  return earRows(ear, mode)
+    .filter((r) => r.enough && r.rate < WEAK_MAX_RATE && inPool.has(r.key))
+    .slice(0, SESSION_FOCUS_MAX)
+    .map((r) => r.target);
+}
+
+// Attach that weighting to an ordinary level as a single whole-session phase, so it
+// runs through the same drawPoolForQuestion path as the drill. Returns the level
+// untouched when there's nothing to weight, when it already carries phases, or when
+// it IS a drill (which has its own, stronger schedule). The ANSWER pool is never
+// touched here either — same rule as buildWeakDrill.
+export function withSessionFocus(lvl, ear, mode, qCount) {
+  if (!lvl || lvl.weakDrill || (Array.isArray(lvl.phases) && lvl.phases.length)) return lvl;
+  const focus = sessionFocus(ear, mode, lvl.pool);
+  if (!focus.length) return lvl;
+  return { ...lvl, phases: [{ n: qCount, focus, share: SESSION_FOCUS_SHARE, label: null }] };
+}
+
 function phaseAt(lvl, qNum) {
   if (!lvl || !Array.isArray(lvl.phases) || !lvl.phases.length) return null;
   let acc = 0;

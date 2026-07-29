@@ -1126,6 +1126,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 
 /* "Your ear" — the full per-target breakdown behind the cracked-note headline */
 .ear-screen { display: flex; flex-direction: column; gap: 22px; padding: 4px 0 20px; }
+.ear-intro { margin: 0; font-size: 0.82rem; color: var(--text-soft); line-height: 1.5; }
 .ear-sec { display: flex; flex-direction: column; gap: 10px; }
 .ear-sec-title { margin: 0; font-family: 'Archivo Black', sans-serif; font-size: 1rem; }
 .ear-sec-blurb { margin: -6px 0 4px; font-size: 0.78rem; color: var(--text-soft); }
@@ -4004,6 +4005,19 @@ window.SOUNDTRACK = SOUNDTRACK;
       qCount: counts.reduce((a, b) => a + b, 0),
       phases: counts.map((n, i) => ({ n, ...spec[i] }))
     };
+  }
+  var SESSION_FOCUS_SHARE = 0.18;
+  var SESSION_FOCUS_MAX = 3;
+  function sessionFocus(ear, mode, pool) {
+    if (!Array.isArray(pool) || !pool.length) return [];
+    const inPool = new Set(pool.map(String));
+    return earRows(ear, mode).filter((r) => r.enough && r.rate < WEAK_MAX_RATE && inPool.has(r.key)).slice(0, SESSION_FOCUS_MAX).map((r) => r.target);
+  }
+  function withSessionFocus(lvl, ear, mode, qCount) {
+    if (!lvl || lvl.weakDrill || Array.isArray(lvl.phases) && lvl.phases.length) return lvl;
+    const focus = sessionFocus(ear, mode, lvl.pool);
+    if (!focus.length) return lvl;
+    return { ...lvl, phases: [{ n: qCount, focus, share: SESSION_FOCUS_SHARE, label: null }] };
   }
   function phaseAt(lvl, qNum) {
     if (!lvl || !Array.isArray(lvl.phases) || !lvl.phases.length) return null;
@@ -7749,13 +7763,14 @@ window.SOUNDTRACK = SOUNDTRACK;
     const startSession = (m, li, customLvl = null) => {
       killSession();
       track("session_start", { mode: m, level: li, custom: !!customLvl });
-      const lvl = resolveSessionLevel({
+      const lvl0 = resolveSessionLevel({
         mode: m,
         levelIdx: li,
         customLvl,
         chordSevenths,
         levelsByMode: { melody: MELODY_LEVELS, chords: CHORD_LEVELS, progressions: PROG_LEVELS }
       });
+      const lvl = withSessionFocus(lvl0, earRef.current, m, qCountOf(lvl0));
       setMode(m);
       setLevelIdx(li);
       setSessLvl(lvl);
@@ -8558,7 +8573,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         } catch (e) {
         }
         setScreen("menu");
-      } }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Your ear")), /* @__PURE__ */ React.createElement("div", { className: "ear-screen" }, secs.length ? secs : /* @__PURE__ */ React.createElement("p", { className: "set-desc", style: { textAlign: "center", padding: "24px 8px" } }, "Nothing here yet. Play a few sessions and here you'll find exactly which notes you're weak on and what you mistake them for.")), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "This lives on this device only — nothing is uploaded."));
+      } }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Your ear")), /* @__PURE__ */ React.createElement("div", { className: "ear-screen" }, secs.length > 0 && /* @__PURE__ */ React.createElement("p", { className: "ear-intro" }, "These come up a little more often in normal sessions — you don’t have to do anything. Mend one to work it properly."), secs.length ? secs : /* @__PURE__ */ React.createElement("p", { className: "set-desc", style: { textAlign: "center", padding: "24px 8px" } }, "Nothing here yet. Play a few sessions and here you'll find exactly which notes you're weak on and what you mistake them for.")), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "This lives on this device only — nothing is uploaded."));
     }
     if (screen === "adventure") {
       const onTapNode = (n) => {
@@ -10835,6 +10850,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 
 /* "Your ear" — the full per-target breakdown behind the cracked-note headline */
 .ear-screen { display: flex; flex-direction: column; gap: 22px; padding: 4px 0 20px; }
+.ear-intro { margin: 0; font-size: 0.82rem; color: var(--text-soft); line-height: 1.5; }
 .ear-sec { display: flex; flex-direction: column; gap: 10px; }
 .ear-sec-title { margin: 0; font-family: 'Archivo Black', sans-serif; font-size: 1rem; }
 .ear-sec-blurb { margin: -6px 0 4px; font-size: 0.78rem; color: var(--text-soft); }
