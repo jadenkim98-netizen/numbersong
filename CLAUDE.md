@@ -88,12 +88,18 @@ no dev server, no package.json — deliberately. Tests run on Node's built-in
   `starBalance()` is derived from progress, so `STAR3_RATE` and `SHOP` prices are
   coupled: this change raised income +50%, and prices rose to match. Retune both or
   neither.
-- The ear log surfaces in three places: the **cracked-note card** (results screen + top
-  of Basic Training) shows the single worst target; the **"Your ear" screen**
-  (`screen === "ear"`, menu) shows `earRows()` — every target worst-first with its
-  confusion, and a Mend button per row. The menu entry only appears once there's data,
-  and rows under `WEAK_MIN_SEEN` render their counts but refuse to draw a conclusion.
-  `startWeakDrill(mode, pick, where)` drills any target, not just the diagnosed one.
+- The ear log surfaces in two places. The **cracked-note card** (results screen + top
+  of Basic Training) shows the single worst target. The **"Your ear" dashboard**
+  (`screen === "ear"`, always in the menu) shows `earBoard()` — a FIXED roster of all
+  19 things that exist (the seven, the five colour notes, the seven chords) in musical
+  order, so unplayed rows render dimmed as visible gaps rather than being absent. Row
+  states: *unheard* (never met), *thin* (`< WEAK_MIN_SEEN`, shows counts + "N more to
+  know it" but draws no conclusion), *weak* (offers Mend), *solid* (`>= WEAK_MAX_RATE`,
+  shows "✓ solid" and deliberately offers NO drill — inviting a drill on a number you
+  own is the polishing the 90% rule exists to stop). `earCoverage()` drives the
+  "N / 19 measured" header, whose `overall` is null rather than 0 when nothing is
+  played. `startWeakDrill(mode, pick, where)` drills any target, not just the
+  diagnosed one.
 - **Stimulus and response are different pools, and must never be conflated.**
   - *Response* (which pads are live) = `lvl.pool`, always the level's full set. The
     session's `qPool` is exactly this. **Never narrow it.**

@@ -1127,6 +1127,23 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 /* "Your ear" — the full per-target breakdown behind the cracked-note headline */
 .ear-screen { display: flex; flex-direction: column; gap: 22px; padding: 4px 0 20px; }
 .ear-intro { margin: 0; font-size: 0.82rem; color: var(--text-soft); line-height: 1.5; }
+.ear-summary {
+  display: flex; flex-direction: column; gap: 10px; align-items: stretch;
+  padding: 16px 14px; background: var(--card);
+  border: 1px solid var(--line); border-radius: 12px;
+}
+.ear-cov { display: flex; align-items: baseline; gap: 10px; }
+.ear-cov-n { font-family: 'Archivo Black', sans-serif; font-size: 1.6rem; color: var(--teal); }
+.ear-cov-n b { color: var(--text); }
+.ear-cov-label { font-size: 0.8rem; color: var(--text-soft); }
+.ear-cov-bar { width: 100%; }
+.ear-cov-sub { font-size: 0.8rem; color: var(--text-soft); line-height: 1.5; }
+.ear-cov-sub b { color: var(--text); }
+.ear-cov-btn { width: 100%; margin-top: 2px; }
+/* never met — a visible gap, not an error */
+.ear-row.unheard { opacity: 0.45; border-style: dashed; }
+.ear-row.unheard .bar-label { color: var(--text-soft); }
+.ear-solid { font-size: 0.74rem; color: var(--green); flex: 0 0 auto; }
 .ear-sec { display: flex; flex-direction: column; gap: 10px; }
 .ear-sec-title { margin: 0; font-family: 'Archivo Black', sans-serif; font-size: 1rem; }
 .ear-sec-blurb { margin: -6px 0 4px; font-size: 0.78rem; color: var(--text-soft); }
@@ -4004,6 +4021,38 @@ window.SOUNDTRACK = SOUNDTRACK;
       // the ANSWER surface — full, and never narrowed
       qCount: counts.reduce((a, b) => a + b, 0),
       phases: counts.map((n, i) => ({ n, ...spec[i] }))
+    };
+  }
+  function earBoard(ear, mode, roster) {
+    if (!Array.isArray(roster)) return [];
+    const byKey = new Map(earRows(ear, mode).map((r) => [r.key, r]));
+    return roster.map((k) => byKey.get(String(k)) || {
+      key: String(k),
+      target: k,
+      confuser: null,
+      seen: 0,
+      first: 0,
+      rate: 0,
+      confuserCount: 0,
+      confuserRate: 0,
+      enough: false,
+      unheard: true
+    });
+  }
+  function earCoverage(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    const heard = list.filter((r) => r.seen > 0);
+    const seen = heard.reduce((a, r) => a + r.seen, 0);
+    const first = heard.reduce((a, r) => a + r.first, 0);
+    return {
+      total: list.length,
+      measured: list.filter((r) => r.enough).length,
+      // enough evidence to judge
+      heard: heard.length,
+      // met at all
+      asked: seen,
+      overall: seen ? first / seen : null
+      // null, never 0 — "no data" ≠ "0%"
     };
   }
   var SESSION_FOCUS_SHARE = 0.18;
@@ -8541,39 +8590,59 @@ window.SOUNDTRACK = SOUNDTRACK;
       })), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Sharpen your ear — every rep forges Excalibar."));
     }
     if (screen === "ear") {
-      const section = (m, title, blurb) => {
-        const rows = earRows(ear, m);
-        if (!rows.length) return null;
-        return /* @__PURE__ */ React.createElement("div", { key: m, className: "ear-sec" }, /* @__PURE__ */ React.createElement("h3", { className: "ear-sec-title" }, title), /* @__PURE__ */ React.createElement("p", { className: "ear-sec-blurb" }, blurb), rows.map((r) => {
-          const pct = Math.round(r.rate * 100);
-          const tone = pct >= 90 ? " good" : pct >= 80 ? " ok" : " low";
-          return /* @__PURE__ */ React.createElement("div", { key: r.key, className: "ear-row" + (r.enough ? "" : " thin") }, /* @__PURE__ */ React.createElement("div", { className: "ear-main" }, /* @__PURE__ */ React.createElement("span", { className: "bar-label" }, weakLabel(r.target, m)), /* @__PURE__ */ React.createElement("div", { className: "bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "bar-fill" + tone, style: { width: pct + "%" } })), /* @__PURE__ */ React.createElement("span", { className: "bar-count" }, pct, "%")), /* @__PURE__ */ React.createElement("div", { className: "ear-foot" }, /* @__PURE__ */ React.createElement("span", { className: "ear-sub" }, "asked ", r.seen, "×", r.confuser != null && /* @__PURE__ */ React.createElement(React.Fragment, null, " · hears ", /* @__PURE__ */ React.createElement("b", null, weakLabel(r.confuser, m)), " ", r.confuserCount, "×"), !r.enough && " · too few to call yet"), r.enough && weakBase[m] && /* @__PURE__ */ React.createElement(
-            "button",
-            {
-              className: "ghost ear-drill",
-              onClick: () => {
-                try {
-                  sfx("select");
-                } catch (e) {
-                }
-                startWeakDrill(m, r, "ear");
+      const NOTE_ROSTER = [0, 2, 4, 5, 7, 9, 11];
+      const COLOUR_ROSTER = [1, 3, 6, 8, 10];
+      const CHORD_ROSTER = ALL_CHORDS;
+      const melBoard = earBoard(ear, "melody", [...NOTE_ROSTER, ...COLOUR_ROSTER]);
+      const chdBoard = earBoard(ear, "chords", CHORD_ROSTER);
+      const cov = earCoverage([...melBoard, ...chdBoard]);
+      const worst = (() => {
+        const c = [weakMelody && { r: weakMelody, m: "melody" }, weakChords && { r: weakChords, m: "chords" }].filter(Boolean);
+        if (!c.length) return null;
+        return c.sort((a, b) => a.r.rate - b.r.rate)[0];
+      })();
+      const row = (r, m) => {
+        const pct = Math.round(r.rate * 100);
+        const tone = pct >= 90 ? " good" : pct >= 80 ? " ok" : " low";
+        const cls = "ear-row" + (r.unheard ? " unheard" : r.enough ? "" : " thin");
+        return /* @__PURE__ */ React.createElement("div", { key: m + r.key, className: cls }, /* @__PURE__ */ React.createElement("div", { className: "ear-main" }, /* @__PURE__ */ React.createElement("span", { className: "bar-label" }, weakLabel(r.target, m)), /* @__PURE__ */ React.createElement("div", { className: "bar-track" }, !r.unheard && /* @__PURE__ */ React.createElement("div", { className: "bar-fill" + tone, style: { width: pct + "%" } })), /* @__PURE__ */ React.createElement("span", { className: "bar-count" }, r.unheard ? "—" : pct + "%")), /* @__PURE__ */ React.createElement("div", { className: "ear-foot" }, /* @__PURE__ */ React.createElement("span", { className: "ear-sub" }, r.unheard ? "not heard yet" : /* @__PURE__ */ React.createElement(React.Fragment, null, "asked ", r.seen, "×", r.confuser != null && /* @__PURE__ */ React.createElement(React.Fragment, null, " · hears ", /* @__PURE__ */ React.createElement("b", null, weakLabel(r.confuser, m)), " ", r.confuserCount, "×"), !r.enough && ` · ${WEAK_MIN_SEEN - r.seen} more to know it`)), r.enough && r.rate >= WEAK_MAX_RATE && /* @__PURE__ */ React.createElement("span", { className: "ear-solid" }, "✓ solid"), r.enough && r.rate < WEAK_MAX_RATE && weakBase[m] && /* @__PURE__ */ React.createElement(
+          "button",
+          {
+            className: "ghost ear-drill",
+            onClick: () => {
+              try {
+                sfx("select");
+              } catch (e) {
               }
-            },
-            "Mend →"
-          )));
-        }));
+              startWeakDrill(m, r, "ear");
+            }
+          },
+          "Mend →"
+        )));
       };
-      const secs = [
-        section("melody", "Notes", "Every degree you've been asked to name."),
-        section("chords", "Chords", "Chord confusions — counted only when the stack you built was exactly another chord.")
-      ].filter(Boolean);
+      const section = (title, where, rows, m) => /* @__PURE__ */ React.createElement("div", { className: "ear-sec" }, /* @__PURE__ */ React.createElement("h3", { className: "ear-sec-title" }, title), /* @__PURE__ */ React.createElement("p", { className: "ear-sec-blurb" }, where), rows.map((r) => row(r, m)));
       return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
         try {
           sfx("back");
         } catch (e) {
         }
         setScreen("menu");
-      } }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Your ear")), /* @__PURE__ */ React.createElement("div", { className: "ear-screen" }, secs.length > 0 && /* @__PURE__ */ React.createElement("p", { className: "ear-intro" }, "These come up a little more often in normal sessions — you don’t have to do anything. Mend one to work it properly."), secs.length ? secs : /* @__PURE__ */ React.createElement("p", { className: "set-desc", style: { textAlign: "center", padding: "24px 8px" } }, "Nothing here yet. Play a few sessions and here you'll find exactly which notes you're weak on and what you mistake them for.")), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "This lives on this device only — nothing is uploaded."));
+      } }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Your ear")), /* @__PURE__ */ React.createElement("div", { className: "ear-screen" }, /* @__PURE__ */ React.createElement("div", { className: "ear-summary" }, /* @__PURE__ */ React.createElement("div", { className: "ear-cov" }, /* @__PURE__ */ React.createElement("span", { className: "ear-cov-n" }, /* @__PURE__ */ React.createElement("b", null, cov.measured), " / ", cov.total), /* @__PURE__ */ React.createElement("span", { className: "ear-cov-label" }, "numbers you've measured")), /* @__PURE__ */ React.createElement("div", { className: "bar-track ear-cov-bar" }, /* @__PURE__ */ React.createElement("div", { className: "bar-fill good", style: { width: cov.measured / cov.total * 100 + "%" } })), /* @__PURE__ */ React.createElement("span", { className: "ear-cov-sub" }, cov.asked === 0 ? "Nothing measured yet — every row below is waiting for you." : /* @__PURE__ */ React.createElement(React.Fragment, null, cov.overall != null && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("b", null, Math.round(cov.overall * 100), "%"), " right first time across ", /* @__PURE__ */ React.createElement("b", null, cov.asked), " answers"), worst && /* @__PURE__ */ React.createElement(React.Fragment, null, " · weakest is ", /* @__PURE__ */ React.createElement("b", null, weakLabel(worst.r.target, worst.m))))), worst && weakBase[worst.m] && /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          className: "primary ear-cov-btn",
+          onClick: () => {
+            try {
+              sfx("select");
+            } catch (e) {
+            }
+            startWeakDrill(worst.m, worst.r, "ear");
+          }
+        },
+        "Mend ",
+        weakLabel(worst.r.target, worst.m),
+        " →"
+      )), /* @__PURE__ */ React.createElement("p", { className: "ear-intro" }, "Your weak numbers come up a little more often in normal sessions — you don’t have to do anything. Mend one to work it properly."), section("The seven", "Staircase Meadows · Lowmoor Fen", melBoard.slice(0, NOTE_ROSTER.length), "melody"), section("Colour notes", "Halfstep Crossing · Anvil Peak", melBoard.slice(NOTE_ROSTER.length), "melody"), section("Chords", "The Glasswood · Undertone Caves", chdBoard, "chords")), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "This lives on this device only — nothing is uploaded."));
     }
     if (screen === "adventure") {
       const onTapNode = (n) => {
@@ -10851,6 +10920,23 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 /* "Your ear" — the full per-target breakdown behind the cracked-note headline */
 .ear-screen { display: flex; flex-direction: column; gap: 22px; padding: 4px 0 20px; }
 .ear-intro { margin: 0; font-size: 0.82rem; color: var(--text-soft); line-height: 1.5; }
+.ear-summary {
+  display: flex; flex-direction: column; gap: 10px; align-items: stretch;
+  padding: 16px 14px; background: var(--card);
+  border: 1px solid var(--line); border-radius: 12px;
+}
+.ear-cov { display: flex; align-items: baseline; gap: 10px; }
+.ear-cov-n { font-family: 'Archivo Black', sans-serif; font-size: 1.6rem; color: var(--teal); }
+.ear-cov-n b { color: var(--text); }
+.ear-cov-label { font-size: 0.8rem; color: var(--text-soft); }
+.ear-cov-bar { width: 100%; }
+.ear-cov-sub { font-size: 0.8rem; color: var(--text-soft); line-height: 1.5; }
+.ear-cov-sub b { color: var(--text); }
+.ear-cov-btn { width: 100%; margin-top: 2px; }
+/* never met — a visible gap, not an error */
+.ear-row.unheard { opacity: 0.45; border-style: dashed; }
+.ear-row.unheard .bar-label { color: var(--text-soft); }
+.ear-solid { font-size: 0.74rem; color: var(--green); flex: 0 0 auto; }
 .ear-sec { display: flex; flex-direction: column; gap: 10px; }
 .ear-sec-title { margin: 0; font-family: 'Archivo Black', sans-serif; font-size: 1rem; }
 .ear-sec-blurb { margin: -6px 0 4px; font-size: 0.78rem; color: var(--text-soft); }

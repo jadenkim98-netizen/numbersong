@@ -96,6 +96,10 @@ import {
   weakLink,
   weakLabel,
   earRows,
+  earBoard,
+  earCoverage,
+  WEAK_MIN_SEEN,
+  WEAK_MAX_RATE,
   withSessionFocus,
   buildWeakDrill,
   drawPoolForQuestion,
@@ -4354,49 +4358,69 @@ export default function NumberEarTrainer() {
   }
 
   if (screen === "ear") {
-    // The whole picture behind the cracked-note headline: every note and chord you've
-    // been asked, worst first, with what you mistake it for — and a way to drill any
-    // of them, not just the single worst.
-    const section = (m, title, blurb) => {
-      const rows = earRows(ear, m);
-      if (!rows.length) return null;
+    /* The dashboard. A FIXED roster of every number and chord that exists in the game
+       — not just what you've played — so the gaps are visible and worth filling. Rows
+       you've never met still render, dimmed, with where they're taught. */
+    const NOTE_ROSTER  = [0, 2, 4, 5, 7, 9, 11];   // 1–7
+    const COLOUR_ROSTER = [1, 3, 6, 8, 10];        // ♭2 ♭3 ♯4 ♭6 ♭7
+    const CHORD_ROSTER = ALL_CHORDS;               // 1 2- 3- 4 5D 6- 7dim
+
+    const melBoard = earBoard(ear, "melody", [...NOTE_ROSTER, ...COLOUR_ROSTER]);
+    const chdBoard = earBoard(ear, "chords", CHORD_ROSTER);
+    const cov = earCoverage([...melBoard, ...chdBoard]);
+
+    // the single worst thing across both modes — the dashboard's one call to action
+    const worst = (() => {
+      const c = [weakMelody && { r: weakMelody, m: "melody" }, weakChords && { r: weakChords, m: "chords" }].filter(Boolean);
+      if (!c.length) return null;
+      return c.sort((a, b) => a.r.rate - b.r.rate)[0];
+    })();
+
+    const row = (r, m) => {
+      const pct = Math.round(r.rate * 100);
+      const tone = pct >= 90 ? " good" : pct >= 80 ? " ok" : " low";
+      const cls = "ear-row" + (r.unheard ? " unheard" : r.enough ? "" : " thin");
       return (
-        <div key={m} className="ear-sec">
-          <h3 className="ear-sec-title">{title}</h3>
-          <p className="ear-sec-blurb">{blurb}</p>
-          {rows.map((r) => {
-            const pct = Math.round(r.rate * 100);
-            const tone = pct >= 90 ? " good" : pct >= 80 ? " ok" : " low";
-            return (
-              <div key={r.key} className={"ear-row" + (r.enough ? "" : " thin")}>
-                <div className="ear-main">
-                  <span className="bar-label">{weakLabel(r.target, m)}</span>
-                  <div className="bar-track"><div className={"bar-fill" + tone} style={{ width: pct + "%" }} /></div>
-                  <span className="bar-count">{pct}%</span>
-                </div>
-                <div className="ear-foot">
-                  <span className="ear-sub">
+        <div key={m + r.key} className={cls}>
+          <div className="ear-main">
+            <span className="bar-label">{weakLabel(r.target, m)}</span>
+            <div className="bar-track">
+              {!r.unheard && <div className={"bar-fill" + tone} style={{ width: pct + "%" }} />}
+            </div>
+            <span className="bar-count">{r.unheard ? "—" : pct + "%"}</span>
+          </div>
+          <div className="ear-foot">
+            <span className="ear-sub">
+              {r.unheard
+                ? "not heard yet"
+                : <>
                     asked {r.seen}×
                     {r.confuser != null && <> · hears <b>{weakLabel(r.confuser, m)}</b> {r.confuserCount}×</>}
-                    {!r.enough && " · too few to call yet"}
-                  </span>
-                  {r.enough && weakBase[m] && (
-                    <button className="ghost ear-drill"
-                      onClick={() => { try { sfx("select"); } catch (e) {} startWeakDrill(m, r, "ear"); }}>
-                      Mend →
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                    {!r.enough && ` · ${WEAK_MIN_SEEN - r.seen} more to know it`}
+                  </>}
+            </span>
+            {/* Mend only what's actually weak. Offering it on a number you already
+                own invites exactly the polishing the 90% rule exists to stop. */}
+            {r.enough && r.rate >= WEAK_MAX_RATE && <span className="ear-solid">✓ solid</span>}
+            {r.enough && r.rate < WEAK_MAX_RATE && weakBase[m] && (
+              <button className="ghost ear-drill"
+                onClick={() => { try { sfx("select"); } catch (e) {} startWeakDrill(m, r, "ear"); }}>
+                Mend →
+              </button>
+            )}
+          </div>
         </div>
       );
     };
-    const secs = [
-      section("melody", "Notes", "Every degree you've been asked to name."),
-      section("chords", "Chords", "Chord confusions — counted only when the stack you built was exactly another chord."),
-    ].filter(Boolean);
+
+    const section = (title, where, rows, m) => (
+      <div className="ear-sec">
+        <h3 className="ear-sec-title">{title}</h3>
+        <p className="ear-sec-blurb">{where}</p>
+        {rows.map((r) => row(r, m))}
+      </div>
+    );
+
     return (
       <div className="app">
         <style>{CSS}</style>
@@ -4405,20 +4429,34 @@ export default function NumberEarTrainer() {
           <h2 className="screen-title">Your ear</h2>
         </header>
         <div className="ear-screen">
-          {/* the weighting is silent in play, so say it here rather than let it feel
-              like the shuffle is broken */}
-          {secs.length > 0 && (
-            <p className="ear-intro">
-              These come up a little more often in normal sessions — you don’t have to
-              do anything. Mend one to work it properly.
-            </p>
-          )}
-          {secs.length ? secs : (
-            <p className="set-desc" style={{ textAlign: "center", padding: "24px 8px" }}>
-              Nothing here yet. Play a few sessions and here you'll find exactly which
-              notes you're weak on and what you mistake them for.
-            </p>
-          )}
+          <div className="ear-summary">
+            <div className="ear-cov">
+              <span className="ear-cov-n"><b>{cov.measured}</b> / {cov.total}</span>
+              <span className="ear-cov-label">numbers you've measured</span>
+            </div>
+            <div className="bar-track ear-cov-bar">
+              <div className="bar-fill good" style={{ width: (cov.measured / cov.total) * 100 + "%" }} />
+            </div>
+            <span className="ear-cov-sub">
+              {cov.asked === 0
+                ? "Nothing measured yet — every row below is waiting for you."
+                : <>{cov.overall != null && <><b>{Math.round(cov.overall * 100)}%</b> right first time across <b>{cov.asked}</b> answers</>}
+                   {worst && <> · weakest is <b>{weakLabel(worst.r.target, worst.m)}</b></>}</>}
+            </span>
+            {worst && weakBase[worst.m] && (
+              <button className="primary ear-cov-btn"
+                onClick={() => { try { sfx("select"); } catch (e) {} startWeakDrill(worst.m, worst.r, "ear"); }}>
+                Mend {weakLabel(worst.r.target, worst.m)} →
+              </button>
+            )}
+          </div>
+          <p className="ear-intro">
+            Your weak numbers come up a little more often in normal sessions — you don’t
+            have to do anything. Mend one to work it properly.
+          </p>
+          {section("The seven", "Staircase Meadows · Lowmoor Fen", melBoard.slice(0, NOTE_ROSTER.length), "melody")}
+          {section("Colour notes", "Halfstep Crossing · Anvil Peak", melBoard.slice(NOTE_ROSTER.length), "melody")}
+          {section("Chords", "The Glasswood · Undertone Caves", chdBoard, "chords")}
         </div>
         <footer className="foot">This lives on this device only — nothing is uploaded.</footer>
       </div>
@@ -7131,6 +7169,23 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 /* "Your ear" — the full per-target breakdown behind the cracked-note headline */
 .ear-screen { display: flex; flex-direction: column; gap: 22px; padding: 4px 0 20px; }
 .ear-intro { margin: 0; font-size: 0.82rem; color: var(--text-soft); line-height: 1.5; }
+.ear-summary {
+  display: flex; flex-direction: column; gap: 10px; align-items: stretch;
+  padding: 16px 14px; background: var(--card);
+  border: 1px solid var(--line); border-radius: 12px;
+}
+.ear-cov { display: flex; align-items: baseline; gap: 10px; }
+.ear-cov-n { font-family: 'Archivo Black', sans-serif; font-size: 1.6rem; color: var(--teal); }
+.ear-cov-n b { color: var(--text); }
+.ear-cov-label { font-size: 0.8rem; color: var(--text-soft); }
+.ear-cov-bar { width: 100%; }
+.ear-cov-sub { font-size: 0.8rem; color: var(--text-soft); line-height: 1.5; }
+.ear-cov-sub b { color: var(--text); }
+.ear-cov-btn { width: 100%; margin-top: 2px; }
+/* never met — a visible gap, not an error */
+.ear-row.unheard { opacity: 0.45; border-style: dashed; }
+.ear-row.unheard .bar-label { color: var(--text-soft); }
+.ear-solid { font-size: 0.74rem; color: var(--green); flex: 0 0 auto; }
 .ear-sec { display: flex; flex-direction: column; gap: 10px; }
 .ear-sec-title { margin: 0; font-family: 'Archivo Black', sans-serif; font-size: 1rem; }
 .ear-sec-blurb { margin: -6px 0 4px; font-size: 0.78rem; color: var(--text-soft); }

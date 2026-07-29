@@ -246,6 +246,39 @@ export function buildWeakDrill(weak, baseLvl, qCount) {
   };
 }
 
+// The dashboard view: a FIXED roster of every target that exists in a mode, with
+// stats merged in where they exist and an unheard placeholder where they don't.
+// earRows() only knows what you've played; this also shows what you haven't, so the
+// gaps are visible and worth filling rather than invisible.
+export function earBoard(ear, mode, roster) {
+  if (!Array.isArray(roster)) return [];
+  const byKey = new Map(earRows(ear, mode).map((r) => [r.key, r]));
+  return roster.map((k) => byKey.get(String(k)) || {
+    key: String(k),
+    target: k,
+    confuser: null,
+    seen: 0, first: 0, rate: 0,
+    confuserCount: 0, confuserRate: 0,
+    enough: false,
+    unheard: true,
+  });
+}
+
+// Headline numbers for the top of that board.
+export function earCoverage(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const heard = list.filter((r) => r.seen > 0);
+  const seen = heard.reduce((a, r) => a + r.seen, 0);
+  const first = heard.reduce((a, r) => a + r.first, 0);
+  return {
+    total: list.length,
+    measured: list.filter((r) => r.enough).length,   // enough evidence to judge
+    heard: heard.length,                             // met at all
+    asked: seen,
+    overall: seen ? first / seen : null,             // null, never 0 — "no data" ≠ "0%"
+  };
+}
+
 /* ───────────────────  ALWAYS-ON WEIGHTING (ordinary sessions)  ─────────────────── */
 
 // How often an ordinary session reaches for one of your weak targets, and how many

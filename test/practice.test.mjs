@@ -4,6 +4,7 @@ import {
   emptyEar, normalizeEar, recordSession, weakLink, weakLabel, earRows,
   buildWeakDrill, splitPhases, drawPoolForQuestion, phaseForQuestion,
   sessionFocus, withSessionFocus, SESSION_FOCUS_SHARE, SESSION_FOCUS_MAX,
+  earBoard, earCoverage,
   EAR_DECAY_AT, WEAK_MIN_SEEN,
 } from "../src/practice.mjs";
 
@@ -229,6 +230,46 @@ test("buildWeakDrill handles chord pools (romans, no semitone sorting)", () => {
 test("buildWeakDrill returns null without a diagnosis", () => {
   assert.equal(buildWeakDrill(null, BASE, 20), null);
   assert.equal(buildWeakDrill({ target: 9 }, null, 20), null);
+});
+
+/* ── the dashboard board ── */
+
+test("earBoard shows the whole roster, including targets never heard", () => {
+  const ear = recordSession(emptyEar(), "melody", runs(9, 20, 8, 7));
+  const board = earBoard(ear, "melody", [0, 2, 4, 9]);
+  assert.equal(board.length, 4);
+  assert.deepEqual(board.map((r) => r.target), [0, 2, 4, 9], "roster order is preserved");
+  assert.equal(board[3].seen, 20);
+  assert.equal(board[3].unheard, undefined);
+  for (const r of board.slice(0, 3)) {
+    assert.equal(r.unheard, true);
+    assert.equal(r.seen, 0);
+    assert.equal(r.enough, false);
+  }
+});
+
+test("earBoard works on an empty log — the whole roster is a gap to fill", () => {
+  const board = earBoard(emptyEar(), "melody", [0, 2, 4]);
+  assert.equal(board.length, 3);
+  assert.ok(board.every((r) => r.unheard && r.seen === 0));
+});
+
+test("earCoverage counts measured vs merely heard, and never fakes 0%", () => {
+  let ear = recordSession(emptyEar(), "melody", runs(9, 20, 8, 7));   // measured
+  ear = recordSession(ear, "melody", runs(4, 3, 1, 2));               // heard, too thin
+  const cov = earCoverage(earBoard(ear, "melody", [0, 2, 4, 9]));
+  assert.equal(cov.total, 4);
+  assert.equal(cov.measured, 1);
+  assert.equal(cov.heard, 2);
+  assert.equal(cov.asked, 23);
+  assert.equal(Math.round(cov.overall * 100), 61); // (12+2)/23
+});
+
+test("earCoverage reports overall as null with nothing played", () => {
+  const cov = earCoverage(earBoard(emptyEar(), "melody", [0, 2, 4]));
+  assert.equal(cov.overall, null, "no data must not render as 0%");
+  assert.equal(cov.measured, 0);
+  assert.equal(cov.asked, 0);
 });
 
 /* ── always-on weighting in ordinary sessions ── */
