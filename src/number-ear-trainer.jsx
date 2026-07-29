@@ -4255,10 +4255,10 @@ export default function NumberEarTrainer() {
         <div className="menu-list">
           {item("⚔", "Adventure", () => setScreen("adventure"))}
           {item("🎯", "Basic Training", () => setScreen("training"))}
-          {/* only once there's something true to show — an empty stats screen is worse
-              than no stats screen */}
-          {(earRows(ear, "melody").length > 0 || earRows(ear, "chords").length > 0) &&
-            item("👂", "Your ear", () => setScreen("ear"))}
+          {/* ALWAYS shown. This was gated on "has data" once; that made the feature
+              undiscoverable to the exact people who'd benefit from knowing it's
+              coming, and the screen already has a real empty state. */}
+          {item("👂", "Your ear", () => setScreen("ear"))}
           {item("📖", "How music works", () => { setGuidePage(0); setScreen("guide"); })}
           {item("★", "Shop (" + starBalance() + ")", () => setScreen("shop"))}
           {item("🎓", "Tutorials", () => setScreen("tutorials"))}
