@@ -1124,6 +1124,27 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   color: var(--teal); letter-spacing: 0.02em;
 }
 
+/* "Your ear" — the full per-target breakdown behind the cracked-note headline */
+.ear-screen { display: flex; flex-direction: column; gap: 22px; padding: 4px 0 20px; }
+.ear-sec { display: flex; flex-direction: column; gap: 10px; }
+.ear-sec-title { margin: 0; font-family: 'Archivo Black', sans-serif; font-size: 1rem; }
+.ear-sec-blurb { margin: -6px 0 4px; font-size: 0.78rem; color: var(--text-soft); }
+.ear-row {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px; background: var(--card);
+  border: 1px solid var(--line); border-radius: 10px;
+}
+.ear-row.thin { opacity: 0.62; }
+.ear-main { display: flex; align-items: center; gap: 10px; }
+.ear-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-left: 3.2em; }
+.ear-sub { font-size: 0.74rem; color: var(--text-soft); }
+.ear-sub b { color: var(--wrong); }
+.ear-drill { padding: 4px 10px; font-size: 0.76rem; flex: 0 0 auto; }
+/* accuracy colouring mirrors the star curve: ≥90% is done, ≥80% passes, below is the work */
+.bar-fill.good { background: var(--green); }
+.bar-fill.ok   { background: var(--blue); }
+.bar-fill.low  { background: var(--wrong); }
+
 .results-actions { display: flex; gap: 10px; }
 
 .foot { text-align: center; font-size: 0.8rem; color: var(--text-soft); line-height: 1.5; padding: 0 12px; margin-top: auto; }
@@ -3895,39 +3916,38 @@ window.SOUNDTRACK = SOUNDTRACK;
     }
     return next;
   }
-  function weakLink(ear, mode) {
-    const bucket = bucketFor(mode);
-    if (!bucket) return null;
-    const map = normalizeEar(ear)[bucket];
-    let best = null;
-    for (const [key, st] of Object.entries(map)) {
-      if (st.seen < WEAK_MIN_SEEN) continue;
-      const rate = st.first / st.seen;
-      if (rate >= WEAK_MAX_RATE) continue;
-      if (!best || rate < best.rate || rate === best.rate && st.seen > best.seen) {
-        best = { key, seen: st.seen, first: st.first, rate, miss: st.miss };
-      }
-    }
-    if (!best) return null;
+  function statRow(key, st, mode) {
     let confuser = null, confuserCount = 0;
-    for (const [k, n] of Object.entries(best.miss)) {
+    for (const [k, n] of Object.entries(st.miss)) {
       if (n > confuserCount) {
         confuser = k;
         confuserCount = n;
       }
     }
     return {
-      key: best.key,
-      target: mode === "melody" ? Number(best.key) : best.key,
+      key,
+      target: mode === "melody" ? Number(key) : key,
       confuser: confuser == null ? null : mode === "melody" ? Number(confuser) : confuser,
-      seen: best.seen,
-      first: best.first,
-      rate: best.rate,
+      seen: st.seen,
+      first: st.first,
+      rate: st.first / st.seen,
       // first-try rate on this target
       confuserCount,
-      confuserRate: confuserCount / best.seen
+      confuserRate: confuserCount / st.seen,
       // share of ALL askings, not of misses
+      enough: st.seen >= WEAK_MIN_SEEN
+      // is there evidence, or is this still noise?
     };
+  }
+  function earRows(ear, mode) {
+    const bucket = bucketFor(mode);
+    if (!bucket) return [];
+    const map = normalizeEar(ear)[bucket];
+    return Object.entries(map).map(([key, st]) => statRow(key, st, mode)).sort((a, b) => a.rate - b.rate || b.seen - a.seen);
+  }
+  function weakLink(ear, mode) {
+    const rows = earRows(ear, mode).filter((r) => r.enough && r.rate < WEAK_MAX_RATE);
+    return rows.length ? rows[0] : null;
   }
   function weakLabel(value, mode) {
     if (value == null) return "";
@@ -6715,6 +6735,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const [advStageId, setAdvStageId] = useState(null);
     const [encounterNode, setEncounterNode] = useState(null);
     const [auxReturn, setAuxReturn] = useState(null);
+    const [drillReturn, setDrillReturn] = useState(null);
     const [forgeOpen, setForgeOpen] = useState(false);
     const upsellPanelRef = useRef(null);
     const forgePanelRef = useRef(null);
@@ -7758,13 +7779,15 @@ window.SOUNDTRACK = SOUNDTRACK;
     };
     const weakFor = (m) => m === "melody" ? weakMelody : m === "chords" ? weakChords : null;
     const canDrillWeak = (m) => !!(weakFor(m) && weakBase[m]);
-    const startWeakDrill = (m) => {
-      const w = weakFor(m), base = weakBase[m];
+    const startWeakDrill = (m, pick = null, where = "results") => {
+      const w = pick || weakFor(m), base = weakBase[m];
       if (!w || !base) return;
+      setDrillReturn(where === "ear" || where === "training" ? where : null);
       const drill = buildWeakDrill(w, base, qCountForLevel(null, flowOpts()));
       if (!drill) return;
       track("weak_drill_start", {
         mode: m,
+        where,
         target: String(w.target),
         confuser: w.confuser == null ? null : String(w.confuser),
         rate: Math.round(w.rate * 100)
@@ -8429,7 +8452,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         setAuxReturn(null);
         go();
       }, onMouseEnter: () => sfx("move") }, /* @__PURE__ */ React.createElement("span", { className: "mi-icon" }, icon), " ", label);
-      return /* @__PURE__ */ React.createElement("div", { className: "app menu-screen" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("h1", { className: "menu-logo" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG")), /* @__PURE__ */ React.createElement("div", { className: "menu-list" }, item("⚔", "Adventure", () => setScreen("adventure")), item("🎯", "Basic Training", () => setScreen("training")), item("📖", "How music works", () => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app menu-screen" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("h1", { className: "menu-logo" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG")), /* @__PURE__ */ React.createElement("div", { className: "menu-list" }, item("⚔", "Adventure", () => setScreen("adventure")), item("🎯", "Basic Training", () => setScreen("training")), (earRows(ear, "melody").length > 0 || earRows(ear, "chords").length > 0) && item("👂", "Your ear", () => setScreen("ear")), item("📖", "How music works", () => {
         setGuidePage(0);
         setScreen("guide");
       }), item("★", "Shop (" + starBalance() + ")", () => setScreen("shop")), item("🎓", "Tutorials", () => setScreen("tutorials")), item("⚙", "Settings", () => setScreen("settings"))), gated && /* @__PURE__ */ React.createElement(
@@ -8483,7 +8506,7 @@ window.SOUNDTRACK = SOUNDTRACK;
                 sfx("select");
               } catch (e) {
               }
-              startWeakDrill(m);
+              startWeakDrill(m, null, "training");
             }
           }
         );
@@ -8500,6 +8523,41 @@ window.SOUNDTRACK = SOUNDTRACK;
         setProgChapter(null);
         setScreen("levels");
       })), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "Sharpen your ear — every rep forges Excalibar."));
+    }
+    if (screen === "ear") {
+      const section = (m, title, blurb) => {
+        const rows = earRows(ear, m);
+        if (!rows.length) return null;
+        return /* @__PURE__ */ React.createElement("div", { key: m, className: "ear-sec" }, /* @__PURE__ */ React.createElement("h3", { className: "ear-sec-title" }, title), /* @__PURE__ */ React.createElement("p", { className: "ear-sec-blurb" }, blurb), rows.map((r) => {
+          const pct = Math.round(r.rate * 100);
+          const tone = pct >= 90 ? " good" : pct >= 80 ? " ok" : " low";
+          return /* @__PURE__ */ React.createElement("div", { key: r.key, className: "ear-row" + (r.enough ? "" : " thin") }, /* @__PURE__ */ React.createElement("div", { className: "ear-main" }, /* @__PURE__ */ React.createElement("span", { className: "bar-label" }, weakLabel(r.target, m)), /* @__PURE__ */ React.createElement("div", { className: "bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "bar-fill" + tone, style: { width: pct + "%" } })), /* @__PURE__ */ React.createElement("span", { className: "bar-count" }, pct, "%")), /* @__PURE__ */ React.createElement("div", { className: "ear-foot" }, /* @__PURE__ */ React.createElement("span", { className: "ear-sub" }, "asked ", r.seen, "×", r.confuser != null && /* @__PURE__ */ React.createElement(React.Fragment, null, " · hears ", /* @__PURE__ */ React.createElement("b", null, weakLabel(r.confuser, m)), " ", r.confuserCount, "×"), !r.enough && " · too few to call yet"), r.enough && weakBase[m] && /* @__PURE__ */ React.createElement(
+            "button",
+            {
+              className: "ghost ear-drill",
+              onClick: () => {
+                try {
+                  sfx("select");
+                } catch (e) {
+                }
+                startWeakDrill(m, r, "ear");
+              }
+            },
+            "Mend →"
+          )));
+        }));
+      };
+      const secs = [
+        section("melody", "Notes", "Every degree you've been asked to name."),
+        section("chords", "Chords", "Chord confusions — counted only when the stack you built was exactly another chord.")
+      ].filter(Boolean);
+      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
+        try {
+          sfx("back");
+        } catch (e) {
+        }
+        setScreen("menu");
+      } }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Your ear")), /* @__PURE__ */ React.createElement("div", { className: "ear-screen" }, secs.length ? secs : /* @__PURE__ */ React.createElement("p", { className: "set-desc", style: { textAlign: "center", padding: "24px 8px" } }, "Nothing here yet. Play a few sessions and every note you're asked shows up — worst first, with what you mistake it for.")), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "This lives on this device only — nothing is uploaded."));
     }
     if (screen === "adventure") {
       const onTapNode = (n) => {
@@ -8915,7 +8973,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         setPhase("idle");
         setBusy(false);
         setBossState(null);
-        setScreen("levels");
+        setScreen(lvl.weakDrill && drillReturn ? drillReturn : "levels");
       } }, "← ", isDuel ? "Flee" : "Quit"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, isDuel ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : lvl.name), /* @__PURE__ */ React.createElement("span", { className: "session-score" }, streak >= 2 && /* @__PURE__ */ React.createElement("span", { key: streak, className: "streak" }, "🔥", streak), score, " ✓"), /* @__PURE__ */ React.createElement(
         "button",
         {
@@ -9231,6 +9289,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           bestStreak = Math.max(bestStreak, run);
         } else run = 0;
       });
+      const isDrill = !!(sessLvl && sessLvl.weakDrill);
       const showLead = !onboarded && (passed || justCleared);
       const showBars = mode !== "progressions";
       const byTarget = {};
@@ -9260,16 +9319,16 @@ window.SOUNDTRACK = SOUNDTRACK;
           setSwordBurst(!!justCleared);
           setScreen("adventure");
         } else {
-          setScreen("levels");
+          setScreen(isDrill && drillReturn ? drillReturn : "levels");
         }
-      } }, fromAdventure ? "← To the map" : "← Levels"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, resultName)), /* @__PURE__ */ React.createElement("div", { className: "results" }, justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "victory" }, /* @__PURE__ */ React.createElement("div", { className: "victory-rays", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", { className: "victory-glow", "aria-hidden": "true" }), duelWin && /* @__PURE__ */ React.createElement("span", { className: "duel-victory-face", "aria-hidden": "true" }, duelWinArt ? /* @__PURE__ */ React.createElement("img", { src: duelWinArt, alt: "" }) : /* @__PURE__ */ React.createElement("span", { className: "boss-emblem" }, duelWinKeeper ? duelWinKeeper.emblem : "⚔")), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Fragment forged ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, advNode.winTitle), /* @__PURE__ */ React.createElement("div", { className: "victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" }), /* @__PURE__ */ React.createElement("div", { className: "forge-sparks", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null))), /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), fragName, " — forged into Excalibar"), duelWin ? /* @__PURE__ */ React.createElement("span", { className: "victory-quote duel-quote" }, "“", duelWin.taunts.win, "”", /* @__PURE__ */ React.createElement("em", { className: "duel-quote-by" }, "— ", duelWin.name, ", ", duelWin.title)) : /* @__PURE__ */ React.createElement("span", { className: "victory-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("span", { className: "forge-count" }, advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments")), duelWin && !justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "duel-victory" }, /* @__PURE__ */ React.createElement("span", { className: "duel-victory-face", "aria-hidden": "true" }, duelWinArt ? /* @__PURE__ */ React.createElement("img", { src: duelWinArt, alt: "" }) : /* @__PURE__ */ React.createElement("span", { className: "boss-emblem" }, duelWinKeeper ? duelWinKeeper.emblem : "⚔")), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Duel won ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, duelWinKeeper ? duelWinKeeper.winTitle : "The keeper yields!"), /* @__PURE__ */ React.createElement("div", { className: "duel-victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" })), duelWinKeeper && /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[duelWinRegion]], " — held in Excalibar"), /* @__PURE__ */ React.createElement("span", { className: "victory-quote duel-quote" }, "“", duelWin.taunts.win, "”", /* @__PURE__ */ React.createElement("em", { className: "duel-quote-by" }, "— ", duelWin.name, ", ", duelWin.title))), (justCleared || duelWin && !finale) && /* @__PURE__ */ React.createElement("button", { className: "primary map-return", onClick: () => {
+      } }, fromAdventure ? "← To the map" : isDrill && drillReturn === "ear" ? "← Your ear" : "← Levels"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, resultName)), /* @__PURE__ */ React.createElement("div", { className: "results" }, justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "victory" }, /* @__PURE__ */ React.createElement("div", { className: "victory-rays", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", { className: "victory-glow", "aria-hidden": "true" }), duelWin && /* @__PURE__ */ React.createElement("span", { className: "duel-victory-face", "aria-hidden": "true" }, duelWinArt ? /* @__PURE__ */ React.createElement("img", { src: duelWinArt, alt: "" }) : /* @__PURE__ */ React.createElement("span", { className: "boss-emblem" }, duelWinKeeper ? duelWinKeeper.emblem : "⚔")), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Fragment forged ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, advNode.winTitle), /* @__PURE__ */ React.createElement("div", { className: "victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" }), /* @__PURE__ */ React.createElement("div", { className: "forge-sparks", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null))), /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), fragName, " — forged into Excalibar"), duelWin ? /* @__PURE__ */ React.createElement("span", { className: "victory-quote duel-quote" }, "“", duelWin.taunts.win, "”", /* @__PURE__ */ React.createElement("em", { className: "duel-quote-by" }, "— ", duelWin.name, ", ", duelWin.title)) : /* @__PURE__ */ React.createElement("span", { className: "victory-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("span", { className: "forge-count" }, advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments")), duelWin && !justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "duel-victory" }, /* @__PURE__ */ React.createElement("span", { className: "duel-victory-face", "aria-hidden": "true" }, duelWinArt ? /* @__PURE__ */ React.createElement("img", { src: duelWinArt, alt: "" }) : /* @__PURE__ */ React.createElement("span", { className: "boss-emblem" }, duelWinKeeper ? duelWinKeeper.emblem : "⚔")), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Duel won ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, duelWinKeeper ? duelWinKeeper.winTitle : "The keeper yields!"), /* @__PURE__ */ React.createElement("div", { className: "duel-victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" })), duelWinKeeper && /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[duelWinRegion]], " — held in Excalibar"), /* @__PURE__ */ React.createElement("span", { className: "victory-quote duel-quote" }, "“", duelWin.taunts.win, "”", /* @__PURE__ */ React.createElement("em", { className: "duel-quote-by" }, "— ", duelWin.name, ", ", duelWin.title))), (justCleared || duelWin && !finale) && /* @__PURE__ */ React.createElement("button", { className: "primary map-return", onClick: () => {
         try {
           sfx("select");
         } catch (e) {
         }
         setSwordBurst(!!justCleared);
         setScreen("adventure");
-      } }, "← Return to the map"), /* @__PURE__ */ React.createElement("div", { className: "score-big" + (passed ? " pass" : "") }, pct, "%"), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, sessLvl && sessLvl.weakDrill ? passed ? "That's the crack closing. Come back to it tomorrow — it sticks faster than it feels." : "Mending runs aren't scored — this is the note doing the work. Run it again." : isCustom ? passed ? "Strong run. Custom sessions aren't scored toward stages." : "Custom sessions aren't scored toward stages — tweak the notes and go again." : passed ? hasNext ? "Passed! This level is checked off." : "Passed — that's the top level. Your ears are working." : `${Math.round(passRate * 100)}% on first tries earns the check. Every rep counts.`), /* @__PURE__ */ React.createElement("div", { className: "stat-row" }, /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, firstTries, "/", total), " first try"), /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, bestStreak >= 2 ? "🔥" : "", bestStreak), " best streak")), showBars && /* @__PURE__ */ React.createElement("div", { className: "bars" }, Object.entries(byTarget).map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, className: "bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "bar-label" }, k), /* @__PURE__ */ React.createElement("div", { className: "bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "bar-fill", style: { width: `${v.right / v.total * 100}%` } })), /* @__PURE__ */ React.createElement("span", { className: "bar-count" }, v.right, "/", v.total)))), !showLead && /* @__PURE__ */ React.createElement(
+      } }, "← Return to the map"), /* @__PURE__ */ React.createElement("div", { className: "score-big" + (passed ? " pass" : "") }, pct, "%"), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, isDrill ? passed ? "That's the crack closing. Come back to it tomorrow — it sticks faster than it feels." : "Mending runs aren't scored — this is the note doing the work. Run it again." : isCustom ? passed ? "Strong run. Custom sessions aren't scored toward stages." : "Custom sessions aren't scored toward stages — tweak the notes and go again." : passed ? hasNext ? "Passed! This level is checked off." : "Passed — that's the top level. Your ears are working." : `${Math.round(passRate * 100)}% on first tries earns the check. Every rep counts.`), /* @__PURE__ */ React.createElement("div", { className: "stat-row" }, /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, firstTries, "/", total), " first try"), /* @__PURE__ */ React.createElement("span", { className: "stat" }, /* @__PURE__ */ React.createElement("b", null, bestStreak >= 2 ? "🔥" : "", bestStreak), " best streak")), showBars && /* @__PURE__ */ React.createElement("div", { className: "bars" }, Object.entries(byTarget).map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, className: "bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "bar-label" }, k), /* @__PURE__ */ React.createElement("div", { className: "bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "bar-fill", style: { width: `${v.right / v.total * 100}%` } })), /* @__PURE__ */ React.createElement("span", { className: "bar-count" }, v.right, "/", v.total)))), !showLead && /* @__PURE__ */ React.createElement(
         CrackedNote,
         {
           weak: weakFor(mode),
@@ -9279,7 +9338,7 @@ window.SOUNDTRACK = SOUNDTRACK;
               sfx("select");
             } catch (e) {
             }
-            startWeakDrill(mode);
+            startWeakDrill(mode, null, "results");
           } : null
         }
       ), showLead && /* @__PURE__ */ React.createElement("div", { className: "lead-card" }, leadStatus === "done" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "lead-kicker" }, "✓ You're in"), /* @__PURE__ */ React.createElement("p", { className: "lead-copy" }, "Check your inbox to confirm — your Chords-by-Numbers PDF lands right after. Your progress is saved, too."), /* @__PURE__ */ React.createElement("div", { className: "lead-actions" }, /* @__PURE__ */ React.createElement(
@@ -10772,6 +10831,27 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   margin: 2px 0 0; font-size: 0.76rem; text-align: center;
   color: var(--teal); letter-spacing: 0.02em;
 }
+
+/* "Your ear" — the full per-target breakdown behind the cracked-note headline */
+.ear-screen { display: flex; flex-direction: column; gap: 22px; padding: 4px 0 20px; }
+.ear-sec { display: flex; flex-direction: column; gap: 10px; }
+.ear-sec-title { margin: 0; font-family: 'Archivo Black', sans-serif; font-size: 1rem; }
+.ear-sec-blurb { margin: -6px 0 4px; font-size: 0.78rem; color: var(--text-soft); }
+.ear-row {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px; background: var(--card);
+  border: 1px solid var(--line); border-radius: 10px;
+}
+.ear-row.thin { opacity: 0.62; }
+.ear-main { display: flex; align-items: center; gap: 10px; }
+.ear-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-left: 3.2em; }
+.ear-sub { font-size: 0.74rem; color: var(--text-soft); }
+.ear-sub b { color: var(--wrong); }
+.ear-drill { padding: 4px 10px; font-size: 0.76rem; flex: 0 0 auto; }
+/* accuracy colouring mirrors the star curve: ≥90% is done, ≥80% passes, below is the work */
+.bar-fill.good { background: var(--green); }
+.bar-fill.ok   { background: var(--blue); }
+.bar-fill.low  { background: var(--wrong); }
 
 .results-actions { display: flex; gap: 10px; }
 
