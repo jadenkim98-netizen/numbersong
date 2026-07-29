@@ -7155,12 +7155,14 @@ window.SOUNDTRACK = SOUNDTRACK;
     const sess = useRef({});
     const nextQuestionRef = useRef(() => {
     });
+    const foldEarLogRef = useRef(null);
     const sessTimersRef = useRef([]);
     const sessTimer = (fn, ms) => {
       sessTimersRef.current.push(setTimeout(fn, ms));
     };
     const sessGenRef = useRef(0);
     const killSession = () => {
+      if (foldEarLogRef.current) foldEarLogRef.current(sess.current);
       sessGenRef.current++;
       sessTimersRef.current.forEach(clearTimeout);
       sessTimersRef.current = [];
@@ -7174,6 +7176,20 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
       stopAll();
     };
+    useEffect(() => {
+      const fold = () => {
+        if (foldEarLogRef.current) foldEarLogRef.current(sess.current);
+      };
+      const onVis = () => {
+        if (document.visibilityState === "hidden") fold();
+      };
+      window.addEventListener("pagehide", fold);
+      document.addEventListener("visibilitychange", onVis);
+      return () => {
+        window.removeEventListener("pagehide", fold);
+        document.removeEventListener("visibilitychange", onVis);
+      };
+    }, []);
     useEffect(() => {
       let panelRef = null, close = null;
       if (upsellOpen) {
@@ -7971,8 +7987,12 @@ window.SOUNDTRACK = SOUNDTRACK;
     }, [screen, phase, duelTurn]);
     const foldEarLog = (s) => {
       try {
-        if (!s || !s.results || !s.results.length) return;
-        const nextEar = recordSession(earRef.current, s.mode, s.results, Date.now());
+        if (!s || !s.results) return;
+        const from = s.foldedCount || 0;
+        const fresh = s.results.slice(from);
+        if (!fresh.length) return;
+        s.foldedCount = s.results.length;
+        const nextEar = recordSession(earRef.current, s.mode, fresh, Date.now());
         if (nextEar !== earRef.current) {
           earRef.current = nextEar;
           setEar(nextEar);
@@ -7995,6 +8015,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       } catch (e) {
       }
     };
+    foldEarLogRef.current = foldEarLog;
     const bossLose = () => {
       const region = sess.current.bossRegion;
       track("boss_lose", { region, hp: bossState ? bossState.hp : null });

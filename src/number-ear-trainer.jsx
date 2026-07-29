@@ -2905,6 +2905,9 @@ export default function NumberEarTrainer() {
 
   const sess = useRef({});
   const nextQuestionRef = useRef(() => {});
+  // killSession() runs above foldEarLog's definition, so it reaches it through a ref
+  // (same idiom as nextQuestionRef).
+  const foldEarLogRef = useRef(null);
   const sessTimersRef = useRef([]);
   const sessTimer = (fn, ms) => { sessTimersRef.current.push(setTimeout(fn, ms)); };
   // Generation token: bumped on every teardown/restart. An async nextQuestion() that
@@ -2913,6 +2916,11 @@ export default function NumberEarTrainer() {
   // dead session.
   const sessGenRef = useRef(0);
   const killSession = () => {
+    // Every exit from a session funnels through here — Quit, Flee, starting another
+    // one, leaving Free Play. Fold first so a half-finished session still counts:
+    // those answers were real, and throwing them away meant the ear log only ever
+    // learned from sessions the player happened to complete.
+    if (foldEarLogRef.current) foldEarLogRef.current(sess.current);
     sessGenRef.current++;
     sessTimersRef.current.forEach(clearTimeout);
     sessTimersRef.current = [];
@@ -2920,6 +2928,23 @@ export default function NumberEarTrainer() {
     if (duelTimerIdRef.current) { clearTimeout(duelTimerIdRef.current); duelTimerIdRef.current = null; }
     stopAll();
   };
+
+  // A session abandoned by closing the tab, backgrounding the browser or switching
+  // apps never reaches killSession, so persist the answers on the way out too.
+  // `pagehide` covers close/navigate (and fires on iOS where `beforeunload` doesn't);
+  // `visibilitychange` covers app-switching on a phone, which is the common one.
+  // Folding is incremental, so a player who switches away and comes back to finish
+  // still has the rest of the session recorded when it ends.
+  useEffect(() => {
+    const fold = () => { if (foldEarLogRef.current) foldEarLogRef.current(sess.current); };
+    const onVis = () => { if (document.visibilityState === "hidden") fold(); };
+    window.addEventListener("pagehide", fold);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", fold);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
 
   // ── overlay-modal accessibility (upsell / forge / encounter) ──
   // One effect covers all three: role="dialog"+aria-modal are on the panels; here we
@@ -3673,8 +3698,16 @@ export default function NumberEarTrainer() {
      session that won't end. */
   const foldEarLog = (s) => {
     try {
-      if (!s || !s.results || !s.results.length) return;
-      const nextEar = recordSession(earRef.current, s.mode, s.results, Date.now());
+      if (!s || !s.results) return;
+      // INCREMENTAL, so this is safe to call from any teardown path any number of
+      // times: only the answers not already folded are counted, and the watermark
+      // moves with them. A player who quits at question 5, or switches apps and comes
+      // back to finish, gets every answer recorded exactly once.
+      const from = s.foldedCount || 0;
+      const fresh = s.results.slice(from);
+      if (!fresh.length) return;
+      s.foldedCount = s.results.length;
+      const nextEar = recordSession(earRef.current, s.mode, fresh, Date.now());
       if (nextEar !== earRef.current) { earRef.current = nextEar; setEar(nextEar); saveEar(nextEar); }
       // Remember the context this was played in, so a drill launched later (from the
       // Dojo, after a reload) inherits the key/octave the player struggles in.
@@ -3688,6 +3721,7 @@ export default function NumberEarTrainer() {
       }
     } catch (e) {}
   };
+  foldEarLogRef.current = foldEarLog;
 
   const bossLose = () => {
     const region = sess.current.bossRegion;

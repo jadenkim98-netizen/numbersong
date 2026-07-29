@@ -61,6 +61,23 @@ test("counts halve once a target passes the decay threshold", () => {
   assert.ok(ear.n["9"].miss["7"] < EAR_DECAY_AT, "miss counts should have been halved too");
 });
 
+test("folding a session in slices counts every answer exactly once", () => {
+  // mirrors foldEarLog's incremental watermark: a quit at question 5, an app-switch,
+  // then finishing — each fold must add only the answers it hasn't seen
+  const all = runs(9, 10, 4, 7);
+  let ear = emptyEar();
+  let folded = 0;
+  for (const upTo of [3, 3, 7, 10, 10]) {   // repeats = teardown paths firing twice
+    const fresh = all.slice(folded, upTo);
+    if (!fresh.length) continue;
+    folded = upTo;
+    ear = recordSession(ear, "melody", fresh);
+  }
+  const once = recordSession(emptyEar(), "melody", all);
+  assert.equal(ear.n["9"].seen, 10, "no answer counted twice or dropped");
+  assert.deepEqual(ear.n["9"], once.n["9"], "sliced folding matches folding all at once");
+});
+
 /* ── normalize / robustness ── */
 
 test("normalizeEar survives garbage without throwing", () => {

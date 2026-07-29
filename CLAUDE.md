@@ -75,9 +75,14 @@ no dev server, no package.json — deliberately. Tests run on Node's built-in
 - Progress persists in localStorage key `numbersong-progress` (wrapped in
   try/catch; must degrade gracefully where storage is unavailable).
 - The **ear log** (`numbersong-ear`, plus `numbersong-earbase` for the level context a
-  drill inherits) is written by `foldEarLog()` on every exit from a session that has
-  answers — *including a lost duel*, which is the most diagnostic data the app
-  collects. Deliberately NOT gated on `canSave()`: it isn't progress (no stars, no
+  drill inherits) is written by `foldEarLog()`, which is **incremental**: it keeps a
+  `foldedCount` watermark on the session and folds only the answers it hasn't seen, so
+  it's safe to call from any teardown path any number of times. It runs from
+  `killSession()` (so Quit/Flee/starting-another/leaving all count), from
+  `finishSession`, from `bossLose` — a lost duel is the most diagnostic data the app
+  collects — and from `pagehide`/`visibilitychange`, which is how a session abandoned
+  by closing the tab or switching apps still counts. **A half-finished session is
+  real data; never gate recording on completion.** Deliberately NOT gated on `canSave()`: it isn't progress (no stars, no
   clears), and a free player getting a real diagnosis is the best argument for the
   paid roadmap. It's an aggregate, never an event list — counts halve past
   `EAR_DECAY_AT` so it stays a few KB forever and reflects the player's ear *now*.
