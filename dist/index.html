@@ -3985,43 +3985,44 @@ window.SOUNDTRACK = SOUNDTRACK;
       const alt = basePool.filter((x) => x !== t).sort((a, b) => isMelody ? pcDist(a, t) - pcDist(b, t) : 0)[0];
       if (alt != null) pair.push(alt);
     }
-    const extras = basePool.filter((x) => !pair.includes(x)).sort((a, b) => isMelody ? pcDist(a, t) - pcDist(b, t) : 0).slice(0, 2);
-    const mid = [...pair, ...extras];
-    const whole = basePool.length ? basePool : mid;
-    const sortPool = (p) => isMelody ? [...new Set(p)].sort((a, b) => a - b) : [...new Set(p)];
-    const pools = [pair, mid, whole];
-    const labels = ["isolate", "integrate", "whole"];
+    const answerPool = basePool.length ? basePool : pair;
+    const uniq = (p) => isMelody ? [...new Set(p)].sort((a, b) => a - b) : [...new Set(p)];
     const counts = splitPhases(qCount);
+    const spec = [
+      { focus: uniq(pair), share: 0.75, label: "compare" },
+      { focus: uniq([t]), share: 0.35, label: "integrate" },
+      { focus: [], share: 0, label: "whole" }
+    ];
     return {
       ...baseLvl,
       name: "Mending " + weakLabel(t, isMelody ? "melody" : "chords"),
-      desc: "60/30/10 — isolate, integrate, whole",
+      desc: "compare · integrate · whole",
       group: null,
       weakDrill: true,
-      pool: sortPool(pair),
-      // fallback for any path that reads .pool directly
+      pool: uniq(answerPool),
+      // the ANSWER surface — full, and never narrowed
       qCount: counts.reduce((a, b) => a + b, 0),
-      phases: counts.map((n, i) => ({ n, pool: sortPool(pools[i]), label: labels[i] }))
+      phases: counts.map((n, i) => ({ n, ...spec[i] }))
     };
   }
-  function poolForQuestion(lvl, qNum) {
-    if (!lvl) return [];
-    if (!Array.isArray(lvl.phases) || !lvl.phases.length) return lvl.pool;
-    let acc = 0;
-    for (const ph of lvl.phases) {
-      acc += ph.n;
-      if (qNum < acc) return ph.pool;
-    }
-    return lvl.phases[lvl.phases.length - 1].pool;
-  }
-  function phaseForQuestion(lvl, qNum) {
+  function phaseAt(lvl, qNum) {
     if (!lvl || !Array.isArray(lvl.phases) || !lvl.phases.length) return null;
     let acc = 0;
     for (const ph of lvl.phases) {
       acc += ph.n;
-      if (qNum < acc) return ph.label;
+      if (qNum < acc) return ph;
     }
-    return lvl.phases[lvl.phases.length - 1].label;
+    return lvl.phases[lvl.phases.length - 1];
+  }
+  function drawPoolForQuestion(lvl, qNum, rng = Math.random) {
+    if (!lvl) return [];
+    const ph = phaseAt(lvl, qNum);
+    if (!ph || !Array.isArray(ph.focus) || !ph.focus.length) return lvl.pool;
+    return rng() < ph.share ? ph.focus : lvl.pool;
+  }
+  function phaseForQuestion(lvl, qNum) {
+    const ph = phaseAt(lvl, qNum);
+    return ph ? ph.label : null;
   }
 
   // src/.app.jsx
@@ -5550,7 +5551,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const target = weakLabel(weak.target, mode);
     const confuser = weak.confuser == null ? null : weakLabel(weak.confuser, mode);
     const noun = mode === "chords" ? "chord" : "note";
-    return /* @__PURE__ */ React.createElement("div", { className: "cracked" + (compact ? " compact" : "") }, /* @__PURE__ */ React.createElement("span", { className: "cracked-kicker" }, "⚠ Your cracked ", noun), /* @__PURE__ */ React.createElement("div", { className: "cracked-main" }, /* @__PURE__ */ React.createElement("span", { className: "cracked-target" }, target), /* @__PURE__ */ React.createElement("span", { className: "cracked-say" }, confuser ? /* @__PURE__ */ React.createElement(React.Fragment, null, "You hear it as ", /* @__PURE__ */ React.createElement("b", null, confuser), " — ", /* @__PURE__ */ React.createElement("b", null, Math.round(weak.confuserRate * 100), "%"), " of the time.") : /* @__PURE__ */ React.createElement(React.Fragment, null, "You name it right only ", /* @__PURE__ */ React.createElement("b", null, Math.round(weak.rate * 100), "%"), " of the time."))), onDrill && /* @__PURE__ */ React.createElement("button", { className: "primary cracked-btn", onClick: onDrill }, "Mend it →"), /* @__PURE__ */ React.createElement("span", { className: "cracked-foot" }, "Isolate · integrate · whole — this run isn’t scored."));
+    return /* @__PURE__ */ React.createElement("div", { className: "cracked" + (compact ? " compact" : "") }, /* @__PURE__ */ React.createElement("span", { className: "cracked-kicker" }, "⚠ Your cracked ", noun), /* @__PURE__ */ React.createElement("div", { className: "cracked-main" }, /* @__PURE__ */ React.createElement("span", { className: "cracked-target" }, target), /* @__PURE__ */ React.createElement("span", { className: "cracked-say" }, confuser ? /* @__PURE__ */ React.createElement(React.Fragment, null, "You hear it as ", /* @__PURE__ */ React.createElement("b", null, confuser), " — ", /* @__PURE__ */ React.createElement("b", null, Math.round(weak.confuserRate * 100), "%"), " of the time.") : /* @__PURE__ */ React.createElement(React.Fragment, null, "You name it right only ", /* @__PURE__ */ React.createElement("b", null, Math.round(weak.rate * 100), "%"), " of the time."))), onDrill && /* @__PURE__ */ React.createElement("button", { className: "primary cracked-btn", onClick: onDrill }, "Mend it →"), /* @__PURE__ */ React.createElement("span", { className: "cracked-foot" }, "Every number stays answerable — you just get asked this one more. Not scored."));
   }
   function Confetti({ show }) {
     const [render, setRender] = useState(show);
@@ -7992,7 +7993,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           }
           const oct = pickOctave(lvl.octaves);
           s.octave = oct;
-          const pc = pickMelodyTarget(poolForQuestion(lvl, s.qNum), s.target);
+          const pc = pickMelodyTarget(drawPoolForQuestion(lvl, s.qNum), s.target);
           s.target = pc;
           const t = await playCadence(s.key, lvl.mode) + 0.25;
           if (gen !== sessGenRef.current) return;
@@ -8008,7 +8009,7 @@ window.SOUNDTRACK = SOUNDTRACK;
             s.key = key;
             setSessKey(s.key);
           }
-          const pick = pickChordRoman(poolForQuestion(lvl, s.qNum), s.target && s.target.roman);
+          const pick = pickChordRoman(drawPoolForQuestion(lvl, s.qNum), s.target && s.target.roman);
           const c = CHORDS.find((x) => x.roman === pick);
           s.target = c;
           const cad = await playCadence(s.key, lvl.mode) + 0.25;
@@ -8557,7 +8558,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         } catch (e) {
         }
         setScreen("menu");
-      } }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Your ear")), /* @__PURE__ */ React.createElement("div", { className: "ear-screen" }, secs.length ? secs : /* @__PURE__ */ React.createElement("p", { className: "set-desc", style: { textAlign: "center", padding: "24px 8px" } }, "Nothing here yet. Play a few sessions and here you'll find exactly which notes you're weak on and what you mistake it for.")), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "This lives on this device only — nothing is uploaded."));
+      } }, "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, "Your ear")), /* @__PURE__ */ React.createElement("div", { className: "ear-screen" }, secs.length ? secs : /* @__PURE__ */ React.createElement("p", { className: "set-desc", style: { textAlign: "center", padding: "24px 8px" } }, "Nothing here yet. Play a few sessions and here you'll find exactly which notes you're weak on and what you mistake them for.")), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "This lives on this device only — nothing is uploaded."));
     }
     if (screen === "adventure") {
       const onTapNode = (n) => {
@@ -8929,7 +8930,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     }
     if (screen === "session") {
       const lvl = sessLvl || levels[levelIdx];
-      const qPool = poolForQuestion(lvl, qNum);
+      const qPool = lvl.pool;
       const pool = mode === "melody" ? qPool : null;
       const isMinor = mode === "melody" && lvl.mode === "minor";
       const tonicPc = isMinor ? 9 : 0;
@@ -9039,9 +9040,9 @@ window.SOUNDTRACK = SOUNDTRACK;
         const cls = "cell" + (r ? r.firstTry ? " hit" : " miss" : "") + (i === passCountFor(lvl) - 1 ? " mark" : "") + (streak >= 2 && i === sessionResults.length - 1 && r && r.firstTry ? " hot" : "");
         return /* @__PURE__ */ React.createElement("i", { key: i, className: cls });
       })), streak >= 2 && /* @__PURE__ */ React.createElement("span", { className: "combo" }, "×", streak)), !isDuel && /* @__PURE__ */ React.createElement("p", { className: "qcount" }, "Question ", Math.min(qNum + 1, qCountOf(lvl)), " of ", qCountOf(lvl), " · ", displayKey, lvl.keyMode === "random" ? " (changes every question)" : ""), !isDuel && lvl.weakDrill && /* @__PURE__ */ React.createElement("p", { className: "qphase" }, {
-        isolate: "Isolating — just the two you confuse",
-        integrate: "Integrating — putting it back with its neighbours",
-        whole: "Whole — the full level again"
+        compare: "Comparing — mostly the two you confuse",
+        integrate: "Integrating — the weak one, mixed back in",
+        whole: "Whole — the level's normal mix"
       }[phaseForQuestion(lvl, qNum)]), isDuel && /* @__PURE__ */ React.createElement("p", { className: "qcount duel-key" }, displayKey, lvl.keyMode === "random" ? " · new key each strike" : ""), /* @__PURE__ */ React.createElement("div", { className: "drill-stage drill-" + mode + (mode === "melody" && instrument === "guitar" && !lvl.chromatic ? " drill-guitar" : "") }, mode === "melody" && /* @__PURE__ */ React.createElement(
         DegreeLadder,
         {

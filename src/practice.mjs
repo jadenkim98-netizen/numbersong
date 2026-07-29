@@ -187,12 +187,21 @@ export function splitPhases(qCount) {
 
 // Build the deconstruction drill as a `customLvl` — the same object shape the Custom
 // builder already produces, so it runs through startSession(mode, null, lvl) with no
-// new session engine. `phases` is the only addition; poolForQuestion() below reads it.
+// new session engine. `phases` is the only addition.
 //
-// Only the POOL narrows across phases. Key and octave context stay exactly as the
-// player just played them — one variable isolated at a time, which is the whole
-// point of deconstruction. Widening the pool back to the base level IS the
-// reintegration step.
+// CRITICAL — stimulus vs response. An earlier version narrowed the level's `pool`
+// across phases, which shrank BOTH what was played and what could be answered: the
+// isolate phase offered two notes and two pads, so a coin flip scored 50% and the
+// task quietly became "A or B" instead of "name it among seven". Binary
+// discrimination is an easier, different skill and doesn't transfer back.
+//
+// So `pool` — the ANSWER surface — is always the full base pool and never changes.
+// Phases instead carry `focus`/`share`: a weighted bias on which note gets PLAYED.
+// You get concentrated reps on the weak link while the task stays honest, and
+// because the other notes keep appearing you get interleaving rather than a blocked
+// run of one note (blocked practice shows fast in-session gains and poor retention).
+//
+// Key and octave context stay exactly as the player just played them.
 export function buildWeakDrill(weak, baseLvl, qCount) {
   if (!weak || !baseLvl) return null;
   // NB: baseLvl.mode is the KEY feel ("major"/"minor"), not the drill mode — the
@@ -202,9 +211,8 @@ export function buildWeakDrill(weak, baseLvl, qCount) {
   const t = weak.target;
   const c = weak.confuser;
 
-  // Phase 1 — isolate: the weak target against what it gets confused with. With no
-  // confuser on record, pair it with its nearest pool neighbour so there's still a
-  // discrimination to make (a one-note "drill" teaches nothing).
+  // The confused pair. With no confuser on record, pair the weak note with its
+  // nearest pool neighbour so there's still a real discrimination being trained.
   let pair = [t];
   if (c != null && c !== t) pair.push(c);
   else {
@@ -213,55 +221,58 @@ export function buildWeakDrill(weak, baseLvl, qCount) {
     if (alt != null) pair.push(alt);
   }
 
-  // Phase 2 — integrate: add the two nearest other pool members back in.
-  const extras = basePool
-    .filter((x) => !pair.includes(x))
-    .sort((a, b) => (isMelody ? pcDist(a, t) - pcDist(b, t) : 0))
-    .slice(0, 2);
-  const mid = [...pair, ...extras];
-
-  // Phase 3 — whole: the level exactly as it was.
-  const whole = basePool.length ? basePool : mid;
-
-  const sortPool = (p) => (isMelody ? [...new Set(p)].sort((a, b) => a - b) : [...new Set(p)]);
-  const pools = [pair, mid, whole];
-  const labels = ["isolate", "integrate", "whole"];
+  const answerPool = basePool.length ? basePool : pair;
+  const uniq = (p) => (isMelody ? [...new Set(p)].sort((a, b) => a - b) : [...new Set(p)]);
   const counts = splitPhases(qCount);
+
+  // COMPARE   — the pair dominates, so the contrast is drilled hard
+  // INTEGRATE — the weak note alone stays over-represented among everything else
+  // WHOLE     — the level's own distribution: the real task, unassisted
+  const spec = [
+    { focus: uniq(pair), share: 0.75, label: "compare" },
+    { focus: uniq([t]),  share: 0.35, label: "integrate" },
+    { focus: [],         share: 0,    label: "whole" },
+  ];
 
   return {
     ...baseLvl,
     name: "Mending " + weakLabel(t, isMelody ? "melody" : "chords"),
-    desc: "60/30/10 — isolate, integrate, whole",
+    desc: "compare · integrate · whole",
     group: null,
     weakDrill: true,
-    pool: sortPool(pair),            // fallback for any path that reads .pool directly
+    pool: uniq(answerPool),   // the ANSWER surface — full, and never narrowed
     qCount: counts.reduce((a, b) => a + b, 0),
-    phases: counts.map((n, i) => ({ n, pool: sortPool(pools[i]), label: labels[i] })),
+    phases: counts.map((n, i) => ({ n, ...spec[i] })),
   };
 }
 
-// The one primitive that makes difficulty a function of question index instead of a
-// constant. Levels without `phases` are unaffected, so every existing level behaves
-// exactly as before.
-export function poolForQuestion(lvl, qNum) {
-  if (!lvl) return [];
-  if (!Array.isArray(lvl.phases) || !lvl.phases.length) return lvl.pool;
-  let acc = 0;
-  for (const ph of lvl.phases) {
-    acc += ph.n;
-    if (qNum < acc) return ph.pool;
-  }
-  return lvl.phases[lvl.phases.length - 1].pool;
-}
-
-// Which phase a question sits in — drives the in-session "isolate / integrate /
-// whole" caption so the player can see the method working on them.
-export function phaseForQuestion(lvl, qNum) {
+function phaseAt(lvl, qNum) {
   if (!lvl || !Array.isArray(lvl.phases) || !lvl.phases.length) return null;
   let acc = 0;
   for (const ph of lvl.phases) {
     acc += ph.n;
-    if (qNum < acc) return ph.label;
+    if (qNum < acc) return ph;
   }
-  return lvl.phases[lvl.phases.length - 1].label;
+  return lvl.phases[lvl.phases.length - 1];
+}
+
+// Which pool the TARGET is drawn from for this question — the stimulus, not the
+// answer surface. On a phased level, `share` of the time we draw from the phase's
+// focus set (concentrating reps on the weak link) and the rest of the time from the
+// whole pool (so the weak note stays interleaved with everything else). Levels
+// without phases always draw from their own pool, exactly as before.
+//
+// NEVER use this to decide which answers to offer. See buildWeakDrill.
+export function drawPoolForQuestion(lvl, qNum, rng = Math.random) {
+  if (!lvl) return [];
+  const ph = phaseAt(lvl, qNum);
+  if (!ph || !Array.isArray(ph.focus) || !ph.focus.length) return lvl.pool;
+  return rng() < ph.share ? ph.focus : lvl.pool;
+}
+
+// Which phase a question sits in — drives the in-session caption so the player can
+// see the method working on them rather than feeling the mix change at random.
+export function phaseForQuestion(lvl, qNum) {
+  const ph = phaseAt(lvl, qNum);
+  return ph ? ph.label : null;
 }

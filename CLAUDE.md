@@ -16,10 +16,11 @@ never as an interval from a chord root. "Home never moves."
 - `src/practice.mjs` — the weak-link engine ("your cracked note"). Pure: the rolling
   **ear log** aggregate (`recordSession`/`normalizeEar`), the diagnosis (`weakLink` →
   "you hear 6 as 5, 41% of the time"), and the 60/30/10 deconstruction drill
-  (`buildWeakDrill` → a phased `customLvl`, `poolForQuestion`). Applies *The Art of
-  Practice*'s Skill Deconstruction: the weak component is trained alone (60%), then
-  integrated (30%), then whole (10%) — practising the whole skill lets strengths mask
-  the real problem. Unit-tested in `test/practice.test.mjs`.
+  (`buildWeakDrill` → a phased `customLvl`, `drawPoolForQuestion`), and `earRows` for
+  the full per-target breakdown. Applies *The Art of Practice*'s Skill Deconstruction
+  in 60/30/10 phases — compare (the confused pair dominates), integrate (the weak note
+  alone stays over-represented), whole (the level's own mix) — as a weighting on what
+  gets PLAYED, never on what can be answered. Unit-tested in `test/practice.test.mjs`.
 - `src/pitch.mjs` — the Sing-tuner pitch math: autocorrelation `detectPitch` +
   `pitchToDegree`, also pure (Tone-free). Both `.mjs` modules are inlined into the
   app by build.sh (esbuild `--bundle`) and imported straight by the node:test suite.
@@ -93,12 +94,19 @@ no dev server, no package.json — deliberately. Tests run on Node's built-in
   confusion, and a Mend button per row. The menu entry only appears once there's data,
   and rows under `WEAK_MIN_SEEN` render their counts but refuse to draw a conclusion.
   `startWeakDrill(mode, pick, where)` drills any target, not just the diagnosed one.
-- Difficulty is a function of question index, not a constant: `poolForQuestion(lvl,
-  qNum)` returns `lvl.pool` for every ordinary level and walks `lvl.phases` for a
-  phased one. **Anything that reads the pool during a session must use the same
-  per-question pool** — the session `qPool` drives both the target generator and the
-  answer-pad enablement, because a mismatch disables the pad the answer lives on and
-  wedges the question.
+- **Stimulus and response are different pools, and must never be conflated.**
+  - *Response* (which pads are live) = `lvl.pool`, always the level's full set. The
+    session's `qPool` is exactly this. **Never narrow it.**
+  - *Stimulus* (which note gets played) = `drawPoolForQuestion(lvl, qNum)`, which on a
+    phased level draws from the phase's `focus` set `share` of the time and from the
+    full pool otherwise.
+
+  A weak-link drill therefore asks you 6 far more often while all seven pads stay
+  answerable. An earlier version narrowed `lvl.pool` per phase, which shrank both at
+  once: the drill offered two notes and two pads, so a coin flip scored 50% and the
+  task silently became "A or B" — an easier, different skill that doesn't transfer. It
+  also disabled the pad a focused target lived on and wedged the question. If you add
+  phased content (an onramp, live escalation), weight the stimulus; leave the pads.
 - Melody levels follow the FET-style progression: C-major-only → any octave →
   one random non-C key per session → new random key every question.
 - Chord sessions display "stack notation" (degrees 7→1 vertically, chord tones

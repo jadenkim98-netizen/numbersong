@@ -224,11 +224,18 @@ argmax of the `miss` map. Ties broken by recency.
 
 **The drill** (20 questions, generated as a phased `customLvl`):
 
-| Phase | n | Pool |
+**Stimulus ≠ response.** Narrowing what can be *answered* is the trap: offer two
+notes and two pads and a coin flip scores 50%, so the task stops being "name it
+among seven" and becomes binary discrimination — easier, different, and it doesn't
+transfer. So the answer surface is always the full pool, and the phases weight only
+what gets *played*. Oversampling rather than restricting also keeps the weak note
+interleaved with the others, which retains better than a blocked run of one note.
+
+| Phase | n | What's played |
 |---|---|---|
-| Isolate | 12 | `[weak, confuser]` only — and at the *easiest* key/octave setting the player has already passed. Isolate one variable; don't stack difficulties. |
-| Integrate | 6 | weak + confuser + 2 neighbours |
-| Whole | 2 | the full pool of their current New Level |
+| Compare | 12 | 75% of questions are the weak note or its confuser |
+| Integrate | 6 | 35% are the weak note; everything else fills the rest |
+| Whole | 2 | the level's own distribution, unassisted |
 
 **Then track the shift.** §7: "When the weak link is fixed, the next-weakest
 becomes the target — track that shift per skill." Keep a short history of resolved
@@ -383,11 +390,13 @@ is the deferred half — currently plain app voice.
 
 Two things worth knowing for whoever picks this up:
 
-- **The pool-mismatch trap.** The answer pads are enabled from the session pool. When
-  difficulty became a function of question index, the pads kept reading the *static*
-  `lvl.pool`, so an integrate-phase target landed on a disabled pad and the question
-  could not be answered at all. Both now read one `qPool`. Any future phased content
-  (the onramp in A, the escalation in E) will hit this same trap.
+- **The stimulus/response trap, twice.** First the pads read the static `lvl.pool`
+  while targets came from the phase pool, so a focused target landed on a disabled pad
+  and wedged the question. The fix — point the pads at the phase pool — was wrong in
+  the other direction: it shrank the answer surface to two options and made the drill
+  a coin flip. The real answer is that these are *different pools*: pads always full,
+  stimulus weighted. Any future phased content (the onramp in A, escalation in E) must
+  weight the stimulus and leave the response alone.
 - **`TEST_MODE` is forced true on localhost** (`jsx:141`), so a local session is 3
   questions, not 20. Use `?notest` to see real session lengths. This also means
   `splitPhases` must degrade cleanly below 3 questions — it does, and it's tested.
@@ -400,6 +409,14 @@ and the grinding nudge are still open). **Step-backs (D)** remain — small, and
 `lvl.last` timestamp they need is already being written by the ear log.
 
 **Phase 5 — flow-zone escalation (E) + the monthly view (F).**
+
+**Next up, and the highest-value remaining use of the ear log:** weight *ordinary*
+sessions toward weak notes, not just drills. Same `drawPoolForQuestion` mechanism
+with a gentle share (~15–20%), applied to every level. No new UI — sessions just
+quietly ask you 6 more often until 6 stops being a problem, which turns the ear log
+from a report you visit into something that shapes practice on its own. After that:
+Keeper Duels drawing their questions from your weak notes, and a scheduled *recheck*
+a few days after a drill (§4's step-back, applied to notes instead of levels).
 
 C is the cheapest and could jump the queue if we want a quick win — it's the only
 item that removes an incentive currently working *against* the goal.

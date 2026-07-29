@@ -97,7 +97,7 @@ import {
   weakLabel,
   earRows,
   buildWeakDrill,
-  poolForQuestion,
+  drawPoolForQuestion,
   phaseForQuestion,
 } from "./practice.mjs";
 
@@ -1593,7 +1593,7 @@ function CrackedNote({ weak, mode, onDrill, compact }) {
         </span>
       </div>
       {onDrill && <button className="primary cracked-btn" onClick={onDrill}>Mend it →</button>}
-      <span className="cracked-foot">Isolate · integrate · whole — this run isn’t scored.</span>
+      <span className="cracked-foot">Every number stays answerable — you just get asked this one more. Not scored.</span>
     </div>
   );
 }
@@ -3716,9 +3716,9 @@ export default function NumberEarTrainer() {
       if (key !== s.key) { s.key = key; setSessKey(s.key); }
       const oct = pickOctave(lvl.octaves);
       s.octave = oct;
-      // poolForQuestion === lvl.pool for every ordinary level; only a phased level
-      // (the 60/30/10 weak-link drill) narrows or widens as the session runs.
-      const pc = pickMelodyTarget(poolForQuestion(lvl, s.qNum), s.target);
+      // The STIMULUS pool — weighted toward the weak link on a drill, identical to
+      // lvl.pool on every ordinary level. Never used to decide which pads are live.
+      const pc = pickMelodyTarget(drawPoolForQuestion(lvl, s.qNum), s.target);
       s.target = pc;
       const t = (await playCadence(s.key, lvl.mode)) + 0.25;
       if (gen !== sessGenRef.current) return; // quit during audio load → bail before the target note leaks
@@ -3730,7 +3730,7 @@ export default function NumberEarTrainer() {
       const lvl = s.lvl;
       const key = nextRandomSessionKey({ lvl, isFirst, currentKey: s.key, randKey });
       if (key !== s.key) { s.key = key; setSessKey(s.key); }
-      const pick = pickChordRoman(poolForQuestion(lvl, s.qNum), s.target && s.target.roman);
+      const pick = pickChordRoman(drawPoolForQuestion(lvl, s.qNum), s.target && s.target.roman);
       const c = CHORDS.find((x) => x.roman === pick);
       s.target = c;
       const cad = (await playCadence(s.key, lvl.mode)) + 0.25;
@@ -4400,7 +4400,7 @@ export default function NumberEarTrainer() {
           {secs.length ? secs : (
             <p className="set-desc" style={{ textAlign: "center", padding: "24px 8px" }}>
               Nothing here yet. Play a few sessions and here you'll find exactly which
-              notes you're weak on and what you mistake it for.
+              notes you're weak on and what you mistake them for.
             </p>
           )}
         </div>
@@ -4920,10 +4920,11 @@ export default function NumberEarTrainer() {
 
   if (screen === "session") {
     const lvl = sessLvl || levels[levelIdx];
-    // MUST be the same per-question pool the target was drawn from — the pads are
-    // enabled from this, so using the static lvl.pool on a phased (weak-link) level
-    // would disable the pad the answer lives on and wedge the question.
-    const qPool = poolForQuestion(lvl, qNum);
+    // The ANSWER surface. Always the level's FULL pool — never a phase's focus set.
+    // Narrowing this is what turned the drill into a two-option coin flip, and it also
+    // disabled the pad a focused target lived on. Stimulus weighting happens in
+    // drawPoolForQuestion; the pads must not follow it.
+    const qPool = lvl.pool;
     const pool = mode === "melody" ? qPool : null;
     const isMinor = mode === "melody" && lvl.mode === "minor";
     const tonicPc = isMinor ? 9 : 0;
@@ -5138,9 +5139,9 @@ export default function NumberEarTrainer() {
             feeling like the pool randomly changed mid-session */}
         {!isDuel && lvl.weakDrill && (
           <p className="qphase">{({
-            isolate: "Isolating — just the two you confuse",
-            integrate: "Integrating — putting it back with its neighbours",
-            whole: "Whole — the full level again",
+            compare: "Comparing — mostly the two you confuse",
+            integrate: "Integrating — the weak one, mixed back in",
+            whole: "Whole — the level's normal mix",
           })[phaseForQuestion(lvl, qNum)]}</p>
         )}
         {isDuel && <p className="qcount duel-key">{displayKey}{lvl.keyMode === "random" ? " · new key each strike" : ""}</p>}

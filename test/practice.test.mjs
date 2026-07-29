@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   emptyEar, normalizeEar, recordSession, weakLink, weakLabel, earRows,
-  buildWeakDrill, splitPhases, poolForQuestion, phaseForQuestion,
+  buildWeakDrill, splitPhases, drawPoolForQuestion, phaseForQuestion,
   EAR_DECAY_AT, WEAK_MIN_SEEN,
 } from "../src/practice.mjs";
 
@@ -171,15 +171,25 @@ test("splitPhases is 60/30/10 and always totals the session length", () => {
 
 const BASE = { mode: "major", chromatic: false, pool: [0, 2, 4, 5, 7, 9, 11], keyMode: "c", octaves: [4] };
 
-test("buildWeakDrill isolates the pair, then integrates, then restores the level", () => {
-  const w = { target: 9, confuser: 7 };
-  const d = buildWeakDrill(w, BASE, 20);
+test("the ANSWER pool is never narrowed — the drill must not become a coin flip", () => {
+  // The whole point: shrinking the answer surface to the confused pair turns "name
+  // it among seven" into "A or B", which a guess wins half the time.
+  const d = buildWeakDrill({ target: 9, confuser: 7 }, BASE, 20);
+  assert.deepEqual(d.pool, BASE.pool);
+  for (let q = 0; q < 20; q++) {
+    assert.deepEqual(d.pool, BASE.pool, `answer pool changed at question ${q}`);
+  }
+});
+
+test("buildWeakDrill weights the stimulus: pair, then the weak note, then neither", () => {
+  const d = buildWeakDrill({ target: 9, confuser: 7 }, BASE, 20);
   assert.deepEqual(d.phases.map((p) => p.n), [12, 6, 2]);
-  assert.deepEqual(d.phases[0].pool, [7, 9]);           // isolate: just the confused pair
-  // integrate: + the two nearest neighbours of 9 (= 11 and 0, i.e. degrees 7 and 1 —
-  // the la-ti-do cluster around it), NOT just the next pool entries
-  assert.deepEqual(d.phases[1].pool, [0, 7, 9, 11]);
-  assert.deepEqual(d.phases[2].pool, BASE.pool);        // whole: the level as it was
+  assert.deepEqual(d.phases[0].focus, [7, 9]);   // compare: the confused pair
+  assert.equal(d.phases[0].share, 0.75);
+  assert.deepEqual(d.phases[1].focus, [9]);      // integrate: the weak note alone
+  assert.equal(d.phases[1].share, 0.35);
+  assert.deepEqual(d.phases[2].focus, []);       // whole: the level's own distribution
+  assert.equal(d.phases[2].share, 0);
 });
 
 test("buildWeakDrill keeps the key and octave context untouched", () => {
@@ -191,8 +201,13 @@ test("buildWeakDrill keeps the key and octave context untouched", () => {
 
 test("buildWeakDrill still gives something to discriminate with no confuser", () => {
   const d = buildWeakDrill({ target: 9, confuser: null }, BASE, 20);
-  assert.equal(d.phases[0].pool.length, 2, "a one-note drill teaches nothing");
-  assert.ok(d.phases[0].pool.includes(9));
+  assert.equal(d.phases[0].focus.length, 2, "a one-note focus trains no discrimination");
+  assert.ok(d.phases[0].focus.includes(9));
+  // the partner is a NEAREST neighbour by semitone distance, not the next array
+  // entry — 7 and 11 both sit 2 semitones from 9, so either is correct
+  const partner = d.phases[0].focus.find((x) => x !== 9);
+  assert.ok([7, 11].includes(partner), `expected a nearest neighbour, got ${partner}`);
+  assert.deepEqual(d.pool, BASE.pool, "and the answer surface is still full");
 });
 
 test("buildWeakDrill runs as a custom (unscored) level and is flagged", () => {
@@ -206,8 +221,8 @@ test("buildWeakDrill runs as a custom (unscored) level and is flagged", () => {
 test("buildWeakDrill handles chord pools (romans, no semitone sorting)", () => {
   const chordBase = { mode: "major", pool: ["I", "IV", "V", "vi"], keyMode: "c", octaves: [4] };
   const d = buildWeakDrill({ target: "vi", confuser: "I" }, chordBase, 20);
-  assert.deepEqual(d.phases[0].pool, ["vi", "I"]);
-  assert.equal(d.phases[2].pool.length, 4);
+  assert.deepEqual(d.phases[0].focus, ["vi", "I"]);
+  assert.deepEqual(d.pool, ["I", "IV", "V", "vi"]);   // every chord still answerable
 });
 
 test("buildWeakDrill returns null without a diagnosis", () => {
@@ -217,25 +232,46 @@ test("buildWeakDrill returns null without a diagnosis", () => {
 
 /* ── the per-question difficulty primitive ── */
 
-test("poolForQuestion walks the phases by question index", () => {
+test("drawPoolForQuestion picks the focus set exactly `share` of the time", () => {
   const d = buildWeakDrill({ target: 9, confuser: 7 }, BASE, 20);
-  assert.deepEqual(poolForQuestion(d, 0), [7, 9]);
-  assert.deepEqual(poolForQuestion(d, 11), [7, 9]);          // last isolate question
-  assert.deepEqual(poolForQuestion(d, 12), [0, 7, 9, 11]);   // first integrate question
-  assert.deepEqual(poolForQuestion(d, 17), [0, 7, 9, 11]);
-  assert.deepEqual(poolForQuestion(d, 18), BASE.pool);       // whole
-  assert.deepEqual(poolForQuestion(d, 99), BASE.pool);       // past the end: clamp
+  // rng below share → focus; at/above → the full pool
+  assert.deepEqual(drawPoolForQuestion(d, 0, () => 0.10), [7, 9]);
+  assert.deepEqual(drawPoolForQuestion(d, 0, () => 0.74), [7, 9]);
+  assert.deepEqual(drawPoolForQuestion(d, 0, () => 0.76), BASE.pool);
+  assert.deepEqual(drawPoolForQuestion(d, 12, () => 0.30), [9]);      // integrate
+  assert.deepEqual(drawPoolForQuestion(d, 12, () => 0.40), BASE.pool);
+  assert.deepEqual(drawPoolForQuestion(d, 19, () => 0.00), BASE.pool); // whole: never focused
+  assert.deepEqual(drawPoolForQuestion(d, 99, () => 0.00), BASE.pool); // past the end: clamp
 });
 
-test("poolForQuestion leaves ordinary levels exactly as they are", () => {
-  assert.deepEqual(poolForQuestion(BASE, 0), BASE.pool);
-  assert.deepEqual(poolForQuestion(BASE, 19), BASE.pool);
+test("the weak note is oversampled but everything else keeps appearing", () => {
+  // interleaving, not a blocked run: a phase of only-the-weak-note would show fast
+  // in-session gains and poor retention
+  const d = buildWeakDrill({ target: 9, confuser: 7 }, BASE, 20);
+  let seq = 0;
+  const rng = () => { seq = (seq * 9301 + 49297) % 233280; return seq / 233280; };
+  const counts = {};
+  for (let i = 0; i < 4000; i++) {
+    const pool = drawPoolForQuestion(d, 0, rng);
+    for (const pc of pool) counts[pc] = (counts[pc] || 0) + 1 / pool.length;
+  }
+  const share = (pc) => counts[pc] / 4000;
+  assert.ok(share(9) > 0.3, `weak note should dominate, got ${share(9)}`);
+  const others = BASE.pool.filter((p) => p !== 9 && p !== 7);
+  for (const pc of others) {
+    assert.ok(share(pc) > 0.01, `note ${pc} must still appear, got ${share(pc)}`);
+  }
+});
+
+test("drawPoolForQuestion leaves ordinary levels exactly as they are", () => {
+  assert.deepEqual(drawPoolForQuestion(BASE, 0, () => 0), BASE.pool);
+  assert.deepEqual(drawPoolForQuestion(BASE, 19, () => 0.99), BASE.pool);
   assert.equal(phaseForQuestion(BASE, 0), null);
 });
 
 test("phaseForQuestion names the phase the player is in", () => {
   const d = buildWeakDrill({ target: 9, confuser: 7 }, BASE, 20);
-  assert.equal(phaseForQuestion(d, 0), "isolate");
+  assert.equal(phaseForQuestion(d, 0), "compare");
   assert.equal(phaseForQuestion(d, 12), "integrate");
   assert.equal(phaseForQuestion(d, 19), "whole");
 });
