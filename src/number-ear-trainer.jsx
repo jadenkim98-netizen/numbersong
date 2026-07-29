@@ -95,6 +95,7 @@ import {
   recordSession,
   weakLink,
   weakLabel,
+  earRows,
   buildWeakDrill,
   poolForQuestion,
   phaseForQuestion,
@@ -2239,7 +2240,7 @@ export default function NumberEarTrainer() {
   const [musicPref, setMusicPref] = useState(() => loadPref("music", "1") === "1");
 
   const [boringMode, setBoringMode] = useState(() => loadPref("boring", "0") === "1"); // classic UI vs Adventure
-  const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home")); // boot | menu | training | home | adventure | levels | session | results | learn | guide | settings
+  const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home")); // boot | menu | training | ear | home | adventure | levels | session | results | learn | guide | settings
   // First-time map tour: Verda walks a new player around once, right after the tutorial.
   const [mapTour, setMapTour] = useState(false);
   // Inject the base stylesheet ONCE into <head> so it's ALWAYS present. Every screen also
@@ -2572,6 +2573,7 @@ export default function NumberEarTrainer() {
   const [advStageId, setAdvStageId] = useState(null);        // region node entered from the map (encounter/victory)
   const [encounterNode, setEncounterNode] = useState(null);  // region id whose encounter modal is open on the map
   const [auxReturn, setAuxReturn] = useState(null);          // where guide/free-play/settings back should go (e.g. "adventure")
+  const [drillReturn, setDrillReturn] = useState(null);      // where a weak-link drill was launched from ("ear" | "training")
   const [forgeOpen, setForgeOpen] = useState(false);         // Excalibar fragment inventory modal (on the map)
   // overlay-modal a11y: panel refs for focus-move-in / focus-trap
   const upsellPanelRef = useRef(null);
@@ -3503,13 +3505,19 @@ export default function NumberEarTrainer() {
      crack has closed. */
   const weakFor = (m) => (m === "melody" ? weakMelody : m === "chords" ? weakChords : null);
   const canDrillWeak = (m) => !!(weakFor(m) && weakBase[m]);
-  const startWeakDrill = (m) => {
-    const w = weakFor(m), base = weakBase[m];
+  // `pick` lets the "Your ear" screen drill ANY target, not just the auto-diagnosed
+  // worst one; omitted, it mends the headline cracked note.
+  const startWeakDrill = (m, pick = null, where = "results") => {
+    const w = pick || weakFor(m), base = weakBase[m];
     if (!w || !base) return;
+    // a drill is a detour, so quitting/backing out returns where it was launched from
+    // rather than dumping the player in Basic Training's level list
+    setDrillReturn(where === "ear" || where === "training" ? where : null);
     const drill = buildWeakDrill(w, base, qCountForLevel(null, flowOpts()));
     if (!drill) return;
     track("weak_drill_start", {
       mode: m,
+      where,
       target: String(w.target),
       confuser: w.confuser == null ? null : String(w.confuser),
       rate: Math.round(w.rate * 100),
@@ -4247,6 +4255,10 @@ export default function NumberEarTrainer() {
         <div className="menu-list">
           {item("⚔", "Adventure", () => setScreen("adventure"))}
           {item("🎯", "Basic Training", () => setScreen("training"))}
+          {/* only once there's something true to show — an empty stats screen is worse
+              than no stats screen */}
+          {(earRows(ear, "melody").length > 0 || earRows(ear, "chords").length > 0) &&
+            item("👂", "Your ear", () => setScreen("ear"))}
           {item("📖", "How music works", () => { setGuidePage(0); setScreen("guide"); })}
           {item("★", "Shop (" + starBalance() + ")", () => setScreen("shop"))}
           {item("🎓", "Tutorials", () => setScreen("tutorials"))}
@@ -4321,7 +4333,7 @@ export default function NumberEarTrainer() {
             : canDrillWeak("melody") ? "melody" : canDrillWeak("chords") ? "chords" : null;
           if (!m) return null;
           return <CrackedNote weak={weakFor(m)} mode={m} compact
-            onDrill={() => { try { sfx("select"); } catch (e) {} startWeakDrill(m); }} />;
+            onDrill={() => { try { sfx("select"); } catch (e) {} startWeakDrill(m, null, "training"); }} />;
         })()}
         <div className="cards">
           {sec("Single notes", `Hear a note, name its degree. ${MELODY_GROUPS.length} stages.`, () => { setMode("melody"); setMelGroup(null); setScreen("levels"); })}
@@ -4329,6 +4341,70 @@ export default function NumberEarTrainer() {
           {sec("Chord progressions", `Name each chord in order. ${PROG_CHAPTERS.length} chapters.`, () => { setMode("progressions"); setProgChapter(null); setScreen("levels"); })}
         </div>
         <footer className="foot">Sharpen your ear — every rep forges Excalibar.</footer>
+      </div>
+    );
+  }
+
+  if (screen === "ear") {
+    // The whole picture behind the cracked-note headline: every note and chord you've
+    // been asked, worst first, with what you mistake it for — and a way to drill any
+    // of them, not just the single worst.
+    const section = (m, title, blurb) => {
+      const rows = earRows(ear, m);
+      if (!rows.length) return null;
+      return (
+        <div key={m} className="ear-sec">
+          <h3 className="ear-sec-title">{title}</h3>
+          <p className="ear-sec-blurb">{blurb}</p>
+          {rows.map((r) => {
+            const pct = Math.round(r.rate * 100);
+            const tone = pct >= 90 ? " good" : pct >= 80 ? " ok" : " low";
+            return (
+              <div key={r.key} className={"ear-row" + (r.enough ? "" : " thin")}>
+                <div className="ear-main">
+                  <span className="bar-label">{weakLabel(r.target, m)}</span>
+                  <div className="bar-track"><div className={"bar-fill" + tone} style={{ width: pct + "%" }} /></div>
+                  <span className="bar-count">{pct}%</span>
+                </div>
+                <div className="ear-foot">
+                  <span className="ear-sub">
+                    asked {r.seen}×
+                    {r.confuser != null && <> · hears <b>{weakLabel(r.confuser, m)}</b> {r.confuserCount}×</>}
+                    {!r.enough && " · too few to call yet"}
+                  </span>
+                  {r.enough && weakBase[m] && (
+                    <button className="ghost ear-drill"
+                      onClick={() => { try { sfx("select"); } catch (e) {} startWeakDrill(m, r, "ear"); }}>
+                      Mend →
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
+    const secs = [
+      section("melody", "Notes", "Every degree you've been asked to name."),
+      section("chords", "Chords", "Chord confusions — counted only when the stack you built was exactly another chord."),
+    ].filter(Boolean);
+    return (
+      <div className="app">
+        <style>{CSS}</style>
+        <header className="top-slim">
+          <button className="back" onClick={() => { try { sfx("back"); } catch (e) {} setScreen("menu"); }}>← Menu</button>
+          <h2 className="screen-title">Your ear</h2>
+        </header>
+        <div className="ear-screen">
+          {secs.length ? secs : (
+            <p className="set-desc" style={{ textAlign: "center", padding: "24px 8px" }}>
+              Nothing here yet. Play a few sessions and every note you're asked shows up —
+              worst first, with what you mistake it for.
+            </p>
+          )}
+        </div>
+        <footer className="foot">This lives on this device only — nothing is uploaded.</footer>
       </div>
     );
   }
@@ -4913,7 +4989,7 @@ export default function NumberEarTrainer() {
         {tutCelebrate && <div className="fx-flash" aria-hidden="true" />}
         <Confetti show={tutCelebrate} />
         <header className="top-slim">
-          <button className="back" onClick={() => { try { sfx("back"); } catch (e) {} killSession(); setPhase("idle"); setBusy(false); setBossState(null); setScreen("levels"); }}>← {isDuel ? "Flee" : "Quit"}</button>
+          <button className="back" onClick={() => { try { sfx("back"); } catch (e) {} killSession(); setPhase("idle"); setBusy(false); setBossState(null); setScreen(lvl.weakDrill && drillReturn ? drillReturn : "levels"); }}>← {isDuel ? "Flee" : "Quit"}</button>
           <h2 className="screen-title">{isDuel ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : lvl.name}</h2>
           <span className="session-score">{streak >= 2 && <span key={streak} className="streak">🔥{streak}</span>}{score} ✓</span>
           <button className="sess-gear" onClick={() => setTestCfgOpen(true)} aria-label="Test settings"
@@ -5334,6 +5410,7 @@ export default function NumberEarTrainer() {
     let bestStreak = 0, run = 0;
     sessionResults.forEach((r) => { if (r.firstTry) { run += 1; bestStreak = Math.max(bestStreak, run); } else run = 0; });
 
+    const isDrill = !!(sessLvl && sessLvl.weakDrill);
     // the one-time email card wins the screen when it shows (single CTA)
     const showLead = !onboarded && (passed || justCleared);
     // per-target breakdown (progressions have long, mostly-unique labels — skip the bars)
@@ -5370,7 +5447,7 @@ export default function NumberEarTrainer() {
           </div>
         )}
         <header className="top-slim">
-          <button className="back" onClick={() => { try { sfx("back"); } catch (e) {} if (fromAdventure) { setSwordBurst(!!justCleared); setScreen("adventure"); } else { setScreen("levels"); } }}>{fromAdventure ? "← To the map" : "← Levels"}</button>
+          <button className="back" onClick={() => { try { sfx("back"); } catch (e) {} if (fromAdventure) { setSwordBurst(!!justCleared); setScreen("adventure"); } else { setScreen(isDrill && drillReturn ? drillReturn : "levels"); } }}>{fromAdventure ? "← To the map" : isDrill && drillReturn === "ear" ? "← Your ear" : "← Levels"}</button>
           <h2 className="screen-title">{resultName}</h2>
         </header>
         <div className="results">
@@ -5416,7 +5493,7 @@ export default function NumberEarTrainer() {
           )}
           <div className={"score-big" + (passed ? " pass" : "")}>{pct}%</div>
           <p className="hint center">
-            {sessLvl && sessLvl.weakDrill
+            {isDrill
               ? (passed
                   ? "That's the crack closing. Come back to it tomorrow — it sticks faster than it feels."
                   : "Mending runs aren't scored — this is the note doing the work. Run it again.")
@@ -5447,7 +5524,7 @@ export default function NumberEarTrainer() {
             <CrackedNote
               weak={weakFor(mode)}
               mode={mode}
-              onDrill={canDrillWeak(mode) ? () => { try { sfx("select"); } catch (e) {} startWeakDrill(mode); } : null}
+              onDrill={canDrillWeak(mode) ? () => { try { sfx("select"); } catch (e) {} startWeakDrill(mode, null, "results"); } : null}
             />
           )}
           {showLead && (
@@ -7033,6 +7110,27 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   margin: 2px 0 0; font-size: 0.76rem; text-align: center;
   color: var(--teal); letter-spacing: 0.02em;
 }
+
+/* "Your ear" — the full per-target breakdown behind the cracked-note headline */
+.ear-screen { display: flex; flex-direction: column; gap: 22px; padding: 4px 0 20px; }
+.ear-sec { display: flex; flex-direction: column; gap: 10px; }
+.ear-sec-title { margin: 0; font-family: 'Archivo Black', sans-serif; font-size: 1rem; }
+.ear-sec-blurb { margin: -6px 0 4px; font-size: 0.78rem; color: var(--text-soft); }
+.ear-row {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px; background: var(--card);
+  border: 1px solid var(--line); border-radius: 10px;
+}
+.ear-row.thin { opacity: 0.62; }
+.ear-main { display: flex; align-items: center; gap: 10px; }
+.ear-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-left: 3.2em; }
+.ear-sub { font-size: 0.74rem; color: var(--text-soft); }
+.ear-sub b { color: var(--wrong); }
+.ear-drill { padding: 4px 10px; font-size: 0.76rem; flex: 0 0 auto; }
+/* accuracy colouring mirrors the star curve: ≥90% is done, ≥80% passes, below is the work */
+.bar-fill.good { background: var(--green); }
+.bar-fill.ok   { background: var(--blue); }
+.bar-fill.low  { background: var(--wrong); }
 
 .results-actions { display: flex; gap: 10px; }
 

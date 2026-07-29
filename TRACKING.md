@@ -37,7 +37,8 @@ the send-off button) · `tutorial_skip` · `tutorial_complete`.
 
 **Play:** `region_enter` · `session_start` · `session_finish` (first_tries, passed) ·
 `boss_start` · `boss_win` (hearts) · `boss_lose` (hp) · `weak_drill_start` (mode, target,
-confuser, rate — the "cracked note" the player chose to mend).
+confuser, rate, where: results|training|ear — the "cracked note" the player chose to
+mend, and which surface sent them there).
 
 **Funnel:** `lead_submit` (outcome: sent|saved|invalid_email — **never the email**) ·
 `upsell_open` · `offer_click` · `unlock`.

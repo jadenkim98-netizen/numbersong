@@ -376,7 +376,10 @@ session log.
 **Phase 2 — the weak-link engine (B). ✅ BUILT.** Diagnosis card on the results screen
 and at the top of Basic Training; the 60/30/10 drill ("Mending 6"); the in-session
 phase caption; the lost-duel fold (`foldEarLog` is called from `bossLose`, so a defeat
-now teaches). Keeper-voiced delivery is the deferred half — currently plain app voice.
+now teaches). Plus the **"Your ear" screen** — the full breakdown behind the headline:
+every note and chord worst-first with its confusion, and a Mend button per row so the
+player can drill any target rather than only the diagnosed one. Keeper-voiced delivery
+is the deferred half — currently plain app voice.
 
 Two things worth knowing for whoever picks this up:
 

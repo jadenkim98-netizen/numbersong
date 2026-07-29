@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  emptyEar, normalizeEar, recordSession, weakLink, weakLabel,
+  emptyEar, normalizeEar, recordSession, weakLink, weakLabel, earRows,
   buildWeakDrill, splitPhases, poolForQuestion, phaseForQuestion,
   EAR_DECAY_AT, WEAK_MIN_SEEN,
 } from "../src/practice.mjs";
@@ -116,6 +116,38 @@ test("weakLink works on chords and keeps romans as strings", () => {
   const w = weakLink(recordSession(emptyEar(), "chords", runs("vi", 20, 9, "I")), "chords");
   assert.equal(w.target, "vi");
   assert.equal(w.confuser, "I");
+});
+
+/* ── the full breakdown (the "Your ear" screen) ── */
+
+test("earRows lists every target worst-first, including thin evidence", () => {
+  let ear = recordSession(emptyEar(), "melody", runs(9, 20, 8, 7));   // 60%
+  ear = recordSession(ear, "melody", runs(4, 20, 2, 2));              // 90%
+  ear = recordSession(ear, "melody", runs(0, 3, 3, 11));              // 0% but only 3 asks
+  const rows = earRows(ear, "melody");
+  assert.deepEqual(rows.map((r) => r.target), [0, 9, 4]);   // worst rate first
+  assert.deepEqual(rows.map((r) => r.enough), [false, true, true]);
+  assert.equal(rows[1].confuser, 7);
+  assert.equal(rows[1].seen, 20);
+});
+
+test("earRows breaks rate ties by who we've seen more of", () => {
+  let ear = recordSession(emptyEar(), "melody", runs(9, 10, 5, 7));   // 50%, seen 10
+  ear = recordSession(ear, "melody", runs(4, 20, 10, 2));             // 50%, seen 20
+  assert.deepEqual(earRows(ear, "melody").map((r) => r.target), [4, 9]);
+});
+
+test("earRows and weakLink agree on the headline", () => {
+  let ear = recordSession(emptyEar(), "melody", runs(9, 20, 8, 7));
+  ear = recordSession(ear, "melody", runs(0, 3, 3, 11));  // worse, but too thin to name
+  const top = earRows(ear, "melody").filter((r) => r.enough)[0];
+  assert.equal(weakLink(ear, "melody").target, top.target);
+  assert.equal(weakLink(ear, "melody").target, 9);
+});
+
+test("earRows is empty for progressions and for an untouched log", () => {
+  assert.deepEqual(earRows(emptyEar(), "melody"), []);
+  assert.deepEqual(earRows(recordSession(emptyEar(), "chords", runs("vi", 9, 4, "I")), "progressions"), []);
 });
 
 test("weakLabel renders degrees for melody and Jojo numbers for chords", () => {

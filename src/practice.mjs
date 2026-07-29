@@ -111,39 +111,44 @@ export function recordSession(ear, mode, results, now = 0) {
 
 /* ─────────────────────────────  DIAGNOSIS  ───────────────────────────── */
 
+function statRow(key, st, mode) {
+  let confuser = null, confuserCount = 0;
+  for (const [k, n] of Object.entries(st.miss)) {
+    if (n > confuserCount) { confuser = k; confuserCount = n; }
+  }
+  return {
+    key,
+    target: mode === "melody" ? Number(key) : key,
+    confuser: confuser == null ? null : (mode === "melody" ? Number(confuser) : confuser),
+    seen: st.seen,
+    first: st.first,
+    rate: st.first / st.seen,                 // first-try rate on this target
+    confuserCount,
+    confuserRate: confuserCount / st.seen,    // share of ALL askings, not of misses
+    enough: st.seen >= WEAK_MIN_SEEN,         // is there evidence, or is this still noise?
+  };
+}
+
+// Every target on record for a mode, worst first — the whole picture behind the
+// single headline `weakLink` picks out. Rows below WEAK_MIN_SEEN are included (the
+// counts are honest and worth showing) but flagged `enough: false` so the UI can
+// refuse to draw a conclusion from them.
+export function earRows(ear, mode) {
+  const bucket = bucketFor(mode);
+  if (!bucket) return [];
+  const map = normalizeEar(ear)[bucket];
+  return Object.entries(map)
+    .map(([key, st]) => statRow(key, st, mode))
+    // worst rate first; ties go to the target we've seen more of (more confidence)
+    .sort((a, b) => a.rate - b.rate || b.seen - a.seen);
+}
+
 // The cracked note: the target you get wrong most often, and what you call it
 // instead. Returns null when there isn't enough evidence to say anything — which is
 // the correct answer most of the time and must never be papered over with a guess.
 export function weakLink(ear, mode) {
-  const bucket = bucketFor(mode);
-  if (!bucket) return null;
-  const map = normalizeEar(ear)[bucket];
-  let best = null;
-  for (const [key, st] of Object.entries(map)) {
-    if (st.seen < WEAK_MIN_SEEN) continue;
-    const rate = st.first / st.seen;
-    if (rate >= WEAK_MAX_RATE) continue;
-    // worst rate wins; ties go to the target we've seen more of (more confidence)
-    if (!best || rate < best.rate || (rate === best.rate && st.seen > best.seen)) {
-      best = { key, seen: st.seen, first: st.first, rate, miss: st.miss };
-    }
-  }
-  if (!best) return null;
-
-  let confuser = null, confuserCount = 0;
-  for (const [k, n] of Object.entries(best.miss)) {
-    if (n > confuserCount) { confuser = k; confuserCount = n; }
-  }
-  return {
-    key: best.key,
-    target: mode === "melody" ? Number(best.key) : best.key,
-    confuser: confuser == null ? null : (mode === "melody" ? Number(confuser) : confuser),
-    seen: best.seen,
-    first: best.first,
-    rate: best.rate,                              // first-try rate on this target
-    confuserCount,
-    confuserRate: confuserCount / best.seen,      // share of ALL askings, not of misses
-  };
+  const rows = earRows(ear, mode).filter((r) => r.enough && r.rate < WEAK_MAX_RATE);
+  return rows.length ? rows[0] : null;
 }
 
 // Display label for a target/confuser. Melody targets are pitch classes; chord

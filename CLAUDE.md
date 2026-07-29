@@ -87,6 +87,12 @@ no dev server, no package.json — deliberately. Tests run on Node's built-in
   `starBalance()` is derived from progress, so `STAR3_RATE` and `SHOP` prices are
   coupled: this change raised income +50%, and prices rose to match. Retune both or
   neither.
+- The ear log surfaces in three places: the **cracked-note card** (results screen + top
+  of Basic Training) shows the single worst target; the **"Your ear" screen**
+  (`screen === "ear"`, menu) shows `earRows()` — every target worst-first with its
+  confusion, and a Mend button per row. The menu entry only appears once there's data,
+  and rows under `WEAK_MIN_SEEN` render their counts but refuse to draw a conclusion.
+  `startWeakDrill(mode, pick, where)` drills any target, not just the diagnosed one.
 - Difficulty is a function of question index, not a constant: `poolForQuestion(lvl,
   qNum)` returns `lvl.pool` for every ordinary level and walks `lvl.phases` for a
   phased one. **Anything that reads the pool during a session must use the same
