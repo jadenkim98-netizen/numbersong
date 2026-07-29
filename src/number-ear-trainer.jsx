@@ -4399,8 +4399,8 @@ export default function NumberEarTrainer() {
         <div className="ear-screen">
           {secs.length ? secs : (
             <p className="set-desc" style={{ textAlign: "center", padding: "24px 8px" }}>
-              Nothing here yet. Play a few sessions and every note you're asked shows up —
-              worst first, with what you mistake it for.
+              Nothing here yet. Play a few sessions and here you'll find exactly which
+              notes you're weak on and what you mistake it for.
             </p>
           )}
         </div>
