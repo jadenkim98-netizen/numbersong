@@ -2634,6 +2634,15 @@ export default function NumberEarTrainer() {
     const lv = levelsFor(m)[idx];
     return lv ? bestOf(m, idx) >= passCountFor(lv) : false;
   };
+  // A perfect run on a world's/chapter's LAST level, ever. Deliberately "once, ever" and
+  // purely cosmetic: progress already stores the best first-try count, so this is read
+  // from what's there and lights up retroactively. It does NOT pay stars — the 90% rule
+  // (STAR3_RATE) exists to stop players grinding the last 10%, and a badge that can only
+  // be earned a single time doesn't reopen that loop.
+  const acedFinal = (m, levels) => {
+    const last = levels && levels[levels.length - 1];
+    return last ? bestOf(m, last.idx) >= qCountOf(last) : false;
+  };
   // 3-star rating per level: passed = 1, one miss = 2, perfect = 3.
   const starsFor = (m, idx) => {
     const lv = levelsFor(m)[idx]; if (!lv) return 0;
@@ -4888,7 +4897,7 @@ export default function NumberEarTrainer() {
                       onClick={() => { if (locked) return openUpsell(); setFromAdventure(false); setMelGroup(gi); }}>
                       <span className="level-num">{gi + 1}</span>
                       <span className="level-body">
-                        <span className="level-name">{g.name}</span>
+                        <span className="level-name">{g.name}{acedFinal("melody", g.levels) && <span className="aced" title="Perfect run on the final level">★</span>}</span>
                         <span className="level-desc">{done} of {g.levels.length} passed</span>
                       </span>
                       <span className="level-state">{locked ? "🔒" : done === g.levels.length ? "✓" : "›"}</span>
@@ -4979,7 +4988,7 @@ export default function NumberEarTrainer() {
                   onClick={() => { if (locked) return openUpsell(); setFromAdventure(false); setChapter(ci); }}>
                   <span className="level-num">{ci + 1}</span>
                   <span className="level-body">
-                    <span className="level-name">{c.name}</span>
+                    <span className="level-name">{c.name}{acedFinal(mode, c.levels) && <span className="aced" title="Perfect run on the final level">★</span>}</span>
                     <span className="level-desc">{done} of {c.levels.length} passed</span>
                   </span>
                   <span className="level-state">{locked ? "🔒" : done === c.levels.length ? "✓" : "›"}</span>
@@ -7335,6 +7344,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 }
 .stack-note.on { border: 2px solid var(--blue); color: var(--blue); }
 .stack-note.alt { font-size: 0.72rem; letter-spacing: -0.5px; } /* "♯5" is two glyphs in a 30px circle */
+.level-name .aced { color: var(--gold, #E3B341); margin-left: 6px; font-size: 0.85em; }
 .stack-label {
   font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; color: var(--text);
   border-top: 2px solid var(--line); padding-top: 6px; margin-top: 2px; min-width: 34px; text-align: center;

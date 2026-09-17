@@ -1192,6 +1192,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 }
 .stack-note.on { border: 2px solid var(--blue); color: var(--blue); }
 .stack-note.alt { font-size: 0.72rem; letter-spacing: -0.5px; } /* "♯5" is two glyphs in a 30px circle */
+.level-name .aced { color: var(--gold, #E3B341); margin-left: 6px; font-size: 0.85em; }
 .stack-label {
   font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; color: var(--text);
   border-top: 2px solid var(--line); padding-top: 6px; margin-top: 2px; min-width: 34px; text-align: center;
@@ -7079,6 +7080,10 @@ window.SOUNDTRACK = SOUNDTRACK;
       const lv = levelsFor(m)[idx];
       return lv ? bestOf(m, idx) >= passCountFor(lv) : false;
     };
+    const acedFinal = (m, levels2) => {
+      const last = levels2 && levels2[levels2.length - 1];
+      return last ? bestOf(m, last.idx) >= qCountOf(last) : false;
+    };
     const starsFor = (m, idx) => {
       const lv = levelsFor(m)[idx];
       if (!lv) return 0;
@@ -9203,7 +9208,7 @@ window.SOUNDTRACK = SOUNDTRACK;
               }
             },
             /* @__PURE__ */ React.createElement("span", { className: "level-num" }, gi + 1),
-            /* @__PURE__ */ React.createElement("span", { className: "level-body" }, /* @__PURE__ */ React.createElement("span", { className: "level-name" }, g.name), /* @__PURE__ */ React.createElement("span", { className: "level-desc" }, done, " of ", g.levels.length, " passed")),
+            /* @__PURE__ */ React.createElement("span", { className: "level-body" }, /* @__PURE__ */ React.createElement("span", { className: "level-name" }, g.name, acedFinal("melody", g.levels) && /* @__PURE__ */ React.createElement("span", { className: "aced", title: "Perfect run on the final level" }, "★")), /* @__PURE__ */ React.createElement("span", { className: "level-desc" }, done, " of ", g.levels.length, " passed")),
             /* @__PURE__ */ React.createElement("span", { className: "level-state" }, locked ? "🔒" : done === g.levels.length ? "✓" : "›")
           );
         })), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, SESSION_LEN, " questions per session · ", Math.round(PASS_RATE * 100), "% on first tries earns the ✓ · ", Math.round(STAR3_RATE * 100), "% earns ★★★ — then climb, don’t polish")) : /* @__PURE__ */ React.createElement("div", { className: "custom-builder" }, /* @__PURE__ */ React.createElement("div", { className: "cu-row" }, /* @__PURE__ */ React.createElement("span", { className: "cu-label" }, "Feel"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: cuMode === "major" ? "on" : "", onClick: () => setCuMode("major") }, "Major"), /* @__PURE__ */ React.createElement("button", { className: cuMode === "minor" ? "on" : "", onClick: () => setCuMode("minor") }, "Minor"))), /* @__PURE__ */ React.createElement("div", { className: "cu-row" }, /* @__PURE__ */ React.createElement("span", { className: "cu-label" }, "Key"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: cuKey === "c" ? "on" : "", onClick: () => setCuKey("c") }, cuMode === "minor" ? "A minor" : "C major"), /* @__PURE__ */ React.createElement("button", { className: cuKey === "not-c" ? "on" : "", onClick: () => setCuKey("not-c") }, "New key"), /* @__PURE__ */ React.createElement("button", { className: cuKey === "random" ? "on" : "", onClick: () => setCuKey("random") }, "Every key"))), /* @__PURE__ */ React.createElement("div", { className: "cu-row" }, /* @__PURE__ */ React.createElement("span", { className: "cu-label" }, "Octaves"), /* @__PURE__ */ React.createElement("div", { className: "seg" }, /* @__PURE__ */ React.createElement("button", { className: !cuOct ? "on" : "", onClick: () => setCuOct(false) }, "One"), /* @__PURE__ */ React.createElement("button", { className: cuOct ? "on" : "", onClick: () => setCuOct(true) }, "Many"))), /* @__PURE__ */ React.createElement("div", { className: "cu-notes-head" }, /* @__PURE__ */ React.createElement("span", { className: "cu-label" }, "Notes (", cuNotes.length, ")"), /* @__PURE__ */ React.createElement("div", { className: "cu-presets" }, /* @__PURE__ */ React.createElement("button", { onClick: () => setCuNotes([...NAT_PCS]) }, "Scale"), /* @__PURE__ */ React.createElement("button", { onClick: () => setCuNotes([...ALL12]) }, "All 12"))), /* @__PURE__ */ React.createElement("div", { className: "cu-notes" }, ALL12.map((pc) => {
@@ -9255,7 +9260,7 @@ window.SOUNDTRACK = SOUNDTRACK;
               }
             },
             /* @__PURE__ */ React.createElement("span", { className: "level-num" }, ci + 1),
-            /* @__PURE__ */ React.createElement("span", { className: "level-body" }, /* @__PURE__ */ React.createElement("span", { className: "level-name" }, c.name), /* @__PURE__ */ React.createElement("span", { className: "level-desc" }, done, " of ", c.levels.length, " passed")),
+            /* @__PURE__ */ React.createElement("span", { className: "level-body" }, /* @__PURE__ */ React.createElement("span", { className: "level-name" }, c.name, acedFinal(mode, c.levels) && /* @__PURE__ */ React.createElement("span", { className: "aced", title: "Perfect run on the final level" }, "★")), /* @__PURE__ */ React.createElement("span", { className: "level-desc" }, done, " of ", c.levels.length, " passed")),
             /* @__PURE__ */ React.createElement("span", { className: "level-state" }, locked ? "🔒" : done === c.levels.length ? "✓" : "›")
           );
         })), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, "Master the four chords of a key. Minor is the same four, centered on 6. All seven opens up the rest."), upsellModal);
@@ -11283,6 +11288,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 }
 .stack-note.on { border: 2px solid var(--blue); color: var(--blue); }
 .stack-note.alt { font-size: 0.72rem; letter-spacing: -0.5px; } /* "♯5" is two glyphs in a 30px circle */
+.level-name .aced { color: var(--gold, #E3B341); margin-left: 6px; font-size: 0.85em; }
 .stack-label {
   font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; color: var(--text);
   border-top: 2px solid var(--line); padding-top: 6px; margin-top: 2px; min-width: 34px; text-align: center;
