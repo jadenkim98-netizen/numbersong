@@ -46,6 +46,7 @@ import {
   EAR_CHORD_ROSTER,
   chordByRoman,
   voiceLead,
+  randomVoicing,
   FOUR_MINOR,
   chordRamp,
   CHORD_LEVELS,
@@ -753,7 +754,7 @@ function useAudio() {
   }, []);
 
   // Play a progression: each chord as a block, in tempo, with a bass root below.
-  const playProgression = useCallback(async (key, chordsTones, delay = 0, beat = 1.0) => {
+  const playProgression = useCallback(async (key, chordsTones, delay = 0, beat = 1.0, voiced = null) => {
     const g = audioGenRef.current;
     await ensure();
     if (g !== audioGenRef.current) return 0; // stopAll ran during load → don't play onto a dead session
@@ -762,9 +763,11 @@ function useAudio() {
     // Always voice-led: the upper voices step between chords instead of leaping with the
     // root. It can't change which chord you hear — the root is doubled in the bass below
     // — so there's nothing to ramp in; it just stops the comping sounding like an exercise.
-    const voiced = voiceLead(chordsTones.map((tones) => tones.map((d) => DEGREE_SEMITONES[d])));
+    // A session passes in the realization it rolled for this question, so the reveal and
+    // Repeat sound like what was asked; callers without one get the smoothest voicing.
+    const v = voiced || voiceLead(chordsTones.map((tones) => tones.map((d) => DEGREE_SEMITONES[d])));
     chordsTones.forEach((tones, i) => {
-      const notes = voiced[i].map((s) => Tone.Frequency(base + s, "midi").toNote());
+      const notes = v[i].map((s) => Tone.Frequency(base + s, "midi").toNote());
       const t = now + i * beat;
       synthRef.current.triggerAttackRelease(notes, beat * 0.92, t);
       const bass = Tone.Frequency(key + 3).toMidi() + DEGREE_SEMITONES[tones[0]];
@@ -3773,9 +3776,12 @@ export default function NumberEarTrainer() {
       if (key !== s.key) { s.key = key; setSessKey(s.key); }
       const prog = pickProgression(lvl, s.target);
       s.target = prog;
+      // One realization per question: a fixed voicing would let the ear memorise how a
+      // progression literally sounds instead of what it is.
+      s.voiced = voiceLead(prog.map((r) => chordByRoman(r).tones.map((d) => DEGREE_SEMITONES[d])), randomVoicing());
       const cad = (await playCadence(s.key, lvl.mode)) + 0.35;
       if (gen !== sessGenRef.current) return; // quit during audio load → don't play/schedule on a dead session
-      const dur = await playProgression(s.key, prog.map((r) => chordByRoman(r).tones), cad, progBeat);
+      const dur = await playProgression(s.key, prog.map((r) => chordByRoman(r).tones), cad, progBeat, s.voiced);
       if (gen !== sessGenRef.current) return;
       // Open answering as the progression STARTS, not when it ends — same as melody and
       // chords, and it lets you name the changes as they go by, which is the actual skill.
@@ -3913,7 +3919,7 @@ export default function NumberEarTrainer() {
     setBusy(true);
     cutStimulus();
     if (s.mode === "progressions") {
-      const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat);
+      const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat, s.voiced);
       sessTimer(() => setBusy(false), dur * 1000);
     } else if (s.mode === "melody") {
       playSemi(s.key, s.target, 0, s.octave);
@@ -3932,7 +3938,7 @@ export default function NumberEarTrainer() {
     cutStimulus();
     if (s.mode === "progressions") {
       const cad = (await playCadence(s.key, s.lvl.mode)) + 0.35;
-      const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), cad, progBeat);
+      const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), cad, progBeat, s.voiced);
       sessTimer(() => setBusy(false), (cad + dur + 0.2) * 1000);
     } else if (s.mode === "melody") {
       const t = (await playCadence(s.key, s.lvl.mode)) + 0.25;
@@ -4097,7 +4103,7 @@ export default function NumberEarTrainer() {
       setFeedback({ prog: [...s.target] });
       setBusy(true);
       cutStimulus(); // answered before it finished → don't play the reveal on top of it
-      const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat);
+      const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat, s.voiced);
       if (gen !== sessGenRef.current) return; // quit during the resolution → don't advance a dead session
       s.target.forEach((_, i) => sessTimer(() => setProgActive(i), i * progBeat * 1000));
       sessTimer(() => setProgActive(-1), s.target.length * progBeat * 1000);

@@ -8,7 +8,7 @@ import {
   CHORD_LEVELS, PROG_LEVELS, levelsFor, randKey, randomProgression, KEYS,
   CURATED_7, pickProgression, CHORD_CHAPTERS, PROG_CHAPTERS, PROG_WEIGHTS, ALL_CHORDS,
   CURATED_3D, POOL_3D, WEIGHTS_3D, DEGREE_SEMITONES, EAR_CHORD_ROSTER, voiceLead,
-  CURATED_4M, POOL_4M, WEIGHTS_4M, FOLLOW_4M,
+  CURATED_4M, POOL_4M, WEIGHTS_4M, FOLLOW_4M, randomVoicing,
 } from "../src/theory.mjs";
 
 test("degreeLabel: the upper octave shows as 1, never 8", () => {
@@ -357,4 +357,36 @@ test("the 4- curated sets keep 4 and 4- adjacent, and resolve where they should"
   }
   // some progressions keep the four major, so it can't just be assumed to darken
   assert.ok(all.some((s) => s.includes("IV") && !s.includes("iv")));
+});
+
+test("voiceLead varies its realization, but never the harmony", () => {
+  const sem = (r) => chordByRoman(r).tones.map((d) => DEGREE_SEMITONES[d]);
+  const seq = ["I", "V", "vi", "IV"];
+  const shapes = new Set();
+  for (let i = 0; i < 2000; i++) {
+    const v = voiceLead(seq.map(sem), randomVoicing());
+    shapes.add(JSON.stringify(v));
+    v.forEach((chord, j) => {
+      assert.deepEqual(new Set(chord.map(mod12)), new Set(sem(seq[j]).map(mod12)), seq[j]);
+      if (j) for (let k = 0; k < 3; k++) {
+        assert.ok(Math.abs(chord[k] - v[j - 1][k]) <= 4, "a voice leapt more than a major third");
+      }
+    });
+  }
+  assert.ok(shapes.size >= 4, `expected several realizations, got ${shapes.size}`);
+});
+
+test("voiceLead stays deterministic with no options (so the rest of the suite holds)", () => {
+  const sem = (r) => chordByRoman(r).tones.map((d) => DEGREE_SEMITONES[d]);
+  const seq = ["I", "V", "vi", "IV"].map(sem);
+  const once = JSON.stringify(voiceLead(seq));
+  for (let i = 0; i < 20; i++) assert.equal(JSON.stringify(voiceLead(seq)), once);
+});
+
+test("an injected rng makes a varied voicing reproducible", () => {
+  const sem = (r) => chordByRoman(r).tones.map((d) => DEGREE_SEMITONES[d]);
+  const seq = ["I", "IV", "iv", "I"].map(sem);
+  const fixed = () => 0.99; // always take the last candidate within slack
+  assert.equal(JSON.stringify(voiceLead(seq, { slack: 5, rng: fixed })),
+               JSON.stringify(voiceLead(seq, { slack: 5, rng: fixed })));
 });

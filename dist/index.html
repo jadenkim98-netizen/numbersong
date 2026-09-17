@@ -3312,9 +3312,9 @@ window.SOUNDTRACK = SOUNDTRACK;
     }
     return pool[pool.length - 1];
   };
-  function voiceLead(chords, { center = 7 } = {}) {
+  function voiceLead(chords, { center = 7, start = null, slack = 0, rng = Math.random } = {}) {
     let prev = null;
-    return chords.map((semis) => {
+    return chords.map((semis, ci) => {
       const pcs = [...new Set(semis.map(mod12))].sort((a, b) => a - b);
       const cands = pcs.map((_, r) => {
         const v = [];
@@ -3334,11 +3334,24 @@ window.SOUNDTRACK = SOUNDTRACK;
         for (let i = 0; i < Math.min(v.length, prev.length); i++) motion += Math.abs(v[i] - prev[i]);
         return motion + Math.abs(mean - center) * 0.25;
       };
-      const best = cands.reduce((a, b) => cost(b) < cost(a) ? b : a, cands[0]);
+      let best;
+      if (ci === 0 && start != null) {
+        best = cands[(start % cands.length + cands.length) % cands.length];
+      } else {
+        const costs = cands.map(cost);
+        const low = Math.min(...costs);
+        const ok = cands.filter((_, i) => costs[i] <= low + slack);
+        best = ok[Math.floor(rng() * ok.length)] || cands[costs.indexOf(low)];
+      }
       prev = best;
       return best;
     });
   }
+  var randomVoicing = () => ({
+    start: Math.floor(Math.random() * 3),
+    center: 5 + Math.floor(Math.random() * 5),
+    slack: 5
+  });
   function randomProgression(len, pool, home, weights, follow) {
     const seq = [home || weightedPick(pool, weights, null, follow)];
     while (seq.length < len) {
@@ -4996,15 +5009,15 @@ window.SOUNDTRACK = SOUNDTRACK;
       } catch (e) {
       }
     }, []);
-    const playProgression = useCallback(async (key, chordsTones, delay = 0, beat = 1) => {
+    const playProgression = useCallback(async (key, chordsTones, delay = 0, beat = 1, voiced = null) => {
       const g = audioGenRef.current;
       await ensure();
       if (g !== audioGenRef.current) return 0;
       const now = Tone.now() + delay;
       const base = Tone.Frequency(key + 4).toMidi();
-      const voiced = voiceLead(chordsTones.map((tones) => tones.map((d) => DEGREE_SEMITONES[d])));
+      const v = voiced || voiceLead(chordsTones.map((tones) => tones.map((d) => DEGREE_SEMITONES[d])));
       chordsTones.forEach((tones, i) => {
-        const notes = voiced[i].map((s) => Tone.Frequency(base + s, "midi").toNote());
+        const notes = v[i].map((s) => Tone.Frequency(base + s, "midi").toNote());
         const t = now + i * beat;
         synthRef.current.triggerAttackRelease(notes, beat * 0.92, t);
         const bass = Tone.Frequency(key + 3).toMidi() + DEGREE_SEMITONES[tones[0]];
@@ -8269,9 +8282,10 @@ window.SOUNDTRACK = SOUNDTRACK;
           }
           const prog = pickProgression(lvl, s.target);
           s.target = prog;
+          s.voiced = voiceLead(prog.map((r) => chordByRoman(r).tones.map((d) => DEGREE_SEMITONES[d])), randomVoicing());
           const cad = await playCadence(s.key, lvl.mode) + 0.35;
           if (gen !== sessGenRef.current) return;
-          const dur = await playProgression(s.key, prog.map((r) => chordByRoman(r).tones), cad, progBeat);
+          const dur = await playProgression(s.key, prog.map((r) => chordByRoman(r).tones), cad, progBeat, s.voiced);
           if (gen !== sessGenRef.current) return;
           s.stimEnd = Date.now() + (cad + dur) * 1e3;
           sessTimer(() => {
@@ -8407,7 +8421,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       setBusy(true);
       cutStimulus();
       if (s.mode === "progressions") {
-        const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat);
+        const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat, s.voiced);
         sessTimer(() => setBusy(false), dur * 1e3);
       } else if (s.mode === "melody") {
         playSemi(s.key, s.target, 0, s.octave);
@@ -8424,7 +8438,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       cutStimulus();
       if (s.mode === "progressions") {
         const cad = await playCadence(s.key, s.lvl.mode) + 0.35;
-        const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), cad, progBeat);
+        const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), cad, progBeat, s.voiced);
         sessTimer(() => setBusy(false), (cad + dur + 0.2) * 1e3);
       } else if (s.mode === "melody") {
         const t = await playCadence(s.key, s.lvl.mode) + 0.25;
@@ -8586,7 +8600,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         setFeedback({ prog: [...s.target] });
         setBusy(true);
         cutStimulus();
-        const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat);
+        const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat, s.voiced);
         if (gen !== sessGenRef.current) return;
         s.target.forEach((_, i) => sessTimer(() => setProgActive(i), i * progBeat * 1e3));
         sessTimer(() => setProgActive(-1), s.target.length * progBeat * 1e3);
