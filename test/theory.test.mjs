@@ -8,6 +8,7 @@ import {
   CHORD_LEVELS, PROG_LEVELS, levelsFor, randKey, randomProgression, KEYS,
   CURATED_7, pickProgression, CHORD_CHAPTERS, PROG_CHAPTERS, PROG_WEIGHTS, ALL_CHORDS,
   CURATED_3D, POOL_3D, WEIGHTS_3D, DEGREE_SEMITONES, EAR_CHORD_ROSTER, voiceLead,
+  CURATED_4M, POOL_4M, WEIGHTS_4M, FOLLOW_4M,
 } from "../src/theory.mjs";
 
 test("degreeLabel: the upper octave shows as 1, never 8", () => {
@@ -108,6 +109,7 @@ test("all-seven chapters are appended, never inserted (level idx is the saved-pr
     ["Minor · 6 2 3 4", 6, 6],
     ["All seven", 12, 6],
     ["3D · five of six", 18, 6],
+    ["4- · borrowed from minor", 24, 6],
   ]);
 });
 
@@ -257,7 +259,7 @@ test("3D is common in its own chapter, and reachable from every slot", () => {
 });
 
 test("Your ear's chord roster carries the altered chords, but level pools stay diatonic", () => {
-  assert.deepEqual(EAR_CHORD_ROSTER, [...ALL_CHORDS, "III7"]);
+  assert.deepEqual(EAR_CHORD_ROSTER, [...ALL_CHORDS, "III7", "iv"]);
   assert.equal(ALL_CHORDS.length, 7);
 });
 
@@ -307,4 +309,52 @@ test("voicing is not a level setting — every progression comps the same way", 
   // Voice leading is always on: it can't change which chord you hear (the root is
   // doubled in the bass), so there's nothing to ramp and no per-level flag.
   for (const lvl of PROG_LEVELS) assert.equal(lvl.voicing, undefined, lvl.chapter + " / " + lvl.name);
+});
+
+test("4- is the major four with a flattened 6, sharing its root", () => {
+  const iv = chordByRoman("iv"), IV = chordByRoman("IV");
+  assert.deepEqual(iv.tones, [4, "♭6", 1]);
+  assert.deepEqual(iv.tones.map((t) => DEGREE_SEMITONES[t]), [5, 8, 0]); // in C: F Ab C
+  assert.equal(DEGREE_SEMITONES["♭6"], DEGREE_SEMITONES["♯5"], "same pitch, different spelling");
+  assert.equal(chordNumber("iv", false), "4-");
+  assert.deepEqual(chordTones(iv, true), iv.tones, "fixed: never derive a 7th (it'd be spelled wrong)");
+  // the bass can't separate them — that's the whole difficulty of the chapter
+  assert.equal(DEGREE_SEMITONES[iv.tones[0]], DEGREE_SEMITONES[IV.tones[0]]);
+  assert.ok(EAR_CHORD_ROSTER.includes("iv") && !ALL_CHORDS.includes("iv"));
+});
+
+test("follow-weights make 4 → 4- the common move and ban 4- → 4", () => {
+  let ivAfterIV = 0, ivBeforeIV = 0, fours = 0, withIv = 0;
+  for (let i = 0; i < 6000; i++) {
+    const s = randomProgression(4, POOL_4M, null, WEIGHTS_4M, FOLLOW_4M);
+    if (s.includes("iv")) withIv++;
+    s.forEach((c, j) => {
+      if (c === "IV" && j < 3) { fours++; if (s[j + 1] === "iv") ivAfterIV++; }
+      if (c === "iv" && j < 3 && s[j + 1] === "IV") ivBeforeIV++;
+    });
+  }
+  assert.equal(ivBeforeIV, 0, "4- should never brighten back to 4");
+  assert.ok(ivAfterIV / fours > 0.45, `4 should usually darken to 4- (got ${ivAfterIV / fours})`);
+  assert.ok(withIv > 6000 * 0.4, "4- should turn up often in its own chapter");
+});
+
+test("a zero follow-weight is a ban, not a missing value", () => {
+  // guards the ?? vs || bug: `|| 1` would read 0 as "no preference" and allow the move
+  for (let i = 0; i < 200; i++) {
+    assert.notEqual(randomProgression(2, ["I", "IV", "iv"], "iv", null, { iv: { IV: 0 } })[1], "IV");
+  }
+});
+
+test("the 4- curated sets keep 4 and 4- adjacent, and resolve where they should", () => {
+  const fours = CURATED_4M[4].map((s) => s.join());
+  assert.ok(fours.includes(["I", "IV", "iv", "I"].join()), "1 4 4- 1");
+  assert.ok(fours.includes(["I", "IV", "iv", "vi"].join()), "...into 6");
+  assert.ok(fours.includes(["I", "IV", "iv", "iii"].join()), "...into 3");
+  const all = Object.values(CURATED_4M).flat();
+  for (const seq of all) {
+    for (const r of seq) assert.ok(chordByRoman(r), `unknown chord ${r}`);
+    seq.forEach((c, j) => { if (c === "iv" && seq[j + 1] === "IV") assert.fail("4- → 4 in " + seq.join("-")); });
+  }
+  // some progressions keep the four major, so it can't just be assumed to darken
+  assert.ok(all.some((s) => s.includes("IV") && !s.includes("iv")));
 });

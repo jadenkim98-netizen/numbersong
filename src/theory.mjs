@@ -8,7 +8,9 @@ export const KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb",
 // rides the same lookup: a chord's `tones` may hold a string for a note outside the
 // key, and every playback path already does DEGREE_SEMITONES[tone], so nothing else
 // has to know about it.
-export const DEGREE_SEMITONES = { 1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9, 7: 11, 8: 12, 9: 14, "♯5": 8 };
+// "♯5" and "♭6" are the same pitch, spelled for the chord they belong to: 3D raises its
+// 5th, the borrowed 4- lowers the key's 6. Same note, opposite stories.
+export const DEGREE_SEMITONES = { 1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9, 7: 11, 8: 12, 9: 14, "♯5": 8, "♭6": 8 };
 export const SOLFEGE = { 1: "do", 2: "re", 3: "mi", 4: "fa", 5: "sol", 6: "la", 7: "ti", 8: "do" };
 export const NUMBER_WORDS = { 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "one" };
 export const degreeLabel = (d) => (d === 8 ? "1" : String(d)); // octave is 1 again, never "8"
@@ -53,12 +55,17 @@ export const CHORDS = [
 ];
 
 // Chords from OUTSIDE the key, kept in their own table so ALL_CHORDS (and the ear
-// log's fixed roster of seven) stay diatonic. `fixed` = already a four-note chord,
-// so the sevenths toggle must not stack another 7th on top of it.
+// log's fixed roster of seven) stay diatonic. `fixed` = these tones are literal,
+// never derive a 7th from them: the diatonic formula would spell it wrong.
+//
 // 3D is the 3 chord turned dominant — the five-chord of 6. Its ♯5 is 6's leading
 // tone, which is exactly why the ear hears it lean toward 6-.
+// 4- is the major 4 with its 6 flattened — borrowed from the parallel minor. It
+// shares a root with 4, so the bass can't tell them apart; the whole difference is
+// that one voice dropping a half step, which is why the two belong side by side.
 export const ALTERED_CHORDS = [
-  { roman: "III7", name: "five of six", tones: [3, "♯5", 7, 2], fixed: true },
+  { roman: "III7", name: "five of six",   tones: [3, "♯5", 7, 2], fixed: true },
+  { roman: "iv",   name: "minor four",    tones: [4, "♭6", 1],    fixed: true },
 ];
 
 // A word for each degree when you name it right
@@ -131,6 +138,7 @@ export const CHORD_INSIGHTS = {
   vi:   "Contains the tonic (1) and mediant (3) — home's shadow.",
   "vii°": "No rest anywhere: 7, 2 and 4 all demand resolution.",
   III7: "The 3 chord with a raised 5 — and that ♯5 is 6's leading tone, so the whole chord leans toward 6-.",
+  iv: "The 4 chord with a flattened 6, borrowed from minor. Same root as 4, one note darker — and it leans home to 1.",
 };
 
 /* ─────────────────────────────  LEVELS & SESSIONS  ───────────────────────────── */
@@ -221,14 +229,15 @@ export const CHORD_QUALITY = {
   vi:     { tri: "minor",      sev: "minor 7th" },
   "vii°": { tri: "diminished", sev: "half-diminished 7th" },
   III7:   { tri: "dominant 7th", sev: "dominant 7th" },
+  iv:     { tri: "minor", sev: "minor 7th" },
 };
-export const SEVENTH_SYMBOL = { I: "Imaj7", ii: "ii7", iii: "iii7", IV: "IVmaj7", V: "V7", vi: "vi7", "vii°": "viiø7", III7: "III7" };
+export const SEVENTH_SYMBOL = { I: "Imaj7", ii: "ii7", iii: "iii7", IV: "IVmaj7", V: "V7", vi: "vi7", "vii°": "viiø7", III7: "III7", iv: "iv" };
 export const chordSymbol = (roman, sevenths) => (sevenths ? SEVENTH_SYMBOL[roman] : roman);
 export const chordQuality = (roman, sevenths) => CHORD_QUALITY[roman][sevenths ? "sev" : "tri"];
 
 // Number notation (the method): major = plain number, minor = number-, dim = 7dim.
-export const CHORD_NUMBER   = { I: "1", ii: "2-", iii: "3-", IV: "4", V: "5D", vi: "6-", "vii°": "7dim", III7: "3D" };
-export const CHORD_NUMBER_7 = { I: "1maj7", ii: "2-7", iii: "3-7", IV: "4maj7", V: "5D7", vi: "6-7", "vii°": "7-7b5", III7: "3D" };
+export const CHORD_NUMBER   = { I: "1", ii: "2-", iii: "3-", IV: "4", V: "5D", vi: "6-", "vii°": "7dim", III7: "3D", iv: "4-" };
+export const CHORD_NUMBER_7 = { I: "1maj7", ii: "2-7", iii: "3-7", IV: "4maj7", V: "5D7", vi: "6-7", "vii°": "7-7b5", III7: "3D", iv: "4-" };
 export const chordNumber = (roman, sevenths) => (sevenths ? CHORD_NUMBER_7 : CHORD_NUMBER)[roman];
 
 export const ALL_CHORDS = CHORDS.map((c) => c.roman);
@@ -350,10 +359,19 @@ export const CURATED_7 = {
 // even reps of all seven.
 export const PROG_WEIGHTS = { I: 5, ii: 3, iii: 2, IV: 4, V: 4, vi: 4, "vii°": 1 };
 
-const weightedPick = (pool, weights) => {
-  if (!weights) return pool[Math.floor(Math.random() * pool.length)];
-  let r = Math.random() * pool.reduce((t, c) => t + (weights[c] ?? 1), 0);
-  for (const c of pool) { r -= weights[c] ?? 1; if (r < 0) return c; }
+// `follow` biases a chord by what came BEFORE it — some chords are defined by a move,
+// not by a frequency. 4- is the case in point: it earns its place by arriving right
+// after the major 4, so a flat per-chord weight would almost never produce the lesson.
+// `?? 1`, not `|| 1`: a multiplier of 0 is a real instruction — it bans the move
+// outright (4- back to 4), and `||` would silently read that as "no preference".
+const weightAt = (c, weights, prev, follow) =>
+  (weights ? (weights[c] ?? 1) : 1) * ((follow && prev && follow[prev] && follow[prev][c]) ?? 1);
+
+const weightedPick = (pool, weights, prev, follow) => {
+  if (!weights && !follow) return pool[Math.floor(Math.random() * pool.length)];
+  const w = pool.map((c) => weightAt(c, weights, prev, follow));
+  let r = Math.random() * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < pool.length; i++) { r -= w[i]; if (r < 0) return pool[i]; }
   return pool[pool.length - 1];
 };
 
@@ -400,11 +418,12 @@ export function voiceLead(chords, { center = 7 } = {}) {
   });
 }
 
-export function randomProgression(len, pool, home, weights) {
-  const seq = [home || weightedPick(pool, weights)];
+export function randomProgression(len, pool, home, weights, follow) {
+  const seq = [home || weightedPick(pool, weights, null, follow)];
   while (seq.length < len) {
+    const prev = seq[seq.length - 1];
     let c;
-    do { c = weightedPick(pool, weights); } while (c === seq[seq.length - 1]);
+    do { c = weightedPick(pool, weights, prev, follow); } while (c === prev);
     seq.push(c);
   }
   return seq;
@@ -416,7 +435,7 @@ export function pickProgression(lvl, avoid) {
     do { p = set[Math.floor(Math.random() * set.length)]; } while (set.length > 1 && avoid && p.join() === avoid.join());
     return p;
   }
-  return randomProgression(lvl.len, lvl.pool, lvl.anyStart ? null : lvl.home, lvl.weights);
+  return randomProgression(lvl.len, lvl.pool, lvl.anyStart ? null : lvl.home, lvl.weights, lvl.follow);
 }
 export function progRamp(chapter, mode, pool, home) {
   const cap = { chapter, mode, home };
@@ -491,11 +510,54 @@ export function threeDeeProgRamp(chapter, mode, home) {
   ];
 }
 
+/* ── 4-: the borrowed minor four ── */
+// Unlike 3-/3D, which are alternatives, the two fours are usually heard side by side:
+// 4 then 4-, with one voice dropping 6 → ♭6. That move is the lesson, so it's weighted
+// by TRANSITION rather than frequency. 4- → 4 is rare enough to leave out entirely.
+export const POOL_4M = ["I", "ii", "iii", "IV", "iv", "V", "vi"];
+export const WEIGHTS_4M = { I: 4, ii: 3, iii: 3, IV: 5, iv: 4, V: 4, vi: 4 };
+// 4 → 4- is the lesson, so it's heavily favoured. 4- → 4 is rare in real music
+// (it brightens back up, which songs seldom do), so it's banned outright with a 0.
+export const FOLLOW_4M = { IV: { iv: 8 }, iv: { IV: 0 } };
+
+// 4- goes home to 1 most of the time, to 6 or 3 when the progression wants to keep
+// moving, and 2 → 4- is a real approach. Diatonic progressions are mixed in so the
+// major 4 can't simply be assumed to darken.
+export const CURATED_4M = {
+  2: [["IV", "iv"], ["iv", "I"], ["iv", "vi"], ["iv", "iii"], ["ii", "iv"], ["iv", "V"], ["I", "iv"], ["I", "IV"]],
+  3: [["IV", "iv", "I"], ["IV", "iv", "vi"], ["IV", "iv", "iii"], ["I", "IV", "iv"], ["ii", "iv", "I"], ["iv", "V", "I"], ["I", "iv", "I"], ["I", "IV", "I"]],
+  4: [
+    ["I", "IV", "iv", "I"],    // 1 4 4- 1 — the one everybody knows
+    ["I", "IV", "iv", "vi"],   // ...keeping it going into 6
+    ["I", "IV", "iv", "iii"],  // ...or into 3
+    ["I", "vi", "IV", "iv"],
+    ["IV", "iv", "I", "V"],
+    ["ii", "iv", "I", "V"],
+    ["I", "V", "IV", "iv"],
+    ["I", "iv", "V", "I"],
+    ["I", "V", "vi", "IV"],    // all-diatonic: the 4 stays major
+    ["I", "vi", "ii", "V"],    // all-diatonic
+  ],
+};
+
+export function minorFourProgRamp(chapter, mode, home) {
+  const cap = { chapter, mode, home, pool: POOL_4M };
+  return [
+    { ...cap, name: "Meet 4-",             desc: "pairs · 4 against 4-",      len: 2, gen: "curated", curated: CURATED_4M, keyMode: "fixed" },
+    { ...cap, name: "Three-chord",         desc: "threes · where 4- goes",    len: 3, gen: "curated", curated: CURATED_4M, keyMode: "fixed" },
+    { ...cap, name: "Four-chord classics", desc: "the same songs, darkened",  len: 4, gen: "curated", curated: CURATED_4M, keyMode: "fixed" },
+    { ...cap, name: "Any order",           desc: "random · 4",                len: 4, gen: "random", keyMode: "fixed",  weights: WEIGHTS_4M, follow: FOLLOW_4M },
+    { ...cap, name: "New key",             desc: "random · 4 · a new key",    len: 4, gen: "random", keyMode: "not-c",  weights: WEIGHTS_4M, follow: FOLLOW_4M },
+    { ...cap, name: "Mastery · 4-",        desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_4M, follow: FOLLOW_4M, anyStart: true, qCount: FINAL_LEN },
+  ];
+}
+
 export const PROG_LEVELS = [
   ...progRamp("Major · 1 4 5 6", "major", FOUR, "I"),
   ...progRamp("Minor · 6 2 3 4", "minor", FOUR_MINOR, "vi"),
   ...allSevenProgRamp("All seven", "major", "I"),
   ...threeDeeProgRamp("3D · five of six", "major", "I"),
+  ...minorFourProgRamp("4- · borrowed from minor", "major", "I"),
 ];
 export const PROG_CHAPTERS = PROG_LEVELS.reduce((chs, lvl, idx) => {
   let c = chs.find((x) => x.name === lvl.chapter);
@@ -528,6 +590,7 @@ export function stageGoal(mode, name) {
     "Chromatic · major": "Add the five color notes between the scale steps (♭2 ♭3 ♯4 ♭6 ♭7) — hearing all twelve notes of the major key.",
     "Chromatic · minor": "All twelve notes around a minor home (6) — the color notes in the minor world.",
   })[name] || "";
+  if (name.startsWith("4-")) return "Meet 4- — the 4 chord borrowed from minor, its 6 dropped to ♭6. It shares a root with the major 4, so the bass can't tell them apart: the whole difference is one voice falling a half step. You'll usually hear them back to back, 4 then 4-, going home to 1 — or on to 6 or 3 to keep moving.";
   if (name.startsWith("3D")) return "Meet 3D — the 3 chord turned dominant, the five-chord of 6. Its ♯5 is a note from outside the key, and it points at where the music is going. Most levels here are a progression you already know with one chord swapped, so the job is hearing which.";
   if (name.startsWith("All seven")) return mode === "chords"
     ? "The whole key, chord by chord. The big four left one chord unmet — 7dim — and it hides behind 5D, so you meet it alone, then beside 5D, before all seven open up."
