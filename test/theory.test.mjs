@@ -7,7 +7,7 @@ import {
   chordNumber, chordSymbol, chordQuality, buildGroup, MELODY_LEVELS,
   CHORD_LEVELS, PROG_LEVELS, levelsFor, randKey, randomProgression, KEYS,
   CURATED_7, pickProgression, CHORD_CHAPTERS, PROG_CHAPTERS, PROG_WEIGHTS, ALL_CHORDS,
-  CURATED_3D, POOL_3D, WEIGHTS_3D, DEGREE_SEMITONES,
+  CURATED_3D, POOL_3D, WEIGHTS_3D, DEGREE_SEMITONES, EAR_CHORD_ROSTER,
 } from "../src/theory.mjs";
 
 test("degreeLabel: the upper octave shows as 1, never 8", () => {
@@ -254,4 +254,14 @@ test("3D is common in its own chapter, and reachable from every slot", () => {
   }
   const rate = hits / slots;
   assert.ok(rate > 0.12 && rate < 0.30, `3D rate ${rate} should be prominent, not overwhelming`);
+});
+
+test("Your ear's chord roster carries the altered chords, but level pools stay diatonic", () => {
+  assert.deepEqual(EAR_CHORD_ROSTER, [...ALL_CHORDS, "III7"]);
+  assert.equal(ALL_CHORDS.length, 7);
+});
+
+test("3D sits next to its twin on the pad, not at the end", () => {
+  assert.deepEqual(POOL_3D, ["I", "ii", "iii", "III7", "IV", "V", "vi"]);
+  assert.equal(POOL_3D.indexOf("III7") - POOL_3D.indexOf("iii"), 1);
 });

@@ -232,6 +232,9 @@ export const CHORD_NUMBER_7 = { I: "1maj7", ii: "2-7", iii: "3-7", IV: "4maj7", 
 export const chordNumber = (roman, sevenths) => (sevenths ? CHORD_NUMBER_7 : CHORD_NUMBER)[roman];
 
 export const ALL_CHORDS = CHORDS.map((c) => c.roman);
+// What "Your ear" lists under Chords: the seven, plus every altered chord that exists.
+// ALL_CHORDS itself must stay diatonic (it's a level pool), so the roster is its own thing.
+export const EAR_CHORD_ROSTER = [...ALL_CHORDS, ...ALTERED_CHORDS.map((c) => c.roman)];
 export const chordByRoman = (r) => CHORDS.find((c) => c.roman === r) || ALTERED_CHORDS.find((c) => c.roman === r);
 export const FOUR = ["I", "IV", "V", "vi"];          // the 1-4-5-6 core (major)
 export const FOUR_MINOR = ["vi", "ii", "iii", "IV"]; // the 6-2-3-4 core (la-based minor: i·iv·v·VI)
@@ -409,7 +412,9 @@ export function allSevenProgRamp(chapter, mode, home) {
 // purpose: it's rare, it's already taught in All seven, and every button here
 // should earn its place. 3- stays in, because it's the whole lesson — 3- and 3D
 // share a root and a slot, and differ by one note (5 → ♯5).
-export const POOL_3D = ["I", "ii", "iii", "IV", "V", "vi", "III7"];
+// 3D sits immediately after 3-, not at the end: they share a root, and the pad should
+// put the twin it's confused with right next to it.
+export const POOL_3D = ["I", "ii", "iii", "III7", "IV", "V", "vi"];
 // 3D is the subject of the chapter, so it's common here rather than rare; 3- is
 // boosted too, so the contrast keeps coming back around.
 export const WEIGHTS_3D = { I: 4, ii: 3, iii: 4, IV: 4, V: 4, vi: 4, III7: 5 };

@@ -43,6 +43,7 @@ import {
   CHORD_NUMBER_7,
   chordNumber,
   ALL_CHORDS,
+  EAR_CHORD_ROSTER,
   chordByRoman,
   FOUR_MINOR,
   chordRamp,
@@ -3715,7 +3716,20 @@ export default function NumberEarTrainer() {
       const fresh = s.results.slice(from);
       if (!fresh.length) return;
       s.foldedCount = s.results.length;
-      const nextEar = recordSession(earRef.current, s.mode, fresh, Date.now());
+      let nextEar = recordSession(earRef.current, s.mode, fresh, Date.now());
+      // A progression's ear-log entry is the whole sequence ("I–III7–vi"), which is the
+      // right unit for progressions but tells the Chords board nothing. Naming a chord in
+      // context is still evidence about that chord, so fold the per-chord answers into the
+      // chord bucket too — without this, 3D (which only appears in progressions) would
+      // render a row in "Your ear" that could never fill.
+      if (s.mode === "progressions") {
+        const perChord = fresh.flatMap((r) => {
+          if (!Array.isArray(r.prog)) return [];
+          const bad = new Set(r.firstWrong || []);
+          return r.prog.map((roman, i) => ({ target: roman, firstTry: !bad.has(i) }));
+        });
+        if (perChord.length) nextEar = recordSession(nextEar, "chords", perChord, Date.now());
+      }
       if (nextEar !== earRef.current) { earRef.current = nextEar; setEar(nextEar); saveEar(nextEar); }
       // Remember the context this was played in, so a drill launched later (from the
       // Dojo, after a reload) inherits the key/octave the player struggles in.
@@ -4056,7 +4070,10 @@ export default function NumberEarTrainer() {
     const wrong = s.target.map((r, i) => (progAnswer[i] === r ? -1 : i)).filter((i) => i >= 0);
     if (wrong.length === 0) {
       const first = !s.attempted;
-      s.results.push({ target: s.target.join("–"), firstTry: first, prog: [...s.target] });
+      // firstWrong = which slots were missed on the FIRST attempt, so the ear log can
+      // credit the chords that were named right even when the progression as a whole wasn't.
+      s.results.push({ target: s.target.join("–"), firstTry: first, prog: [...s.target], firstWrong: first ? [] : (s.firstWrong || []) });
+      s.firstWrong = null;
       setSessionResults([...s.results]);
       bossOnCorrect(); // duel: strike the keeper immediately, don't wait for the resolution
       if (first) { setScore((sc) => sc + 1); setStreak((x) => x + 1); }
@@ -4070,6 +4087,7 @@ export default function NumberEarTrainer() {
       sessTimer(() => setProgActive(-1), s.target.length * progBeat * 1000);
       sessTimer(() => { setBusy(false); advance(); }, (dur + 0.4) * 1000);
     } else {
+      if (!s.attempted) s.firstWrong = wrong;
       s.attempted = true;
       s.misses = (s.misses || 0) + 1;
       setStreak(0);
@@ -4405,7 +4423,7 @@ export default function NumberEarTrainer() {
        you've never met still render, dimmed, with where they're taught. */
     const NOTE_ROSTER  = [0, 2, 4, 5, 7, 9, 11];   // 1–7
     const COLOUR_ROSTER = [1, 3, 6, 8, 10];        // ♭2 ♭3 ♯4 ♭6 ♭7
-    const CHORD_ROSTER = ALL_CHORDS;               // 1 2- 3- 4 5D 6- 7dim
+    const CHORD_ROSTER = EAR_CHORD_ROSTER;         // 1 2- 3- 4 5D 6- 7dim, then 3D
 
     const melBoard = earBoard(ear, "melody", [...NOTE_ROSTER, ...COLOUR_ROSTER]);
     const chdBoard = earBoard(ear, "chords", CHORD_ROSTER);
@@ -4498,7 +4516,7 @@ export default function NumberEarTrainer() {
           </p>
           {section("The seven", "Staircase Meadows · Lowmoor Fen", melBoard.slice(0, NOTE_ROSTER.length), "melody")}
           {section("Colour notes", "Halfstep Crossing · Anvil Peak", melBoard.slice(NOTE_ROSTER.length), "melody")}
-          {section("Chords", "The Glasswood · Undertone Caves", chdBoard, "chords")}
+          {section("Chords", "The Glasswood · Undertone Caves · Basic Training", chdBoard, "chords")}
         </div>
         <footer className="foot">This lives on this device only — nothing is uploaded.</footer>
       </div>

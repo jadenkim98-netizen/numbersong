@@ -196,6 +196,9 @@
 /* numpad: keep our column layout + solfège; readability protected */
 .retro .num{ flex:initial; display:flex; flex-direction:column; gap:1px; aspect-ratio:auto; padding:12px 0; }
 .retro .num .num-sol{ font-family:var(--sans); font-size:.6rem; letter-spacing:normal; text-transform:lowercase; color:var(--text-soft); }
+/* Lowercase is right for solfège ("do", "re") but not for chord numbers: the D in 5D
+   and 3D means dominant, and it's capital in the notation. */
+.retro .num.chordbtn .num-sol{ text-transform:none; }
 .retro .num.picked{ background:var(--blue); color:var(--ink); }
 .retro .num.dim{ opacity:.42; }
 

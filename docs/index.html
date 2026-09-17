@@ -1547,6 +1547,9 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 /* numpad: keep our column layout + solfège; readability protected */
 .retro .num{ flex:initial; display:flex; flex-direction:column; gap:1px; aspect-ratio:auto; padding:12px 0; }
 .retro .num .num-sol{ font-family:var(--sans); font-size:.6rem; letter-spacing:normal; text-transform:lowercase; color:var(--text-soft); }
+/* Lowercase is right for solfège ("do", "re") but not for chord numbers: the D in 5D
+   and 3D means dominant, and it's capital in the notation. */
+.retro .num.chordbtn .num-sol{ text-transform:none; }
 .retro .num.picked{ background:var(--blue); color:var(--ink); }
 .retro .num.dim{ opacity:.42; }
 
@@ -3192,6 +3195,7 @@ window.SOUNDTRACK = SOUNDTRACK;
   var CHORD_NUMBER_7 = { I: "1maj7", ii: "2-7", iii: "3-7", IV: "4maj7", V: "5D7", vi: "6-7", "vii°": "7-7b5", III7: "3D" };
   var chordNumber = (roman, sevenths) => (sevenths ? CHORD_NUMBER_7 : CHORD_NUMBER)[roman];
   var ALL_CHORDS = CHORDS.map((c) => c.roman);
+  var EAR_CHORD_ROSTER = [...ALL_CHORDS, ...ALTERED_CHORDS.map((c) => c.roman)];
   var chordByRoman = (r) => CHORDS.find((c) => c.roman === r) || ALTERED_CHORDS.find((c) => c.roman === r);
   var FOUR = ["I", "IV", "V", "vi"];
   var FOUR_MINOR = ["vi", "ii", "iii", "IV"];
@@ -3351,7 +3355,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       { ...cap, name: "Every key", desc: "random · new key each Q", len: 4, gen: "random", keyMode: "random", weights: PROG_WEIGHTS, qCount: FINAL_LEN }
     ];
   }
-  var POOL_3D = ["I", "ii", "iii", "IV", "V", "vi", "III7"];
+  var POOL_3D = ["I", "ii", "iii", "III7", "IV", "V", "vi"];
   var WEIGHTS_3D = { I: 4, ii: 3, iii: 4, IV: 4, V: 4, vi: 4, III7: 5 };
   var CURATED_3D = {
     2: [["III7", "vi"], ["iii", "vi"], ["I", "III7"], ["I", "iii"], ["III7", "IV"], ["vi", "III7"]],
@@ -8122,7 +8126,15 @@ window.SOUNDTRACK = SOUNDTRACK;
         const fresh = s.results.slice(from);
         if (!fresh.length) return;
         s.foldedCount = s.results.length;
-        const nextEar = recordSession(earRef.current, s.mode, fresh, Date.now());
+        let nextEar = recordSession(earRef.current, s.mode, fresh, Date.now());
+        if (s.mode === "progressions") {
+          const perChord = fresh.flatMap((r) => {
+            if (!Array.isArray(r.prog)) return [];
+            const bad = new Set(r.firstWrong || []);
+            return r.prog.map((roman, i) => ({ target: roman, firstTry: !bad.has(i) }));
+          });
+          if (perChord.length) nextEar = recordSession(nextEar, "chords", perChord, Date.now());
+        }
         if (nextEar !== earRef.current) {
           earRef.current = nextEar;
           setEar(nextEar);
@@ -8487,7 +8499,8 @@ window.SOUNDTRACK = SOUNDTRACK;
       const wrong = s.target.map((r, i) => progAnswer[i] === r ? -1 : i).filter((i) => i >= 0);
       if (wrong.length === 0) {
         const first = !s.attempted;
-        s.results.push({ target: s.target.join("–"), firstTry: first, prog: [...s.target] });
+        s.results.push({ target: s.target.join("–"), firstTry: first, prog: [...s.target], firstWrong: first ? [] : s.firstWrong || [] });
+        s.firstWrong = null;
         setSessionResults([...s.results]);
         bossOnCorrect();
         if (first) {
@@ -8507,6 +8520,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           advance();
         }, (dur + 0.4) * 1e3);
       } else {
+        if (!s.attempted) s.firstWrong = wrong;
         s.attempted = true;
         s.misses = (s.misses || 0) + 1;
         setStreak(0);
@@ -8743,7 +8757,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     if (screen === "ear") {
       const NOTE_ROSTER = [0, 2, 4, 5, 7, 9, 11];
       const COLOUR_ROSTER = [1, 3, 6, 8, 10];
-      const CHORD_ROSTER = ALL_CHORDS;
+      const CHORD_ROSTER = EAR_CHORD_ROSTER;
       const melBoard = earBoard(ear, "melody", [...NOTE_ROSTER, ...COLOUR_ROSTER]);
       const chdBoard = earBoard(ear, "chords", CHORD_ROSTER);
       const cov = earCoverage([...melBoard, ...chdBoard]);
@@ -8793,7 +8807,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         "Mend ",
         weakLabel(worst.r.target, worst.m),
         " →"
-      )), /* @__PURE__ */ React.createElement("p", { className: "ear-intro" }, "Your weak numbers come up a little more often in normal sessions — you don’t have to do anything. Mend one to work it properly."), section("The seven", "Staircase Meadows · Lowmoor Fen", melBoard.slice(0, NOTE_ROSTER.length), "melody"), section("Colour notes", "Halfstep Crossing · Anvil Peak", melBoard.slice(NOTE_ROSTER.length), "melody"), section("Chords", "The Glasswood · Undertone Caves", chdBoard, "chords")), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "This lives on this device only — nothing is uploaded."));
+      )), /* @__PURE__ */ React.createElement("p", { className: "ear-intro" }, "Your weak numbers come up a little more often in normal sessions — you don’t have to do anything. Mend one to work it properly."), section("The seven", "Staircase Meadows · Lowmoor Fen", melBoard.slice(0, NOTE_ROSTER.length), "melody"), section("Colour notes", "Halfstep Crossing · Anvil Peak", melBoard.slice(NOTE_ROSTER.length), "melody"), section("Chords", "The Glasswood · Undertone Caves · Basic Training", chdBoard, "chords")), /* @__PURE__ */ React.createElement("footer", { className: "foot" }, "This lives on this device only — nothing is uploaded."));
     }
     if (screen === "adventure") {
       const onTapNode = (n) => {
