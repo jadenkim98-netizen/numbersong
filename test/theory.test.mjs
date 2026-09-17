@@ -430,3 +430,56 @@ test("colour chapter keeps the 4 → 4- move and the 4- → 4 ban", () => {
   assert.ok(darkens / fours > 0.4, `4 should usually darken (got ${darkens / fours})`);
   assert.ok(colourful / 6000 > 0.5, "most questions should carry a colour chord");
 });
+
+test("3D never falls back to 3- (same root, altered → plain is a backtrack)", () => {
+  for (const name of ["3D · five of six", "Colour chords · 3D and 4-"]) {
+    const ch = PROG_CHAPTERS.find((c) => c.name === name);
+    for (const lvl of ch.levels.filter((l) => l.gen === "random")) {
+      assert.ok(lvl.follow, `${name} / ${lvl.name} must carry a follow map`);
+      for (let i = 0; i < 3000; i++) {
+        const s = pickProgression(lvl, null);
+        s.forEach((c, j) => {
+          if (c === "III7" && s[j + 1] === "iii") assert.fail(`3D → 3- in ${name}: ${s.join("-")}`);
+        });
+      }
+    }
+    // and no curated set smuggles it in either
+    for (const set of [CURATED_3D, CURATED_COLOUR]) {
+      for (const seq of Object.values(set).flat()) {
+        seq.forEach((c, j) => { if (c === "III7" && seq[j + 1] === "iii") assert.fail("3D → 3- in " + seq.join("-")); });
+      }
+    }
+  }
+});
+
+test("an altered chord is never undone later in the same progression", () => {
+  // Not just adjacent: once the four has gone minor, a plain 4 anywhere later in the
+  // loop brightens it back. Same for 3D followed by a plain 3-.
+  const undone = (s) => {
+    const iv = s.indexOf("iv"), IV = s.lastIndexOf("IV");
+    const d3 = s.indexOf("III7"), m3 = s.lastIndexOf("iii");
+    return (iv > -1 && IV > iv) || (d3 > -1 && m3 > d3);
+  };
+  for (const ch of PROG_CHAPTERS) {
+    for (const lvl of ch.levels.filter((l) => l.gen === "random")) {
+      for (let i = 0; i < 2000; i++) {
+        const s = pickProgression(lvl, null);
+        if (undone(s)) assert.fail(`${ch.name} / ${lvl.name}: ${s.join("-")}`);
+      }
+    }
+  }
+  for (const set of [CURATED_3D, CURATED_4M, CURATED_COLOUR]) {
+    for (const seq of Object.values(set).flat()) {
+      if (undone(seq)) assert.fail("curated: " + seq.join("-"));
+    }
+  }
+});
+
+test("forbid never starves the draw (a banned pool still yields a legal chord)", () => {
+  for (let i = 0; i < 500; i++) {
+    const s = randomProgression(4, ["I", "IV", "iv"], "iv", null, null, { iv: ["IV"] });
+    assert.equal(s.length, 4);
+    assert.ok(!s.slice(1).includes("IV"), s.join("-"));
+    for (let j = 1; j < s.length; j++) assert.notEqual(s[j], s[j - 1]);
+  }
+});
