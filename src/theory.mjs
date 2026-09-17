@@ -347,9 +347,21 @@ export const CURATED_7 = {
     ["IV", "V", "iii", "vi"],  // 4 5 3 6 — the Royal Road
     ["I", "V", "vi", "iii"],   // 1 5 6 3 — Pachelbel's first four
     ["I", "IV", "ii", "V"],    // 1 4 2 5
+    ["ii", "V", "I", "IV"],    // 2 5 1 4 — the same loop entered on the 2
     ["I", "IV", "vii°", "I"],  // 1 4 7dim 1 — 7dim standing in for 5D
   ],
 };
+
+// Songs that actually use a curated progression, keyed by its roman sequence. A
+// progression is easier to hold onto when it has a record attached to it. Listed only
+// where the song really runs that loop — an approximate match would teach the wrong ear.
+export const PROG_SONGS = {
+  "I-vi-IV-V":      "Stand By Me — Ben E. King",
+  "ii-V-I-IV":      "Kiss Me More — Doja Cat",
+  "I-III7-vi-IV":   "I'm Not the Only One — Sam Smith",
+  "I-III7-IV-iv":   "Creep — Radiohead",
+};
+export const songFor = (seq) => PROG_SONGS[seq.join("-")] || null;
 
 // Roughly how often each chord shows up in real music. Only the all-seven random
 // levels use this: a uniform draw puts 7dim in ~1 of every 7 slots, which is both
@@ -515,7 +527,7 @@ export const CURATED_3D = {
   2: [["III7", "vi"], ["iii", "vi"], ["I", "III7"], ["I", "iii"], ["III7", "IV"], ["vi", "III7"]],
   3: [["I", "III7", "vi"], ["I", "iii", "vi"], ["III7", "vi", "ii"], ["I", "III7", "IV"], ["ii", "III7", "vi"], ["vi", "III7", "IV"]],
   4: [
-    ["III7", "vi", "ii", "V"], // 3D 6 2 5 — the ragtime turnaround
+    ["III7", "vi", "ii", "V"], // 3D 6 2 5
     ["iii", "vi", "ii", "V"],  // 3  6 2 5 — its diatonic twin
     ["I", "III7", "vi", "IV"], // 1 3D 6 4
     ["I", "iii", "vi", "IV"],  // 1 3  6 4 — twin
