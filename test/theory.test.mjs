@@ -7,7 +7,7 @@ import {
   chordNumber, chordSymbol, chordQuality, buildGroup, MELODY_LEVELS,
   CHORD_LEVELS, PROG_LEVELS, levelsFor, randKey, randomProgression, KEYS,
   CURATED_7, pickProgression, CHORD_CHAPTERS, PROG_CHAPTERS, PROG_WEIGHTS, ALL_CHORDS,
-  CURATED_3D, POOL_3D, WEIGHTS_3D, DEGREE_SEMITONES, EAR_CHORD_ROSTER,
+  CURATED_3D, POOL_3D, WEIGHTS_3D, DEGREE_SEMITONES, EAR_CHORD_ROSTER, voiceLead,
 } from "../src/theory.mjs";
 
 test("degreeLabel: the upper octave shows as 1, never 8", () => {
@@ -264,4 +264,51 @@ test("Your ear's chord roster carries the altered chords, but level pools stay d
 test("3D sits next to its twin on the pad, not at the end", () => {
   assert.deepEqual(POOL_3D, ["I", "ii", "iii", "III7", "IV", "V", "vi"]);
   assert.equal(POOL_3D.indexOf("III7") - POOL_3D.indexOf("iii"), 1);
+});
+
+test("voiceLead: the upper voices step instead of leaping with the root", () => {
+  const sem = (r) => chordByRoman(r).tones.map((d) => DEGREE_SEMITONES[d]);
+  const v = voiceLead(["I", "V", "vi", "IV"].map(sem));
+  // every chord keeps all its pitch classes — voicing must never change the harmony
+  ["I", "V", "vi", "IV"].forEach((r, i) => {
+    assert.deepEqual(new Set(v[i].map(mod12)), new Set(sem(r).map(mod12)), r);
+  });
+  // and each voice moves only a step or two between chords, never an octave leap
+  for (let i = 1; i < v.length; i++) {
+    for (let j = 0; j < 3; j++) {
+      assert.ok(Math.abs(v[i][j] - v[i - 1][j]) <= 4,
+        `voice ${j} leapt ${Math.abs(v[i][j] - v[i - 1][j])} semitones into chord ${i}`);
+    }
+  }
+});
+
+test("voiceLead beats block voicing on total motion for the axis progression", () => {
+  const sem = (r) => chordByRoman(r).tones.map((d) => DEGREE_SEMITONES[d]);
+  const seq = ["I", "V", "vi", "IV"].map(sem);
+  const block = seq.map((tones) => { // what the old path produced
+    let last = -1;
+    return tones.map((s) => { let n = s; while (n <= last) n += 12; last = n; return n; });
+  });
+  const motion = (vs) => vs.slice(1).reduce((tot, v, i) =>
+    tot + v.reduce((m, n, j) => m + Math.abs(n - vs[i][j]), 0), 0);
+  assert.ok(motion(voiceLead(seq)) < motion(block),
+    "smooth voicing should move less than root-position blocks");
+});
+
+test("voiceLead stays in register over a long progression (no runaway climb)", () => {
+  const sem = (r) => chordByRoman(r).tones.map((d) => DEGREE_SEMITONES[d]);
+  const long = Array.from({ length: 40 }, (_, i) => sem(["I", "V", "vi", "IV"][i % 4]));
+  const all = voiceLead(long).flat();
+  assert.ok(Math.min(...all) >= 0 && Math.max(...all) <= 24,
+    `drifted to ${Math.min(...all)}..${Math.max(...all)}`);
+});
+
+test("the big-four progression chapters comp with voice-led chords", () => {
+  for (const c of PROG_CHAPTERS.filter((x) => /^(Major|Minor) ·/.test(x.name))) {
+    assert.ok(c.levels.every((l) => l.voicing === "smooth"), c.name);
+  }
+  // the newer chapters are untouched by this trial
+  for (const c of PROG_CHAPTERS.filter((x) => !/^(Major|Minor) ·/.test(x.name))) {
+    assert.ok(c.levels.every((l) => l.voicing === undefined), c.name);
+  }
 });

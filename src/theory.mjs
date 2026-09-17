@@ -359,6 +359,47 @@ const weightedPick = (pool, weights) => {
 
 // home = the chord every sequence starts on; pass null to let it start anywhere,
 // which is what opens up the rotations.
+/* ── voicing ── */
+// Root-position block triads make a progression lurch: the whole chord jumps register
+// with its root, which no player does. This voices the UPPER structure the way a right
+// hand does — pick the inversion nearest the previous chord, so the top voices step by
+// a semitone or two instead of leaping.
+//
+// The bass is deliberately NOT this function's business. It stays on the root, so the
+// harmony is always root position and no slash chords (a 5 chord over 7) appear.
+//
+// chords: arrays of semitone offsets above the key's tonic. Returns the same shape,
+// re-octaved. Pure, so the ear-level decisions are testable without audio.
+export function voiceLead(chords, { center = 7 } = {}) {
+  let prev = null;
+  return chords.map((semis) => {
+    const pcs = [...new Set(semis.map(mod12))].sort((a, b) => a - b);
+    // The candidates are this chord's inversions — each rotation stacked upward from a
+    // lowest note inside the octave above the tonic.
+    const cands = pcs.map((_, r) => {
+      const v = [];
+      let last = -1;
+      for (let i = 0; i < pcs.length; i++) {
+        let n = pcs[(r + i) % pcs.length];
+        while (n <= last) n += 12;
+        v.push(n);
+        last = n;
+      }
+      return v;
+    });
+    const cost = (v) => {
+      const mean = v.reduce((a, b) => a + b, 0) / v.length;
+      if (!prev) return Math.abs(mean - center);
+      let motion = 0;
+      for (let i = 0; i < Math.min(v.length, prev.length); i++) motion += Math.abs(v[i] - prev[i]);
+      return motion + Math.abs(mean - center) * 0.25; // drift back toward the middle over time
+    };
+    const best = cands.reduce((a, b) => (cost(b) < cost(a) ? b : a), cands[0]);
+    prev = best;
+    return best;
+  });
+}
+
 export function randomProgression(len, pool, home, weights) {
   const seq = [home || weightedPick(pool, weights)];
   while (seq.length < len) {
@@ -378,7 +419,10 @@ export function pickProgression(lvl, avoid) {
   return randomProgression(lvl.len, lvl.pool, lvl.anyStart ? null : lvl.home, lvl.weights);
 }
 export function progRamp(chapter, mode, pool, home) {
-  const cap = { chapter, mode, home };
+  // Trial: the big-four chapters comp with voice-led upper voices instead of root-position
+  // blocks. Bass stays the root. If this reads as too hard in the opening rungs, move it
+  // onto the later levels only rather than turning it off.
+  const cap = { chapter, mode, home, voicing: "smooth" };
   return [
     { ...cap, name: "Two-chord moves",      desc: "pairs",           len: 2, gen: "curated", pool, keyMode: "fixed" },
     { ...cap, name: "Three-chord",          desc: "threes",          len: 3, gen: "curated", pool, keyMode: "fixed" },
