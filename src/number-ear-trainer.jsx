@@ -3918,15 +3918,19 @@ export default function NumberEarTrainer() {
     const s = sess.current;
     setBusy(true);
     cutStimulus();
+    // Release the pad as the sound STARTS, not when it ends — the same rule the first
+    // playthrough follows. Holding busy for the whole replay is what made ↻ Repeat take
+    // away the ability to answer along.
     if (s.mode === "progressions") {
       const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat, s.voiced);
-      sessTimer(() => setBusy(false), dur * 1000);
+      s.stimEnd = Date.now() + dur * 1000;
+      sessTimer(() => setBusy(false), 200);
     } else if (s.mode === "melody") {
       playSemi(s.key, s.target, 0, s.octave);
-      sessTimer(() => setBusy(false), 1000);
+      sessTimer(() => setBusy(false), 200);
     } else {
-      const dur = await playChord(s.key, chordTones(s.target, s.sevenths));
-      sessTimer(() => setBusy(false), dur * 1000);
+      await playChord(s.key, chordTones(s.target, s.sevenths));
+      sessTimer(() => setBusy(false), 700);
     }
   };
 
@@ -3936,18 +3940,21 @@ export default function NumberEarTrainer() {
     const s = sess.current;
     setBusy(true);
     cutStimulus();
+    // Same rule: answering reopens once the sound arrives (after the cadence), so a
+    // Repeat is something you can name along with rather than sit through.
     if (s.mode === "progressions") {
       const cad = (await playCadence(s.key, s.lvl.mode)) + 0.35;
       const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), cad, progBeat, s.voiced);
-      sessTimer(() => setBusy(false), (cad + dur + 0.2) * 1000);
+      s.stimEnd = Date.now() + (cad + dur) * 1000;
+      sessTimer(() => setBusy(false), (cad + 0.2) * 1000);
     } else if (s.mode === "melody") {
       const t = (await playCadence(s.key, s.lvl.mode)) + 0.25;
       playSemi(s.key, s.target, t, s.octave);
-      sessTimer(() => setBusy(false), (t + 1.15) * 1000);
+      sessTimer(() => setBusy(false), (t + 0.2) * 1000);
     } else {
       const cad = (await playCadence(s.key, s.lvl.mode)) + 0.25;
-      const dur = await playChord(s.key, chordTones(s.target, s.sevenths), cad);
-      sessTimer(() => setBusy(false), (cad + dur + 0.3) * 1000);
+      await playChord(s.key, chordTones(s.target, s.sevenths), cad);
+      sessTimer(() => setBusy(false), (cad + 0.7) * 1000);
     }
   };
 
