@@ -153,6 +153,12 @@ const TEST_MODE = (() => {
     return typeof window !== "undefined" && window.location.hostname === "localhost";
   }
 })();
+// Never report usage from a session that's yours: localhost, or the ?test flag used to
+// walk the live funnel. Those events land in the same PostHog project the real funnel is
+// read from, and a handful of dev runs is enough to bend a drop-off curve — the very
+// number the tracking exists to measure.
+const TRACK_ENABLED = !TEST_MODE;
+
 // "jojomode" — a dev/testing unlock (typed in Settings or ?unlock=jojomode). It fills
 // every level as complete except the FINAL adventure region, and shrinks any session to
 // 3 questions with a 1-answer pass bar, so the whole ending (Excalibar reforged) is one
@@ -293,7 +299,7 @@ try {
 const trackQueue = [];
 let posthogInited = false;
 function initPostHog() {
-  if (posthogInited || !POSTHOG_KEY || typeof window === "undefined" || !window.posthog) return;
+  if (posthogInited || !TRACK_ENABLED || !POSTHOG_KEY || typeof window === "undefined" || !window.posthog) return;
   try {
     window.posthog.init(POSTHOG_KEY, {
       api_host: POSTHOG_HOST,
@@ -314,6 +320,7 @@ if (typeof window !== "undefined") { window.__nsInitPostHog = initPostHog; initP
 // Fire a light usage event. Buffers until PostHog loads (deferred); never throws.
 function track(event, props) {
   try {
+    if (!TRACK_ENABLED) return;                       // dev session — and don't queue either
     if (trackOn && window.posthog) window.posthog.capture(event, props || {});
     else if (POSTHOG_KEY) trackQueue.push([event, props]);
   } catch (e) {}
