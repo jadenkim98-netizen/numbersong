@@ -4925,7 +4925,7 @@ export default function NumberEarTrainer() {
               );
             })}
           </div>
-          <p className="hint center">Master the four chords of a key. Minor is the same four, centered on 6.</p>
+          <p className="hint center">Master the four chords of a key. Minor is the same four, centered on 6. All seven opens up the rest.</p>
           {upsellModal}
         </div>
       );

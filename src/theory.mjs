@@ -234,6 +234,26 @@ export function chordRamp(chapter, mode, intro, four) {
     { ...cap, name: "Advanced · all seven", desc: "every diatonic triad · mastery", pool: ALL_CHORDS, keyMode: "fixed", qCount: FINAL_LEN },
   ];
 }
+// The two big-four chapters between them teach six of the seven diatonic chords
+// (1 4 5D 6- major, 6- 2- 3- 4 minor) — only 7dim is never met. Its difficulty
+// isn't rarity: it shares 7 and 2 with 5D and resolves the same way (7dim is 5D7
+// without its root), so dropping it straight into a seven-chord pool would mostly
+// manufacture 5D-vs-7dim coin flips. Isolate it against home, then against 5D —
+// the confusion that actually matters — before opening the pool.
+export function allSevenChordRamp(chapter, mode) {
+  const cap = { chapter, mode };
+  return [
+    ...[
+      ["Meet the seven",   "1 · 7dim  (the last one)",         ["I", "vii°"]],
+      ["The two tensions", "5D · 7dim  (they share 7 and 2)",  ["V", "vii°"]],
+      ["The inside three", "2- · 3- · 7dim  (outside the big four)", ["ii", "iii", "vii°"]],
+    ].map(([name, desc, pool]) => ({ ...cap, name, desc, pool, keyMode: "fixed" })),
+    { ...cap, name: "All seven",  desc: "every diatonic triad",          pool: ALL_CHORDS, keyMode: "fixed" },
+    { ...cap, name: "New key",    desc: "all seven · a new key",         pool: ALL_CHORDS, keyMode: "not-c" },
+    { ...cap, name: "Every key",  desc: "all seven · new key each Q",    pool: ALL_CHORDS, keyMode: "random", qCount: FINAL_LEN },
+  ];
+}
+
 export const CHORD_LEVELS = [
   ...chordRamp("Major · 1 4 5 6", "major", [
     ["Home & away",       "1 · 5D",                       ["I", "V"]],
@@ -245,6 +265,7 @@ export const CHORD_LEVELS = [
     ["The three pillars", "6- · 2- · 3-",                ["vi", "ii", "iii"]],
     ["Meet the four",     "6- · 4  (the major one)",     ["vi", "IV"]],
   ], FOUR_MINOR),
+  ...allSevenChordRamp("All seven", "major"),
 ];
 export const CHORD_CHAPTERS = CHORD_LEVELS.reduce((chs, lvl, idx) => {
   let c = chs.find((x) => x.name === lvl.chapter);
@@ -268,23 +289,69 @@ export const CURATED_4_MINOR = {
   3: [["vi", "ii", "iii"], ["vi", "IV", "ii"], ["vi", "ii", "IV"], ["vi", "IV", "iii"], ["ii", "iii", "vi"], ["vi", "iii", "ii"]],
   4: [["vi", "ii", "iii", "vi"], ["vi", "IV", "ii", "iii"], ["vi", "ii", "IV", "iii"], ["IV", "ii", "vi", "iii"], ["vi", "iii", "IV", "ii"], ["vi", "IV", "iii", "ii"]],
 };
-export function randomProgression(len, pool, home) {
+// All-seven progressions. Random draws from a seven-chord pool produce sequences
+// nobody would write (7dim → 3- → 7dim), so these are curated around what the two
+// unfamiliar functions actually DO: 7dim resolving to 1, and 3- / 2- as the inner
+// steps of a descending or rising diatonic run.
+export const CURATED_7 = {
+  // Pairs and threes are where the unfamiliar chords get met: 7dim against the
+  // chord it hides behind (5D), the 2-5 and 2-5-1 that 2- exists for, and 3-'s
+  // pull to 6-. Wherever 7dim isn't last it resolves to 1 — that's its whole job.
+  2: [["vii°", "I"], ["V", "vii°"], ["I", "vii°"], ["ii", "V"], ["I", "iii"], ["iii", "vi"], ["ii", "vi"]],
+  3: [["ii", "V", "I"], ["I", "vii°", "I"], ["V", "vii°", "I"], ["vi", "ii", "V"], ["iii", "vi", "ii"], ["I", "iii", "IV"], ["IV", "vii°", "I"]],
+  // The fours are the actual songs: the axis and doo-wop families (and their
+  // rotations — the same loop started somewhere else is a different sound to
+  // name), the 1-6-2-5 turnaround family, the Royal Road, and Pachelbel's first
+  // four. 7dim is rare in real pop, so it appears here only where it earns its
+  // place — resolving to 1.
+  4: [
+    ["I", "V", "vi", "IV"],    // 1 5 6 4 — the axis
+    ["vi", "IV", "I", "V"],    // 6 4 1 5 — axis, started on 6
+    ["IV", "I", "V", "vi"],    // 4 1 5 6 — axis, started on 4
+    ["I", "vi", "IV", "V"],    // 1 6 4 5 — doo-wop
+    ["IV", "V", "I", "vi"],    // 4 5 1 6 — doo-wop, started on 4
+    ["I", "vi", "ii", "V"],    // 1 6 2 5 — the turnaround
+    ["vi", "ii", "V", "I"],    // 6 2 5 1 — around the circle
+    ["iii", "vi", "ii", "V"],  // 3 6 2 5 — the long turnaround
+    ["IV", "V", "iii", "vi"],  // 4 5 3 6 — the Royal Road
+    ["I", "V", "vi", "iii"],   // 1 5 6 3 — Pachelbel's first four
+    ["I", "IV", "ii", "V"],    // 1 4 2 5
+    ["I", "IV", "vii°", "I"],  // 1 4 7dim 1 — 7dim standing in for 5D
+  ],
+};
+
+// Roughly how often each chord shows up in real music. Only the all-seven random
+// levels use this: a uniform draw puts 7dim in ~1 of every 7 slots, which is both
+// far more than anything anyone writes AND too easy — it's the key's only
+// diminished triad, so it's unmistakable once known, and that much of it would
+// quietly inflate scores. Chord-tone ID stays uniform on purpose: there you want
+// even reps of all seven.
+export const PROG_WEIGHTS = { I: 5, ii: 3, iii: 2, IV: 4, V: 4, vi: 4, "vii°": 1 };
+
+const weightedPick = (pool, weights) => {
+  if (!weights) return pool[Math.floor(Math.random() * pool.length)];
+  let r = Math.random() * pool.reduce((t, c) => t + (weights[c] ?? 1), 0);
+  for (const c of pool) { r -= weights[c] ?? 1; if (r < 0) return c; }
+  return pool[pool.length - 1];
+};
+
+export function randomProgression(len, pool, home, weights) {
   const seq = [home];
   while (seq.length < len) {
     let c;
-    do { c = pool[Math.floor(Math.random() * pool.length)]; } while (c === seq[seq.length - 1]);
+    do { c = weightedPick(pool, weights); } while (c === seq[seq.length - 1]);
     seq.push(c);
   }
   return seq;
 }
 export function pickProgression(lvl, avoid) {
   if (lvl.gen === "curated") {
-    const set = (lvl.mode === "minor" ? CURATED_4_MINOR : CURATED_4)[lvl.len];
+    const set = (lvl.curated || (lvl.mode === "minor" ? CURATED_4_MINOR : CURATED_4))[lvl.len];
     let p;
     do { p = set[Math.floor(Math.random() * set.length)]; } while (set.length > 1 && avoid && p.join() === avoid.join());
     return p;
   }
-  return randomProgression(lvl.len, lvl.pool, lvl.home);
+  return randomProgression(lvl.len, lvl.pool, lvl.home, lvl.weights);
 }
 export function progRamp(chapter, mode, pool, home) {
   const cap = { chapter, mode, home };
@@ -297,9 +364,25 @@ export function progRamp(chapter, mode, pool, home) {
     { ...cap, name: "Advanced · all seven", desc: "every triad · random 4 · mastery", len: 4, gen: "random", pool: ALL_CHORDS, keyMode: "fixed", qCount: FINAL_LEN },
   ];
 }
+// Same journey as allSevenChordRamp, one rung up: now you name the chords in time,
+// in order. Mirrors progRamp's six rungs — curated pairs → threes → the classics,
+// then random, then transposed — but over all seven chords.
+export function allSevenProgRamp(chapter, mode, home) {
+  const cap = { chapter, mode, home, pool: ALL_CHORDS };
+  return [
+    { ...cap, name: "Two-chord moves",     desc: "pairs · meet 7dim",        len: 2, gen: "curated", curated: CURATED_7, keyMode: "fixed" },
+    { ...cap, name: "Three-chord",         desc: "threes · 2-5-1 and 7dim",  len: 3, gen: "curated", curated: CURATED_7, keyMode: "fixed" },
+    { ...cap, name: "Four-chord classics", desc: "the progressions songs use", len: 4, gen: "curated", curated: CURATED_7, keyMode: "fixed" },
+    { ...cap, name: "Any order",           desc: "random · 4",               len: 4, gen: "random", keyMode: "fixed",  weights: PROG_WEIGHTS },
+    { ...cap, name: "New key",             desc: "random · 4 · a new key",   len: 4, gen: "random", keyMode: "not-c",  weights: PROG_WEIGHTS },
+    { ...cap, name: "Every key",           desc: "random · new key each Q",  len: 4, gen: "random", keyMode: "random", weights: PROG_WEIGHTS, qCount: FINAL_LEN },
+  ];
+}
+
 export const PROG_LEVELS = [
   ...progRamp("Major · 1 4 5 6", "major", FOUR, "I"),
   ...progRamp("Minor · 6 2 3 4", "minor", FOUR_MINOR, "vi"),
+  ...allSevenProgRamp("All seven", "major", "I"),
 ];
 export const PROG_CHAPTERS = PROG_LEVELS.reduce((chs, lvl, idx) => {
   let c = chs.find((x) => x.name === lvl.chapter);
@@ -332,6 +415,9 @@ export function stageGoal(mode, name) {
     "Chromatic · major": "Add the five color notes between the scale steps (♭2 ♭3 ♯4 ♭6 ♭7) — hearing all twelve notes of the major key.",
     "Chromatic · minor": "All twelve notes around a minor home (6) — the color notes in the minor world.",
   })[name] || "";
+  if (name.startsWith("All seven")) return mode === "chords"
+    ? "The whole key, chord by chord. The big four left one chord unmet — 7dim — and it hides behind 5D, so you meet it alone, then beside 5D, before all seven open up."
+    : "Name every diatonic chord in order, including the two the big four skipped. Hear where 7dim leads, and how 2- and 3- fill in the walks between the big chords.";
   if (mode === "chords") return name.startsWith("Major")
     ? "Hear a chord and pick out its notes as numbers. Master the four workhorse chords of a major key: 1, 4, 5D and 6-."
     : "Pick out chord notes centered on a minor home — the four chords 6-, 2-, 3- and 4.";
