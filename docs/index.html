@@ -3305,15 +3305,19 @@ window.SOUNDTRACK = SOUNDTRACK;
   };
   var PROG_WEIGHTS = { I: 5, ii: 3, iii: 2, IV: 4, V: 4, vi: 4, "vii°": 1 };
   var weightAt = (c, weights, prev, follow) => (weights ? weights[c] ?? 1 : 1) * ((follow && prev && follow[prev] && follow[prev][c]) ?? 1);
-  var weightedPick = (pool, weights, prev, follow) => {
-    if (!weights && !follow) return pool[Math.floor(Math.random() * pool.length)];
-    const w = pool.map((c) => weightAt(c, weights, prev, follow));
-    let r = Math.random() * w.reduce((a, b) => a + b, 0);
-    for (let i = 0; i < pool.length; i++) {
+  var weightedPick = (pool, weights, prev, follow, banned) => {
+    const usable = banned && banned.size ? pool.filter((c) => !banned.has(c)) : pool;
+    const from = usable.length ? usable : pool;
+    if (!weights && !follow) return from[Math.floor(Math.random() * from.length)];
+    const w = from.map((c) => weightAt(c, weights, prev, follow));
+    const total = w.reduce((a, b) => a + b, 0);
+    if (total <= 0) return from[Math.floor(Math.random() * from.length)];
+    let r = Math.random() * total;
+    for (let i = 0; i < from.length; i++) {
       r -= w[i];
-      if (r < 0) return pool[i];
+      if (r < 0) return from[i];
     }
-    return pool[pool.length - 1];
+    return from[from.length - 1];
   };
   function voiceLead(chords, { center = 7, start = null, slack = 0, rng = Math.random } = {}) {
     let prev = null;
@@ -3355,15 +3359,21 @@ window.SOUNDTRACK = SOUNDTRACK;
     center: 5 + Math.floor(Math.random() * 5),
     slack: 5
   });
-  function randomProgression(len, pool, home, weights, follow) {
-    const seq = [home || weightedPick(pool, weights, null, follow)];
+  function randomProgression(len, pool, home, weights, follow, forbid) {
+    const banned = /* @__PURE__ */ new Set();
+    const ban = (c) => {
+      if (forbid && forbid[c]) forbid[c].forEach((b) => banned.add(b));
+    };
+    const seq = [home || weightedPick(pool, weights, null, follow, banned)];
+    ban(seq[0]);
     while (seq.length < len) {
       const prev = seq[seq.length - 1];
-      let c;
+      let c, guard = 0;
       do {
-        c = weightedPick(pool, weights, prev, follow);
-      } while (c === prev);
+        c = weightedPick(pool, weights, prev, follow, banned);
+      } while (c === prev && ++guard < 40);
       seq.push(c);
+      ban(c);
     }
     return seq;
   }
@@ -3376,7 +3386,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       } while (set.length > 1 && avoid && p.join() === avoid.join());
       return p;
     }
-    return randomProgression(lvl.len, lvl.pool, lvl.anyStart ? null : lvl.home, lvl.weights, lvl.follow);
+    return randomProgression(lvl.len, lvl.pool, lvl.anyStart ? null : lvl.home, lvl.weights, lvl.follow, lvl.forbid);
   }
   function progRamp(chapter, mode, pool, home) {
     const cap = { chapter, mode, home };
@@ -3406,6 +3416,8 @@ window.SOUNDTRACK = SOUNDTRACK;
   }
   var POOL_3D = ["I", "ii", "iii", "III7", "IV", "V", "vi"];
   var WEIGHTS_3D = { I: 4, ii: 3, iii: 4, IV: 4, V: 4, vi: 4, III7: 5 };
+  var FOLLOW_3D = { III7: { iii: 0 } };
+  var FORBID_3D = { III7: ["iii"] };
   var CURATED_3D = {
     2: [["III7", "vi"], ["iii", "vi"], ["I", "III7"], ["I", "iii"], ["III7", "IV"], ["vi", "III7"]],
     3: [["I", "III7", "vi"], ["I", "iii", "vi"], ["III7", "vi", "ii"], ["I", "III7", "IV"], ["ii", "III7", "vi"], ["vi", "III7", "IV"]],
@@ -3433,14 +3445,15 @@ window.SOUNDTRACK = SOUNDTRACK;
       { ...cap, name: "Meet 3D", desc: "pairs · 3- against 3D", len: 2, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
       { ...cap, name: "Three-chord", desc: "threes · where 3D leads", len: 3, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
       { ...cap, name: "Four-chord classics", desc: "the same songs, sharpened", len: 4, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
-      { ...cap, name: "Any order", desc: "random · 4", len: 4, gen: "random", keyMode: "fixed", weights: WEIGHTS_3D },
-      { ...cap, name: "New key", desc: "random · 4 · a new key", len: 4, gen: "random", keyMode: "not-c", weights: WEIGHTS_3D },
-      { ...cap, name: "Mastery · 3D", desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_3D, anyStart: true, qCount: FINAL_LEN }
+      { ...cap, name: "Any order", desc: "random · 4", len: 4, gen: "random", keyMode: "fixed", weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D },
+      { ...cap, name: "New key", desc: "random · 4 · a new key", len: 4, gen: "random", keyMode: "not-c", weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D },
+      { ...cap, name: "Mastery · 3D", desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D, anyStart: true, qCount: FINAL_LEN }
     ];
   }
   var POOL_4M = ["I", "ii", "iii", "IV", "iv", "V", "vi"];
   var WEIGHTS_4M = { I: 4, ii: 3, iii: 3, IV: 5, iv: 4, V: 4, vi: 4 };
   var FOLLOW_4M = { IV: { iv: 8 }, iv: { IV: 0 } };
+  var FORBID_4M = { iv: ["IV"] };
   var CURATED_4M = {
     2: [["IV", "iv"], ["iv", "I"], ["iv", "vi"], ["iv", "iii"], ["ii", "iv"], ["iv", "V"], ["I", "iv"], ["I", "IV"]],
     3: [["IV", "iv", "I"], ["IV", "iv", "vi"], ["IV", "iv", "iii"], ["I", "IV", "iv"], ["ii", "iv", "I"], ["iv", "V", "I"], ["I", "iv", "I"], ["I", "IV", "I"]],
@@ -3468,14 +3481,15 @@ window.SOUNDTRACK = SOUNDTRACK;
       { ...cap, name: "Meet 4-", desc: "pairs · 4 against 4-", len: 2, gen: "curated", curated: CURATED_4M, keyMode: "fixed" },
       { ...cap, name: "Three-chord", desc: "threes · where 4- goes", len: 3, gen: "curated", curated: CURATED_4M, keyMode: "fixed" },
       { ...cap, name: "Four-chord classics", desc: "the same songs, darkened", len: 4, gen: "curated", curated: CURATED_4M, keyMode: "fixed" },
-      { ...cap, name: "Any order", desc: "random · 4", len: 4, gen: "random", keyMode: "fixed", weights: WEIGHTS_4M, follow: FOLLOW_4M },
-      { ...cap, name: "New key", desc: "random · 4 · a new key", len: 4, gen: "random", keyMode: "not-c", weights: WEIGHTS_4M, follow: FOLLOW_4M },
-      { ...cap, name: "Mastery · 4-", desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_4M, follow: FOLLOW_4M, anyStart: true, qCount: FINAL_LEN }
+      { ...cap, name: "Any order", desc: "random · 4", len: 4, gen: "random", keyMode: "fixed", weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M },
+      { ...cap, name: "New key", desc: "random · 4 · a new key", len: 4, gen: "random", keyMode: "not-c", weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M },
+      { ...cap, name: "Mastery · 4-", desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M, anyStart: true, qCount: FINAL_LEN }
     ];
   }
   var POOL_COLOUR = ["I", "ii", "iii", "III7", "IV", "iv", "V", "vi"];
   var WEIGHTS_COLOUR = { I: 4, ii: 3, iii: 3, III7: 4, IV: 5, iv: 4, V: 4, vi: 4 };
-  var FOLLOW_COLOUR = { IV: { iv: 6 }, iv: { IV: 0 }, III7: { vi: 3 } };
+  var FOLLOW_COLOUR = { IV: { iv: 6 }, iv: { IV: 0 }, III7: { vi: 3, iii: 0 } };
+  var FORBID_COLOUR = { iv: ["IV"], III7: ["iii"] };
   var CURATED_COLOUR = {
     2: [["iii", "III7"], ["IV", "iv"], ["III7", "vi"], ["iv", "I"], ["I", "III7"], ["I", "iv"], ["I", "iii"], ["I", "IV"]],
     3: [["I", "III7", "vi"], ["I", "IV", "iv"], ["IV", "iv", "I"], ["iii", "III7", "vi"], ["I", "iii", "IV"], ["ii", "iv", "I"], ["III7", "vi", "IV"], ["I", "III7", "IV"]],
@@ -3502,9 +3516,9 @@ window.SOUNDTRACK = SOUNDTRACK;
       { ...cap, name: "Both colours", desc: "pairs · 3D and 4-", len: 2, gen: "curated", curated: CURATED_COLOUR, keyMode: "fixed" },
       { ...cap, name: "Three-chord", desc: "threes · colour in context", len: 3, gen: "curated", curated: CURATED_COLOUR, keyMode: "fixed" },
       { ...cap, name: "Four-chord classics", desc: "the songs that use both", len: 4, gen: "curated", curated: CURATED_COLOUR, keyMode: "fixed" },
-      { ...cap, name: "Any order", desc: "random · 4", len: 4, gen: "random", keyMode: "fixed", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR },
-      { ...cap, name: "New key", desc: "random · 4 · a new key", len: 4, gen: "random", keyMode: "not-c", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR },
-      { ...cap, name: "Mastery · colour", desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, anyStart: true, qCount: FINAL_LEN }
+      { ...cap, name: "Any order", desc: "random · 4", len: 4, gen: "random", keyMode: "fixed", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR },
+      { ...cap, name: "New key", desc: "random · 4 · a new key", len: 4, gen: "random", keyMode: "not-c", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR },
+      { ...cap, name: "Mastery · colour", desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR, anyStart: true, qCount: FINAL_LEN }
     ];
   }
   var PROG_LEVELS = [
@@ -8311,6 +8325,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       s.attempted = false;
       s.misses = 0;
       s.firstWrong = null;
+      s.skipped = false;
       if (s.boss) {
         const st = evalBoss(s.results, s.bossMisses, s.boss);
         setDuelSay(st.hpPct <= 34 ? s.boss.taunts.low : s.boss.taunts.intro);
@@ -8382,6 +8397,17 @@ window.SOUNDTRACK = SOUNDTRACK;
       }
     };
     nextQuestionRef.current = nextQuestion;
+    const skipReveal = () => {
+      const s = sess.current;
+      if (phase !== "resolving" || s.skipped) return;
+      s.skipped = true;
+      sessTimersRef.current.forEach(clearTimeout);
+      sessTimersRef.current = [];
+      stopAll();
+      setProgActive(-1);
+      setBusy(false);
+      advance();
+    };
     const advance = () => {
       const s = sess.current;
       if (s.boss) {
@@ -8587,7 +8613,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         setFeedback({ roman: s.target.roman, sym: chordSymbol(s.target.roman, s.sevenths), num: chordNumber(s.target.roman, s.sevenths), quality: chordQuality(s.target.roman, s.sevenths), tones });
         setBusy(true);
         const dur = await playChord(s.key, tones);
-        if (gen !== sessGenRef.current) return;
+        if (gen !== sessGenRef.current || s.skipped) return;
         sessTimer(() => {
           setBusy(false);
           advance();
@@ -8648,7 +8674,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         setBusy(true);
         cutStimulus();
         const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat, s.voiced);
-        if (gen !== sessGenRef.current) return;
+        if (gen !== sessGenRef.current || s.skipped) return;
         s.target.forEach((_, i) => sessTimer(() => setProgActive(i), i * progBeat * 1e3));
         sessTimer(() => setProgActive(-1), s.target.length * progBeat * 1e3);
         sessTimer(() => {
@@ -9350,6 +9376,14 @@ window.SOUNDTRACK = SOUNDTRACK;
           "aria-label": "Play just the sound to identify"
         },
         "♪"
+      ), phase === "resolving" && /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          className: "ghost next-q",
+          onClick: skipReveal,
+          "aria-label": "Skip the replay and start the next question"
+        },
+        "Next ›"
       ));
       const answerHint = /* @__PURE__ */ React.createElement("p", { className: "hint grow" + (tutCoach ? " tut-coach-line" : ""), role: "status", "aria-live": "polite" }, phase === "playing" ? tutCoach ? "Verda plays a number… listen." : "Listen…" : feedback && feedback.roman ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.sym), " ", /* @__PURE__ */ React.createElement("em", { className: "numlabel" }, feedback.num), " · ", feedback.quality, ". ", CHORD_INSIGHTS[feedback.roman]) : feedback && feedback.prog ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.prog.join("–")), " — nailed the changes.") : feedback ? feedback : mode === "melody" ? tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?" : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.` : "Tap the chords in order — you can name them as they go by.");
       return /* @__PURE__ */ React.createElement("div", { className: "app app-wide" + (lvl.mode === "minor" ? " sess-minor" : "") + (isDuel ? " sess-duel" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement(Confetti, { show: tutCelebrate }), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {

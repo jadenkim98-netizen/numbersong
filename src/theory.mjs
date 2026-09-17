@@ -379,12 +379,16 @@ export const PROG_WEIGHTS = { I: 5, ii: 3, iii: 2, IV: 4, V: 4, vi: 4, "vii°": 
 const weightAt = (c, weights, prev, follow) =>
   (weights ? (weights[c] ?? 1) : 1) * ((follow && prev && follow[prev] && follow[prev][c]) ?? 1);
 
-const weightedPick = (pool, weights, prev, follow) => {
-  if (!weights && !follow) return pool[Math.floor(Math.random() * pool.length)];
-  const w = pool.map((c) => weightAt(c, weights, prev, follow));
-  let r = Math.random() * w.reduce((a, b) => a + b, 0);
-  for (let i = 0; i < pool.length; i++) { r -= w[i]; if (r < 0) return pool[i]; }
-  return pool[pool.length - 1];
+const weightedPick = (pool, weights, prev, follow, banned) => {
+  const usable = banned && banned.size ? pool.filter((c) => !banned.has(c)) : pool;
+  const from = usable.length ? usable : pool; // never paint the draw into a corner
+  if (!weights && !follow) return from[Math.floor(Math.random() * from.length)];
+  const w = from.map((c) => weightAt(c, weights, prev, follow));
+  const total = w.reduce((a, b) => a + b, 0);
+  if (total <= 0) return from[Math.floor(Math.random() * from.length)];
+  let r = Math.random() * total;
+  for (let i = 0; i < from.length; i++) { r -= w[i]; if (r < 0) return from[i]; }
+  return from[from.length - 1];
 };
 
 // home = the chord every sequence starts on; pass null to let it start anywhere,
@@ -458,13 +462,21 @@ export const randomVoicing = () => ({
   slack: 5,
 });
 
-export function randomProgression(len, pool, home, weights, follow) {
-  const seq = [home || weightedPick(pool, weights, null, follow)];
+// `forbid` rules a chord out for the REST of the progression once another has appeared —
+// a whole-sequence rule, where `follow` only ever sees the previous chord. Needed because
+// once the four has gone minor, a plain 4 later in the same loop undoes it, and that stays
+// true whether the two are adjacent or three chords apart.
+export function randomProgression(len, pool, home, weights, follow, forbid) {
+  const banned = new Set();
+  const ban = (c) => { if (forbid && forbid[c]) forbid[c].forEach((b) => banned.add(b)); };
+  const seq = [home || weightedPick(pool, weights, null, follow, banned)];
+  ban(seq[0]);
   while (seq.length < len) {
     const prev = seq[seq.length - 1];
-    let c;
-    do { c = weightedPick(pool, weights, prev, follow); } while (c === prev);
+    let c, guard = 0;
+    do { c = weightedPick(pool, weights, prev, follow, banned); } while (c === prev && ++guard < 40);
     seq.push(c);
+    ban(c);
   }
   return seq;
 }
@@ -475,7 +487,7 @@ export function pickProgression(lvl, avoid) {
     do { p = set[Math.floor(Math.random() * set.length)]; } while (set.length > 1 && avoid && p.join() === avoid.join());
     return p;
   }
-  return randomProgression(lvl.len, lvl.pool, lvl.anyStart ? null : lvl.home, lvl.weights, lvl.follow);
+  return randomProgression(lvl.len, lvl.pool, lvl.anyStart ? null : lvl.home, lvl.weights, lvl.follow, lvl.forbid);
 }
 export function progRamp(chapter, mode, pool, home) {
   const cap = { chapter, mode, home };
@@ -518,6 +530,13 @@ export const POOL_3D = ["I", "ii", "iii", "III7", "IV", "V", "vi"];
 // 3D is the subject of the chapter, so it's common here rather than rare; 3- is
 // boosted too, so the contrast keeps coming back around.
 export const WEIGHTS_3D = { I: 4, ii: 3, iii: 4, IV: 4, V: 4, vi: 4, III7: 5 };
+// 3D → 3- doesn't happen: once the 3 chord has been raised to a dominant, falling back to
+// the plain minor on the same root is a backtrack, not a move. (3- → 3D is left alone —
+// darkening a diatonic chord into a dominant is a real gesture.) Same shape as the 4- → 4
+// ban, and a weight of 0 is a ban because weightAt reads it with ?? and not ||.
+export const FOLLOW_3D = { III7: { iii: 0 } };
+// Same rule across the whole progression, for the same reason as FORBID_4M.
+export const FORBID_3D = { III7: ["iii"] };
 
 // Deliberately paired: most of these are a progression the player already knows
 // with exactly one chord swapped, so the drill is "which one did I just hear",
@@ -544,9 +563,9 @@ export function threeDeeProgRamp(chapter, mode, home) {
     { ...cap, name: "Meet 3D",             desc: "pairs · 3- against 3D",      len: 2, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
     { ...cap, name: "Three-chord",         desc: "threes · where 3D leads",    len: 3, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
     { ...cap, name: "Four-chord classics", desc: "the same songs, sharpened",  len: 4, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
-    { ...cap, name: "Any order",           desc: "random · 4",                 len: 4, gen: "random", keyMode: "fixed",  weights: WEIGHTS_3D },
-    { ...cap, name: "New key",             desc: "random · 4 · a new key",     len: 4, gen: "random", keyMode: "not-c",  weights: WEIGHTS_3D },
-    { ...cap, name: "Mastery · 3D",        desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_3D, anyStart: true, qCount: FINAL_LEN },
+    { ...cap, name: "Any order",           desc: "random · 4",                 len: 4, gen: "random", keyMode: "fixed",  weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D },
+    { ...cap, name: "New key",             desc: "random · 4 · a new key",     len: 4, gen: "random", keyMode: "not-c",  weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D },
+    { ...cap, name: "Mastery · 3D",        desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D, anyStart: true, qCount: FINAL_LEN },
   ];
 }
 
@@ -559,6 +578,9 @@ export const WEIGHTS_4M = { I: 4, ii: 3, iii: 3, IV: 5, iv: 4, V: 4, vi: 4 };
 // 4 → 4- is the lesson, so it's heavily favoured. 4- → 4 is rare in real music
 // (it brightens back up, which songs seldom do), so it's banned outright with a 0.
 export const FOLLOW_4M = { IV: { iv: 8 }, iv: { IV: 0 } };
+// ...and not three chords later either: once the four has gone minor, a plain 4 anywhere
+// later in the same loop brightens it back, which songs essentially don't do.
+export const FORBID_4M = { iv: ["IV"] };
 
 // 4- goes home to 1 most of the time, to 6 or 3 when the progression wants to keep
 // moving, and 2 → 4- is a real approach. Diatonic progressions are mixed in so the
@@ -586,9 +608,9 @@ export function minorFourProgRamp(chapter, mode, home) {
     { ...cap, name: "Meet 4-",             desc: "pairs · 4 against 4-",      len: 2, gen: "curated", curated: CURATED_4M, keyMode: "fixed" },
     { ...cap, name: "Three-chord",         desc: "threes · where 4- goes",    len: 3, gen: "curated", curated: CURATED_4M, keyMode: "fixed" },
     { ...cap, name: "Four-chord classics", desc: "the same songs, darkened",  len: 4, gen: "curated", curated: CURATED_4M, keyMode: "fixed" },
-    { ...cap, name: "Any order",           desc: "random · 4",                len: 4, gen: "random", keyMode: "fixed",  weights: WEIGHTS_4M, follow: FOLLOW_4M },
-    { ...cap, name: "New key",             desc: "random · 4 · a new key",    len: 4, gen: "random", keyMode: "not-c",  weights: WEIGHTS_4M, follow: FOLLOW_4M },
-    { ...cap, name: "Mastery · 4-",        desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_4M, follow: FOLLOW_4M, anyStart: true, qCount: FINAL_LEN },
+    { ...cap, name: "Any order",           desc: "random · 4",                len: 4, gen: "random", keyMode: "fixed",  weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M },
+    { ...cap, name: "New key",             desc: "random · 4 · a new key",    len: 4, gen: "random", keyMode: "not-c",  weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M },
+    { ...cap, name: "Mastery · 4-",        desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M, anyStart: true, qCount: FINAL_LEN },
   ];
 }
 
@@ -601,7 +623,8 @@ export const POOL_COLOUR = ["I", "ii", "iii", "III7", "IV", "iv", "V", "vi"];
 export const WEIGHTS_COLOUR = { I: 4, ii: 3, iii: 3, III7: 4, IV: 5, iv: 4, V: 4, vi: 4 };
 // Same moves as the teaching chapters: 4 darkens to 4- and never brightens back, and 3D
 // leans to 6- without being forced there.
-export const FOLLOW_COLOUR = { IV: { iv: 6 }, iv: { IV: 0 }, III7: { vi: 3 } };
+export const FOLLOW_COLOUR = { IV: { iv: 6 }, iv: { IV: 0 }, III7: { vi: 3, iii: 0 } };
+export const FORBID_COLOUR = { iv: ["IV"], III7: ["iii"] };
 
 // 1 3D 4 4- is the one everybody knows, and it ships beside 1 3- 4 4- — the same shape
 // with the plain 3, so the colour has to be heard rather than assumed. Fully diatonic
@@ -629,9 +652,9 @@ export function colourChordProgRamp(chapter, mode, home) {
     { ...cap, name: "Both colours",        desc: "pairs · 3D and 4-",          len: 2, gen: "curated", curated: CURATED_COLOUR, keyMode: "fixed" },
     { ...cap, name: "Three-chord",         desc: "threes · colour in context", len: 3, gen: "curated", curated: CURATED_COLOUR, keyMode: "fixed" },
     { ...cap, name: "Four-chord classics", desc: "the songs that use both",    len: 4, gen: "curated", curated: CURATED_COLOUR, keyMode: "fixed" },
-    { ...cap, name: "Any order",           desc: "random · 4",                 len: 4, gen: "random", keyMode: "fixed",  weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR },
-    { ...cap, name: "New key",             desc: "random · 4 · a new key",     len: 4, gen: "random", keyMode: "not-c",  weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR },
-    { ...cap, name: "Mastery · colour",    desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, anyStart: true, qCount: FINAL_LEN },
+    { ...cap, name: "Any order",           desc: "random · 4",                 len: 4, gen: "random", keyMode: "fixed",  weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR },
+    { ...cap, name: "New key",             desc: "random · 4 · a new key",     len: 4, gen: "random", keyMode: "not-c",  weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR },
+    { ...cap, name: "Mastery · colour",    desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR, anyStart: true, qCount: FINAL_LEN },
   ];
 }
 

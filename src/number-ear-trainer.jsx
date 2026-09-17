@@ -3780,7 +3780,7 @@ export default function NumberEarTrainer() {
     const s = sess.current;
     const gen = sessGenRef.current; // capture; if the session is quit/restarted mid-await this goes stale
     clearLadder(); setChPicked([]); setProgAnswer([]); setProgWrong([]); setProgActive(-1); setFeedback(null);
-    s.attempted = false; s.misses = 0; s.firstWrong = null;
+    s.attempted = false; s.misses = 0; s.firstWrong = null; s.skipped = false;
     // duel: the next question is starting → clear the keeper's reaction back to her resting line
     if (s.boss) { const st = evalBoss(s.results, s.bossMisses, s.boss); setDuelSay(st.hpPct <= 34 ? s.boss.taunts.low : s.boss.taunts.intro); }
     setPhase("playing"); setBusy(true);
@@ -3843,6 +3843,24 @@ export default function NumberEarTrainer() {
     }
   };
   nextQuestionRef.current = nextQuestion;
+
+  // "Next" during the reveal. The answer is already scored and logged by the time we get
+  // here, so the replay is a courtesy — let them cut it short. Every mode schedules its
+  // advance through sessTimer (progressions and chords directly, melody via
+  // playResolution's onDone), so clearing those cancels the pending one and we call
+  // advance exactly once ourselves. `skipped` is what stops an await that's still in
+  // flight from scheduling a second advance behind us.
+  const skipReveal = () => {
+    const s = sess.current;
+    if (phase !== "resolving" || s.skipped) return;
+    s.skipped = true;
+    sessTimersRef.current.forEach(clearTimeout);
+    sessTimersRef.current = [];
+    stopAll();
+    setProgActive(-1);
+    setBusy(false);
+    advance();
+  };
 
   const advance = () => {
     const s = sess.current;
@@ -4063,7 +4081,7 @@ export default function NumberEarTrainer() {
       setFeedback({ roman: s.target.roman, sym: chordSymbol(s.target.roman, s.sevenths), num: chordNumber(s.target.roman, s.sevenths), quality: chordQuality(s.target.roman, s.sevenths), tones });
       setBusy(true);
       const dur = await playChord(s.key, tones);
-      if (gen !== sessGenRef.current) return; // quit during the resolution → don't advance a dead session
+      if (gen !== sessGenRef.current || s.skipped) return; // quit, or Next pressed → don't advance twice
       // duel: trim the "let it ring" tail so chord questions come faster
       sessTimer(() => { setBusy(false); advance(); }, (dur + (s.boss ? 0.4 : 1.4)) * 1000);
     } else {
@@ -4127,7 +4145,7 @@ export default function NumberEarTrainer() {
       setBusy(true);
       cutStimulus(); // answered before it finished → don't play the reveal on top of it
       const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat, s.voiced);
-      if (gen !== sessGenRef.current) return; // quit during the resolution → don't advance a dead session
+      if (gen !== sessGenRef.current || s.skipped) return; // quit, or Next pressed → don't advance twice
       s.target.forEach((_, i) => sessTimer(() => setProgActive(i), i * progBeat * 1000));
       sessTimer(() => setProgActive(-1), s.target.length * progBeat * 1000);
       sessTimer(() => { setBusy(false); advance(); }, (dur + 0.4) * 1000);
@@ -5133,6 +5151,10 @@ export default function NumberEarTrainer() {
         <button className="ghost" onClick={replayFull} disabled={phase !== "answer" || busy}>↻ Repeat</button>
         <button className="ghost note" onClick={replayTarget} disabled={phase !== "answer" || busy}
           aria-label="Play just the sound to identify">♪</button>
+        {phase === "resolving" && (
+          <button className="ghost next-q" onClick={skipReveal}
+            aria-label="Skip the replay and start the next question">Next ›</button>
+        )}
       </div>
     );
     const answerHint = (
