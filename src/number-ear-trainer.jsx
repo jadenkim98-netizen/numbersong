@@ -3777,7 +3777,11 @@ export default function NumberEarTrainer() {
       if (gen !== sessGenRef.current) return; // quit during audio load → don't play/schedule on a dead session
       const dur = await playProgression(s.key, prog.map((r) => chordByRoman(r).tones), cad, progBeat);
       if (gen !== sessGenRef.current) return;
-      sessTimer(() => { setPhase("answer"); setBusy(false); }, (cad + dur + 0.2) * 1000);
+      // Open answering as the progression STARTS, not when it ends — same as melody and
+      // chords, and it lets you name the changes as they go by, which is the actual skill.
+      // Remember when the stimulus stops so an early submit can cut it (see checkProgression).
+      s.stimEnd = Date.now() + (cad + dur) * 1000;
+      sessTimer(() => { setPhase("answer"); setBusy(false); }, (cad + 0.2) * 1000);
     } else if (s.mode === "melody") {
       const lvl = s.lvl;
       const key = nextRandomSessionKey({ lvl, isFirst, currentKey: s.key, randKey });
@@ -3894,10 +3898,20 @@ export default function NumberEarTrainer() {
   };
 
   // ♪ — replay just the sound to identify
+  // Answering now opens while a progression is still playing, so anything that plays next
+  // has to silence the stimulus first or the two overlap. Only progressions set stimEnd,
+  // so this is a no-op in melody and chord sessions.
+  const cutStimulus = () => {
+    const s = sess.current;
+    if (s.stimEnd && Date.now() < s.stimEnd) stopAll();
+    s.stimEnd = 0;
+  };
+
   const replayTarget = async () => {
     if (phaseRef.current !== "answer" || busyRef.current) return; // live phase/busy — a scheduled miss-replay must not fire once a correct answer moved us to "resolving"
     const s = sess.current;
     setBusy(true);
+    cutStimulus();
     if (s.mode === "progressions") {
       const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat);
       sessTimer(() => setBusy(false), dur * 1000);
@@ -3915,6 +3929,7 @@ export default function NumberEarTrainer() {
     if (phase !== "answer" || busy) return;
     const s = sess.current;
     setBusy(true);
+    cutStimulus();
     if (s.mode === "progressions") {
       const cad = (await playCadence(s.key, s.lvl.mode)) + 0.35;
       const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), cad, progBeat);
@@ -4081,6 +4096,7 @@ export default function NumberEarTrainer() {
       setSrMsg("Correct.");
       setFeedback({ prog: [...s.target] });
       setBusy(true);
+      cutStimulus(); // answered before it finished → don't play the reveal on top of it
       const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat);
       if (gen !== sessGenRef.current) return; // quit during the resolution → don't advance a dead session
       s.target.forEach((_, i) => sessTimer(() => setProgActive(i), i * progBeat * 1000));
@@ -5100,7 +5116,7 @@ export default function NumberEarTrainer() {
           : feedback ? feedback
           : mode === "melody" ? (tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?")
           : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.`
-          : "Tap the chords you heard, in order."}
+          : "Tap the chords in order — you can name them as they go by."}
       </p>
     );
     return (

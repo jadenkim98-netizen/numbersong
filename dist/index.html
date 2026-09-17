@@ -8230,10 +8230,11 @@ window.SOUNDTRACK = SOUNDTRACK;
           if (gen !== sessGenRef.current) return;
           const dur = await playProgression(s.key, prog.map((r) => chordByRoman(r).tones), cad, progBeat);
           if (gen !== sessGenRef.current) return;
+          s.stimEnd = Date.now() + (cad + dur) * 1e3;
           sessTimer(() => {
             setPhase("answer");
             setBusy(false);
-          }, (cad + dur + 0.2) * 1e3);
+          }, (cad + 0.2) * 1e3);
         } else if (s.mode === "melody") {
           const lvl = s.lvl;
           const key = nextRandomSessionKey({ lvl, isFirst, currentKey: s.key, randKey });
@@ -8352,10 +8353,16 @@ window.SOUNDTRACK = SOUNDTRACK;
       setPhase("idle");
       setScreen("results");
     };
+    const cutStimulus = () => {
+      const s = sess.current;
+      if (s.stimEnd && Date.now() < s.stimEnd) stopAll();
+      s.stimEnd = 0;
+    };
     const replayTarget = async () => {
       if (phaseRef.current !== "answer" || busyRef.current) return;
       const s = sess.current;
       setBusy(true);
+      cutStimulus();
       if (s.mode === "progressions") {
         const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat);
         sessTimer(() => setBusy(false), dur * 1e3);
@@ -8371,6 +8378,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       if (phase !== "answer" || busy) return;
       const s = sess.current;
       setBusy(true);
+      cutStimulus();
       if (s.mode === "progressions") {
         const cad = await playCadence(s.key, s.lvl.mode) + 0.35;
         const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), cad, progBeat);
@@ -8534,6 +8542,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         setSrMsg("Correct.");
         setFeedback({ prog: [...s.target] });
         setBusy(true);
+        cutStimulus();
         const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat);
         if (gen !== sessGenRef.current) return;
         s.target.forEach((_, i) => sessTimer(() => setProgActive(i), i * progBeat * 1e3));
@@ -9238,7 +9247,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         },
         "♪"
       ));
-      const answerHint = /* @__PURE__ */ React.createElement("p", { className: "hint grow" + (tutCoach ? " tut-coach-line" : ""), role: "status", "aria-live": "polite" }, phase === "playing" ? tutCoach ? "Verda plays a number… listen." : "Listen…" : feedback && feedback.roman ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.sym), " ", /* @__PURE__ */ React.createElement("em", { className: "numlabel" }, feedback.num), " · ", feedback.quality, ". ", CHORD_INSIGHTS[feedback.roman]) : feedback && feedback.prog ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.prog.join("–")), " — nailed the changes.") : feedback ? feedback : mode === "melody" ? tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?" : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.` : "Tap the chords you heard, in order.");
+      const answerHint = /* @__PURE__ */ React.createElement("p", { className: "hint grow" + (tutCoach ? " tut-coach-line" : ""), role: "status", "aria-live": "polite" }, phase === "playing" ? tutCoach ? "Verda plays a number… listen." : "Listen…" : feedback && feedback.roman ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.sym), " ", /* @__PURE__ */ React.createElement("em", { className: "numlabel" }, feedback.num), " · ", feedback.quality, ". ", CHORD_INSIGHTS[feedback.roman]) : feedback && feedback.prog ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.prog.join("–")), " — nailed the changes.") : feedback ? feedback : mode === "melody" ? tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?" : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.` : "Tap the chords in order — you can name them as they go by.");
       return /* @__PURE__ */ React.createElement("div", { className: "app app-wide" + (lvl.mode === "minor" ? " sess-minor" : "") + (isDuel ? " sess-duel" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement(Confetti, { show: tutCelebrate }), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
         try {
           sfx("back");
