@@ -9,6 +9,7 @@ import {
   CURATED_7, pickProgression, CHORD_CHAPTERS, PROG_CHAPTERS, PROG_WEIGHTS, ALL_CHORDS,
   CURATED_3D, POOL_3D, WEIGHTS_3D, DEGREE_SEMITONES, EAR_CHORD_ROSTER, voiceLead,
   CURATED_4M, POOL_4M, WEIGHTS_4M, FOLLOW_4M, randomVoicing,
+  CURATED_COLOUR, POOL_COLOUR, WEIGHTS_COLOUR, FOLLOW_COLOUR,
 } from "../src/theory.mjs";
 
 test("degreeLabel: the upper octave shows as 1, never 8", () => {
@@ -110,6 +111,7 @@ test("all-seven chapters are appended, never inserted (level idx is the saved-pr
     ["All seven", 12, 6],
     ["3D · five of six", 18, 6],
     ["4- · borrowed from minor", 24, 6],
+    ["Colour chords · 3D and 4-", 30, 6],
   ]);
 });
 
@@ -389,4 +391,42 @@ test("an injected rng makes a varied voicing reproducible", () => {
   const fixed = () => 0.99; // always take the last candidate within slack
   assert.equal(JSON.stringify(voiceLead(seq, { slack: 5, rng: fixed })),
                JSON.stringify(voiceLead(seq, { slack: 5, rng: fixed })));
+});
+
+test("the colour chapter runs both altered chords beside the plain chords they're mistaken for", () => {
+  assert.deepEqual(POOL_COLOUR, ["I", "ii", "iii", "III7", "IV", "iv", "V", "vi"]);
+  // each altered chord sits immediately after its twin
+  assert.equal(POOL_COLOUR.indexOf("III7") - POOL_COLOUR.indexOf("iii"), 1);
+  assert.equal(POOL_COLOUR.indexOf("iv") - POOL_COLOUR.indexOf("IV"), 1);
+  const ch = PROG_CHAPTERS.find((c) => c.name.startsWith("Colour"));
+  assert.equal(ch.levels.length, 6);
+  assert.ok(ch.levels.every((l) => l.pool.includes("III7") && l.pool.includes("iv")));
+});
+
+test("the colour four-chord set pairs 1·3D·4·4- with its plain-3 twin", () => {
+  const has = (...s) => CURATED_COLOUR[4].some((x) => x.join() === s.join());
+  assert.ok(has("I", "III7", "IV", "iv"), "1 3D 4 4- — both colours");
+  assert.ok(has("I", "iii", "IV", "iv"), "the same shape with a plain 3");
+  assert.ok(CURATED_COLOUR[4].some((s) => !s.includes("III7") && !s.includes("iv")),
+    "some progressions must be fully diatonic");
+  for (const seq of Object.values(CURATED_COLOUR).flat()) {
+    for (const r of seq) assert.ok(chordByRoman(r), `unknown chord ${r}`);
+    for (let j = 1; j < seq.length; j++) assert.notEqual(seq[j], seq[j - 1]);
+    seq.forEach((c, j) => { if (c === "iv" && seq[j + 1] === "IV") assert.fail("4- → 4 in " + seq.join("-")); });
+  }
+});
+
+test("colour chapter keeps the 4 → 4- move and the 4- → 4 ban", () => {
+  let darkens = 0, fours = 0, brightens = 0, colourful = 0;
+  for (let i = 0; i < 6000; i++) {
+    const s = randomProgression(4, POOL_COLOUR, null, WEIGHTS_COLOUR, FOLLOW_COLOUR);
+    if (s.includes("III7") || s.includes("iv")) colourful++;
+    s.forEach((c, j) => {
+      if (c === "IV" && j < 3) { fours++; if (s[j + 1] === "iv") darkens++; }
+      if (c === "iv" && j < 3 && s[j + 1] === "IV") brightens++;
+    });
+  }
+  assert.equal(brightens, 0);
+  assert.ok(darkens / fours > 0.4, `4 should usually darken (got ${darkens / fours})`);
+  assert.ok(colourful / 6000 > 0.5, "most questions should carry a colour chord");
 });

@@ -580,12 +580,56 @@ export function minorFourProgRamp(chapter, mode, home) {
   ];
 }
 
+/* ── colour chords: 3D and 4- together ── */
+// Both altered chords live, each next to the twin it's confused with. Telling 3D from
+// 4- is easy (different roots) — the difficulty, and the point, is holding BOTH fine
+// discriminations at once: 3- or 3D, and 4 or 4-. That's what hearing a real song asks.
+// As more borrowed chords arrive they join this pool; the teaching chapters stay separate.
+export const POOL_COLOUR = ["I", "ii", "iii", "III7", "IV", "iv", "V", "vi"];
+export const WEIGHTS_COLOUR = { I: 4, ii: 3, iii: 3, III7: 4, IV: 5, iv: 4, V: 4, vi: 4 };
+// Same moves as the teaching chapters: 4 darkens to 4- and never brightens back, and 3D
+// leans to 6- without being forced there.
+export const FOLLOW_COLOUR = { IV: { iv: 6 }, iv: { IV: 0 }, III7: { vi: 3 } };
+
+// 1 3D 4 4- is the one everybody knows, and it ships beside 1 3- 4 4- — the same shape
+// with the plain 3, so the colour has to be heard rather than assumed. Fully diatonic
+// progressions are in the mix for the same reason.
+export const CURATED_COLOUR = {
+  2: [["iii", "III7"], ["IV", "iv"], ["III7", "vi"], ["iv", "I"], ["I", "III7"], ["I", "iv"], ["I", "iii"], ["I", "IV"]],
+  3: [["I", "III7", "vi"], ["I", "IV", "iv"], ["IV", "iv", "I"], ["iii", "III7", "vi"], ["I", "iii", "IV"], ["ii", "iv", "I"], ["III7", "vi", "IV"], ["I", "III7", "IV"]],
+  4: [
+    ["I", "III7", "IV", "iv"],  // 1 3D 4 4- — both colours, back to back
+    ["I", "iii", "IV", "iv"],   // the same shape with a plain 3
+    ["I", "III7", "IV", "V"],
+    ["I", "IV", "iv", "I"],
+    ["I", "III7", "vi", "IV"],
+    ["III7", "vi", "ii", "V"],
+    ["I", "vi", "IV", "iv"],
+    ["IV", "iv", "I", "V"],
+    ["I", "V", "vi", "IV"],     // fully diatonic
+    ["iii", "vi", "ii", "V"],   // fully diatonic
+  ],
+};
+
+export function colourChordProgRamp(chapter, mode, home) {
+  const cap = { chapter, mode, home, pool: POOL_COLOUR };
+  return [
+    { ...cap, name: "Both colours",        desc: "pairs · 3D and 4-",          len: 2, gen: "curated", curated: CURATED_COLOUR, keyMode: "fixed" },
+    { ...cap, name: "Three-chord",         desc: "threes · colour in context", len: 3, gen: "curated", curated: CURATED_COLOUR, keyMode: "fixed" },
+    { ...cap, name: "Four-chord classics", desc: "the songs that use both",    len: 4, gen: "curated", curated: CURATED_COLOUR, keyMode: "fixed" },
+    { ...cap, name: "Any order",           desc: "random · 4",                 len: 4, gen: "random", keyMode: "fixed",  weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR },
+    { ...cap, name: "New key",             desc: "random · 4 · a new key",     len: 4, gen: "random", keyMode: "not-c",  weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR },
+    { ...cap, name: "Mastery · colour",    desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, anyStart: true, qCount: FINAL_LEN },
+  ];
+}
+
 export const PROG_LEVELS = [
   ...progRamp("Major · 1 4 5 6", "major", FOUR, "I"),
   ...progRamp("Minor · 6 2 3 4", "minor", FOUR_MINOR, "vi"),
   ...allSevenProgRamp("All seven", "major", "I"),
   ...threeDeeProgRamp("3D · five of six", "major", "I"),
   ...minorFourProgRamp("4- · borrowed from minor", "major", "I"),
+  ...colourChordProgRamp("Colour chords · 3D and 4-", "major", "I"),
 ];
 export const PROG_CHAPTERS = PROG_LEVELS.reduce((chs, lvl, idx) => {
   let c = chs.find((x) => x.name === lvl.chapter);
@@ -618,6 +662,7 @@ export function stageGoal(mode, name) {
     "Chromatic · major": "Add the five color notes between the scale steps (♭2 ♭3 ♯4 ♭6 ♭7) — hearing all twelve notes of the major key.",
     "Chromatic · minor": "All twelve notes around a minor home (6) — the color notes in the minor world.",
   })[name] || "";
+  if (name.startsWith("Colour")) return "Both colour chords at once, each sitting next to the plain chord it's mistaken for. Telling 3D from 4- is the easy part — they have different roots. The work is holding both questions at the same time: was that a 3 or a 3D, and a 4 or a 4-. That's what naming the chords in a real song actually asks of you.";
   if (name.startsWith("4-")) return "Meet 4- — the 4 chord borrowed from minor, its 6 dropped to ♭6. It shares a root with the major 4, so the bass can't tell them apart: the whole difference is one voice falling a half step. You'll usually hear them back to back, 4 then 4-, going home to 1 — or on to 6 or 3 to keep moving.";
   if (name.startsWith("3D")) return "Meet 3D — the 3 chord turned dominant, the five-chord of 6. Its ♯5 is a note from outside the key, and it points at where the music is going. Most levels here are a progression you already know with one chord swapped, so the job is hearing which.";
   if (name.startsWith("All seven")) return mode === "chords"
