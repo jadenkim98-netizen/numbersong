@@ -153,6 +153,35 @@ test("the all-seven progression chapter mirrors progRamp's six rungs", () => {
   assert.equal(ch[5].qCount, 30); // the capstone runs longer
 });
 
+test("each big-four chapter ends inside its own four chords, not on all seven", () => {
+  for (const chapters of [CHORD_CHAPTERS, PROG_CHAPTERS]) {
+    for (const c of chapters.filter((x) => x.name !== "All seven")) {
+      const last = c.levels[c.levels.length - 1];
+      assert.equal(last.name, "Mastery · the big four", c.name);
+      assert.equal(last.pool.length, 4, `${c.name} capstone must stay in the taught pool`);
+      assert.equal(last.keyMode, "random");
+      assert.equal(last.qCount, 30);
+    }
+  }
+});
+
+test("anyStart opens up the rotations (every chord can begin a progression)", () => {
+  const pool = ["I", "IV", "V", "vi"];
+  const starts = new Set(), seqs = new Set();
+  for (let i = 0; i < 3000; i++) {
+    const s = randomProgression(4, pool, null);
+    starts.add(s[0]);
+    seqs.add(s.join());
+    for (let j = 1; j < s.length; j++) assert.notEqual(s[j], s[j - 1]);
+  }
+  assert.equal(starts.size, 4, "every chord should be able to start a progression");
+  assert.equal(seqs.size, 108, "4 starts x 3 x 3 x 3 distinct sequences");
+  // and the home-anchored form is still the default everywhere else
+  const anchored = new Set();
+  for (let i = 0; i < 300; i++) anchored.add(randomProgression(4, pool, "I")[0]);
+  assert.deepEqual([...anchored], ["I"]);
+});
+
 test("weighted draws stay legal and make 7dim rare without banning it", () => {
   let dim = 0, slots = 0, seen = new Set();
   for (let i = 0; i < 4000; i++) {

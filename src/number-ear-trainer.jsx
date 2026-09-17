@@ -44,7 +44,6 @@ import {
   chordNumber,
   ALL_CHORDS,
   chordByRoman,
-  FOUR,
   FOUR_MINOR,
   chordRamp,
   CHORD_LEVELS,
@@ -3581,9 +3580,10 @@ export default function NumberEarTrainer() {
       chordSevenths,
       levelsByMode: { melody: MELODY_LEVELS, chords: CHORD_LEVELS, progressions: PROG_LEVELS },
     });
-    // Progression duel: use the 4-chord family (I·IV·V·vi / vi·ii·iii·IV) instead of the
-    // all-7-triads capstone pool — keeps it to "4 buttons" and beatable.
-    const lvl = stage.mode === "progressions" ? { ...lvl0, pool: stage.gi === 1 ? FOUR_MINOR : FOUR } : lvl0;
+    // Every region's capstone now stays inside the four chords its chapter taught, so the
+    // duel inherits a 4-button pool with no override needed (it used to have to undo an
+    // all-7-triads capstone here, and the chord duels never got that fix at all).
+    const lvl = lvl0;
     setMode(stage.mode); setLevelIdx(li); setSessLvl(lvl);
     if (stage.mode === "melody") setMelGroup(groupIndexOf(li));
     if (stage.mode === "chords") setChordChapter(chordChapterIndexOf(li));

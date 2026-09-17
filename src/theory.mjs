@@ -231,7 +231,11 @@ export function chordRamp(chapter, mode, intro, four) {
     { ...cap, name: "The big four", desc: mode === "minor" ? "6- · 2- · 3- · 4" : "1 · 4 · 5D · 6-", pool: four, keyMode: "fixed" },
     { ...cap, name: "New key", desc: "the big four · a new key", pool: four, keyMode: "not-c" },
     { ...cap, name: "Every key", desc: "the big four · new key each Q", pool: four, keyMode: "random" },
-    { ...cap, name: "Advanced · all seven", desc: "every diatonic triad · mastery", pool: ALL_CHORDS, keyMode: "fixed", qCount: FINAL_LEN },
+    // The capstone stays inside the four chords the chapter actually taught — a
+    // long run in every key, not a surprise jump to all seven. (All seven has its
+    // own chapter now.) Replaces the old "Advanced · all seven" IN PLACE, so every
+    // level idx, and every saved clear, is undisturbed.
+    { ...cap, name: "Mastery · the big four", desc: "the big four · every key · a long run", pool: four, keyMode: "random", qCount: FINAL_LEN },
   ];
 }
 // The two big-four chapters between them teach six of the seven diatonic chords
@@ -335,8 +339,10 @@ const weightedPick = (pool, weights) => {
   return pool[pool.length - 1];
 };
 
+// home = the chord every sequence starts on; pass null to let it start anywhere,
+// which is what opens up the rotations.
 export function randomProgression(len, pool, home, weights) {
-  const seq = [home];
+  const seq = [home || weightedPick(pool, weights)];
   while (seq.length < len) {
     let c;
     do { c = weightedPick(pool, weights); } while (c === seq[seq.length - 1]);
@@ -351,7 +357,7 @@ export function pickProgression(lvl, avoid) {
     do { p = set[Math.floor(Math.random() * set.length)]; } while (set.length > 1 && avoid && p.join() === avoid.join());
     return p;
   }
-  return randomProgression(lvl.len, lvl.pool, lvl.home, lvl.weights);
+  return randomProgression(lvl.len, lvl.pool, lvl.anyStart ? null : lvl.home, lvl.weights);
 }
 export function progRamp(chapter, mode, pool, home) {
   const cap = { chapter, mode, home };
@@ -361,7 +367,11 @@ export function progRamp(chapter, mode, pool, home) {
     { ...cap, name: "Four-chord classics",  desc: "the common ones", len: 4, gen: "curated", pool, keyMode: "fixed" },
     { ...cap, name: "Any order",            desc: "random · 4",      len: 4, gen: "random",  pool, keyMode: "fixed" },
     { ...cap, name: "Every key",            desc: "random · new key each Q", len: 4, gen: "random", pool, keyMode: "random" },
-    { ...cap, name: "Advanced · all seven", desc: "every triad · random 4 · mastery", len: 4, gen: "random", pool: ALL_CHORDS, keyMode: "fixed", qCount: FINAL_LEN },
+    // Same idea, and the widest possible net inside those four chords: anyStart
+    // drops the always-begin-on-home rule, so the loop can be entered anywhere
+    // (1645 or 4516 or 5164). That alone takes the reachable four-chord sequences
+    // from 27 to 108 — the rotations are the point, not an accident.
+    { ...cap, name: "Mastery · the big four", desc: "every combination · any starting chord · every key", len: 4, gen: "random", pool, keyMode: "random", anyStart: true, qCount: FINAL_LEN },
   ];
 }
 // Same journey as allSevenChordRamp, one rung up: now you name the chords in time,
