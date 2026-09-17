@@ -157,7 +157,7 @@ test("each big-four chapter ends inside its own four chords, not on all seven", 
   for (const chapters of [CHORD_CHAPTERS, PROG_CHAPTERS]) {
     for (const c of chapters.filter((x) => x.name !== "All seven")) {
       const last = c.levels[c.levels.length - 1];
-      assert.equal(last.name, "Mastery · the big four", c.name);
+      assert.equal(last.name, "Mastery · the big four · " + last.mode, c.name);
       assert.equal(last.pool.length, 4, `${c.name} capstone must stay in the taught pool`);
       assert.equal(last.keyMode, "random");
       assert.equal(last.qCount, 30);

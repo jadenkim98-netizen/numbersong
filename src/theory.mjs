@@ -235,7 +235,7 @@ export function chordRamp(chapter, mode, intro, four) {
     // long run in every key, not a surprise jump to all seven. (All seven has its
     // own chapter now.) Replaces the old "Advanced · all seven" IN PLACE, so every
     // level idx, and every saved clear, is undisturbed.
-    { ...cap, name: "Mastery · the big four", desc: "the big four · every key · a long run", pool: four, keyMode: "random", qCount: FINAL_LEN },
+    { ...cap, name: "Mastery · the big four · " + mode, desc: "the big four · every key · a long run", pool: four, keyMode: "random", qCount: FINAL_LEN },
   ];
 }
 // The two big-four chapters between them teach six of the seven diatonic chords
@@ -371,7 +371,7 @@ export function progRamp(chapter, mode, pool, home) {
     // drops the always-begin-on-home rule, so the loop can be entered anywhere
     // (1645 or 4516 or 5164). That alone takes the reachable four-chord sequences
     // from 27 to 108 — the rotations are the point, not an accident.
-    { ...cap, name: "Mastery · the big four", desc: "every combination · any starting chord · every key", len: 4, gen: "random", pool, keyMode: "random", anyStart: true, qCount: FINAL_LEN },
+    { ...cap, name: "Mastery · the big four · " + mode, desc: "every combination · any starting chord · every key", len: 4, gen: "random", pool, keyMode: "random", anyStart: true, qCount: FINAL_LEN },
   ];
 }
 // Same journey as allSevenChordRamp, one rung up: now you name the chords in time,
