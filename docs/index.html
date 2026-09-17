@@ -1191,6 +1191,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   border-radius: 50%;
 }
 .stack-note.on { border: 2px solid var(--blue); color: var(--blue); }
+.stack-note.alt { font-size: 0.72rem; letter-spacing: -0.5px; } /* "♯5" is two glyphs in a 30px circle */
 .stack-label {
   font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; color: var(--text);
   border-top: 2px solid var(--line); padding-top: 6px; margin-top: 2px; min-width: 34px; text-align: center;
@@ -3003,7 +3004,7 @@ window.SOUNDTRACK = SOUNDTRACK;
 (() => {
   // src/theory.mjs
   var KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
-  var DEGREE_SEMITONES = { 1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9, 7: 11, 8: 12, 9: 14 };
+  var DEGREE_SEMITONES = { 1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9, 7: 11, 8: 12, 9: 14, "♯5": 8 };
   var SOLFEGE = { 1: "do", 2: "re", 3: "mi", 4: "fa", 5: "sol", 6: "la", 7: "ti", 8: "do" };
   var NUMBER_WORDS = { 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "one" };
   var degreeLabel = (d) => d === 8 ? "1" : String(d);
@@ -3046,6 +3047,9 @@ window.SOUNDTRACK = SOUNDTRACK;
     { roman: "V", name: "dominant", tones: [5, 7, 2] },
     { roman: "vi", name: "submediant", tones: [6, 1, 3] },
     { roman: "vii°", name: "leading", tones: [7, 2, 4] }
+  ];
+  var ALTERED_CHORDS = [
+    { roman: "III7", name: "five of six", tones: [3, "♯5", 7, 2], fixed: true }
   ];
   var DEGREE_QUIPS = {
     1: "Like we never left home.",
@@ -3106,7 +3110,8 @@ window.SOUNDTRACK = SOUNDTRACK;
     IV: "Same as the 1 chord, but includes notes 4 and 6 — plus the home note 1, hiding in plain sight.",
     V: "7 and 2 both pull hard toward 1. Maximum tension.",
     vi: "Contains the tonic (1) and mediant (3) — home's shadow.",
-    "vii°": "No rest anywhere: 7, 2 and 4 all demand resolution."
+    "vii°": "No rest anywhere: 7, 2 and 4 all demand resolution.",
+    III7: "The 3 chord with a raised 5 — and that ♯5 is 6's leading tone, so the whole chord leans toward 6-."
   };
   var SESSION_LEN = 20;
   var FINAL_LEN = 30;
@@ -3169,7 +3174,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     } while (exclude.includes(k));
     return k;
   }
-  var chordTones = (chord, sevenths) => sevenths ? [...chord.tones, (chord.tones[0] - 1 + 6) % 7 + 1] : chord.tones;
+  var chordTones = (chord, sevenths) => sevenths && !chord.fixed ? [...chord.tones, (chord.tones[0] - 1 + 6) % 7 + 1] : chord.tones;
   var CHORD_QUALITY = {
     I: { tri: "major", sev: "major 7th" },
     ii: { tri: "minor", sev: "minor 7th" },
@@ -3177,16 +3182,17 @@ window.SOUNDTRACK = SOUNDTRACK;
     IV: { tri: "major", sev: "major 7th" },
     V: { tri: "major", sev: "dominant 7th" },
     vi: { tri: "minor", sev: "minor 7th" },
-    "vii°": { tri: "diminished", sev: "half-diminished 7th" }
+    "vii°": { tri: "diminished", sev: "half-diminished 7th" },
+    III7: { tri: "dominant 7th", sev: "dominant 7th" }
   };
-  var SEVENTH_SYMBOL = { I: "Imaj7", ii: "ii7", iii: "iii7", IV: "IVmaj7", V: "V7", vi: "vi7", "vii°": "viiø7" };
+  var SEVENTH_SYMBOL = { I: "Imaj7", ii: "ii7", iii: "iii7", IV: "IVmaj7", V: "V7", vi: "vi7", "vii°": "viiø7", III7: "III7" };
   var chordSymbol = (roman, sevenths) => sevenths ? SEVENTH_SYMBOL[roman] : roman;
   var chordQuality = (roman, sevenths) => CHORD_QUALITY[roman][sevenths ? "sev" : "tri"];
-  var CHORD_NUMBER = { I: "1", ii: "2-", iii: "3-", IV: "4", V: "5D", vi: "6-", "vii°": "7dim" };
-  var CHORD_NUMBER_7 = { I: "1maj7", ii: "2-7", iii: "3-7", IV: "4maj7", V: "5D7", vi: "6-7", "vii°": "7-7b5" };
+  var CHORD_NUMBER = { I: "1", ii: "2-", iii: "3-", IV: "4", V: "5D", vi: "6-", "vii°": "7dim", III7: "3D" };
+  var CHORD_NUMBER_7 = { I: "1maj7", ii: "2-7", iii: "3-7", IV: "4maj7", V: "5D7", vi: "6-7", "vii°": "7-7b5", III7: "3D" };
   var chordNumber = (roman, sevenths) => (sevenths ? CHORD_NUMBER_7 : CHORD_NUMBER)[roman];
   var ALL_CHORDS = CHORDS.map((c) => c.roman);
-  var chordByRoman = (r) => CHORDS.find((c) => c.roman === r);
+  var chordByRoman = (r) => CHORDS.find((c) => c.roman === r) || ALTERED_CHORDS.find((c) => c.roman === r);
   var FOUR = ["I", "IV", "V", "vi"];
   var FOUR_MINOR = ["vi", "ii", "iii", "IV"];
   function chordRamp(chapter, mode, intro, four) {
@@ -3345,10 +3351,45 @@ window.SOUNDTRACK = SOUNDTRACK;
       { ...cap, name: "Every key", desc: "random · new key each Q", len: 4, gen: "random", keyMode: "random", weights: PROG_WEIGHTS, qCount: FINAL_LEN }
     ];
   }
+  var POOL_3D = ["I", "ii", "iii", "IV", "V", "vi", "III7"];
+  var WEIGHTS_3D = { I: 4, ii: 3, iii: 4, IV: 4, V: 4, vi: 4, III7: 5 };
+  var CURATED_3D = {
+    2: [["III7", "vi"], ["iii", "vi"], ["I", "III7"], ["I", "iii"], ["III7", "IV"], ["vi", "III7"]],
+    3: [["I", "III7", "vi"], ["I", "iii", "vi"], ["III7", "vi", "ii"], ["I", "III7", "IV"], ["ii", "III7", "vi"], ["vi", "III7", "IV"]],
+    4: [
+      ["III7", "vi", "ii", "V"],
+      // 3D 6 2 5 — the ragtime turnaround
+      ["iii", "vi", "ii", "V"],
+      // 3  6 2 5 — its diatonic twin
+      ["I", "III7", "vi", "IV"],
+      // 1 3D 6 4
+      ["I", "iii", "vi", "IV"],
+      // 1 3  6 4 — twin
+      ["IV", "V", "III7", "vi"],
+      // 4 5 3D 6 — the Royal Road, sharpened
+      ["IV", "V", "iii", "vi"],
+      // 4 5 3  6 — twin
+      ["I", "III7", "IV", "V"],
+      // 1 3D 4 5 — 3D that doesn't go to 6
+      ["I", "vi", "III7", "IV"]
+    ]
+  };
+  function threeDeeProgRamp(chapter, mode, home) {
+    const cap = { chapter, mode, home, pool: POOL_3D };
+    return [
+      { ...cap, name: "Meet 3D", desc: "pairs · 3- against 3D", len: 2, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
+      { ...cap, name: "Three-chord", desc: "threes · where 3D leads", len: 3, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
+      { ...cap, name: "Four-chord classics", desc: "the same songs, sharpened", len: 4, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
+      { ...cap, name: "Any order", desc: "random · 4", len: 4, gen: "random", keyMode: "fixed", weights: WEIGHTS_3D },
+      { ...cap, name: "New key", desc: "random · 4 · a new key", len: 4, gen: "random", keyMode: "not-c", weights: WEIGHTS_3D },
+      { ...cap, name: "Mastery · 3D", desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_3D, anyStart: true, qCount: FINAL_LEN }
+    ];
+  }
   var PROG_LEVELS = [
     ...progRamp("Major · 1 4 5 6", "major", FOUR, "I"),
     ...progRamp("Minor · 6 2 3 4", "minor", FOUR_MINOR, "vi"),
-    ...allSevenProgRamp("All seven", "major", "I")
+    ...allSevenProgRamp("All seven", "major", "I"),
+    ...threeDeeProgRamp("3D · five of six", "major", "I")
   ];
   var PROG_CHAPTERS = PROG_LEVELS.reduce((chs, lvl, idx) => {
     let c = chs.find((x) => x.name === lvl.chapter);
@@ -3386,6 +3427,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       "Chromatic · major": "Add the five color notes between the scale steps (♭2 ♭3 ♯4 ♭6 ♭7) — hearing all twelve notes of the major key.",
       "Chromatic · minor": "All twelve notes around a minor home (6) — the color notes in the minor world."
     }[name] || "";
+    if (name.startsWith("3D")) return "Meet 3D — the 3 chord turned dominant, the five-chord of 6. Its ♯5 is a note from outside the key, and it points at where the music is going. Most levels here are a progression you already know with one chord swapped, so the job is hearing which.";
     if (name.startsWith("All seven")) return mode === "chords" ? "The whole key, chord by chord. The big four left one chord unmet — 7dim — and it hides behind 5D, so you meet it alone, then beside 5D, before all seven open up." : "Name every diatonic chord in order, including the two the big four skipped. Hear where 7dim leads, and how 2- and 3- fill in the walks between the big chords.";
     if (mode === "chords") return name.startsWith("Major") ? "Hear a chord and pick out its notes as numbers. Master the four workhorse chords of a major key: 1, 4, 5D and 6-." : "Pick out chord notes centered on a minor home — the four chords 6-, 2-, 3- and 4.";
     return name.startsWith("Major") ? "Hear two-to-four chords in a row and name each in order — the 1-4-5-6 family behind most songs." : "Follow minor progressions from the 6-2-3-4 family and name each chord in order.";
@@ -5618,8 +5660,13 @@ window.SOUNDTRACK = SOUNDTRACK;
   }
   function ProgStack({ roman, tonic, active, wrong }) {
     const tones = roman ? chordByRoman(roman).tones : [];
-    const on = new Set(tones.map((d) => d === 8 ? 1 : d));
-    return /* @__PURE__ */ React.createElement("div", { className: "stack prog-stack" + (roman ? " filled" : "") + (active ? " active" : "") + (wrong ? " wrong" : "") }, [7, 6, 5, 4, 3, 2, 1].map((d) => /* @__PURE__ */ React.createElement("span", { key: d, className: "stack-note" + (on.has(d) ? " on" : "") + (d === tonic ? " home" : "") }, d)), /* @__PURE__ */ React.createElement("span", { className: "stack-label" }, roman ? chordNumber(roman, false) : "?"));
+    const on = /* @__PURE__ */ new Map();
+    for (const t of tones) {
+      const s = String(t);
+      const alt = /^[♯♭]/.test(s);
+      on.set(alt ? Number(s.slice(1)) : t === 8 ? 1 : t, alt ? s : null);
+    }
+    return /* @__PURE__ */ React.createElement("div", { className: "stack prog-stack" + (roman ? " filled" : "") + (active ? " active" : "") + (wrong ? " wrong" : "") }, [7, 6, 5, 4, 3, 2, 1].map((d) => /* @__PURE__ */ React.createElement("span", { key: d, className: "stack-note" + (on.has(d) ? " on" : "") + (on.get(d) ? " alt" : "") + (d === tonic ? " home" : "") }, on.get(d) || d)), /* @__PURE__ */ React.createElement("span", { className: "stack-label" }, roman ? chordNumber(roman, false) : "?"));
   }
   function PathColumn({ roman, col, current, lit, onDown, onUp, sevenths }) {
     const tones = new Set(chordTones(chordByRoman(roman), sevenths).map((d) => d === 8 ? 1 : d));
@@ -9126,7 +9173,9 @@ window.SOUNDTRACK = SOUNDTRACK;
       const chordMinor = mode === "chords" && lvl.mode === "minor";
       const degToPc = (d) => DEGREE_TO_PC[(d - 1) % 7 + 1];
       const chordFb = mode === "chords" ? { picked: chPicked.map(degToPc), wrong: litWrong.map(degToPc), reveal: litCorrect.map(degToPc) } : null;
-      const progRootMap = mode === "progressions" ? Object.fromEntries(lvl.pool.map((r) => [chordTones(chordByRoman(r), false)[0], r])) : null;
+      const progRoots = mode === "progressions" ? lvl.pool.map((r) => chordTones(chordByRoman(r), false)[0]) : null;
+      const progRootAmbiguous = progRoots ? new Set(progRoots).size !== progRoots.length : false;
+      const progRootMap = progRoots && !progRootAmbiguous ? Object.fromEntries(progRoots.map((d, i) => [d, lvl.pool[i]])) : null;
       const displayKey = lvl.mode === "minor" ? `${KEYS[mod12(KEYS.indexOf(sessKey) + 9)]} minor` : `${sessKey} major`;
       const diaOrder = isMinor ? [6, 7, 1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, 6, 7];
       const chromOrder = ALL12.map((i) => mod12(tonicPc + i));
@@ -9411,7 +9460,7 @@ window.SOUNDTRACK = SOUNDTRACK;
             active: revealing && progActive === i
           }
         );
-      })), /* @__PURE__ */ React.createElement("div", { className: "prog-right" }, instrument === "guitar" ? (() => {
+      })), /* @__PURE__ */ React.createElement("div", { className: "prog-right" }, instrument === "guitar" && !progRootAmbiguous ? (() => {
         const gm = lvl.mode === "minor" ? "minor" : "major";
         const pickRoot = (c) => {
           if (!c.inKey || phase !== "answer" || busy || progAnswer.length >= lvl.len) return;
@@ -11088,6 +11137,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   border-radius: 50%;
 }
 .stack-note.on { border: 2px solid var(--blue); color: var(--blue); }
+.stack-note.alt { font-size: 0.72rem; letter-spacing: -0.5px; } /* "♯5" is two glyphs in a 30px circle */
 .stack-label {
   font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; color: var(--text);
   border-top: 2px solid var(--line); padding-top: 6px; margin-top: 2px; min-width: 34px; text-align: center;

@@ -1487,11 +1487,19 @@ function SessionStack({ picked, correct, wrong, label }) {
 // circled, labelled with its number notation — so the voice movement is visible.
 function ProgStack({ roman, tonic, active, wrong }) {
   const tones = roman ? chordByRoman(roman).tones : [];
-  const on = new Set(tones.map((d) => (d === 8 ? 1 : d)));
+  // A chord can carry an altered tone ("♯5"), which sits on its own degree's row and
+  // shows the accidental — otherwise 3D would light 3·7·2 and quietly hide the one
+  // note that makes it 3D rather than 3-.
+  const on = new Map();
+  for (const t of tones) {
+    const s = String(t);
+    const alt = /^[♯♭]/.test(s);
+    on.set(alt ? Number(s.slice(1)) : (t === 8 ? 1 : t), alt ? s : null);
+  }
   return (
     <div className={"stack prog-stack" + (roman ? " filled" : "") + (active ? " active" : "") + (wrong ? " wrong" : "")}>
       {[7, 6, 5, 4, 3, 2, 1].map((d) => (
-        <span key={d} className={"stack-note" + (on.has(d) ? " on" : "") + (d === tonic ? " home" : "")}>{d}</span>
+        <span key={d} className={"stack-note" + (on.has(d) ? " on" : "") + (on.get(d) ? " alt" : "") + (d === tonic ? " home" : "")}>{on.get(d) || d}</span>
       ))}
       <span className="stack-label">{roman ? chordNumber(roman, false) : "?"}</span>
     </div>
@@ -5024,8 +5032,13 @@ export default function NumberEarTrainer() {
     const chordFb = mode === "chords" ? { picked: chPicked.map(degToPc), wrong: litWrong.map(degToPc), reveal: litCorrect.map(degToPc) } : null;
     // Progressions on guitar: each pool chord's ROOT degree (= its number) names it. Map a tapped
     // root degree → its roman, so tapping the chord's number on the neck fills the next slot.
-    const progRootMap = mode === "progressions"
-      ? Object.fromEntries(lvl.pool.map((r) => [chordTones(chordByRoman(r), false)[0], r]))
+    const progRoots = mode === "progressions" ? lvl.pool.map((r) => chordTones(chordByRoman(r), false)[0]) : null;
+    // Two chords in the pool can share a root (3- and 3D are both rooted on 3), and a
+    // tapped root can't tell them apart — which is the very thing that pool teaches. So
+    // an ambiguous pool answers on the numpad even when the player is in guitar mode.
+    const progRootAmbiguous = progRoots ? new Set(progRoots).size !== progRoots.length : false;
+    const progRootMap = progRoots && !progRootAmbiguous
+      ? Object.fromEntries(progRoots.map((d, i) => [d, lvl.pool[i]]))
       : null;
     const displayKey = lvl.mode === "minor" ? `${KEYS[mod12(KEYS.indexOf(sessKey) + 9)]} minor` : `${sessKey} major`;
     // pads climb from home: minor starts on 6, major on 1 (matches the tonal map)
@@ -5416,7 +5429,7 @@ export default function NumberEarTrainer() {
                 })}
               </div>
               <div className="prog-right">
-              {instrument === "guitar" ? (() => {
+              {instrument === "guitar" && !progRootAmbiguous ? (() => {
                 const gm = lvl.mode === "minor" ? "minor" : "major";
                 const pickRoot = (c) => {
                   if (!c.inKey || phase !== "answer" || busy || progAnswer.length >= lvl.len) return;
@@ -7267,6 +7280,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   border-radius: 50%;
 }
 .stack-note.on { border: 2px solid var(--blue); color: var(--blue); }
+.stack-note.alt { font-size: 0.72rem; letter-spacing: -0.5px; } /* "♯5" is two glyphs in a 30px circle */
 .stack-label {
   font-family: 'Archivo Black', sans-serif; font-size: 1.05rem; color: var(--text);
   border-top: 2px solid var(--line); padding-top: 6px; margin-top: 2px; min-width: 34px; text-align: center;

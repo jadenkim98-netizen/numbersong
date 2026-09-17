@@ -7,6 +7,7 @@ import {
   chordNumber, chordSymbol, chordQuality, buildGroup, MELODY_LEVELS,
   CHORD_LEVELS, PROG_LEVELS, levelsFor, randKey, randomProgression, KEYS,
   CURATED_7, pickProgression, CHORD_CHAPTERS, PROG_CHAPTERS, PROG_WEIGHTS, ALL_CHORDS,
+  CURATED_3D, POOL_3D, WEIGHTS_3D, DEGREE_SEMITONES,
 } from "../src/theory.mjs";
 
 test("degreeLabel: the upper octave shows as 1, never 8", () => {
@@ -106,6 +107,7 @@ test("all-seven chapters are appended, never inserted (level idx is the saved-pr
     ["Major · 1 4 5 6", 0, 6],
     ["Minor · 6 2 3 4", 6, 6],
     ["All seven", 12, 6],
+    ["3D · five of six", 18, 6],
   ]);
 });
 
@@ -155,7 +157,7 @@ test("the all-seven progression chapter mirrors progRamp's six rungs", () => {
 
 test("each big-four chapter ends inside its own four chords, not on all seven", () => {
   for (const chapters of [CHORD_CHAPTERS, PROG_CHAPTERS]) {
-    for (const c of chapters.filter((x) => x.name !== "All seven")) {
+    for (const c of chapters.filter((x) => /^(Major|Minor) ·/.test(x.name))) {
       const last = c.levels[c.levels.length - 1];
       assert.equal(last.name, "Mastery · the big four · " + last.mode, c.name);
       assert.equal(last.pool.length, 4, `${c.name} capstone must stay in the taught pool`);
@@ -211,4 +213,45 @@ test("pickProgression honours a level's own curated set", () => {
     const p = pickProgression(lvl, null);
     assert.ok(CURATED_7[3].some((s) => s.join() === p.join()), p.join());
   }
+});
+
+test("3D plays as a real dominant on the 3 (and the sevenths toggle can't restack it)", () => {
+  const c = chordByRoman("III7");
+  assert.deepEqual(c.tones, [3, "♯5", 7, 2]);
+  // every playback path does DEGREE_SEMITONES[tone] — so all four must resolve
+  const semis = c.tones.map((t) => DEGREE_SEMITONES[t]);
+  assert.deepEqual(semis, [4, 8, 11, 2], "in C: E G# B D");
+  assert.deepEqual(chordTones(c, true), c.tones, "already a 7th chord — don't stack another");
+  assert.equal(chordNumber("III7", false), "3D");
+  assert.equal(chordNumber("III7", true), "3D");
+});
+
+test("3D stays out of the diatonic tables it would corrupt", () => {
+  assert.equal(ALL_CHORDS.length, 7, "the ear log's roster of seven must stay seven");
+  assert.ok(!ALL_CHORDS.includes("III7"));
+  assert.ok(!CURATED_7[4].flat().includes("III7"), "the All seven chapter stays diatonic");
+});
+
+test("the 3D chapter teaches by contrast: 3- and 3D share the pool and the shapes", () => {
+  const ch = PROG_CHAPTERS.find((c) => c.name.startsWith("3D"));
+  assert.equal(ch.levels.length, 6);
+  assert.ok(ch.levels.every((l) => l.pool.includes("iii") && l.pool.includes("III7")),
+    "the twin must always be answerable alongside it");
+  assert.ok(!ch.levels.some((l) => l.pool.includes("vii°")));
+  // every curated four has a twin differing only by iii <-> III7
+  const swap = (s) => s.map((c) => (c === "III7" ? "iii" : c === "iii" ? "III7" : c)).join();
+  const fours = CURATED_3D[4].map((s) => s.join());
+  const paired = CURATED_3D[4].filter((s) => fours.includes(swap(s)));
+  assert.ok(paired.length >= 6, `expected paired progressions, got ${paired.length}`);
+});
+
+test("3D is common in its own chapter, and reachable from every slot", () => {
+  let hits = 0, slots = 0;
+  for (let i = 0; i < 4000; i++) {
+    const seq = randomProgression(4, POOL_3D, null, WEIGHTS_3D);
+    seq.forEach((c) => { if (c === "III7") hits++; });
+    slots += 4;
+  }
+  const rate = hits / slots;
+  assert.ok(rate > 0.12 && rate < 0.30, `3D rate ${rate} should be prominent, not overwhelming`);
 });

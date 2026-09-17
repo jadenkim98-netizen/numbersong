@@ -4,7 +4,11 @@
 // directly under node:test (test/theory.test.mjs). Keep it dependency-free.
 
 export const KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
-export const DEGREE_SEMITONES = { 1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9, 7: 11, 8: 12, 9: 14 }; // 9 = degree 2 an octave up (audio only)
+// 9 = degree 2 an octave up (audio only). The "♯5" key is how an altered chord tone
+// rides the same lookup: a chord's `tones` may hold a string for a note outside the
+// key, and every playback path already does DEGREE_SEMITONES[tone], so nothing else
+// has to know about it.
+export const DEGREE_SEMITONES = { 1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9, 7: 11, 8: 12, 9: 14, "♯5": 8 };
 export const SOLFEGE = { 1: "do", 2: "re", 3: "mi", 4: "fa", 5: "sol", 6: "la", 7: "ti", 8: "do" };
 export const NUMBER_WORDS = { 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "one" };
 export const degreeLabel = (d) => (d === 8 ? "1" : String(d)); // octave is 1 again, never "8"
@@ -46,6 +50,15 @@ export const CHORDS = [
   { roman: "V",    name: "dominant",     tones: [5, 7, 2] },
   { roman: "vi",   name: "submediant",   tones: [6, 1, 3] },
   { roman: "vii°", name: "leading",      tones: [7, 2, 4] },
+];
+
+// Chords from OUTSIDE the key, kept in their own table so ALL_CHORDS (and the ear
+// log's fixed roster of seven) stay diatonic. `fixed` = already a four-note chord,
+// so the sevenths toggle must not stack another 7th on top of it.
+// 3D is the 3 chord turned dominant — the five-chord of 6. Its ♯5 is 6's leading
+// tone, which is exactly why the ear hears it lean toward 6-.
+export const ALTERED_CHORDS = [
+  { roman: "III7", name: "five of six", tones: [3, "♯5", 7, 2], fixed: true },
 ];
 
 // A word for each degree when you name it right
@@ -117,6 +130,7 @@ export const CHORD_INSIGHTS = {
   V:    "7 and 2 both pull hard toward 1. Maximum tension.",
   vi:   "Contains the tonic (1) and mediant (3) — home's shadow.",
   "vii°": "No rest anywhere: 7, 2 and 4 all demand resolution.",
+  III7: "The 3 chord with a raised 5 — and that ♯5 is 6's leading tone, so the whole chord leans toward 6-.",
 };
 
 /* ─────────────────────────────  LEVELS & SESSIONS  ───────────────────────────── */
@@ -195,7 +209,7 @@ export function randKey(exclude) {
 
 // A chord's degrees; with sevenths on, add the 7th (two scale steps above the 5th).
 export const chordTones = (chord, sevenths) =>
-  sevenths ? [...chord.tones, ((chord.tones[0] - 1 + 6) % 7) + 1] : chord.tones;
+  sevenths && !chord.fixed ? [...chord.tones, ((chord.tones[0] - 1 + 6) % 7) + 1] : chord.tones;
 
 // Quality names + proper symbols per diatonic chord (major key).
 export const CHORD_QUALITY = {
@@ -206,18 +220,19 @@ export const CHORD_QUALITY = {
   V:      { tri: "major",      sev: "dominant 7th" },
   vi:     { tri: "minor",      sev: "minor 7th" },
   "vii°": { tri: "diminished", sev: "half-diminished 7th" },
+  III7:   { tri: "dominant 7th", sev: "dominant 7th" },
 };
-export const SEVENTH_SYMBOL = { I: "Imaj7", ii: "ii7", iii: "iii7", IV: "IVmaj7", V: "V7", vi: "vi7", "vii°": "viiø7" };
+export const SEVENTH_SYMBOL = { I: "Imaj7", ii: "ii7", iii: "iii7", IV: "IVmaj7", V: "V7", vi: "vi7", "vii°": "viiø7", III7: "III7" };
 export const chordSymbol = (roman, sevenths) => (sevenths ? SEVENTH_SYMBOL[roman] : roman);
 export const chordQuality = (roman, sevenths) => CHORD_QUALITY[roman][sevenths ? "sev" : "tri"];
 
 // Number notation (the method): major = plain number, minor = number-, dim = 7dim.
-export const CHORD_NUMBER   = { I: "1", ii: "2-", iii: "3-", IV: "4", V: "5D", vi: "6-", "vii°": "7dim" };
-export const CHORD_NUMBER_7 = { I: "1maj7", ii: "2-7", iii: "3-7", IV: "4maj7", V: "5D7", vi: "6-7", "vii°": "7-7b5" };
+export const CHORD_NUMBER   = { I: "1", ii: "2-", iii: "3-", IV: "4", V: "5D", vi: "6-", "vii°": "7dim", III7: "3D" };
+export const CHORD_NUMBER_7 = { I: "1maj7", ii: "2-7", iii: "3-7", IV: "4maj7", V: "5D7", vi: "6-7", "vii°": "7-7b5", III7: "3D" };
 export const chordNumber = (roman, sevenths) => (sevenths ? CHORD_NUMBER_7 : CHORD_NUMBER)[roman];
 
 export const ALL_CHORDS = CHORDS.map((c) => c.roman);
-export const chordByRoman = (r) => CHORDS.find((c) => c.roman === r);
+export const chordByRoman = (r) => CHORDS.find((c) => c.roman === r) || ALTERED_CHORDS.find((c) => c.roman === r);
 export const FOUR = ["I", "IV", "V", "vi"];          // the 1-4-5-6 core (major)
 export const FOUR_MINOR = ["vi", "ii", "iii", "IV"]; // the 6-2-3-4 core (la-based minor: i·iv·v·VI)
 
@@ -389,10 +404,52 @@ export function allSevenProgRamp(chapter, mode, home) {
   ];
 }
 
+/* ── 3D: the 3 chord turned dominant ── */
+// Pool = the six chords songs actually lean on, plus 3D. 7dim is left out on
+// purpose: it's rare, it's already taught in All seven, and every button here
+// should earn its place. 3- stays in, because it's the whole lesson — 3- and 3D
+// share a root and a slot, and differ by one note (5 → ♯5).
+export const POOL_3D = ["I", "ii", "iii", "IV", "V", "vi", "III7"];
+// 3D is the subject of the chapter, so it's common here rather than rare; 3- is
+// boosted too, so the contrast keeps coming back around.
+export const WEIGHTS_3D = { I: 4, ii: 3, iii: 4, IV: 4, V: 4, vi: 4, III7: 5 };
+
+// Deliberately paired: most of these are a progression the player already knows
+// with exactly one chord swapped, so the drill is "which one did I just hear",
+// not "what is this strange chord". 3D usually goes to 6-, but not always —
+// 3D → 4 is real and stays in.
+export const CURATED_3D = {
+  2: [["III7", "vi"], ["iii", "vi"], ["I", "III7"], ["I", "iii"], ["III7", "IV"], ["vi", "III7"]],
+  3: [["I", "III7", "vi"], ["I", "iii", "vi"], ["III7", "vi", "ii"], ["I", "III7", "IV"], ["ii", "III7", "vi"], ["vi", "III7", "IV"]],
+  4: [
+    ["III7", "vi", "ii", "V"], // 3D 6 2 5 — the ragtime turnaround
+    ["iii", "vi", "ii", "V"],  // 3  6 2 5 — its diatonic twin
+    ["I", "III7", "vi", "IV"], // 1 3D 6 4
+    ["I", "iii", "vi", "IV"],  // 1 3  6 4 — twin
+    ["IV", "V", "III7", "vi"], // 4 5 3D 6 — the Royal Road, sharpened
+    ["IV", "V", "iii", "vi"],  // 4 5 3  6 — twin
+    ["I", "III7", "IV", "V"],  // 1 3D 4 5 — 3D that doesn't go to 6
+    ["I", "vi", "III7", "IV"],
+  ],
+};
+
+export function threeDeeProgRamp(chapter, mode, home) {
+  const cap = { chapter, mode, home, pool: POOL_3D };
+  return [
+    { ...cap, name: "Meet 3D",             desc: "pairs · 3- against 3D",      len: 2, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
+    { ...cap, name: "Three-chord",         desc: "threes · where 3D leads",    len: 3, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
+    { ...cap, name: "Four-chord classics", desc: "the same songs, sharpened",  len: 4, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
+    { ...cap, name: "Any order",           desc: "random · 4",                 len: 4, gen: "random", keyMode: "fixed",  weights: WEIGHTS_3D },
+    { ...cap, name: "New key",             desc: "random · 4 · a new key",     len: 4, gen: "random", keyMode: "not-c",  weights: WEIGHTS_3D },
+    { ...cap, name: "Mastery · 3D",        desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_3D, anyStart: true, qCount: FINAL_LEN },
+  ];
+}
+
 export const PROG_LEVELS = [
   ...progRamp("Major · 1 4 5 6", "major", FOUR, "I"),
   ...progRamp("Minor · 6 2 3 4", "minor", FOUR_MINOR, "vi"),
   ...allSevenProgRamp("All seven", "major", "I"),
+  ...threeDeeProgRamp("3D · five of six", "major", "I"),
 ];
 export const PROG_CHAPTERS = PROG_LEVELS.reduce((chs, lvl, idx) => {
   let c = chs.find((x) => x.name === lvl.chapter);
@@ -425,6 +482,7 @@ export function stageGoal(mode, name) {
     "Chromatic · major": "Add the five color notes between the scale steps (♭2 ♭3 ♯4 ♭6 ♭7) — hearing all twelve notes of the major key.",
     "Chromatic · minor": "All twelve notes around a minor home (6) — the color notes in the minor world.",
   })[name] || "";
+  if (name.startsWith("3D")) return "Meet 3D — the 3 chord turned dominant, the five-chord of 6. Its ♯5 is a note from outside the key, and it points at where the music is going. Most levels here are a progression you already know with one chord swapped, so the job is hearing which.";
   if (name.startsWith("All seven")) return mode === "chords"
     ? "The whole key, chord by chord. The big four left one chord unmet — 7dim — and it hides behind 5D, so you meet it alone, then beside 5D, before all seven open up."
     : "Name every diatonic chord in order, including the two the big four skipped. Hear where 7dim leads, and how 2- and 3- fill in the walks between the big chords.";
