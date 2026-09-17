@@ -419,10 +419,7 @@ export function pickProgression(lvl, avoid) {
   return randomProgression(lvl.len, lvl.pool, lvl.anyStart ? null : lvl.home, lvl.weights);
 }
 export function progRamp(chapter, mode, pool, home) {
-  // Trial: the big-four chapters comp with voice-led upper voices instead of root-position
-  // blocks. Bass stays the root. If this reads as too hard in the opening rungs, move it
-  // onto the later levels only rather than turning it off.
-  const cap = { chapter, mode, home, voicing: "smooth" };
+  const cap = { chapter, mode, home };
   return [
     { ...cap, name: "Two-chord moves",      desc: "pairs",           len: 2, gen: "curated", pool, keyMode: "fixed" },
     { ...cap, name: "Three-chord",          desc: "threes",          len: 3, gen: "curated", pool, keyMode: "fixed" },

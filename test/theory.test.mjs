@@ -303,12 +303,8 @@ test("voiceLead stays in register over a long progression (no runaway climb)", (
     `drifted to ${Math.min(...all)}..${Math.max(...all)}`);
 });
 
-test("the big-four progression chapters comp with voice-led chords", () => {
-  for (const c of PROG_CHAPTERS.filter((x) => /^(Major|Minor) ·/.test(x.name))) {
-    assert.ok(c.levels.every((l) => l.voicing === "smooth"), c.name);
-  }
-  // the newer chapters are untouched by this trial
-  for (const c of PROG_CHAPTERS.filter((x) => !/^(Major|Minor) ·/.test(x.name))) {
-    assert.ok(c.levels.every((l) => l.voicing === undefined), c.name);
-  }
+test("voicing is not a level setting — every progression comps the same way", () => {
+  // Voice leading is always on: it can't change which chord you hear (the root is
+  // doubled in the bass), so there's nothing to ramp and no per-level flag.
+  for (const lvl of PROG_LEVELS) assert.equal(lvl.voicing, undefined, lvl.chapter + " / " + lvl.name);
 });

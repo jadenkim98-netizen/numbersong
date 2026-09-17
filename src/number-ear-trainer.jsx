@@ -753,25 +753,18 @@ function useAudio() {
   }, []);
 
   // Play a progression: each chord as a block, in tempo, with a bass root below.
-  const playProgression = useCallback(async (key, chordsTones, delay = 0, beat = 1.0, voicing = "block") => {
+  const playProgression = useCallback(async (key, chordsTones, delay = 0, beat = 1.0) => {
     const g = audioGenRef.current;
     await ensure();
     if (g !== audioGenRef.current) return 0; // stopAll ran during load → don't play onto a dead session
     const now = Tone.now() + delay;
     const base = Tone.Frequency(key + 4).toMidi();
-    // "smooth" comps the upper voices so they step between chords instead of leaping with
-    // the root; the bass below is the root either way, so the harmony doesn't change.
-    const voiced = voicing === "smooth"
-      ? voiceLead(chordsTones.map((tones) => tones.map((d) => DEGREE_SEMITONES[d])))
-      : null;
+    // Always voice-led: the upper voices step between chords instead of leaping with the
+    // root. It can't change which chord you hear — the root is doubled in the bass below
+    // — so there's nothing to ramp in; it just stops the comping sounding like an exercise.
+    const voiced = voiceLead(chordsTones.map((tones) => tones.map((d) => DEGREE_SEMITONES[d])));
     chordsTones.forEach((tones, i) => {
-      let lastMidi = -1;
-      const notes = voiced ? voiced[i].map((s) => Tone.Frequency(base + s, "midi").toNote()) : tones.map((d) => {
-        let midi = base + DEGREE_SEMITONES[d];
-        while (midi <= lastMidi) midi += 12;
-        lastMidi = midi;
-        return Tone.Frequency(midi, "midi").toNote();
-      });
+      const notes = voiced[i].map((s) => Tone.Frequency(base + s, "midi").toNote());
       const t = now + i * beat;
       synthRef.current.triggerAttackRelease(notes, beat * 0.92, t);
       const bass = Tone.Frequency(key + 3).toMidi() + DEGREE_SEMITONES[tones[0]];
@@ -3782,7 +3775,7 @@ export default function NumberEarTrainer() {
       s.target = prog;
       const cad = (await playCadence(s.key, lvl.mode)) + 0.35;
       if (gen !== sessGenRef.current) return; // quit during audio load → don't play/schedule on a dead session
-      const dur = await playProgression(s.key, prog.map((r) => chordByRoman(r).tones), cad, progBeat, s.lvl && s.lvl.voicing);
+      const dur = await playProgression(s.key, prog.map((r) => chordByRoman(r).tones), cad, progBeat);
       if (gen !== sessGenRef.current) return;
       sessTimer(() => { setPhase("answer"); setBusy(false); }, (cad + dur + 0.2) * 1000);
     } else if (s.mode === "melody") {
@@ -3906,7 +3899,7 @@ export default function NumberEarTrainer() {
     const s = sess.current;
     setBusy(true);
     if (s.mode === "progressions") {
-      const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat, s.lvl && s.lvl.voicing);
+      const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat);
       sessTimer(() => setBusy(false), dur * 1000);
     } else if (s.mode === "melody") {
       playSemi(s.key, s.target, 0, s.octave);
@@ -3924,7 +3917,7 @@ export default function NumberEarTrainer() {
     setBusy(true);
     if (s.mode === "progressions") {
       const cad = (await playCadence(s.key, s.lvl.mode)) + 0.35;
-      const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), cad, progBeat, s.lvl && s.lvl.voicing);
+      const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), cad, progBeat);
       sessTimer(() => setBusy(false), (cad + dur + 0.2) * 1000);
     } else if (s.mode === "melody") {
       const t = (await playCadence(s.key, s.lvl.mode)) + 0.25;
@@ -4088,7 +4081,7 @@ export default function NumberEarTrainer() {
       setSrMsg("Correct.");
       setFeedback({ prog: [...s.target] });
       setBusy(true);
-      const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat, s.lvl && s.lvl.voicing);
+      const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat);
       if (gen !== sessGenRef.current) return; // quit during the resolution → don't advance a dead session
       s.target.forEach((_, i) => sessTimer(() => setProgActive(i), i * progBeat * 1000));
       sessTimer(() => setProgActive(-1), s.target.length * progBeat * 1000);
