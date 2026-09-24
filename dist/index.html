@@ -822,11 +822,9 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .shield-mini.duel-stake-shield { width: 22px; height: 26px; }
 .shield-mini.forge-shield { width: 110px; height: 128px; gap: 3px; margin: 8px auto; }
 .shield-mini.finale-shield { width: 150px; height: 175px; gap: 4px; }
-.shield-side { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); z-index: 6; pointer-events: auto;
-  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 6px 5px; cursor: pointer;
-  background: rgba(32, 48, 46, 0.88); border: 2px solid #565D59; color: #EDF2EE; font: inherit; }
-.shield-side b { font-size: 0.7rem; letter-spacing: 1px; }
-.shield-side:focus-visible { outline: 2px solid #D9B45B; outline-offset: 2px; }
+.adv-hud-bottom .shield-chip { margin-right: auto; }
+.shield-chip-btn { background: none; border: 0; padding: 0; cursor: pointer; display: flex; }
+.shield-chip-btn:focus-visible { outline: 2px solid #D9B45B; outline-offset: 2px; }
 .map-note { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(92px + env(safe-area-inset-bottom, 0px)); z-index: 60;
   background: #20302E; color: #EDF2EE; border: 2px solid #57C6C4; padding: 9px 14px; font-size: 0.85rem; max-width: 86vw; text-align: center; }
 .gear.world-toggle { width: auto; padding: 0 9px; font-size: 0.75rem; white-space: nowrap; }
@@ -4129,7 +4127,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     // Harmonia tile ids: 9 water, 1/2 grass, 3/4 fen, 10/11 rock, 12–17 road, 18 clearing, 20 bridge
     grid: [[9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 11, 10, 11, 10, 10, 11, 9, 9, 9, 9, 9], [9, 9, 1, 16, 12, 12, 12, 18, 12, 12, 12, 20, 20, 9, 9, 9], [9, 9, 1, 18, 1, 10, 10, 10, 10, 10, 10, 3, 13, 3, 3, 9], [9, 9, 9, 20, 9, 9, 9, 9, 9, 9, 9, 3, 18, 3, 4, 9], [9, 9, 1, 13, 1, 9, 9, 9, 9, 9, 9, 4, 13, 3, 3, 9], [9, 9, 1, 18, 1, 9, 9, 9, 9, 9, 9, 3, 18, 3, 3, 9], [9, 9, 9, 20, 9, 9, 9, 9, 9, 9, 9, 3, 13, 3, 3, 9], [9, 9, 1, 13, 1, 9, 9, 9, 9, 9, 9, 3, 18, 3, 3, 9], [9, 9, 1, 18, 1, 9, 9, 9, 9, 9, 9, 3, 13, 3, 4, 9], [9, 9, 9, 20, 9, 9, 9, 9, 9, 9, 9, 3, 18, 3, 3, 9], [9, 9, 1, 13, 1, 9, 9, 9, 9, 9, 9, 3, 13, 3, 3, 9], [9, 9, 1, 18, 1, 9, 9, 9, 9, 9, 9, 3, 18, 4, 3, 9], [9, 9, 9, 20, 9, 2, 2, 18, 2, 2, 9, 3, 13, 3, 3, 9], [9, 9, 9, 20, 20, 12, 12, 14, 12, 12, 20, 20, 20, 9, 9, 9], [9, 9, 9, 9, 9, 2, 2, 13, 2, 2, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 2, 2, 18, 2, 2, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 1, 1, 13, 1, 1, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 1, 1, 18, 1, 1, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 1, 1, 13, 1, 1, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 1, 1, 18, 1, 1, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9]],
     // Where you step off the boat, and the dock that sails you home.
-    dock: { c: 7, r: 23 },
+    dock: { c: 8, r: 23 },
     // Each node plays one progression chapter (by name; see W2_CHAPTERS in worlds.mjs).
     // `section` picks the keeper who walks you through it; `greet` is that keeper's line for
     // THIS stop — about its own chord — so a section's keeper travels with you island to
@@ -6844,7 +6842,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     return /* @__PURE__ */ React.createElement("canvas", { ref, className, "aria-label": "Excalibar" });
   }
   var DOJO = { c: 2, r: 20, name: "The Dojo" };
-  var DOCKS = { 1: { c: 2, r: 11, via: 5, to: 2 }, 2: { c: 7, r: 23, via: 101, to: 1 } };
+  var DOCKS = { 1: { c: 2, r: 11, via: 5, to: 2 }, 2: { c: 8, r: 23, via: 101, to: 1 } };
   function drawDock(ctx, cx, cy, label) {
     ctx.save();
     ctx.shadowColor = "#D9B45B";
@@ -7336,9 +7334,12 @@ window.SOUNDTRACK = SOUNDTRACK;
     const have = collected.size;
     const restored = isW1 && have >= 8;
     const next = isW1 ? nodes.find((n) => !collected.has(H.stageFrag[n.id])) : null;
-    return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" + (restored ? " restored" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top", role: "navigation", "aria-label": "Map controls" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", width: "32", height: "24", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG"), restored && /* @__PURE__ */ React.createElement("em", { className: "adv-restored-tag" }, " · restored")), worldToggle && /* @__PURE__ */ React.createElement("button", { className: "gear world-toggle", onClick: worldToggle.onClick, "aria-label": "Sail to " + worldToggle.label }, "⛵ ", worldToggle.label), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear gear-settings", onClick: onSettings, "aria-label": "Settings" }, "⚙")), showOffer && /* @__PURE__ */ React.createElement("button", { className: "adv-offer-badge", onClick: onOffer, "aria-label": "Learn to really play — the full program" }, /* @__PURE__ */ React.createElement("img", { className: "adv-offer-glyph", src: typeof window !== "undefined" ? window.GUITAR_ICON : "", alt: "", "aria-hidden": "true", width: "30", height: "30" }), /* @__PURE__ */ React.createElement("span", { className: "adv-offer-label" }, "Play for real")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": isW1 ? "Harmonia world map" : "The Outer Keys map" })), celebrateNode && H.nodes.find((n) => n.id === celebrateNode) && /* @__PURE__ */ React.createElement("div", { className: "map-cleared", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "map-cleared-star" }, "★"), /* @__PURE__ */ React.createElement("span", { className: "map-cleared-text" }, H.nodes.find((n) => n.id === celebrateNode).name, /* @__PURE__ */ React.createElement("em", null, "region cleared"))), !isW1 && // The Outer Keys' shield sits as a badge on the screen's left edge (open sea on a phone),
-    // not in the bottom corner, where a phone-width chip covered the landing.
-    /* @__PURE__ */ React.createElement("button", { className: "shield-side", onClick: onForge, "aria-label": `The Colour Guard: ${(shieldHave || []).length} of 4 colours` }, /* @__PURE__ */ React.createElement(ShieldMini, { have: shieldHave || [] }), /* @__PURE__ */ React.createElement("b", null, (shieldHave || []).length, "/4")), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, isW1 && /* @__PURE__ */ React.createElement("div", { className: "adv-forge-chip" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost shop-btn", onClick: onShop, "aria-label": "Shop" }, "★"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"))));
+    return /* @__PURE__ */ React.createElement("div", { className: "adv-screen" + (restored ? " restored" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-top", role: "navigation", "aria-label": "Map controls" }, /* @__PURE__ */ React.createElement("img", { className: "adv-logo", width: "32", height: "24", src: typeof window !== "undefined" ? window.WEJAM_LOGO : "", alt: "WeJam" }), /* @__PURE__ */ React.createElement("span", { className: "adv-title" }, /* @__PURE__ */ React.createElement("span", { className: "w1" }, "NUMBER"), /* @__PURE__ */ React.createElement("span", { className: "w2" }, "SONG"), restored && /* @__PURE__ */ React.createElement("em", { className: "adv-restored-tag" }, " · restored")), worldToggle && /* @__PURE__ */ React.createElement("button", { className: "gear world-toggle", onClick: worldToggle.onClick, "aria-label": "Sail to " + worldToggle.label }, "⛵ ", worldToggle.label), /* @__PURE__ */ React.createElement("button", { className: "gear", onClick: onMenu, "aria-label": "Main menu" }, "☰"), /* @__PURE__ */ React.createElement("button", { className: "gear gear-settings", onClick: onSettings, "aria-label": "Settings" }, "⚙")), showOffer && /* @__PURE__ */ React.createElement("button", { className: "adv-offer-badge", onClick: onOffer, "aria-label": "Learn to really play — the full program" }, /* @__PURE__ */ React.createElement("img", { className: "adv-offer-glyph", src: typeof window !== "undefined" ? window.GUITAR_ICON : "", alt: "", "aria-hidden": "true", width: "30", height: "30" }), /* @__PURE__ */ React.createElement("span", { className: "adv-offer-label" }, "Play for real")), /* @__PURE__ */ React.createElement("div", { className: "adv-scroll", ref: scrollRef }, /* @__PURE__ */ React.createElement("canvas", { ref: mapRef, className: "adv-map", onClick: tapMap, role: "img", "aria-label": isW1 ? "Harmonia world map" : "The Outer Keys map" })), celebrateNode && H.nodes.find((n) => n.id === celebrateNode) && /* @__PURE__ */ React.createElement("div", { className: "map-cleared", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("span", { className: "map-cleared-star" }, "★"), /* @__PURE__ */ React.createElement("span", { className: "map-cleared-text" }, H.nodes.find((n) => n.id === celebrateNode).name, /* @__PURE__ */ React.createElement("em", null, "region cleared"))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud adv-hud-bottom" }, !isW1 ? (
+      // The bottom bar packs everything to the right, which put this chip mid-screen on a
+      // phone, right over the landing. The Outer Keys' chip is pinned to the far left
+      // instead, over open sea (.shield-chip).
+      /* @__PURE__ */ React.createElement("div", { className: "adv-forge-chip shield-chip" }, /* @__PURE__ */ React.createElement("button", { className: "shield-chip-btn", onClick: onForge, "aria-label": "View the Colour Guard" }, /* @__PURE__ */ React.createElement(ShieldMini, { have: shieldHave || [] })), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, (shieldHave || []).length, " / 4"), " colours", /* @__PURE__ */ React.createElement("span", null, (shieldHave || []).length === 4 ? "The Colour Guard is whole!" : "The Colour Guard")))
+    ) : /* @__PURE__ */ React.createElement("div", { className: "adv-forge-chip" }, /* @__PURE__ */ React.createElement("canvas", { ref: swordRef, className: "adv-sword-mini" + (burst ? " burst" : ""), onClick: onForge, role: "button", tabIndex: 0, "aria-label": "View Excalibar fragments" }), /* @__PURE__ */ React.createElement("div", { className: "adv-forge-txt" }, /* @__PURE__ */ React.createElement("b", null, have, " / 8"), " fragments", /* @__PURE__ */ React.createElement("span", null, have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""))), /* @__PURE__ */ React.createElement("div", { className: "adv-hud-actions" }, /* @__PURE__ */ React.createElement("button", { className: "ghost shop-btn", onClick: onShop, "aria-label": "Shop" }, "★"), /* @__PURE__ */ React.createElement("button", { className: "ghost", onClick: onGuide, "aria-label": "How music works" }, "📖"))));
   }
   var FRETBOARD_CSS = `
 .fretboard { display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; }
@@ -12011,11 +12012,9 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .shield-mini.duel-stake-shield { width: 22px; height: 26px; }
 .shield-mini.forge-shield { width: 110px; height: 128px; gap: 3px; margin: 8px auto; }
 .shield-mini.finale-shield { width: 150px; height: 175px; gap: 4px; }
-.shield-side { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); z-index: 6; pointer-events: auto;
-  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 6px 5px; cursor: pointer;
-  background: rgba(32, 48, 46, 0.88); border: 2px solid #565D59; color: #EDF2EE; font: inherit; }
-.shield-side b { font-size: 0.7rem; letter-spacing: 1px; }
-.shield-side:focus-visible { outline: 2px solid #D9B45B; outline-offset: 2px; }
+.adv-hud-bottom .shield-chip { margin-right: auto; }
+.shield-chip-btn { background: none; border: 0; padding: 0; cursor: pointer; display: flex; }
+.shield-chip-btn:focus-visible { outline: 2px solid #D9B45B; outline-offset: 2px; }
 .map-note { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(92px + env(safe-area-inset-bottom, 0px)); z-index: 60;
   background: #20302E; color: #EDF2EE; border: 2px solid #57C6C4; padding: 9px 14px; font-size: 0.85rem; max-width: 86vw; text-align: center; }
 .gear.world-toggle { width: auto; padding: 0 9px; font-size: 0.75rem; white-space: nowrap; }
@@ -12609,7 +12608,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   // compare this page's build stamp with the live sw.js. Away 5+ minutes → reload quietly;
   // back sooner (maybe mid-question) → offer a one-tap banner instead of yanking the page.
   (function () {
-    var BUILD = "20260924120333", hiddenAt = 0, AWAY_MS = 5 * 60 * 1000;
+    var BUILD = "20260924120936", hiddenAt = 0, AWAY_MS = 5 * 60 * 1000;
     function banner() {
       if (document.getElementById("ns-update")) return;
       var b = document.createElement("button");
