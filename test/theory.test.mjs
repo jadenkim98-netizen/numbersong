@@ -625,3 +625,20 @@ test("borrowed-chord curated sets stay inside their pools, no repeats", () => {
     }
   }
 });
+
+test("random draws move the way songs do: 2- → 5D, 6- → 4, and few vamps", () => {
+  const lvl = PROG_CHAPTERS.find((c) => c.name === "All seven").levels.find((l) => l.name === "Any order");
+  let two = 0, twoToFive = 0, six = 0, sixToFour = 0, bounces = 0, moves = 0;
+  for (let i = 0; i < 5000; i++) {
+    const s = pickProgression(lvl, null);
+    for (let j = 0; j < s.length - 1; j++) {
+      moves++;
+      if (s[j] === "ii") { two++; if (s[j + 1] === "V") twoToFive++; }
+      if (s[j] === "vi") { six++; if (s[j + 1] === "IV") sixToFour++; }
+      if (j >= 1 && s[j + 1] === s[j - 1]) bounces++;
+    }
+  }
+  assert.ok(twoToFive / two > 0.4, `2- → 5D ${twoToFive / two}`);
+  assert.ok(sixToFour / six > 0.35, `6- → 4 ${sixToFour / six}`);
+  assert.ok(bounces / moves < 0.12, `A-B-A bounces ${bounces / moves}`);
+});

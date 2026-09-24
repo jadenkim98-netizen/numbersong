@@ -452,6 +452,39 @@ export const songFor = (seq) => PROG_SONGS[seq.join("-")] || null;
 // even reps of all seven.
 export const PROG_WEIGHTS = { I: 5, ii: 3, iii: 2, IV: 4, V: 4, vi: 4, "vii°": 1 };
 
+// What songs actually play next. Without this every random draw was only weighted by how
+// common each chord is, so 3- → 2- → 7dim came up as often as the moves songs are made of.
+// Multipliers, roughly (share of pop songs making that move) × (number of options), so ~1
+// is "ordinary" — an altered chord with no entry here sits at 1 and still gets drawn.
+// Rough shape of pop-harmony statistics, not a corpus measurement: 2- goes to 5D, 5D goes
+// home or to 6-, 6- goes to 4, 3- goes to 6- or 4, 7dim goes home.
+export const COMMON_NEXT = {
+  I:      { IV: 2.2, V: 1.8, vi: 1.4, ii: 0.8, iii: 0.4, "vii°": 0.15 },
+  ii:     { V: 3, IV: 0.9, I: 0.6, vi: 0.5, iii: 0.5, "vii°": 0.3 },
+  iii:    { vi: 2.6, IV: 1.8, ii: 0.6, I: 0.4, V: 0.4, "vii°": 0.1 },
+  IV:     { I: 2, V: 2, vi: 0.9, ii: 0.7, iii: 0.4, "vii°": 0.3 },
+  V:      { I: 2.6, vi: 1.8, IV: 1.1, ii: 0.3, iii: 0.3, "vii°": 0.05 },
+  vi:     { IV: 2.6, V: 1.2, ii: 1, I: 0.7, iii: 0.5, "vii°": 0.1 },
+  "vii°": { I: 3, iii: 0.8, vi: 0.6, IV: 0.2, V: 0.2, ii: 0.2 },
+};
+// Minor (home on 6) moves differently: i → VI and i → iv, iv → v, v → i.
+export const COMMON_NEXT_MINOR = {
+  vi:  { IV: 2, ii: 1.6, iii: 0.9 },
+  ii:  { iii: 1.6, vi: 1.4, IV: 1 },
+  iii: { vi: 2, IV: 1.2, ii: 0.6 },
+  IV:  { iii: 1.4, vi: 1.2, ii: 1.2 },
+};
+// A chapter's own `follow` rules sit on top, move by move: 1D → 4 ×8 replaces the plain
+// table's entry for that one move and leaves the rest of the row alone.
+export function withCommonNext(mode, follow) {
+  const base = mode === "minor" ? COMMON_NEXT_MINOR : COMMON_NEXT;
+  const out = {};
+  for (const k of new Set([...Object.keys(base), ...Object.keys(follow || {})])) {
+    out[k] = { ...(base[k] || {}), ...((follow || {})[k] || {}) };
+  }
+  return out;
+}
+
 // `follow` biases a chord by what came BEFORE it — some chords are defined by a move,
 // not by a frequency. 4- is the case in point: it earns its place by arriving right
 // after the major 4, so a flat per-chord weight would almost never produce the lesson.
@@ -460,11 +493,14 @@ export const PROG_WEIGHTS = { I: 5, ii: 3, iii: 2, IV: 4, V: 4, vi: 4, "vii°": 
 const weightAt = (c, weights, prev, follow) =>
   (weights ? (weights[c] ?? 1) : 1) * ((follow && prev && follow[prev] && follow[prev][c]) ?? 1);
 
-const weightedPick = (pool, weights, prev, follow, banned) => {
+// Going straight back to the chord before last (1 4 1 4) is a vamp, not a progression —
+// songs do it, but a random draw lands on it far more often than songs do.
+const BOUNCE_BACK = 0.35;
+const weightedPick = (pool, weights, prev, follow, banned, back = null) => {
   const usable = banned && banned.size ? pool.filter((c) => !banned.has(c)) : pool;
   const from = usable.length ? usable : pool; // never paint the draw into a corner
-  if (!weights && !follow) return from[Math.floor(Math.random() * from.length)];
-  const w = from.map((c) => weightAt(c, weights, prev, follow));
+  if (!weights && !follow && !back) return from[Math.floor(Math.random() * from.length)];
+  const w = from.map((c) => weightAt(c, weights, prev, follow) * (c === back ? BOUNCE_BACK : 1));
   const total = w.reduce((a, b) => a + b, 0);
   if (total <= 0) return from[Math.floor(Math.random() * from.length)];
   let r = Math.random() * total;
@@ -555,7 +591,8 @@ export function randomProgression(len, pool, home, weights, follow, forbid) {
   while (seq.length < len) {
     const prev = seq[seq.length - 1];
     let c, guard = 0;
-    do { c = weightedPick(pool, weights, prev, follow, banned); } while (c === prev && ++guard < 40);
+    const back = seq.length >= 2 ? seq[seq.length - 2] : null;
+    do { c = weightedPick(pool, weights, prev, follow, banned, back); } while (c === prev && ++guard < 40);
     seq.push(c);
     ban(c);
   }
@@ -568,7 +605,7 @@ export function pickProgression(lvl, avoid) {
     do { p = set[Math.floor(Math.random() * set.length)]; } while (set.length > 1 && avoid && p.join() === avoid.join());
     return p;
   }
-  return randomProgression(lvl.len, lvl.pool, lvl.anyStart ? null : lvl.home, lvl.weights, lvl.follow, lvl.forbid);
+  return randomProgression(lvl.len, lvl.pool, lvl.anyStart ? null : lvl.home, lvl.weights, withCommonNext(lvl.mode, lvl.follow), lvl.forbid);
 }
 export function progRamp(chapter, mode, pool, home) {
   const cap = { chapter, mode, home };
