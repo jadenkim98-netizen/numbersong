@@ -9,7 +9,8 @@ import {
   CURATED_7, pickProgression, CHORD_CHAPTERS, PROG_CHAPTERS, PROG_WEIGHTS, ALL_CHORDS,
   CURATED_3D, POOL_3D, WEIGHTS_3D, DEGREE_SEMITONES, EAR_CHORD_ROSTER, voiceLead,
   CURATED_4M, POOL_4M, WEIGHTS_4M, FOLLOW_4M, randomVoicing,
-  CURATED_COLOUR, POOL_COLOUR, WEIGHTS_COLOUR, FOLLOW_COLOUR, CURATED_1D, POOL_1D, CURATED_2D, POOL_2D, CURATED_6D, POOL_6D, CURATED_SECDOM, POOL_SECDOM, padLayout,
+  CURATED_COLOUR, POOL_COLOUR, WEIGHTS_COLOUR, FOLLOW_COLOUR, CURATED_1D, POOL_1D, CURATED_2D, POOL_2D, CURATED_6D, POOL_6D, CURATED_SECDOM, POOL_SECDOM, padFor, recolour, rollTones, CHORD_SPELLING,
+  CURATED_B7, POOL_B7, CURATED_B6, POOL_B6, CURATED_B3, POOL_B3, CURATED_2HD, POOL_2HD, CURATED_BORROWED, POOL_BORROWED,
 } from "../src/theory.mjs";
 
 test("degreeLabel: the upper octave shows as 1, never 8", () => {
@@ -116,6 +117,11 @@ test("all-seven chapters are appended, never inserted (level idx is the saved-pr
     ["2D · five of five", 42, 6],
     ["6D · five of two", 48, 6],
     ["Secondary dominants · all four", 54, 6],
+    ["♭7 · flat seven", 60, 6],
+    ["♭6 · flat six", 66, 6],
+    ["♭3 · flat three", 72, 6],
+    ["2-7♭5 · minor's two", 78, 6],
+    ["Borrowed from minor · all five", 84, 6],
   ]);
 });
 
@@ -265,7 +271,7 @@ test("3D is common in its own chapter, and reachable from every slot", () => {
 });
 
 test("Your ear's chord roster carries the altered chords, but level pools stay diatonic", () => {
-  assert.deepEqual(EAR_CHORD_ROSTER, [...ALL_CHORDS, "III7", "iv", "I7", "II7", "VI7"]);
+  assert.deepEqual(EAR_CHORD_ROSTER, [...ALL_CHORDS, "III7", "iv", "I7", "II7", "VI7", "iiø7", "♭III", "♭VI", "♭VII"]);
   assert.equal(ALL_CHORDS.length, 7);
 });
 
@@ -535,17 +541,36 @@ test("2D and 6D are real dominants on 2 and 6", () => {
   assert.equal(chordNumber("VI7", false), "6D");
 });
 
-test("the pad bands each D onto its twin, and keeps a lone D as its own button", () => {
-  assert.deepEqual(padLayout(POOL_SECDOM), [
-    { base: "I", dom: "I7" }, { base: "ii", dom: "II7" }, { base: "iii", dom: "III7" },
-    { base: "IV", dom: null }, { base: "V", dom: null }, { base: "vi", dom: "VI7" },
-  ]);
-  assert.deepEqual(padLayout(["I", "III7", "IV"]).map((x) => x.base), ["I", "III7", "IV"]);
-  assert.deepEqual(padLayout(["I", "IV", "V", "vi"]).map((x) => x.dom), [null, null, null, null]);
-  // every chord in every pool still gets exactly one button
+test("the pad is root, then colour: roots in pool order, only the chips the pool uses", () => {
+  const all = padFor(POOL_BORROWED);
+  assert.deepEqual(all.roots.map((r) => r.k), ["1", "2", "♭3", "3", "4", "5", "♭6", "6", "♭7"]);
+  assert.deepEqual(all.chips, ["-", "7♭5"]);
+  assert.deepEqual(padFor(POOL_SECDOM).chips, ["D"]);
+  assert.deepEqual(padFor(["vi", "ii", "iii", "IV"]).roots.map((r) => r.k), ["6", "2", "3", "4"]); // minor opens on 6
+  assert.deepEqual(padFor(["I", "IV", "V", "vi"]).chips, []);
+  // a root whose plain chord isn't in the pool enters its coloured chord instead
+  assert.equal(padFor(["I", "III7", "IV"]).roots[1].def, "III7");
+});
+
+test("a colour chip turns the last chord into its twin, and back", () => {
+  assert.equal(recolour(POOL_SECDOM, "vi", "D"), "VI7");
+  assert.equal(recolour(POOL_SECDOM, "VI7", "D"), "vi");
+  assert.equal(recolour(POOL_BORROWED, "ii", "7♭5"), "iiø7");
+  assert.equal(recolour(POOL_BORROWED, "IV", "-"), "iv");
+  assert.equal(recolour(POOL_BORROWED, "V", "D"), null);   // 5D is already a dominant
+  assert.equal(recolour(POOL_BORROWED, "vi", "D"), null);  // 6D isn't in this pool
+});
+
+test("every chord in every progression pool can be entered on the pad", () => {
   for (const ch of PROG_CHAPTERS) for (const lvl of ch.levels) {
-    const cells = padLayout(lvl.pool).flatMap((x) => [x.base, x.dom]).filter(Boolean);
-    assert.deepEqual([...cells].sort(), [...lvl.pool].sort(), ch.name);
+    const { roots, chips } = padFor(lvl.pool);
+    const reach = new Set();
+    for (const r of roots) {
+      reach.add(r.def);
+      for (const c of chips) { const to = recolour(lvl.pool, r.def, c); if (to) reach.add(to); }
+    }
+    for (const c of lvl.pool) assert.ok(reach.has(c), `${ch.name}: ${c} unreachable`);
+    for (const c of lvl.pool) assert.ok(CHORD_SPELLING[c], `${c} has no spelling`);
   }
 });
 
@@ -576,5 +601,27 @@ test("each D leans to the chord it's the five of, and 6D never falls back to 6-"
       }
     }
     for (const c of Object.keys(seen)) assert.ok(hit[c] / seen[c] > 0.4, `${name}: ${c} → ${target[c]} only ${hit[c] / seen[c]}`);
+  }
+});
+
+test("borrowed chords sound as spelled, and ♭7 rolls triad or dominant 7", () => {
+  const semis = (t) => t.map((d) => DEGREE_SEMITONES[d]);
+  assert.deepEqual(semis(chordByRoman("♭III").tones), [3, 7, 10]);
+  assert.deepEqual(semis(chordByRoman("♭VI").tones), [8, 0, 3]);
+  assert.deepEqual(semis(chordByRoman("♭VII").tones), [10, 2, 5]);
+  assert.deepEqual(semis(chordByRoman("iiø7").tones), [2, 5, 8, 0]);
+  assert.equal(chordNumber("iiø7", false), "2-7♭5");
+  assert.equal(chordNumber("♭VII", true), "♭7");
+  assert.deepEqual(semis(rollTones("♭VII", () => 0)), [10, 2, 5]);
+  assert.deepEqual(semis(rollTones("♭VII", () => 0.99)), [10, 2, 5, 8]);
+  assert.deepEqual(rollTones("IV"), chordByRoman("IV").tones);
+});
+
+test("borrowed-chord curated sets stay inside their pools, no repeats", () => {
+  for (const [set, pool] of [[CURATED_B7, POOL_B7], [CURATED_B6, POOL_B6], [CURATED_B3, POOL_B3], [CURATED_2HD, POOL_2HD], [CURATED_BORROWED, POOL_BORROWED]]) {
+    for (const seq of Object.values(set).flat()) {
+      for (const c of seq) assert.ok(pool.includes(c), `${c} in ${seq.join("-")}`);
+      for (let j = 1; j < seq.length; j++) assert.notEqual(seq[j], seq[j - 1], seq.join("-"));
+    }
   }
 });

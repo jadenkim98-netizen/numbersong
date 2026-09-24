@@ -67,7 +67,7 @@ import {
   PATH_ROWS,
   PATH_SPEEDS,
   KEY_MAP,
-  levelsFor, padLayout } from "./theory.mjs";
+  levelsFor, padFor, recolour, rollTones, CHORD_SPELLING } from "./theory.mjs";
 import { detectPitch, pitchToDegree } from "./pitch.mjs";
 import { isBossRegion, bossConfigFor, evalBoss, bossTimer } from "./boss.mjs";
 import {
@@ -1512,6 +1512,42 @@ function ProgStack({ roman, tonic, active, wrong }) {
         <span key={d} className={"stack-note" + (on.has(d) ? " on" : "") + (on.get(d) ? " alt" : "") + (d === tonic ? " home" : "")}>{on.get(d) || d}</span>
       ))}
       <span className="stack-label">{roman ? chordNumber(roman, false) : "?"}</span>
+    </div>
+  );
+}
+
+// The progression answer pad: ROOT, then COLOUR (see padFor in theory.mjs). A root key
+// enters that root's plain chord; a chip recolours the chord just entered (6- → 6D).
+// `showRoots` is off under the guitar neck, which answers roots itself.
+function RootColourPad({ pool, last, disabled, rootsDisabled, onRoot, onColour, showRoots = true }) {
+  const { roots, chips } = padFor(pool);
+  const cols = roots.length <= 4 ? roots.length : roots.length <= 8 ? 4 : 5;
+  return (
+    <div className="rootpad">
+      {showRoots && (
+        <div className="numpad chordpad" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+          {roots.map((r) => (
+            <button key={r.k} className={"num chordbtn" + (r.flat ? " flat" : "")} onClick={() => onRoot(r.def)} disabled={disabled || rootsDisabled}>
+              {r.k}<span className="num-sol">{chordNumber(r.def, false)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {chips.length > 0 && (
+        <div className="colour-chips" style={{ gridTemplateColumns: `repeat(${chips.length}, 1fr)` }}>
+          {chips.map((c) => {
+            const to = last ? recolour(pool, last, c) : null;
+            const on = !!last && CHORD_SPELLING[last][1] === c;
+            return (
+              <button key={c} className={"colour-chip" + (c === "D" ? " d" : " m") + (on ? " on" : "")}
+                onClick={() => to && onColour(to)} disabled={disabled || !to}
+                aria-label={`Colour the last chord: ${c === "-" ? "minor" : c}`}>
+                {c === "-" ? "−" : c /* a true minus: the hyphen is a speck at chip size */}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -3793,7 +3829,7 @@ export default function NumberEarTrainer() {
       s.target = prog;
       // One realization per question: a fixed voicing would let the ear memorise how a
       // progression literally sounds instead of what it is.
-      s.voiced = voiceLead(prog.map((r) => chordByRoman(r).tones.map((d) => DEGREE_SEMITONES[d])), randomVoicing());
+      s.voiced = voiceLead(prog.map((r) => rollTones(r).map((d) => DEGREE_SEMITONES[d])), randomVoicing());
       const cad = (await playCadence(s.key, lvl.mode)) + 0.35;
       if (gen !== sessGenRef.current) return; // quit during audio load → don't play/schedule on a dead session
       const dur = await playProgression(s.key, prog.map((r) => chordByRoman(r).tones), cad, progBeat, s.voiced);
@@ -4117,6 +4153,12 @@ export default function NumberEarTrainer() {
     if (phase !== "answer" || busy) return;
     setProgWrong([]); setFeedback(null);
     setProgAnswer((p) => (p.length < sess.current.target.length ? [...p, roman] : p));
+  };
+  // A colour chip rewrites the chord just entered (6- → 6D); nothing is graded until Check.
+  const recolourLast = (roman) => {
+    if (phase !== "answer" || busy) return;
+    setProgWrong([]); setFeedback(null);
+    setProgAnswer((p) => (p.length ? [...p.slice(0, -1), roman] : p));
   };
   const backspaceChord = () => {
     if (phase !== "answer" || busy) return;
@@ -5110,16 +5152,6 @@ export default function NumberEarTrainer() {
     // picked = blue selection (every instance of a picked degree lights), wrong = orange, reveal = teal.
     const degToPc = (d) => DEGREE_TO_PC[((d - 1) % 7) + 1];
     const chordFb = mode === "chords" ? { picked: chPicked.map(degToPc), wrong: litWrong.map(degToPc), reveal: litCorrect.map(degToPc) } : null;
-    // Progressions on guitar: each pool chord's ROOT degree (= its number) names it. Map a tapped
-    // root degree → its roman, so tapping the chord's number on the neck fills the next slot.
-    const progRoots = mode === "progressions" ? lvl.pool.map((r) => chordTones(chordByRoman(r), false)[0]) : null;
-    // Two chords in the pool can share a root (3- and 3D are both rooted on 3), and a
-    // tapped root can't tell them apart — which is the very thing that pool teaches. So
-    // an ambiguous pool answers on the numpad even when the player is in guitar mode.
-    const progRootAmbiguous = progRoots ? new Set(progRoots).size !== progRoots.length : false;
-    const progRootMap = progRoots && !progRootAmbiguous
-      ? Object.fromEntries(progRoots.map((d, i) => [d, lvl.pool[i]]))
-      : null;
     const displayKey = lvl.mode === "minor" ? `${KEYS[mod12(KEYS.indexOf(sessKey) + 9)]} minor` : `${sessKey} major`;
     // pads climb from home: minor starts on 6, major on 1 (matches the tonal map)
     const diaOrder = isMinor ? [6, 7, 1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, 6, 7];
@@ -5513,14 +5545,20 @@ export default function NumberEarTrainer() {
                 })}
               </div>
               <div className="prog-right">
-              {instrument === "guitar" && !progRootAmbiguous ? (() => {
+              {instrument === "guitar" ? (() => {
                 const gm = lvl.mode === "minor" ? "minor" : "major";
+                // The neck answers the ROOT (by pitch, so ♭7 works too); the colour strip
+                // under it does the rest, exactly as on the pad.
                 const pickRoot = (c) => {
-                  if (!c.inKey || phase !== "answer" || busy || progAnswer.length >= lvl.len) return;
-                  const roman = progRootMap[c.degree];
-                  if (roman) tapChord(roman);
+                  if (phase !== "answer" || busy || progAnswer.length >= lvl.len) return;
+                  const root = padFor(lvl.pool).roots.find((r) => r.pc === c.pc);
+                  if (root) tapChord(root.def);
                   else setFeedback("Tap the number of the chord you heard.");
                 };
+                const chips = (
+                  <RootColourPad pool={lvl.pool} last={progAnswer[progAnswer.length - 1]} showRoots={false}
+                    disabled={phase !== "answer" || busy} onColour={recolourLast} />
+                );
                 const disabled = phase !== "answer" || busy || progAnswer.length >= lvl.len;
                 if (landscape) {
                   const gb = guitarFret == null
@@ -5535,29 +5573,20 @@ export default function NumberEarTrainer() {
                         <button className="ghost neck-arrow" onClick={() => nudge(1)} disabled={cur >= MININECK_MAX_START} aria-label="Move position toward the body">▶</button>
                       </div>
                       <Fretboard landscape posStart={cur} musicKey={sessKey} mode={gm} disabled={disabled} onAnswer={pickRoot} />
+                      {chips}
                     </div>
                   );
                 }
                 return (
                   <div className="chord-guitar prog-guitar">
                     <Fretboard boxKind="answer" musicKey={sessKey} mode={gm} disabled={disabled} onAnswer={pickRoot} />
+                    {chips}
                   </div>
                 );
               })() : (
-              <div className="numpad chordpad">
-                {padLayout(lvl.pool).map(({ base, dom }) => {
-                  const off = phase !== "answer" || busy || progAnswer.length >= lvl.len;
-                  const btn = (r, cls = "") => (
-                    <button key={r} className={"num chordbtn" + cls} onClick={() => tapChord(r)} disabled={off}>
-                      {r}<span className="num-sol">{chordNumber(r, false)}</span>
-                    </button>
-                  );
-                  // A secondary dominant rides in a band on top of the chord it shares a root with
-                  return dom
-                    ? <div key={base} className="chord-band">{btn(dom, " dom")}{btn(base)}</div>
-                    : btn(base);
-                })}
-              </div>
+              <RootColourPad pool={lvl.pool} last={progAnswer[progAnswer.length - 1]}
+                disabled={phase !== "answer" || busy} rootsDisabled={progAnswer.length >= lvl.len}
+                onRoot={tapChord} onColour={recolourLast} />
               )}
               <div className="prog-actions">
                 <button className="ghost" onClick={backspaceChord}
@@ -6991,11 +7020,12 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .replay-group .ghost.note { border-radius: 0 10px 10px 0; border-left-width: 0.75px; padding-left: 12px; padding-right: 12px; font-size: 1.05rem; }
 
 .numpad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-/* Secondary-dominant band: the D sits on top of the chord it shares a root with, one
-   grid cell holding two full-width buttons. The band is short but never under 36px. */
-.chord-band { display: grid; grid-template-rows: minmax(36px, auto) 1fr; gap: 3px; }
-.chord-band .num { aspect-ratio: auto; min-height: 0; }
-.num.dom { flex-direction: row; gap: 6px; font-size: 1rem; padding: 6px 0; }
+/* Root + colour pad: root keys above, colour chips (D, -, 7♭5) below. */
+.rootpad { display: flex; flex-direction: column; gap: 8px; width: 100%; align-self: stretch; }
+.colour-chips { display: grid; gap: 8px; }
+.colour-chip { min-height: 46px; font-family: 'Archivo Black', sans-serif; font-size: 1.15rem;
+  background: var(--bg); color: var(--text); border: 1.5px solid var(--line); border-radius: 12px; cursor: pointer; }
+.colour-chip:disabled { opacity: .35; cursor: default; }
 .num {
   aspect-ratio: 1; min-height: 58px; position: relative;
   font-family: 'Archivo Black', sans-serif; font-weight: 400; font-size: 1.5rem;

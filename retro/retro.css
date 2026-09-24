@@ -1435,9 +1435,14 @@
   .retro .duel-burst::before,.retro .duel-burst::after{ opacity:0!important; }
 }
 
-/* ---- secondary-dominant band: the D rides on top of its twin --------------- */
-/* Tinted teal-dark so it reads as "the same button, turned dominant", not a new key.
-   State colours (picked/correct/wrong/just) still win: they're excluded here. */
-.retro .num.dom{ font-size:16px; padding:6px 0; }
-.retro .num.dom:not(.picked):not(.correct):not(.wrong):not(.just){ background:#2F4A48; color:var(--teal); }
-.retro .chord-band{ gap:3px; }
+/* ---- root + colour pad ------------------------------------------------------- */
+/* Flat roots (♭3 ♭6 ♭7) are outside the key: tinted blue, the borrowed-from-minor colour. */
+.retro .num.flat:not(.picked):not(.correct):not(.wrong):not(.just){ background:#2E3D4E; color:var(--blue); }
+/* Colour chips: D is teal (secondary dominant), - and 7♭5 are blue (borrowed from minor).
+   A chip lights when the last chord already wears that colour. */
+.retro .colour-chip{ font-family:var(--black); font-size:20px; min-height:46px; border:2px solid var(--line); border-radius:0;
+  clip-path:var(--notch); background:var(--ink); color:var(--text-soft,#A9B2AD); }
+.retro .colour-chip.d:not(:disabled){ border-color:var(--teal); color:var(--teal); }
+.retro .colour-chip.m:not(:disabled){ border-color:var(--blue); color:var(--blue); }
+.retro .colour-chip.d.on{ background:var(--teal); color:var(--ink); }
+.retro .colour-chip.m.on{ background:var(--blue); color:var(--ink); }

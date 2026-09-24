@@ -12,7 +12,7 @@ export const KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb",
 // 5th, the borrowed 4- lowers the key's 6. Same note, opposite stories.
 // "♭7" is 1D's seventh — the one note that turns home into a door out to 4. "♯4" is
 // 2D's third (5's leading tone) and "♯1" is 6D's (2's leading tone).
-export const DEGREE_SEMITONES = { 1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9, 7: 11, 8: 12, 9: 14, "♯5": 8, "♭6": 8, "♭7": 10, "♯4": 6, "♯1": 1 };
+export const DEGREE_SEMITONES = { 1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9, 7: 11, 8: 12, 9: 14, "♯5": 8, "♭6": 8, "♭7": 10, "♯4": 6, "♯1": 1, "♭3": 3 };
 export const SOLFEGE = { 1: "do", 2: "re", 3: "mi", 4: "fa", 5: "sol", 6: "la", 7: "ti", 8: "do" };
 export const NUMBER_WORDS = { 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "one" };
 export const degreeLabel = (d) => (d === 8 ? "1" : String(d)); // octave is 1 again, never "8"
@@ -73,28 +73,66 @@ export const ALTERED_CHORDS = [
   { roman: "I7",   name: "five of four",  tones: [1, 3, 5, "♭7"], fixed: true },
   { roman: "II7",  name: "five of five",  tones: [2, "♯4", 6, 1], fixed: true },
   { roman: "VI7",  name: "five of two",   tones: [6, "♯1", 3, 5], fixed: true },
+  // Borrowed from the parallel minor. ♭7 is ONE answer that's played either as a triad or
+  // as a dominant 7 (`variants`, rolled per question): the 7th is texture — both lead home
+  // the same way — so by the house rule it's stimulus, never a separate answer.
+  { roman: "iiø7", name: "minor's two",   tones: [2, 4, "♭6", 1], fixed: true },
+  { roman: "♭III", name: "flat three",    tones: ["♭3", 5, "♭7"], fixed: true },
+  { roman: "♭VI",  name: "flat six",      tones: ["♭6", 1, "♭3"], fixed: true },
+  { roman: "♭VII", name: "flat seven",    tones: ["♭7", 2, 4],    fixed: true, variants: [["♭7", 2, 4, "♭6"]] },
 ];
+// The tones to PLAY for one question. Usually a chord's own tones; a chord with
+// `variants` rolls one of its forms instead, so the reveal and Repeat (which reuse the
+// session's stored voicing) match what was asked.
+export function rollTones(roman, rng = Math.random) {
+  const c = chordByRoman(roman);
+  if (!c.variants) return c.tones;
+  const forms = [c.tones, ...c.variants];
+  return forms[Math.floor(rng() * forms.length)];
+}
 
-// Every secondary dominant shares a root with a diatonic chord, so the pad draws the
-// pair as ONE button: the plain chord below, its D in a band on top. That keeps the
-// pad at seven buttons however many dominants a pool holds, and puts each D right
-// on top of the chord it's mistaken for.
-export const DOMINANT_OF = { I: "I7", ii: "II7", iii: "III7", vi: "VI7" };
-// The pool as the pad lays it out: [{ base, dom }], pool order kept. A D whose plain
-// chord isn't in the pool stands alone as its own button (dom: null).
-export function padLayout(pool) {
-  const out = [];
-  const paired = new Set();
+// The answer pad is ROOT, then COLOUR — the same way the notation spells a chord
+// (6-, 5D, 2-7♭5, ♭7 are a root number plus a suffix). Tapping a root enters that root's
+// plain chord; a colour chip then turns the chord just entered into its coloured twin.
+// The pad stays at ≤10 roots + 3 chips however many chords the game teaches, and guitar
+// can answer any pool the same way: tap the root on the neck, then the chip.
+// pc = semitones above the MAJOR tonic, the frame the fretboard reports in.
+export const ROOT_KEYS = [
+  { k: "1", pc: 0 }, { k: "2", pc: 2 }, { k: "♭3", pc: 3, flat: true }, { k: "3", pc: 4 },
+  { k: "4", pc: 5 }, { k: "5", pc: 7 }, { k: "♭6", pc: 8, flat: true }, { k: "6", pc: 9 },
+  { k: "♭7", pc: 10, flat: true }, { k: "7", pc: 11 },
+];
+export const COLOURS = ["D", "-", "7♭5"];
+// chord → [root key, colour]; a null colour is that root's plain chord.
+export const CHORD_SPELLING = {
+  I: ["1", null], ii: ["2", null], iii: ["3", null], IV: ["4", null], V: ["5", null], vi: ["6", null], "vii°": ["7", null],
+  I7: ["1", "D"], II7: ["2", "D"], III7: ["3", "D"], VI7: ["6", "D"],
+  iv: ["4", "-"], "iiø7": ["2", "7♭5"],
+  "♭III": ["♭3", null], "♭VI": ["♭6", null], "♭VII": ["♭7", null],
+};
+// The chord in `pool` on this root with this colour, if there is one.
+export const chordAt = (pool, root, colour) =>
+  pool.find((r) => CHORD_SPELLING[r][0] === root && CHORD_SPELLING[r][1] === colour) || null;
+// The pad for a pool: roots in order of first appearance (so a minor pool still opens
+// on 6), each entering its plain chord — or, when only coloured chords on that root are
+// in the pool, the first of those. `chips` = the colours this pool actually uses.
+export function padFor(pool) {
+  const roots = [];
   for (const r of pool) {
-    const d = DOMINANT_OF[r];
-    if (d && pool.includes(d)) { out.push({ base: r, dom: d }); paired.add(d); }
+    const k = CHORD_SPELLING[r][0];
+    if (roots.some((x) => x.k === k)) continue;
+    const key = ROOT_KEYS.find((x) => x.k === k);
+    roots.push({ ...key, def: chordAt(pool, k, null) || pool.find((c) => CHORD_SPELLING[c][0] === k) });
   }
-  const slots = [];
-  for (const r of pool) {
-    if (paired.has(r)) continue;
-    slots.push(out.find((o) => o.base === r) || { base: r, dom: null });
-  }
-  return slots;
+  const chips = COLOURS.filter((c) => pool.some((r) => CHORD_SPELLING[r][1] === c));
+  return { roots, chips };
+}
+// What a colour chip does to the chord just entered: turn it into that colour, or — if
+// it already is — back to the plain chord. null when the chip means nothing here.
+export function recolour(pool, roman, colour) {
+  const [root, cur] = CHORD_SPELLING[roman];
+  if (cur === colour) return chordAt(pool, root, null);
+  return chordAt(pool, root, colour);
 }
 
 // A word for each degree when you name it right
@@ -170,6 +208,10 @@ export const CHORD_INSIGHTS = {
   iv: "The 4 chord with a flattened 6, borrowed from minor. Same root as 4, one note darker — and it leans home to 1.",
   II7: "The 2 chord made major, with a ♭7 — its ♯4 is 5's leading tone, so it pushes hard toward 5D.",
   VI7: "The 6 chord made major, with a ♭7 — its ♯1 is 2's leading tone, so it leans into 2-.",
+  "iiø7": "The 2 chord with its 6 dropped to ♭6, borrowed from minor — darker than 2-, and it leans even harder into 5D.",
+  "♭III": "A major chord on ♭3, from outside the key. It's the minor key's home-relative, and it usually steps up to 4.",
+  "♭VI": "A major chord on ♭6, borrowed from minor. Big and bright, but the ♭6 sags — it usually climbs through ♭7 home to 1.",
+  "♭VII": "A major chord a whole step below home, borrowed from minor. It does 5D's job — taking you home — without the leading tone, so it lands softer.",
   I7: "Home with a ♭7 on top — and that ♭7 wants to fall to 6, the 3 of the 4 chord. Home stops being home and becomes the way into 4.",
 };
 
@@ -265,14 +307,18 @@ export const CHORD_QUALITY = {
   I7:     { tri: "dominant 7th", sev: "dominant 7th" },
   II7:    { tri: "dominant 7th", sev: "dominant 7th" },
   VI7:    { tri: "dominant 7th", sev: "dominant 7th" },
+  "iiø7": { tri: "half-diminished 7th", sev: "half-diminished 7th" },
+  "♭III": { tri: "major", sev: "major" },
+  "♭VI":  { tri: "major", sev: "major" },
+  "♭VII": { tri: "major", sev: "major" },
 };
-export const SEVENTH_SYMBOL = { I: "Imaj7", ii: "ii7", iii: "iii7", IV: "IVmaj7", V: "V7", vi: "vi7", "vii°": "viiø7", III7: "III7", iv: "iv", I7: "I7", II7: "II7", VI7: "VI7" };
+export const SEVENTH_SYMBOL = { I: "Imaj7", ii: "ii7", iii: "iii7", IV: "IVmaj7", V: "V7", vi: "vi7", "vii°": "viiø7", III7: "III7", iv: "iv", I7: "I7", II7: "II7", VI7: "VI7", "iiø7": "iiø7", "♭III": "♭III", "♭VI": "♭VI", "♭VII": "♭VII" };
 export const chordSymbol = (roman, sevenths) => (sevenths ? SEVENTH_SYMBOL[roman] : roman);
 export const chordQuality = (roman, sevenths) => CHORD_QUALITY[roman][sevenths ? "sev" : "tri"];
 
 // Number notation (the method): major = plain number, minor = number-, dim = 7dim.
-export const CHORD_NUMBER   = { I: "1", ii: "2-", iii: "3-", IV: "4", V: "5D", vi: "6-", "vii°": "7dim", III7: "3D", iv: "4-", I7: "1D", II7: "2D", VI7: "6D" };
-export const CHORD_NUMBER_7 = { I: "1maj7", ii: "2-7", iii: "3-7", IV: "4maj7", V: "5D7", vi: "6-7", "vii°": "7-7b5", III7: "3D", iv: "4-", I7: "1D", II7: "2D", VI7: "6D" };
+export const CHORD_NUMBER   = { I: "1", ii: "2-", iii: "3-", IV: "4", V: "5D", vi: "6-", "vii°": "7dim", III7: "3D", iv: "4-", I7: "1D", II7: "2D", VI7: "6D", "iiø7": "2-7♭5", "♭III": "♭3", "♭VI": "♭6", "♭VII": "♭7" };
+export const CHORD_NUMBER_7 = { I: "1maj7", ii: "2-7", iii: "3-7", IV: "4maj7", V: "5D7", vi: "6-7", "vii°": "7-7b5", III7: "3D", iv: "4-", I7: "1D", II7: "2D", VI7: "6D", "iiø7": "2-7♭5", "♭III": "♭3", "♭VI": "♭6", "♭VII": "♭7" };
 export const chordNumber = (roman, sevenths) => (sevenths ? CHORD_NUMBER_7 : CHORD_NUMBER)[roman];
 
 export const ALL_CHORDS = CHORDS.map((c) => c.roman);
@@ -808,6 +854,104 @@ function secDomRamp(chapter, tag, pool, curated, weights, follow, forbid, pairDe
   ];
 }
 
+/* ── borrowed from minor: ♭7, ♭6, ♭3, 2-7♭5 (4- has its own chapter already) ── */
+// Each is taught against the diatonic chord it's mistaken for, the same way as 3D:
+// ♭7 against 5D (both take you home), ♭6 against 6-, ♭3 against 3-, 2-7♭5 against 2-.
+// Pools are listed in pitch order so the root pad reads low to high.
+
+// ♭7 — Hey Jude's outro. Pairs swap it with 5D: same job, different route home.
+export const POOL_B7 = ["I", "ii", "iii", "IV", "V", "vi", "♭VII"];
+export const WEIGHTS_B7 = { I: 4, ii: 2, iii: 2, IV: 5, V: 4, vi: 3, "♭VII": 5 };
+export const FOLLOW_B7 = { "♭VII": { I: 4, IV: 4 } };
+export const CURATED_B7 = {
+  2: [["♭VII", "I"], ["V", "I"], ["I", "♭VII"], ["I", "V"], ["♭VII", "IV"], ["IV", "♭VII"]],
+  3: [["I", "♭VII", "IV"], ["I", "V", "IV"], ["IV", "♭VII", "I"], ["IV", "V", "I"], ["♭VII", "IV", "I"], ["V", "IV", "I"], ["I", "IV", "♭VII"]],
+  4: [
+    ["I", "♭VII", "IV", "I"],  // 1 ♭7 4 1 — Hey Jude's outro
+    ["I", "V", "IV", "I"],     // 1 5  4 1 — twin
+    ["I", "IV", "♭VII", "I"],  // 1 4 ♭7 1
+    ["I", "IV", "V", "I"],     // 1 4 5  1 — twin
+    ["I", "V", "♭VII", "IV"],
+    ["I", "vi", "IV", "V"],    // fully diatonic
+  ],
+};
+
+// ♭6 — nearly always on its way through ♭7 home (the "Mario" cadence), or down to 5D.
+export const POOL_B6 = ["I", "ii", "IV", "V", "♭VI", "vi", "♭VII"];
+export const WEIGHTS_B6 = { I: 4, ii: 2, IV: 3, V: 4, "♭VI": 5, vi: 4, "♭VII": 3 };
+// ♭6 → 6- is a backtrack (same letter, brightened), so it's out.
+export const FOLLOW_B6 = { "♭VI": { "♭VII": 6, V: 2, vi: 0 }, "♭VII": { I: 5 } };
+export const CURATED_B6 = {
+  2: [["♭VI", "♭VII"], ["♭VI", "V"], ["vi", "V"], ["I", "♭VI"], ["I", "vi"], ["♭VII", "I"]],
+  3: [["♭VI", "♭VII", "I"], ["I", "♭VI", "♭VII"], ["♭VI", "V", "I"], ["vi", "V", "I"], ["I", "♭VI", "V"], ["I", "vi", "V"]],
+  4: [
+    ["I", "♭VI", "♭VII", "I"], // 1 ♭6 ♭7 1 — the Mario cadence
+    ["I", "♭VI", "V", "I"],    // 1 ♭6 5 1
+    ["I", "vi", "V", "I"],     // 1 6- 5 1 — twin
+    ["♭VI", "♭VII", "I", "IV"],
+    ["I", "V", "vi", "IV"],    // fully diatonic
+    ["I", "vi", "IV", "V"],    // fully diatonic
+  ],
+};
+
+// ♭3 — usually steps up to 4.
+export const POOL_B3 = ["I", "ii", "♭III", "iii", "IV", "V", "vi"];
+export const WEIGHTS_B3 = { I: 4, ii: 2, "♭III": 5, iii: 4, IV: 5, V: 4, vi: 3 };
+export const FOLLOW_B3 = { "♭III": { IV: 5, iii: 0 } };
+export const CURATED_B3 = {
+  2: [["♭III", "IV"], ["iii", "IV"], ["I", "♭III"], ["I", "iii"], ["♭III", "I"]],
+  3: [["I", "♭III", "IV"], ["I", "iii", "IV"], ["♭III", "IV", "I"], ["iii", "IV", "I"], ["IV", "♭III", "I"]],
+  4: [
+    ["I", "♭III", "IV", "I"],  // 1 ♭3 4 1
+    ["I", "iii", "IV", "I"],   // 1 3- 4 1 — twin
+    ["I", "♭III", "IV", "V"],
+    ["I", "iii", "IV", "V"],   // twin
+    ["I", "vi", "IV", "V"],    // fully diatonic
+  ],
+};
+
+// 2-7♭5 — the minor key's 2, pushing into 5D harder than 2- does.
+export const POOL_2HD = ["I", "ii", "iiø7", "iii", "IV", "V", "vi"];
+export const WEIGHTS_2HD = { I: 4, ii: 4, "iiø7": 5, iii: 2, IV: 4, V: 5, vi: 4 };
+export const FOLLOW_2HD = { "iiø7": { V: 8, ii: 0 } };
+export const CURATED_2HD = {
+  2: [["iiø7", "V"], ["ii", "V"], ["I", "iiø7"], ["I", "ii"], ["IV", "iiø7"], ["vi", "iiø7"]],
+  3: [["iiø7", "V", "I"], ["ii", "V", "I"], ["I", "iiø7", "V"], ["I", "ii", "V"], ["vi", "iiø7", "V"], ["vi", "ii", "V"], ["IV", "iiø7", "V"], ["IV", "ii", "V"]],
+  4: [
+    ["I", "vi", "iiø7", "V"],
+    ["I", "vi", "ii", "V"],    // twin
+    ["iii", "vi", "iiø7", "V"],
+    ["iii", "vi", "ii", "V"],  // twin
+    ["I", "IV", "iiø7", "V"],
+    ["I", "IV", "ii", "V"],    // twin
+    ["iiø7", "V", "I", "IV"],
+    ["ii", "V", "I", "IV"],    // twin — Kiss Me More
+  ],
+};
+
+// All five borrowed chords, 4- included, beside the plain chords they're mistaken for.
+export const POOL_BORROWED = ["I", "ii", "iiø7", "♭III", "iii", "IV", "iv", "V", "♭VI", "vi", "♭VII"];
+export const WEIGHTS_BORROWED = { I: 4, ii: 2, "iiø7": 3, "♭III": 3, iii: 2, IV: 4, iv: 3, V: 3, "♭VI": 3, vi: 3, "♭VII": 4 };
+export const FOLLOW_BORROWED = {
+  IV: { iv: 5 }, iv: { IV: 0, I: 3, "♭VII": 2 },
+  "♭VI": { "♭VII": 5, vi: 0 }, "♭VII": { I: 4, IV: 3 },
+  "♭III": { IV: 4, iii: 0 }, "iiø7": { V: 8, ii: 0 },
+};
+export const FORBID_BORROWED = { iv: ["IV"] };
+export const CURATED_BORROWED = {
+  2: [["IV", "iv"], ["♭VI", "♭VII"], ["♭VII", "I"], ["iiø7", "V"], ["♭III", "IV"], ["iv", "I"], ["vi", "V"], ["ii", "V"]],
+  3: [["IV", "iv", "I"], ["♭VI", "♭VII", "I"], ["I", "♭VII", "IV"], ["iiø7", "V", "I"], ["I", "♭III", "IV"], ["iv", "♭VII", "I"], ["I", "♭VI", "♭VII"], ["ii", "V", "I"]],
+  4: [
+    ["I", "♭VII", "IV", "I"],
+    ["I", "♭VI", "♭VII", "I"],
+    ["I", "IV", "iv", "I"],
+    ["I", "♭III", "IV", "I"],
+    ["I", "vi", "iiø7", "V"],
+    ["IV", "iv", "♭VII", "I"],  // the four darkening, then the backdoor home
+    ["I", "V", "vi", "IV"],     // fully diatonic
+  ],
+};
+
 export const PROG_LEVELS = [
   ...progRamp("Major · 1 4 5 6", "major", FOUR, "I"),
   ...progRamp("Minor · 6 2 3 4", "minor", FOUR_MINOR, "vi"),
@@ -819,6 +963,11 @@ export const PROG_LEVELS = [
   ...secDomRamp("2D · five of five", "2D", POOL_2D, CURATED_2D, WEIGHTS_2D, FOLLOW_2D, null, "pairs · 2- against 2D"),
   ...secDomRamp("6D · five of two", "6D", POOL_6D, CURATED_6D, WEIGHTS_6D, FOLLOW_6D, FORBID_6D, "pairs · 6- against 6D"),
   ...secDomRamp("Secondary dominants · all four", "all four", POOL_SECDOM, CURATED_SECDOM, WEIGHTS_SECDOM, FOLLOW_SECDOM, FORBID_SECDOM, "pairs · each D and where it goes"),
+  ...secDomRamp("♭7 · flat seven", "♭7", POOL_B7, CURATED_B7, WEIGHTS_B7, FOLLOW_B7, null, "pairs · ♭7 against 5D"),
+  ...secDomRamp("♭6 · flat six", "♭6", POOL_B6, CURATED_B6, WEIGHTS_B6, FOLLOW_B6, null, "pairs · ♭6 against 6-"),
+  ...secDomRamp("♭3 · flat three", "♭3", POOL_B3, CURATED_B3, WEIGHTS_B3, FOLLOW_B3, null, "pairs · ♭3 against 3-"),
+  ...secDomRamp("2-7♭5 · minor's two", "2-7♭5", POOL_2HD, CURATED_2HD, WEIGHTS_2HD, FOLLOW_2HD, null, "pairs · 2- against 2-7♭5"),
+  ...secDomRamp("Borrowed from minor · all five", "all five", POOL_BORROWED, CURATED_BORROWED, WEIGHTS_BORROWED, FOLLOW_BORROWED, FORBID_BORROWED, "pairs · each borrowed chord in motion"),
 ];
 export const PROG_CHAPTERS = PROG_LEVELS.reduce((chs, lvl, idx) => {
   let c = chs.find((x) => x.name === lvl.chapter);
@@ -853,6 +1002,11 @@ export function stageGoal(mode, name) {
   })[name] || "";
   if (name.startsWith("Colour")) return "Both colour chords at once, each sitting next to the plain chord it's mistaken for. Telling 3D from 4- is the easy part — they have different roots. The work is holding both questions at the same time: was that a 3 or a 3D, and a 4 or a 4-. That's what naming the chords in a real song actually asks of you.";
   if (name.startsWith("4-")) return "Meet 4- — the 4 chord borrowed from minor, its 6 dropped to ♭6. It shares a root with the major 4, so the bass can't tell them apart: the whole difference is one voice falling a half step. You'll usually hear them back to back, 4 then 4-, going home to 1 — or on to 6 or 3 to keep moving.";
+  if (name.startsWith("♭7")) return "Meet ♭7 — a major chord a whole step below home, borrowed from minor. It takes you home like 5D does, but without the leading tone, so it lands softer. You'll hear it as a plain chord or with a 7th on top: both are ♭7. On the pad, ♭7 is its own root.";
+  if (name.startsWith("♭6")) return "Meet ♭6 — a major chord on the flat six, borrowed from minor. It's the big, bright chord that climbs through ♭7 back to 1. Its twin is 6-: same number, but one is minor in the key and the other is major from outside it.";
+  if (name.startsWith("♭3")) return "Meet ♭3 — a major chord on the flat three, borrowed from minor. Where 3- sounds soft and inside the key, ♭3 sounds bold and a little rock and roll, and it usually steps straight up to 4.";
+  if (name.startsWith("2-7♭5")) return "Meet 2-7♭5 — the minor key's 2 chord, with the 6 dropped to ♭6. It's darker than 2- and pushes harder into 5D. On the pad, tap 2, then the 7♭5 chip.";
+  if (name.startsWith("Borrowed")) return "All the borrowed chords at once — 4-, ♭3, ♭6, ♭7 and 2-7♭5 — each beside the chord it's mistaken for. This is the colour that makes a major-key song sound bittersweet, heavy, or cinematic.";
   if (name.startsWith("2D")) return "Meet 2D — the 2 chord made major with a ♭7, the five-chord of 5. Its ♯4 is 5's leading tone, so where 2- drifts toward 5, 2D shoves. On the pad it sits in the band above 2-: same root, one note different.";
   if (name.startsWith("6D")) return "Meet 6D — the 6 chord made major with a ♭7, the five-chord of 2. Its ♯1 is 2's leading tone. 1 6D 2 5 is the old ragtime turnaround; hear it next to plain 1 6 2 5 and the difference is that one raised note.";
   if (name.startsWith("Secondary")) return "1D, 2D, 3D and 6D all live, each in the band above the chord it shares a root with. The new sound is the chain — 3D to 6D to 2D to 5D, every chord the five of the next, falling round the circle toward home.";
