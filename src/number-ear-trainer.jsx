@@ -1745,7 +1745,7 @@ const DOJO = { c: 2, r: 20, name: "The Dojo" };
 // The boats between worlds, moored on water beside a road node. Tapping one walks Coda to
 // `via` (the nearest stop on the road) and sails. Harmonia's is at Pillar Coast, where the
 // progressions begin; the Outer Keys' sits below Warmwater Landing.
-const DOCKS = { 1: { c: 2, r: 11, via: 5, to: 2 }, 2: { c: 7, r: 23, via: 101, to: 1 } };
+const DOCKS = { 1: { c: 2, r: 11, via: 5, to: 2 }, 2: { c: 8, r: 23, via: 101, to: 1 } }; // one tile right of the landing, clear of the shield chip
 function drawDock(ctx, cx, cy, label) {
   ctx.save();
   ctx.shadowColor = "#D9B45B"; ctx.shadowBlur = 7;
@@ -2195,16 +2195,19 @@ function AdventureMap({ world, nodes, currentId, glowIds, isCleared, isLocked, s
           <span className="map-cleared-text">{H.nodes.find((n) => n.id === celebrateNode).name}<em>region cleared</em></span>
         </div>
       )}
-      {!isW1 && (
-        // The Outer Keys' shield sits as a badge on the screen's left edge (open sea on a phone),
-        // not in the bottom corner, where a phone-width chip covered the landing.
-        <button className="shield-side" onClick={onForge} aria-label={`The Colour Guard: ${(shieldHave || []).length} of 4 colours`}>
-          <ShieldMini have={shieldHave || []} />
-          <b>{(shieldHave || []).length}/4</b>
-        </button>
-      )}
       <div className="adv-hud adv-hud-bottom">
-        {isW1 && (
+        {!isW1 ? (
+          // The bottom bar packs everything to the right, which put this chip mid-screen on a
+          // phone, right over the landing. The Outer Keys' chip is pinned to the far left
+          // instead, over open sea (.shield-chip).
+          <div className="adv-forge-chip shield-chip">
+            <button className="shield-chip-btn" onClick={onForge} aria-label="View the Colour Guard"><ShieldMini have={shieldHave || []} /></button>
+            <div className="adv-forge-txt">
+              <b>{(shieldHave || []).length} / 4</b> colours
+              <span>{(shieldHave || []).length === 4 ? "The Colour Guard is whole!" : "The Colour Guard"}</span>
+            </div>
+          </div>
+        ) : (
         <div className="adv-forge-chip">
           <canvas ref={swordRef} className={"adv-sword-mini" + (burst ? " burst" : "")} onClick={onForge} role="button" tabIndex={0} aria-label="View Excalibar fragments" />
           <div className="adv-forge-txt">
@@ -7274,11 +7277,9 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .shield-mini.duel-stake-shield { width: 22px; height: 26px; }
 .shield-mini.forge-shield { width: 110px; height: 128px; gap: 3px; margin: 8px auto; }
 .shield-mini.finale-shield { width: 150px; height: 175px; gap: 4px; }
-.shield-side { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); z-index: 6; pointer-events: auto;
-  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 6px 5px; cursor: pointer;
-  background: rgba(32, 48, 46, 0.88); border: 2px solid #565D59; color: #EDF2EE; font: inherit; }
-.shield-side b { font-size: 0.7rem; letter-spacing: 1px; }
-.shield-side:focus-visible { outline: 2px solid #D9B45B; outline-offset: 2px; }
+.adv-hud-bottom .shield-chip { margin-right: auto; }
+.shield-chip-btn { background: none; border: 0; padding: 0; cursor: pointer; display: flex; }
+.shield-chip-btn:focus-visible { outline: 2px solid #D9B45B; outline-offset: 2px; }
 .map-note { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(92px + env(safe-area-inset-bottom, 0px)); z-index: 60;
   background: #20302E; color: #EDF2EE; border: 2px solid #57C6C4; padding: 9px 14px; font-size: 0.85rem; max-width: 86vw; text-align: center; }
 .gear.world-toggle { width: auto; padding: 0 9px; font-size: 0.75rem; white-space: nowrap; }
