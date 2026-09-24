@@ -67,7 +67,7 @@ import {
   PATH_ROWS,
   PATH_SPEEDS,
   KEY_MAP,
-  levelsFor, padFor, recolour, rollTones, CHORD_SPELLING } from "./theory.mjs";
+  levelsFor, padFor, recolour, rollTones, CHORD_SPELLING, PROG_SECTIONS } from "./theory.mjs";
 import { detectPitch, pitchToDegree } from "./pitch.mjs";
 import { isBossRegion, bossConfigFor, evalBoss, bossTimer } from "./boss.mjs";
 import {
@@ -1514,6 +1514,14 @@ function ProgStack({ roman, tonic, active, wrong }) {
       <span className="stack-label">{roman ? chordNumber(roman, false) : "?"}</span>
     </div>
   );
+}
+
+// The pixel title font has no ♭/♯, so the browser falls back to a far smaller face
+// mid-word ("♭7 · FLAT SEVEN" read as "·7"). Wrap each accidental so it can take a font
+// that has it, at the title's size.
+function Acc({ text }) {
+  if (!/[♭♯]/.test(text)) return text;
+  return text.split(/([♭♯])/).map((p, i) => (/[♭♯]/.test(p) ? <span key={i} className="acc">{p}</span> : p));
 }
 
 // The progression answer pad: ROOT, then COLOUR (see padFor in theory.mjs). A root key
@@ -5038,8 +5046,9 @@ export default function NumberEarTrainer() {
             <button className="back" onClick={() => setScreen(boringMode ? "home" : "menu")}>{boringMode ? "← Home" : "← Menu"}</button>
             <h2 className="screen-title">{mode === "chords" ? "Chord tones" : "Chord progressions"}</h2>
           </header>
-          <div className="levels">
-            {chapters.map((c, ci) => {
+          {(() => {
+            const chapterBtn = (ci) => {
+              const c = chapters[ci];
               const done = c.levels.filter((l) => isPassed(mode, l.idx)).length;
               const locked = gated; // all chords/progressions are behind the offer
               return (
@@ -5047,15 +5056,25 @@ export default function NumberEarTrainer() {
                   onClick={() => { if (locked) return openUpsell(); setFromAdventure(false); setChapter(ci); }}>
                   <span className="level-num">{ci + 1}</span>
                   <span className="level-body">
-                    <span className="level-name">{c.name}{acedFinal(mode, c.levels) && <span className="aced" title="Perfect run on the final level">★</span>}</span>
+                    <span className="level-name"><Acc text={c.name} />{acedFinal(mode, c.levels) && <span className="aced" title="Perfect run on the final level">★</span>}</span>
                     <span className="level-desc">{done} of {c.levels.length} passed</span>
                   </span>
                   <span className="level-state">{locked ? "🔒" : done === c.levels.length ? "✓" : "›"}</span>
                 </button>
               );
-            })}
-          </div>
-          <p className="hint center">Master the four chords of a key. Minor is the same four, centered on 6. All seven opens up the rest.</p>
+            };
+            // Progressions are grouped: the key, the colour chords, then two paths the
+            // player can take in either order, meeting again at the Radio.
+            if (mode !== "progressions") return <div className="levels">{chapters.map((_, ci) => chapterBtn(ci))}</div>;
+            return PROG_SECTIONS.map((sec) => (
+              <section key={sec.name} className={"chapter-section" + (sec.path ? " path" : "")}>
+                <h3 className="section-title">{sec.name}</h3>
+                <p className="section-blurb">{sec.blurb}</p>
+                <div className="levels">{sec.chapters.map((n) => chapterBtn(chapters.findIndex((c) => c.name === n)))}</div>
+              </section>
+            ));
+          })()}
+          {mode === "chords" && <p className="hint center">Master the four chords of a key. Minor is the same four, centered on 6. All seven opens up the rest.</p>}
           {upsellModal}
         </div>
       );
@@ -5075,7 +5094,7 @@ export default function NumberEarTrainer() {
         <style>{CSS}</style>
         <header className="top-slim">
           <button className="back" onClick={onBack}>{backLabel}</button>
-          <h2 className="screen-title">{title}</h2>
+          <h2 className="screen-title"><Acc text={title} /></h2>
         </header>
         <div className="stage-intro">
           <p className="stage-goal">{stageGoal(mode, title)}</p>
@@ -5112,7 +5131,7 @@ export default function NumberEarTrainer() {
                 onClick={() => { try { sfx(isDuelRow && !locked ? "boot" : "select"); } catch (e) {} locked ? openUpsell() : isDuelRow ? startBossSession(advStageId) : startSession(mode, lvl.idx); }}>
                 <span className="level-num">{isDuelRow ? "⚔" : i + 1}</span>
                 <span className="level-body">
-                  <span className="level-name">{isDuelRow ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : lvl.name}</span>
+                  <span className="level-name">{isDuelRow ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : <Acc text={lvl.name} />}</span>
                   {mode === "melody" ? (
                     <span className="level-tags">
                       {levelTags(lvl).map((t, ti) => <span key={ti} className="tag">{t}</span>)}
@@ -5208,7 +5227,7 @@ export default function NumberEarTrainer() {
         <Confetti show={tutCelebrate} />
         <header className="top-slim">
           <button className="back" onClick={() => { try { sfx("back"); } catch (e) {} killSession(); setPhase("idle"); setBusy(false); setBossState(null); setScreen(lvl.weakDrill && drillReturn ? drillReturn : "levels"); }}>← {isDuel ? "Flee" : "Quit"}</button>
-          <h2 className="screen-title">{isDuel ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : lvl.name}</h2>
+          <h2 className="screen-title">{isDuel ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : <Acc text={lvl.name} />}</h2>
           <span className="session-score">{streak >= 2 && <span key={streak} className="streak">🔥{streak}</span>}{score} ✓</span>
           <button className="sess-gear" onClick={() => setTestCfgOpen(true)} aria-label="Test settings"
             style={{ background: "none", border: 0, color: "var(--text)", fontSize: "1.15rem", lineHeight: 1, cursor: "pointer", padding: "2px 6px" }}>⚙</button>
@@ -5668,7 +5687,7 @@ export default function NumberEarTrainer() {
         )}
         <header className="top-slim">
           <button className="back" onClick={() => { try { sfx("back"); } catch (e) {} if (fromAdventure) { setSwordBurst(!!justCleared); setScreen("adventure"); } else { setScreen(isDrill && drillReturn ? drillReturn : "levels"); } }}>{fromAdventure ? "← To the map" : isDrill && drillReturn === "ear" ? "← Your ear" : "← Levels"}</button>
-          <h2 className="screen-title">{resultName}</h2>
+          <h2 className="screen-title"><Acc text={resultName} /></h2>
         </header>
         <div className="results">
           {justCleared && !finale && (
@@ -7020,6 +7039,11 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .replay-group .ghost.note { border-radius: 0 10px 10px 0; border-left-width: 0.75px; padding-left: 12px; padding-right: 12px; font-size: 1.05rem; }
 
 .numpad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+/* Chapter picker sections (progressions): a header + one-line blurb over each group. */
+.chapter-section { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }
+.chapter-section .section-title { margin: 0; font-size: 0.95rem; letter-spacing: 0.5px; }
+.chapter-section .section-blurb { margin: 0 0 4px; font-size: 0.85rem; color: var(--text-soft, #A9B2AD); line-height: 1.4; }
+
 /* Root + colour pad: root keys above, colour chips (D, -, 7♭5) below. */
 .rootpad { display: flex; flex-direction: column; gap: 8px; width: 100%; align-self: stretch; }
 .colour-chips { display: grid; gap: 8px; }

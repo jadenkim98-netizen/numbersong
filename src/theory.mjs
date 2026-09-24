@@ -882,7 +882,7 @@ function secDomRamp(chapter, tag, pool, curated, weights, follow, forbid, pairDe
   const cap = { chapter, mode: "major", home: "I", pool };
   const rnd = { weights, follow, forbid };
   return [
-    { ...cap, name: tag.startsWith("all") ? "Meet them all" : "Meet " + tag, desc: pairDesc, len: 2, gen: "curated", curated, keyMode: "fixed" },
+    { ...cap, name: tag.startsWith("all") || tag === "the radio" ? "Meet them all" : "Meet " + tag, desc: pairDesc, len: 2, gen: "curated", curated, keyMode: "fixed" },
     { ...cap, name: "Three-chord",         desc: "threes · where it leads",    len: 3, gen: "curated", curated, keyMode: "fixed" },
     { ...cap, name: "Four-chord classics", desc: "the songs, one chord swapped", len: 4, gen: "curated", curated, keyMode: "fixed" },
     { ...cap, name: "Any order",           desc: "random · 4",                 len: 4, gen: "random", keyMode: "fixed",  ...rnd },
@@ -989,6 +989,31 @@ export const CURATED_BORROWED = {
   ],
 };
 
+/* ── The Radio: every chord in the game ── */
+// The capstone both paths lead to — secondary dominants, borrowed chords and the colour
+// chords in one pool, which is what naming the chords of a song on the radio asks.
+export const POOL_RADIO = ["I", "I7", "ii", "II7", "iiø7", "♭III", "iii", "III7", "IV", "iv", "V", "♭VI", "vi", "VI7", "♭VII"];
+export const WEIGHTS_RADIO = { I: 4, I7: 2, ii: 3, II7: 2, "iiø7": 2, "♭III": 2, iii: 2, III7: 2, IV: 4, iv: 2, V: 4, "♭VI": 2, vi: 3, VI7: 2, "♭VII": 2 };
+// The two paths' rules touch different chords, so they merge without overriding each other.
+export const FOLLOW_RADIO = { ...FOLLOW_SECDOM, ...FOLLOW_BORROWED };
+export const FORBID_RADIO = { ...FORBID_SECDOM, ...FORBID_BORROWED };
+export const CURATED_RADIO = {
+  2: [["I7", "IV"], ["II7", "V"], ["III7", "vi"], ["VI7", "ii"], ["IV", "iv"], ["♭VI", "♭VII"], ["♭VII", "I"], ["iiø7", "V"], ["♭III", "IV"]],
+  3: [["I", "III7", "vi"], ["IV", "iv", "I"], ["I", "II7", "V"], ["♭VI", "♭VII", "I"], ["VI7", "II7", "V"], ["I", "♭VII", "IV"], ["iiø7", "V", "I"], ["I", "I7", "IV"]],
+  4: [
+    ["I", "III7", "IV", "iv"],   // Creep
+    ["I", "III7", "vi", "IV"],   // I'm Not the Only One
+    ["I", "II7", "IV", "I"],     // Eight Days a Week
+    ["I", "♭VII", "IV", "I"],    // Hey Jude's outro
+    ["I", "VI7", "II7", "V"],    // the ragtime turnaround
+    ["I", "♭VI", "♭VII", "I"],   // the Mario cadence
+    ["I", "I7", "IV", "iv"],
+    ["III7", "VI7", "II7", "V"], // the whole chain
+    ["I", "vi", "iiø7", "V"],
+    ["I", "V", "vi", "IV"],      // fully diatonic
+  ],
+};
+
 export const PROG_LEVELS = [
   ...progRamp("Major · 1 4 5 6", "major", FOUR, "I"),
   ...progRamp("Minor · 6 2 3 4", "minor", FOUR_MINOR, "vi"),
@@ -1005,6 +1030,7 @@ export const PROG_LEVELS = [
   ...secDomRamp("♭3 · flat three", "♭3", POOL_B3, CURATED_B3, WEIGHTS_B3, FOLLOW_B3, null, "pairs · ♭3 against 3-"),
   ...secDomRamp("2-7♭5 · minor's two", "2-7♭5", POOL_2HD, CURATED_2HD, WEIGHTS_2HD, FOLLOW_2HD, null, "pairs · 2- against 2-7♭5"),
   ...secDomRamp("Borrowed from minor · all five", "all five", POOL_BORROWED, CURATED_BORROWED, WEIGHTS_BORROWED, FOLLOW_BORROWED, FORBID_BORROWED, "pairs · each borrowed chord in motion"),
+  ...secDomRamp("The Radio · every chord", "the radio", POOL_RADIO, CURATED_RADIO, WEIGHTS_RADIO, FOLLOW_RADIO, FORBID_RADIO, "pairs · from both paths"),
 ];
 export const PROG_CHAPTERS = PROG_LEVELS.reduce((chs, lvl, idx) => {
   let c = chs.find((x) => x.name === lvl.chapter);
@@ -1012,6 +1038,21 @@ export const PROG_CHAPTERS = PROG_LEVELS.reduce((chs, lvl, idx) => {
   c.levels.push({ ...lvl, idx });
   return chs;
 }, []);
+// How the chapter picker groups the chapters. Display only — saved progress is keyed by
+// level idx, so sections can be reshuffled freely without touching anyone's clears.
+// After the colour chords the two paths are a free choice: neither is a prerequisite.
+export const PROG_SECTIONS = [
+  { name: "The key", blurb: "Major, minor, then all seven chords of the key.",
+    chapters: ["Major · 1 4 5 6", "Minor · 6 2 3 4", "All seven"] },
+  { name: "Colour chords", blurb: "The two chords from outside the key you'll hear most. Start here.",
+    chapters: ["3D · five of six", "4- · borrowed from minor", "Colour chords · 3D and 4-"] },
+  { name: "Path A · Secondary dominants", blurb: "Chords turned dominant, each pointing at the next. Take either path first.", path: true,
+    chapters: ["1D · five of four", "2D · five of five", "6D · five of two", "Secondary dominants · all four"] },
+  { name: "Path B · Borrowed from minor", blurb: "The minor key's chords, lent to major. Take either path first.", path: true,
+    chapters: ["♭7 · flat seven", "♭6 · flat six", "♭3 · flat three", "2-7♭5 · minor's two", "Borrowed from minor · all five"] },
+  { name: "The Radio", blurb: "Both paths meet: every chord in the game.",
+    chapters: ["The Radio · every chord"] },
+];
 export const progChapterIndexOf = (li) => PROG_CHAPTERS.findIndex((c) => li >= c.start && li < c.start + c.levels.length);
 
 // Adventure region order = the teaching spine (map nodes 1→8):
@@ -1039,6 +1080,7 @@ export function stageGoal(mode, name) {
   })[name] || "";
   if (name.startsWith("Colour")) return "Both colour chords at once, each sitting next to the plain chord it's mistaken for. Telling 3D from 4- is the easy part — they have different roots. The work is holding both questions at the same time: was that a 3 or a 3D, and a 4 or a 4-. That's what naming the chords in a real song actually asks of you.";
   if (name.startsWith("4-")) return "Meet 4- — the 4 chord borrowed from minor, its 6 dropped to ♭6. It shares a root with the major 4, so the bass can't tell them apart: the whole difference is one voice falling a half step. You'll usually hear them back to back, 4 then 4-, going home to 1 — or on to 6 or 3 to keep moving.";
+  if (name.startsWith("The Radio")) return "Every chord from both paths at once — secondary dominants, borrowed chords and the colour chords, all live. This is the whole vocabulary of a pop song: once you can name these, you can name what's on the radio.";
   if (name.startsWith("♭7")) return "Meet ♭7 — a major chord a whole step below home, borrowed from minor. It takes you home like 5D does, but without the leading tone, so it lands softer. You'll hear it as a plain chord or with a 7th on top: both are ♭7. On the pad, ♭7 is its own root.";
   if (name.startsWith("♭6")) return "Meet ♭6 — a major chord on the flat six, borrowed from minor. It's the big, bright chord that climbs through ♭7 back to 1. Its twin is 6-: same number, but one is minor in the key and the other is major from outside it.";
   if (name.startsWith("♭3")) return "Meet ♭3 — a major chord on the flat three, borrowed from minor. Where 3- sounds soft and inside the key, ♭3 sounds bold and a little rock and roll, and it usually steps straight up to 4.";

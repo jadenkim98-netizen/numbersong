@@ -10,7 +10,7 @@ import {
   CURATED_3D, POOL_3D, WEIGHTS_3D, DEGREE_SEMITONES, EAR_CHORD_ROSTER, voiceLead,
   CURATED_4M, POOL_4M, WEIGHTS_4M, FOLLOW_4M, randomVoicing,
   CURATED_COLOUR, POOL_COLOUR, WEIGHTS_COLOUR, FOLLOW_COLOUR, CURATED_1D, POOL_1D, CURATED_2D, POOL_2D, CURATED_6D, POOL_6D, CURATED_SECDOM, POOL_SECDOM, padFor, recolour, rollTones, CHORD_SPELLING,
-  CURATED_B7, POOL_B7, CURATED_B6, POOL_B6, CURATED_B3, POOL_B3, CURATED_2HD, POOL_2HD, CURATED_BORROWED, POOL_BORROWED,
+  CURATED_B7, POOL_B7, CURATED_B6, POOL_B6, CURATED_B3, POOL_B3, CURATED_2HD, POOL_2HD, CURATED_BORROWED, POOL_BORROWED, CURATED_RADIO, POOL_RADIO, PROG_SECTIONS,
 } from "../src/theory.mjs";
 
 test("degreeLabel: the upper octave shows as 1, never 8", () => {
@@ -122,6 +122,7 @@ test("all-seven chapters are appended, never inserted (level idx is the saved-pr
     ["♭3 · flat three", 72, 6],
     ["2-7♭5 · minor's two", 78, 6],
     ["Borrowed from minor · all five", 84, 6],
+    ["The Radio · every chord", 90, 6],
   ]);
 });
 
@@ -618,7 +619,7 @@ test("borrowed chords sound as spelled, and ♭7 rolls triad or dominant 7", () 
 });
 
 test("borrowed-chord curated sets stay inside their pools, no repeats", () => {
-  for (const [set, pool] of [[CURATED_B7, POOL_B7], [CURATED_B6, POOL_B6], [CURATED_B3, POOL_B3], [CURATED_2HD, POOL_2HD], [CURATED_BORROWED, POOL_BORROWED]]) {
+  for (const [set, pool] of [[CURATED_B7, POOL_B7], [CURATED_B6, POOL_B6], [CURATED_B3, POOL_B3], [CURATED_2HD, POOL_2HD], [CURATED_BORROWED, POOL_BORROWED], [CURATED_RADIO, POOL_RADIO]]) {
     for (const seq of Object.values(set).flat()) {
       for (const c of seq) assert.ok(pool.includes(c), `${c} in ${seq.join("-")}`);
       for (let j = 1; j < seq.length; j++) assert.notEqual(seq[j], seq[j - 1], seq.join("-"));
@@ -641,4 +642,17 @@ test("random draws move the way songs do: 2- → 5D, 6- → 4, and few vamps", (
   assert.ok(twoToFive / two > 0.4, `2- → 5D ${twoToFive / two}`);
   assert.ok(sixToFour / six > 0.35, `6- → 4 ${sixToFour / six}`);
   assert.ok(bounces / moves < 0.12, `A-B-A bounces ${bounces / moves}`);
+});
+
+test("every progression chapter sits in exactly one picker section", () => {
+  const listed = PROG_SECTIONS.flatMap((sec) => sec.chapters);
+  assert.deepEqual([...listed].sort(), PROG_CHAPTERS.map((c) => c.name).sort());
+  assert.equal(new Set(listed).size, listed.length);
+});
+
+test("the Radio holds every chord from both paths and the colour chords", () => {
+  for (const pool of [POOL_SECDOM, POOL_BORROWED]) for (const c of pool) assert.ok(POOL_RADIO.includes(c), c);
+  const { roots, chips } = padFor(POOL_RADIO);
+  assert.equal(roots.length, 9);
+  assert.deepEqual(chips, ["D", "-", "7♭5"]);
 });

@@ -1446,3 +1446,9 @@
 .retro .colour-chip.m:not(:disabled){ border-color:var(--blue); color:var(--blue); }
 .retro .colour-chip.d.on{ background:var(--teal); color:var(--ink); }
 .retro .colour-chip.m.on{ background:var(--blue); color:var(--ink); }
+
+/* ---- chapter picker sections ------------------------------------------------ */
+.retro .chapter-section .section-title{ font-family:var(--pf); font-weight:400; text-transform:uppercase; letter-spacing:1.5px; font-size:14px; color:var(--teal); }
+.retro .chapter-section.path .section-title{ color:var(--gold); }
+/* ♭/♯ inside pixel-font titles: the pixel face lacks them (see Acc in the jsx) */
+.retro .acc{ font-family:var(--black); font-size:1.15em; line-height:1; letter-spacing:0; text-transform:none; }
