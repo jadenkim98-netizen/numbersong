@@ -11993,6 +11993,37 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
       navigator.serviceWorker.register("./sw.js").catch(function () {});
     });
   }
+  // Home-screen apps (iOS especially) rarely reload: "opening" the app resumes the page
+  // already in memory, so a new deploy never shows up. On every return to the foreground,
+  // compare this page's build stamp with the live sw.js. Away 5+ minutes → reload quietly;
+  // back sooner (maybe mid-question) → offer a one-tap banner instead of yanking the page.
+  (function () {
+    var BUILD = "20260924103530", hiddenAt = 0, AWAY_MS = 5 * 60 * 1000;
+    function banner() {
+      if (document.getElementById("ns-update")) return;
+      var b = document.createElement("button");
+      b.id = "ns-update";
+      b.textContent = "New version ready · tap to update";
+      b.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:9999;" +
+        "font:600 14px system-ui,sans-serif;padding:12px 18px;border:2px solid #20302E;background:#57C6C4;color:#20302E;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.35);";
+      b.onclick = function () { location.reload(); };
+      document.body.appendChild(b);
+    }
+    function check(away) {
+      if (BUILD.indexOf("NS_BUILD") !== -1 || !navigator.onLine) return; // unstamped dev build, or offline
+      fetch("./sw.js?v=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (t) {
+        var m = /VERSION = "(\d+)"/.exec(t);
+        if (!m || m[1] === BUILD) return;
+        if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) navigator.serviceWorker.getRegistration().then(function (reg) { reg && reg.update(); });
+        if (away >= AWAY_MS) location.reload(); else banner();
+      }).catch(function () {});
+    }
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) { hiddenAt = Date.now(); return; }
+      check(hiddenAt ? Date.now() - hiddenAt : 0);
+    });
+    window.__nsCheckUpdate = check; // lets a test drive it
+  })();
 </script>
 </body>
 </html>
