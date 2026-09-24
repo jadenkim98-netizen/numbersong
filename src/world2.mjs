@@ -6,46 +6,47 @@
 // 256×416 baked PNG that must keep path tiles on exactly these walkable cells.
 // Layout: the landing and Tintmouth (south) → fork → the Beacon Chain (west) and the
 // Vesper Isles (east) → Signal Rock (north), where both chains meet. The top three rows
-// are open sea on purpose: headroom above the highest point, under the map's header.
+// are open sea on purpose (headroom under the map's header), and so are the bottom three,
+// so the landing clears the bottom HUD on a phone.
 
 export const WORLD2 = {
   id: 2,
   name: "THE OUTER KEYS",
   tile: 16, gc: 16, gr: 26,
   // Harmonia tile ids: 9 water, 1/2 grass, 3/4 fen, 10/11 rock, 12–17 road, 18 clearing, 20 bridge
-  grid: [[9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 11, 10, 11, 10, 10, 11, 9, 9, 9, 9, 9], [9, 9, 9, 20, 20, 12, 12, 18, 12, 12, 12, 20, 20, 9, 9, 9], [9, 9, 1, 13, 1, 10, 10, 10, 10, 10, 10, 9, 20, 9, 9, 9], [9, 9, 1, 18, 1, 9, 9, 9, 9, 9, 9, 3, 13, 3, 3, 9], [9, 9, 9, 20, 9, 9, 9, 9, 9, 9, 9, 3, 18, 3, 4, 9], [9, 9, 1, 13, 1, 9, 9, 9, 9, 9, 9, 4, 13, 3, 3, 9], [9, 9, 1, 18, 1, 9, 9, 9, 9, 9, 9, 3, 18, 3, 3, 9], [9, 9, 9, 20, 9, 9, 9, 9, 9, 9, 9, 3, 13, 3, 3, 9], [9, 9, 1, 13, 1, 9, 9, 9, 9, 9, 9, 3, 18, 3, 3, 9], [9, 9, 1, 18, 1, 9, 9, 9, 9, 9, 9, 3, 13, 3, 4, 9], [9, 9, 9, 20, 9, 9, 9, 9, 9, 9, 9, 3, 18, 3, 3, 9], [9, 9, 1, 13, 1, 9, 9, 9, 9, 9, 9, 3, 13, 3, 3, 9], [9, 9, 1, 18, 1, 9, 9, 9, 9, 9, 9, 3, 18, 4, 3, 9], [9, 9, 9, 20, 9, 2, 2, 2, 2, 2, 9, 3, 13, 3, 3, 9], [9, 9, 9, 20, 9, 2, 2, 18, 2, 2, 9, 9, 20, 9, 9, 9], [9, 9, 9, 20, 20, 12, 12, 14, 12, 12, 20, 20, 20, 9, 9, 9], [9, 9, 9, 9, 9, 2, 2, 13, 2, 2, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 2, 2, 18, 2, 2, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 1, 1, 13, 1, 1, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 1, 1, 18, 1, 1, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 1, 1, 13, 1, 1, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 1, 1, 18, 1, 1, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9]],
+  grid: [[9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 11, 10, 11, 10, 10, 11, 9, 9, 9, 9, 9], [9, 9, 1, 16, 12, 12, 12, 18, 12, 12, 12, 20, 20, 9, 9, 9], [9, 9, 1, 18, 1, 10, 10, 10, 10, 10, 10, 3, 13, 3, 3, 9], [9, 9, 9, 20, 9, 9, 9, 9, 9, 9, 9, 3, 18, 3, 4, 9], [9, 9, 1, 13, 1, 9, 9, 9, 9, 9, 9, 4, 13, 3, 3, 9], [9, 9, 1, 18, 1, 9, 9, 9, 9, 9, 9, 3, 18, 3, 3, 9], [9, 9, 9, 20, 9, 9, 9, 9, 9, 9, 9, 3, 13, 3, 3, 9], [9, 9, 1, 13, 1, 9, 9, 9, 9, 9, 9, 3, 18, 3, 3, 9], [9, 9, 1, 18, 1, 9, 9, 9, 9, 9, 9, 3, 13, 3, 4, 9], [9, 9, 9, 20, 9, 9, 9, 9, 9, 9, 9, 3, 18, 3, 3, 9], [9, 9, 1, 13, 1, 9, 9, 9, 9, 9, 9, 3, 13, 3, 3, 9], [9, 9, 1, 18, 1, 9, 9, 9, 9, 9, 9, 3, 18, 4, 3, 9], [9, 9, 9, 20, 9, 2, 2, 18, 2, 2, 9, 3, 13, 3, 3, 9], [9, 9, 9, 20, 20, 12, 12, 14, 12, 12, 20, 20, 20, 9, 9, 9], [9, 9, 9, 9, 9, 2, 2, 13, 2, 2, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 2, 2, 18, 2, 2, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 1, 1, 13, 1, 1, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 1, 1, 18, 1, 1, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 1, 1, 13, 1, 1, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 1, 1, 18, 1, 1, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9], [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9]],
   // Where you step off the boat, and the dock that sails you home.
-  dock: { c: 7, r: 25 },
+  dock: { c: 7, r: 23 },
   // Each node plays one progression chapter (by name; see W2_CHAPTERS in worlds.mjs).
   // `section` picks the keeper who walks you through it; `greet` is that keeper's line for
   // THIS stop — about its own chord — so a section's keeper travels with you island to
   // island instead of repeating one greeting. The capstone's line leads into the duel.
   nodes: [
-    { id: 101, c: 7, r: 24, section: "warmup", name: "WARMWATER LANDING", mood: "coast",  emblem: "⚓", sub: "Warm-up · all seven",
+    { id: 101, c: 7, r: 22, section: "warmup", name: "WARMWATER LANDING", mood: "coast",  emblem: "⚓", sub: "Warm-up · all seven",
       greet: "Off the boat already? Good. Before I show you my vats, name the seven colours the key already owns — every one of them, in any order. Then we'll talk about the two it borrows." },
-    { id: 102, c: 7, r: 22, section: "trunk",  name: "DYEHOUSE ROW",      mood: "major",  emblem: "🧺", sub: "Colour · 3D",
+    { id: 102, c: 7, r: 20, section: "trunk",  name: "DYEHOUSE ROW",      mood: "major",  emblem: "🧺", sub: "Colour · 3D",
       greet: "First vat: the 3 chord, dyed dominant. One note climbs — its 5 rises to ♯5 — and the whole chord starts leaning toward 6. Hear the lean, and you've found 3D." },
-    { id: 103, c: 7, r: 20, section: "trunk",  name: "INDIGO STEPS",      mood: "minor",  emblem: "🫙", sub: "Colour · 4-",
+    { id: 103, c: 7, r: 18, section: "trunk",  name: "INDIGO STEPS",      mood: "minor",  emblem: "🫙", sub: "Colour · 4-",
       greet: "Second vat: the 4 chord, darkened. Same root, same bass — only its 6 sinks to ♭6. One voice falling a half step, and the 4 turns bittersweet. That's 4-, borrowed from minor." },
-    { id: 104, c: 7, r: 17, section: "trunk",  name: "TINTMOUTH HARBOUR", mood: "major",  emblem: "🎨", sub: "Colour · 3D and 4-",
+    { id: 104, c: 7, r: 15, section: "trunk",  name: "TINTMOUTH HARBOUR", mood: "major",  emblem: "🎨", sub: "Colour · 3D and 4-",
       greet: "Both vats open now. 3 or 3D, 4 or 4- — I'll tip them in any order I please. Name every drop and my colour's yours. Miss one, and you're scrubbing vats till dawn." },
-    { id: 105, c: 3, r: 15, section: "pathA",  name: "FIRST LIGHT",       mood: "coast",  emblem: "🕯", sub: "Beacon · 1D",
+    { id: 105, c: 3, r: 14, section: "pathA",  name: "FIRST LIGHT",       mood: "coast",  emblem: "🕯", sub: "Beacon · 1D",
       greet: "This lamp is home itself, with a ♭7 lit inside it. Watch where the beam falls — straight on the 4. That's 1D: home, turned to face the door." },
-    { id: 106, c: 3, r: 12,  section: "pathA",  name: "SECOND BEAM",       mood: "coast",  emblem: "🔦", sub: "Beacon · 2D",
+    { id: 106, c: 3, r: 11,  section: "pathA",  name: "SECOND BEAM",       mood: "coast",  emblem: "🔦", sub: "Beacon · 2D",
       greet: "The 2 chord, lit major, with a ♭7 on top. Its ♯4 is 5's leading tone, so this beam lands on 5 — and 5 lands you home. Two lights in a row, pointing the same way." },
-    { id: 107, c: 3, r: 9,  section: "pathA",  name: "LANTERN REEF",      mood: "coast",  emblem: "🏮", sub: "Beacon · 6D",
+    { id: 107, c: 3, r: 8,  section: "pathA",  name: "LANTERN REEF",      mood: "coast",  emblem: "🏮", sub: "Beacon · 6D",
       greet: "Out on the reef, the 6 chord burns major. Its ♯1 leans into 2 — follow the beam: 6D, 2, 5, 1. The oldest road home in ragtime." },
-    { id: 108, c: 3, r: 6,  section: "pathA",  name: "THE GREAT LAMP",    mood: "coast",  emblem: "🗼", sub: "Beacon · all four",
+    { id: 108, c: 3, r: 5,  section: "pathA",  name: "THE GREAT LAMP",    mood: "coast",  emblem: "🗼", sub: "Beacon · all four",
       greet: "Every lamp in the chain, lit at once — 1D, 2D, 3D, 6D, beams falling on beams. Follow each one to where it lands, and the gold is yours." },
-    { id: 109, c: 12, r: 15, section: "pathB", name: "DUSKWATER",         mood: "minor",  emblem: "🌆", sub: "Vesper · ♭7",
+    { id: 109, c: 12, r: 14, section: "pathB", name: "DUSKWATER",         mood: "minor",  emblem: "🌆", sub: "Vesper · ♭7",
       greet: "First borrowing of the night: a major chord a whole step below home. It walks you home like 5D does, only softer — no leading tone, just a long exhale. ♭7 to 1." },
-    { id: 110, c: 12, r: 13, section: "pathB", name: "MOONWELL",          mood: "minor",  emblem: "🌕", sub: "Vesper · ♭6",
+    { id: 110, c: 12, r: 12, section: "pathB", name: "MOONWELL",          mood: "minor",  emblem: "🌕", sub: "Vesper · ♭6",
       greet: "Lower a bucket in the moonwell and up comes ♭6 — big and bright, with a little ache in it. It climbs through ♭7 and lands home. You've heard it at the end of every level you ever cleared." },
-    { id: 111, c: 12, r: 11,  section: "pathB", name: "LOW TIDE",          mood: "minor",  emblem: "🌊", sub: "Vesper · ♭3",
+    { id: 111, c: 12, r: 10,  section: "pathB", name: "LOW TIDE",          mood: "minor",  emblem: "🌊", sub: "Vesper · ♭3",
       greet: "When the tide goes out, the 3 chord comes back major and flat. Where 3- sighs, ♭3 swaggers — and it nearly always steps up to 4." },
-    { id: 112, c: 12, r: 9,  section: "pathB", name: "SHADE HOLLOW",      mood: "minor",  emblem: "🌑", sub: "Vesper · 2-7♭5",
+    { id: 112, c: 12, r: 8,  section: "pathB", name: "SHADE HOLLOW",      mood: "minor",  emblem: "🌑", sub: "Vesper · 2-7♭5",
       greet: "The minor key's own 2: your 2- with its 6 sunk to ♭6. Darker than any 2 you know, and it leans on 5D twice as hard. That's 2-7♭5." },
-    { id: 113, c: 12, r: 7,  section: "pathB", name: "VESPER ISLE",       mood: "minor",  emblem: "🌙", sub: "Vesper · all five",
+    { id: 113, c: 12, r: 6,  section: "pathB", name: "VESPER ISLE",       mood: "minor",  emblem: "🌙", sub: "Vesper · all five",
       greet: "Every colour I've borrowed, all out at once — ♭7, ♭6, ♭3, 4-, the minor's 2. Name them before morning and the blue is yours to keep." },
     { id: 114, c: 7, r: 4,  section: "radio",  name: "SIGNAL ROCK",       mood: "forge",  emblem: "📻", sub: "The Radio · every chord",
       greet: "Every song on every station, all at once. The lamplighter's lights and the moon's colours are all out there in the static. Name them for me." },
