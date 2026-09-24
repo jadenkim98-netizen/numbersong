@@ -813,6 +813,11 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .replay-group .ghost.note { border-radius: 0 10px 10px 0; border-left-width: 0.75px; padding-left: 12px; padding-right: 12px; font-size: 1.05rem; }
 
 .numpad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+/* Chapter picker sections (progressions): a header + one-line blurb over each group. */
+.chapter-section { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }
+.chapter-section .section-title { margin: 0; font-size: 0.95rem; letter-spacing: 0.5px; }
+.chapter-section .section-blurb { margin: 0 0 4px; font-size: 0.85rem; color: var(--text-soft, #A9B2AD); line-height: 1.4; }
+
 /* Root + colour pad: root keys above, colour chips (D, -, 7♭5) below. */
 .rootpad { display: flex; flex-direction: column; gap: 8px; width: 100%; align-self: stretch; }
 .colour-chips { display: grid; gap: 8px; }
@@ -2805,6 +2810,12 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .retro .colour-chip.d.on{ background:var(--teal); color:var(--ink); }
 .retro .colour-chip.m.on{ background:var(--blue); color:var(--ink); }
 
+/* ---- chapter picker sections ------------------------------------------------ */
+.retro .chapter-section .section-title{ font-family:var(--pf); font-weight:400; text-transform:uppercase; letter-spacing:1.5px; font-size:14px; color:var(--teal); }
+.retro .chapter-section.path .section-title{ color:var(--gold); }
+/* ♭/♯ inside pixel-font titles: the pixel face lacks them (see Acc in the jsx) */
+.retro .acc{ font-family:var(--black); font-size:1.15em; line-height:1; letter-spacing:0; text-transform:none; }
+
 </style>
 </head>
 <body>
@@ -3745,7 +3756,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     const cap = { chapter, mode: "major", home: "I", pool };
     const rnd = { weights, follow, forbid };
     return [
-      { ...cap, name: tag.startsWith("all") ? "Meet them all" : "Meet " + tag, desc: pairDesc, len: 2, gen: "curated", curated, keyMode: "fixed" },
+      { ...cap, name: tag.startsWith("all") || tag === "the radio" ? "Meet them all" : "Meet " + tag, desc: pairDesc, len: 2, gen: "curated", curated, keyMode: "fixed" },
       { ...cap, name: "Three-chord", desc: "threes · where it leads", len: 3, gen: "curated", curated, keyMode: "fixed" },
       { ...cap, name: "Four-chord classics", desc: "the songs, one chord swapped", len: 4, gen: "curated", curated, keyMode: "fixed" },
       { ...cap, name: "Any order", desc: "random · 4", len: 4, gen: "random", keyMode: "fixed", ...rnd },
@@ -3858,6 +3869,34 @@ window.SOUNDTRACK = SOUNDTRACK;
       // fully diatonic
     ]
   };
+  var POOL_RADIO = ["I", "I7", "ii", "II7", "iiø7", "♭III", "iii", "III7", "IV", "iv", "V", "♭VI", "vi", "VI7", "♭VII"];
+  var WEIGHTS_RADIO = { I: 4, I7: 2, ii: 3, II7: 2, "iiø7": 2, "♭III": 2, iii: 2, III7: 2, IV: 4, iv: 2, V: 4, "♭VI": 2, vi: 3, VI7: 2, "♭VII": 2 };
+  var FOLLOW_RADIO = { ...FOLLOW_SECDOM, ...FOLLOW_BORROWED };
+  var FORBID_RADIO = { ...FORBID_SECDOM, ...FORBID_BORROWED };
+  var CURATED_RADIO = {
+    2: [["I7", "IV"], ["II7", "V"], ["III7", "vi"], ["VI7", "ii"], ["IV", "iv"], ["♭VI", "♭VII"], ["♭VII", "I"], ["iiø7", "V"], ["♭III", "IV"]],
+    3: [["I", "III7", "vi"], ["IV", "iv", "I"], ["I", "II7", "V"], ["♭VI", "♭VII", "I"], ["VI7", "II7", "V"], ["I", "♭VII", "IV"], ["iiø7", "V", "I"], ["I", "I7", "IV"]],
+    4: [
+      ["I", "III7", "IV", "iv"],
+      // Creep
+      ["I", "III7", "vi", "IV"],
+      // I'm Not the Only One
+      ["I", "II7", "IV", "I"],
+      // Eight Days a Week
+      ["I", "♭VII", "IV", "I"],
+      // Hey Jude's outro
+      ["I", "VI7", "II7", "V"],
+      // the ragtime turnaround
+      ["I", "♭VI", "♭VII", "I"],
+      // the Mario cadence
+      ["I", "I7", "IV", "iv"],
+      ["III7", "VI7", "II7", "V"],
+      // the whole chain
+      ["I", "vi", "iiø7", "V"],
+      ["I", "V", "vi", "IV"]
+      // fully diatonic
+    ]
+  };
   var PROG_LEVELS = [
     ...progRamp("Major · 1 4 5 6", "major", FOUR, "I"),
     ...progRamp("Minor · 6 2 3 4", "minor", FOUR_MINOR, "vi"),
@@ -3873,7 +3912,8 @@ window.SOUNDTRACK = SOUNDTRACK;
     ...secDomRamp("♭6 · flat six", "♭6", POOL_B6, CURATED_B6, WEIGHTS_B6, FOLLOW_B6, null, "pairs · ♭6 against 6-"),
     ...secDomRamp("♭3 · flat three", "♭3", POOL_B3, CURATED_B3, WEIGHTS_B3, FOLLOW_B3, null, "pairs · ♭3 against 3-"),
     ...secDomRamp("2-7♭5 · minor's two", "2-7♭5", POOL_2HD, CURATED_2HD, WEIGHTS_2HD, FOLLOW_2HD, null, "pairs · 2- against 2-7♭5"),
-    ...secDomRamp("Borrowed from minor · all five", "all five", POOL_BORROWED, CURATED_BORROWED, WEIGHTS_BORROWED, FOLLOW_BORROWED, FORBID_BORROWED, "pairs · each borrowed chord in motion")
+    ...secDomRamp("Borrowed from minor · all five", "all five", POOL_BORROWED, CURATED_BORROWED, WEIGHTS_BORROWED, FOLLOW_BORROWED, FORBID_BORROWED, "pairs · each borrowed chord in motion"),
+    ...secDomRamp("The Radio · every chord", "the radio", POOL_RADIO, CURATED_RADIO, WEIGHTS_RADIO, FOLLOW_RADIO, FORBID_RADIO, "pairs · from both paths")
   ];
   var PROG_CHAPTERS = PROG_LEVELS.reduce((chs, lvl, idx) => {
     let c = chs.find((x) => x.name === lvl.chapter);
@@ -3884,6 +3924,35 @@ window.SOUNDTRACK = SOUNDTRACK;
     c.levels.push({ ...lvl, idx });
     return chs;
   }, []);
+  var PROG_SECTIONS = [
+    {
+      name: "The key",
+      blurb: "Major, minor, then all seven chords of the key.",
+      chapters: ["Major · 1 4 5 6", "Minor · 6 2 3 4", "All seven"]
+    },
+    {
+      name: "Colour chords",
+      blurb: "The two chords from outside the key you'll hear most. Start here.",
+      chapters: ["3D · five of six", "4- · borrowed from minor", "Colour chords · 3D and 4-"]
+    },
+    {
+      name: "Path A · Secondary dominants",
+      blurb: "Chords turned dominant, each pointing at the next. Take either path first.",
+      path: true,
+      chapters: ["1D · five of four", "2D · five of five", "6D · five of two", "Secondary dominants · all four"]
+    },
+    {
+      name: "Path B · Borrowed from minor",
+      blurb: "The minor key's chords, lent to major. Take either path first.",
+      path: true,
+      chapters: ["♭7 · flat seven", "♭6 · flat six", "♭3 · flat three", "2-7♭5 · minor's two", "Borrowed from minor · all five"]
+    },
+    {
+      name: "The Radio",
+      blurb: "Both paths meet: every chord in the game.",
+      chapters: ["The Radio · every chord"]
+    }
+  ];
   var progChapterIndexOf = (li) => PROG_CHAPTERS.findIndex((c) => li >= c.start && li < c.start + c.levels.length);
   var ADV_STAGES = [
     { mode: "melody", gi: 0 },
@@ -3913,6 +3982,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     }[name] || "";
     if (name.startsWith("Colour")) return "Both colour chords at once, each sitting next to the plain chord it's mistaken for. Telling 3D from 4- is the easy part — they have different roots. The work is holding both questions at the same time: was that a 3 or a 3D, and a 4 or a 4-. That's what naming the chords in a real song actually asks of you.";
     if (name.startsWith("4-")) return "Meet 4- — the 4 chord borrowed from minor, its 6 dropped to ♭6. It shares a root with the major 4, so the bass can't tell them apart: the whole difference is one voice falling a half step. You'll usually hear them back to back, 4 then 4-, going home to 1 — or on to 6 or 3 to keep moving.";
+    if (name.startsWith("The Radio")) return "Every chord from both paths at once — secondary dominants, borrowed chords and the colour chords, all live. This is the whole vocabulary of a pop song: once you can name these, you can name what's on the radio.";
     if (name.startsWith("♭7")) return "Meet ♭7 — a major chord a whole step below home, borrowed from minor. It takes you home like 5D does, but without the leading tone, so it lands softer. You'll hear it as a plain chord or with a 7th on top: both are ♭7. On the pad, ♭7 is its own root.";
     if (name.startsWith("♭6")) return "Meet ♭6 — a major chord on the flat six, borrowed from minor. It's the big, bright chord that climbs through ♭7 back to 1. Its twin is 6-: same number, but one is minor in the key and the other is major from outside it.";
     if (name.startsWith("♭3")) return "Meet ♭3 — a major chord on the flat three, borrowed from minor. Where 3- sounds soft and inside the key, ♭3 sounds bold and a little rock and roll, and it usually steps straight up to 4.";
@@ -6160,6 +6230,10 @@ window.SOUNDTRACK = SOUNDTRACK;
       on.set(alt ? Number(s.slice(1)) : t === 8 ? 1 : t, alt ? s : null);
     }
     return /* @__PURE__ */ React.createElement("div", { className: "stack prog-stack" + (roman ? " filled" : "") + (active ? " active" : "") + (wrong ? " wrong" : "") }, [7, 6, 5, 4, 3, 2, 1].map((d) => /* @__PURE__ */ React.createElement("span", { key: d, className: "stack-note" + (on.has(d) ? " on" : "") + (on.get(d) ? " alt" : "") + (d === tonic ? " home" : "") }, on.get(d) || d)), /* @__PURE__ */ React.createElement("span", { className: "stack-label" }, roman ? chordNumber(roman, false) : "?"));
+  }
+  function Acc({ text }) {
+    if (!/[♭♯]/.test(text)) return text;
+    return text.split(/([♭♯])/).map((p, i) => /[♭♯]/.test(p) ? /* @__PURE__ */ React.createElement("span", { key: i, className: "acc" }, p) : p);
   }
   function RootColourPad({ pool, last, disabled, rootsDisabled, onRoot, onColour, showRoots = true }) {
     const { roots, chips } = padFor(pool);
@@ -9651,25 +9725,30 @@ window.SOUNDTRACK = SOUNDTRACK;
       const activeChapter = mode === "chords" ? chordChapter : progChapter;
       const setChapter = mode === "chords" ? setChordChapter : setProgChapter;
       if ((mode === "chords" || mode === "progressions") && activeChapter === null) {
-        return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => setScreen(boringMode ? "home" : "menu") }, boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, mode === "chords" ? "Chord tones" : "Chord progressions")), /* @__PURE__ */ React.createElement("div", { className: "levels" }, chapters.map((c, ci) => {
-          const done = c.levels.filter((l) => isPassed(mode, l.idx)).length;
-          const locked = gated;
-          return /* @__PURE__ */ React.createElement(
-            "button",
-            {
-              key: ci,
-              className: "level world" + (locked ? " locked" : ""),
-              onClick: () => {
-                if (locked) return openUpsell();
-                setFromAdventure(false);
-                setChapter(ci);
-              }
-            },
-            /* @__PURE__ */ React.createElement("span", { className: "level-num" }, ci + 1),
-            /* @__PURE__ */ React.createElement("span", { className: "level-body" }, /* @__PURE__ */ React.createElement("span", { className: "level-name" }, c.name, acedFinal(mode, c.levels) && /* @__PURE__ */ React.createElement("span", { className: "aced", title: "Perfect run on the final level" }, "★")), /* @__PURE__ */ React.createElement("span", { className: "level-desc" }, done, " of ", c.levels.length, " passed")),
-            /* @__PURE__ */ React.createElement("span", { className: "level-state" }, locked ? "🔒" : done === c.levels.length ? "✓" : "›")
-          );
-        })), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, "Master the four chords of a key. Minor is the same four, centered on 6. All seven opens up the rest."), upsellModal);
+        return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => setScreen(boringMode ? "home" : "menu") }, boringMode ? "← Home" : "← Menu"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, mode === "chords" ? "Chord tones" : "Chord progressions")), (() => {
+          const chapterBtn = (ci) => {
+            const c = chapters[ci];
+            const done = c.levels.filter((l) => isPassed(mode, l.idx)).length;
+            const locked = gated;
+            return /* @__PURE__ */ React.createElement(
+              "button",
+              {
+                key: ci,
+                className: "level world" + (locked ? " locked" : ""),
+                onClick: () => {
+                  if (locked) return openUpsell();
+                  setFromAdventure(false);
+                  setChapter(ci);
+                }
+              },
+              /* @__PURE__ */ React.createElement("span", { className: "level-num" }, ci + 1),
+              /* @__PURE__ */ React.createElement("span", { className: "level-body" }, /* @__PURE__ */ React.createElement("span", { className: "level-name" }, /* @__PURE__ */ React.createElement(Acc, { text: c.name }), acedFinal(mode, c.levels) && /* @__PURE__ */ React.createElement("span", { className: "aced", title: "Perfect run on the final level" }, "★")), /* @__PURE__ */ React.createElement("span", { className: "level-desc" }, done, " of ", c.levels.length, " passed")),
+              /* @__PURE__ */ React.createElement("span", { className: "level-state" }, locked ? "🔒" : done === c.levels.length ? "✓" : "›")
+            );
+          };
+          if (mode !== "progressions") return /* @__PURE__ */ React.createElement("div", { className: "levels" }, chapters.map((_, ci) => chapterBtn(ci)));
+          return PROG_SECTIONS.map((sec) => /* @__PURE__ */ React.createElement("section", { key: sec.name, className: "chapter-section" + (sec.path ? " path" : "") }, /* @__PURE__ */ React.createElement("h3", { className: "section-title" }, sec.name), /* @__PURE__ */ React.createElement("p", { className: "section-blurb" }, sec.blurb), /* @__PURE__ */ React.createElement("div", { className: "levels" }, sec.chapters.map((n) => chapterBtn(chapters.findIndex((c) => c.name === n))))));
+        })(), mode === "chords" && /* @__PURE__ */ React.createElement("p", { className: "hint center" }, "Master the four chords of a key. Minor is the same four, centered on 6. All seven opens up the rest."), upsellModal);
       }
       const list = mode === "melody" ? MELODY_GROUPS[melGroup].levels : chapters[activeChapter].levels;
       const title = mode === "melody" ? MELODY_GROUPS[melGroup].name : chapters[activeChapter].name;
@@ -9679,7 +9758,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       } : mode === "melody" ? () => setMelGroup(null) : () => setChapter(null);
       const backLabel = fromAdventure ? "← Map" : mode === "melody" ? "← Worlds" : "← Chapters";
       const modeLabel = mode === "melody" ? "single notes" : mode === "chords" ? "chord tones" : "chord progressions";
-      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: onBack }, backLabel), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, title)), /* @__PURE__ */ React.createElement("div", { className: "stage-intro" }, /* @__PURE__ */ React.createElement("p", { className: "stage-goal" }, stageGoal(mode, title)), /* @__PURE__ */ React.createElement("span", { className: "stage-meta" }, list.length, " levels · ", modeLabel)), mode === "chords" && /* @__PURE__ */ React.createElement("div", { className: "key-row" }, /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Key", /* @__PURE__ */ React.createElement("select", { value: musicKey, onChange: (e) => {
+      return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: onBack }, backLabel), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, /* @__PURE__ */ React.createElement(Acc, { text: title }))), /* @__PURE__ */ React.createElement("div", { className: "stage-intro" }, /* @__PURE__ */ React.createElement("p", { className: "stage-goal" }, stageGoal(mode, title)), /* @__PURE__ */ React.createElement("span", { className: "stage-meta" }, list.length, " levels · ", modeLabel)), mode === "chords" && /* @__PURE__ */ React.createElement("div", { className: "key-row" }, /* @__PURE__ */ React.createElement("label", { className: "key-label" }, "Key", /* @__PURE__ */ React.createElement("select", { value: musicKey, onChange: (e) => {
         setMusicKey(e.target.value);
         e.target.blur();
       } }, KEYS.map((k) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, k, " major")))), /* @__PURE__ */ React.createElement(
@@ -9714,7 +9793,7 @@ window.SOUNDTRACK = SOUNDTRACK;
             }
           },
           /* @__PURE__ */ React.createElement("span", { className: "level-num" }, isDuelRow ? "⚔" : i + 1),
-          /* @__PURE__ */ React.createElement("span", { className: "level-body" }, /* @__PURE__ */ React.createElement("span", { className: "level-name" }, isDuelRow ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : lvl.name), mode === "melody" ? /* @__PURE__ */ React.createElement("span", { className: "level-tags" }, levelTags(lvl).map((t, ti) => /* @__PURE__ */ React.createElement("span", { key: ti, className: "tag" }, t))) : /* @__PURE__ */ React.createElement("span", { className: "level-desc" }, lvl.desc), /* @__PURE__ */ React.createElement(ProgressSquares, { best, total: qCountOf(lvl) })),
+          /* @__PURE__ */ React.createElement("span", { className: "level-body" }, /* @__PURE__ */ React.createElement("span", { className: "level-name" }, isDuelRow ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : /* @__PURE__ */ React.createElement(Acc, { text: lvl.name })), mode === "melody" ? /* @__PURE__ */ React.createElement("span", { className: "level-tags" }, levelTags(lvl).map((t, ti) => /* @__PURE__ */ React.createElement("span", { key: ti, className: "tag" }, t))) : /* @__PURE__ */ React.createElement("span", { className: "level-desc" }, lvl.desc), /* @__PURE__ */ React.createElement(ProgressSquares, { best, total: qCountOf(lvl) })),
           /* @__PURE__ */ React.createElement("span", { className: "level-state" }, /* @__PURE__ */ React.createElement("span", { className: "level-stars" }, [1, 2, 3].map((n) => /* @__PURE__ */ React.createElement("span", { key: n, className: "lvl-star" + (starsFor(mode, lvl.idx) >= n ? " on" : "") }, "★"))), /* @__PURE__ */ React.createElement("span", { className: "level-pct" + (passed ? " pass" : "") }, Math.round(best / qCountOf(lvl) * 100), "%"))
         );
       })), /* @__PURE__ */ React.createElement("p", { className: "hint center" }, SESSION_LEN, " questions per session · ", Math.round(PASS_RATE * 100), "% on first tries earns the ✓ · ", Math.round(STAR3_RATE * 100), "% earns ★★★ — then climb, don’t polish"), upsellModal);
@@ -9773,7 +9852,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         setBusy(false);
         setBossState(null);
         setScreen(lvl.weakDrill && drillReturn ? drillReturn : "levels");
-      } }, "← ", isDuel ? "Flee" : "Quit"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, isDuel ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : lvl.name), /* @__PURE__ */ React.createElement("span", { className: "session-score" }, streak >= 2 && /* @__PURE__ */ React.createElement("span", { key: streak, className: "streak" }, "🔥", streak), score, " ✓"), /* @__PURE__ */ React.createElement(
+      } }, "← ", isDuel ? "Flee" : "Quit"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, isDuel ? "Duel — " + (duelKeeper ? duelKeeper.short : "Keeper") : /* @__PURE__ */ React.createElement(Acc, { text: lvl.name })), /* @__PURE__ */ React.createElement("span", { className: "session-score" }, streak >= 2 && /* @__PURE__ */ React.createElement("span", { key: streak, className: "streak" }, "🔥", streak), score, " ✓"), /* @__PURE__ */ React.createElement(
         "button",
         {
           className: "sess-gear",
@@ -10130,7 +10209,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         } else {
           setScreen(isDrill && drillReturn ? drillReturn : "levels");
         }
-      } }, fromAdventure ? "← To the map" : isDrill && drillReturn === "ear" ? "← Your ear" : "← Levels"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, resultName)), /* @__PURE__ */ React.createElement("div", { className: "results" }, justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "victory" }, /* @__PURE__ */ React.createElement("div", { className: "victory-rays", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", { className: "victory-glow", "aria-hidden": "true" }), duelWin && /* @__PURE__ */ React.createElement("span", { className: "duel-victory-face", "aria-hidden": "true" }, duelWinArt ? /* @__PURE__ */ React.createElement("img", { src: duelWinArt, alt: "" }) : /* @__PURE__ */ React.createElement("span", { className: "boss-emblem" }, duelWinKeeper ? duelWinKeeper.emblem : "⚔")), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Fragment forged ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, advNode.winTitle), /* @__PURE__ */ React.createElement("div", { className: "victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" }), /* @__PURE__ */ React.createElement("div", { className: "forge-sparks", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null))), /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), fragName, " — forged into Excalibar"), duelWin ? /* @__PURE__ */ React.createElement("span", { className: "victory-quote duel-quote" }, "“", duelWin.taunts.win, "”", /* @__PURE__ */ React.createElement("em", { className: "duel-quote-by" }, "— ", duelWin.name, ", ", duelWin.title)) : /* @__PURE__ */ React.createElement("span", { className: "victory-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("span", { className: "forge-count" }, advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments")), duelWin && !justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "duel-victory" }, /* @__PURE__ */ React.createElement("span", { className: "duel-victory-face", "aria-hidden": "true" }, duelWinArt ? /* @__PURE__ */ React.createElement("img", { src: duelWinArt, alt: "" }) : /* @__PURE__ */ React.createElement("span", { className: "boss-emblem" }, duelWinKeeper ? duelWinKeeper.emblem : "⚔")), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Duel won ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, duelWinKeeper ? duelWinKeeper.winTitle : "The keeper yields!"), /* @__PURE__ */ React.createElement("div", { className: "duel-victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" })), duelWinKeeper && /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[duelWinRegion]], " — held in Excalibar"), /* @__PURE__ */ React.createElement("span", { className: "victory-quote duel-quote" }, "“", duelWin.taunts.win, "”", /* @__PURE__ */ React.createElement("em", { className: "duel-quote-by" }, "— ", duelWin.name, ", ", duelWin.title))), (justCleared || duelWin && !finale) && /* @__PURE__ */ React.createElement("button", { className: "primary map-return", onClick: () => {
+      } }, fromAdventure ? "← To the map" : isDrill && drillReturn === "ear" ? "← Your ear" : "← Levels"), /* @__PURE__ */ React.createElement("h2", { className: "screen-title" }, /* @__PURE__ */ React.createElement(Acc, { text: resultName }))), /* @__PURE__ */ React.createElement("div", { className: "results" }, justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "victory" }, /* @__PURE__ */ React.createElement("div", { className: "victory-rays", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", { className: "victory-glow", "aria-hidden": "true" }), duelWin && /* @__PURE__ */ React.createElement("span", { className: "duel-victory-face", "aria-hidden": "true" }, duelWinArt ? /* @__PURE__ */ React.createElement("img", { src: duelWinArt, alt: "" }) : /* @__PURE__ */ React.createElement("span", { className: "boss-emblem" }, duelWinKeeper ? duelWinKeeper.emblem : "⚔")), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Fragment forged ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, advNode.winTitle), /* @__PURE__ */ React.createElement("div", { className: "victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" }), /* @__PURE__ */ React.createElement("div", { className: "forge-sparks", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null), /* @__PURE__ */ React.createElement("i", null))), /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), fragName, " — forged into Excalibar"), duelWin ? /* @__PURE__ */ React.createElement("span", { className: "victory-quote duel-quote" }, "“", duelWin.taunts.win, "”", /* @__PURE__ */ React.createElement("em", { className: "duel-quote-by" }, "— ", duelWin.name, ", ", duelWin.title)) : /* @__PURE__ */ React.createElement("span", { className: "victory-quote" }, "“", advNode.win, "”"), /* @__PURE__ */ React.createElement("span", { className: "forge-count" }, advCollected.size >= 8 ? "Excalibar reforged!" : advCollected.size + " / 8 fragments")), duelWin && !justCleared && !finale && /* @__PURE__ */ React.createElement("div", { className: "duel-victory" }, /* @__PURE__ */ React.createElement("span", { className: "duel-victory-face", "aria-hidden": "true" }, duelWinArt ? /* @__PURE__ */ React.createElement("img", { src: duelWinArt, alt: "" }) : /* @__PURE__ */ React.createElement("span", { className: "boss-emblem" }, duelWinKeeper ? duelWinKeeper.emblem : "⚔")), /* @__PURE__ */ React.createElement("span", { className: "victory-kicker" }, "✦ Duel won ✦"), /* @__PURE__ */ React.createElement("h3", { className: "victory-title" }, duelWinKeeper ? duelWinKeeper.winTitle : "The keeper yields!"), /* @__PURE__ */ React.createElement("div", { className: "duel-victory-forge" }, /* @__PURE__ */ React.createElement(ForgeSword, { collected: advCollected, className: "victory-sword" })), duelWinKeeper && /* @__PURE__ */ React.createElement("span", { className: "frag-chip" }, /* @__PURE__ */ React.createElement("span", { className: "gem" }, "◆"), window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[duelWinRegion]], " — held in Excalibar"), /* @__PURE__ */ React.createElement("span", { className: "victory-quote duel-quote" }, "“", duelWin.taunts.win, "”", /* @__PURE__ */ React.createElement("em", { className: "duel-quote-by" }, "— ", duelWin.name, ", ", duelWin.title))), (justCleared || duelWin && !finale) && /* @__PURE__ */ React.createElement("button", { className: "primary map-return", onClick: () => {
         try {
           sfx("select");
         } catch (e) {
@@ -11330,6 +11409,11 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .replay-group .ghost.note { border-radius: 0 10px 10px 0; border-left-width: 0.75px; padding-left: 12px; padding-right: 12px; font-size: 1.05rem; }
 
 .numpad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+/* Chapter picker sections (progressions): a header + one-line blurb over each group. */
+.chapter-section { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }
+.chapter-section .section-title { margin: 0; font-size: 0.95rem; letter-spacing: 0.5px; }
+.chapter-section .section-blurb { margin: 0 0 4px; font-size: 0.85rem; color: var(--text-soft, #A9B2AD); line-height: 1.4; }
+
 /* Root + colour pad: root keys above, colour chips (D, -, 7♭5) below. */
 .rootpad { display: flex; flex-direction: column; gap: 8px; width: 100%; align-self: stretch; }
 .colour-chips { display: grid; gap: 8px; }
