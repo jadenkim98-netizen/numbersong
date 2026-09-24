@@ -32,8 +32,11 @@ self.addEventListener("fetch", (event) => {
     // App shell: NETWORK-FIRST so an online reload always gets the freshest deploy
     // (no stale-cache lag), but fall back to the cached shell when offline so the
     // installed app still boots with zero internet.
+    // cache: "no-cache" revalidates with the server every time. GitHub Pages serves the page
+    // with max-age=600, and a plain fetch would honour that — so for ten minutes after a
+    // deploy even a real reload could come back with the old page.
     event.respondWith(
-      fetch(req).then((res) => {
+      fetch(req, { cache: "no-cache" }).then((res) => {
         // Only cache a genuine success — a transient 404/5xx must never overwrite
         // the good cached shell, or the app could boot into an error page offline.
         if (res && res.ok) {
