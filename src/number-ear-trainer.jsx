@@ -69,6 +69,7 @@ import {
   KEY_MAP,
   levelsFor, padFor, recolour, rollTones, CHORD_SPELLING, PROG_SECTIONS } from "./theory.mjs";
 import { detectPitch, pitchToDegree } from "./pitch.mjs";
+import { stageOf, worldOf, routeOnGrid } from "./worlds.mjs";
 import { isBossRegion, bossConfigFor, evalBoss, bossTimer } from "./boss.mjs";
 import {
   qCountForLevel,
@@ -1864,8 +1865,15 @@ function MapTour({ onClose, onSfx }) {
   );
 }
 
-function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, onOffer, showOffer, sfx, burst, boringMode, celebrateNode, onCelebrateDone, skinId, onReady }) {
-  const H = window.HARMONIA;
+// A map node by its global id, whichever world it's in (ids aren't array positions:
+// world 2's start at 101). Every "which keeper/region is this" lookup goes through here.
+const nodeOf = (id) => {
+  const H = typeof window !== "undefined" && window.HARMONIA;
+  return (H && H.nodes.find((n) => n.id === id)) || null;
+};
+
+function AdventureMap({ world, nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, onOffer, showOffer, sfx, burst, boringMode, celebrateNode, onCelebrateDone, skinId, onReady }) {
+  const H = world || window.HARMONIA;
   const mapRef = useRef(null);
   const swordRef = useRef(null);
   const scrollRef = useRef(null);
@@ -2016,28 +2024,8 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
     ctx.putImageData(data, 0, 0);
   }, [swordImg, collected]);
 
-  // BFS a route from tile (sc,sr) to (tc,tr) over walkable path/clearing tiles
-  const WALKABLE = new Set([12, 13, 14, 15, 16, 17, 18, 19, 20, 21]);
-  const buildRoute = (start, tc, tr) => {
-    const sc = Math.round(start.c), sr = Math.round(start.r);
-    const key = (c, r) => r * H.gc + c;
-    const okTile = (c, r) => c >= 0 && c < H.gc && r >= 0 && r < H.gr && WALKABLE.has(H.grid[r][c]);
-    const q = [[sc, sr]]; const prev = new Map([[key(sc, sr), null]]);
-    let found = false;
-    while (q.length) {
-      const [c, r] = q.shift();
-      if (c === tc && r === tr) { found = true; break; }
-      for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const nc = c + dc, nr = r + dr, k = key(nc, nr);
-        if (prev.has(k) || !okTile(nc, nr)) continue;
-        prev.set(k, [c, r]); q.push([nc, nr]);
-      }
-    }
-    if (!found) return [{ c: sc, r: sr }, { c: tc, r: tr }]; // fallback: straight hop
-    const route = []; let cur = [tc, tr];
-    while (cur) { route.push({ c: cur[0], r: cur[1] }); cur = prev.get(key(cur[0], cur[1])); }
-    return route.reverse();
-  };
+  // BFS a route over walkable path/clearing tiles (routeOnGrid in worlds.mjs)
+  const buildRoute = (start, tc, tr) => routeOnGrid(H.grid, H.gc, H.gr, start, tc, tr);
 
   // walk Coda along the road to a node, then fire done()
   const walkTo = (target, done) => {
@@ -2116,10 +2104,10 @@ function AdventureMap({ nodes, currentId, collected, onEnter, onMenu, onSettings
       <div className="adv-scroll" ref={scrollRef}>
         <canvas ref={mapRef} className="adv-map" onClick={tapMap} role="img" aria-label="Harmonia world map" />
       </div>
-      {celebrateNode && H.nodes[celebrateNode - 1] && (
+      {celebrateNode && H.nodes.find((n) => n.id === celebrateNode) && (
         <div className="map-cleared" aria-hidden="true">
           <span className="map-cleared-star">★</span>
-          <span className="map-cleared-text">{H.nodes[celebrateNode - 1].name}<em>region cleared</em></span>
+          <span className="map-cleared-text">{H.nodes.find((n) => n.id === celebrateNode).name}<em>region cleared</em></span>
         </div>
       )}
       <div className="adv-hud adv-hud-bottom">
@@ -2373,7 +2361,7 @@ export default function NumberEarTrainer() {
     JOJO_MODE = true; // module flag → sessions run 3 questions, pass on 1
     // the single level to leave unfinished = the capstone of the LAST adventure stage
     const lastStageId = ADV_STAGES.length;                 // node id of the final region
-    const lastStage = ADV_STAGES[lastStageId - 1];
+    const lastStage = stageOf(lastStageId);
     const lastLevels = advGroupOf(lastStage).levels;
     const finaleIdx = lastLevels[lastLevels.length - 1].idx;
     const filled = { melody: {}, chords: {}, progressions: {} };
@@ -3639,7 +3627,7 @@ export default function NumberEarTrainer() {
   // the capstone, so the existing clear→fragment→fanfare plumbing forges the fragment.
   const startBossSession = (regionId) => {
     killSession();
-    const stage = ADV_STAGES[regionId - 1]; if (!stage) return;
+    const stage = stageOf(regionId); if (!stage) return;
     const lv = advGroupOf(stage).levels;
     const li = lv[lv.length - 1].idx;               // the region's mastery-capstone level
     const cfg = bossConfigFor(regionId);
@@ -3950,7 +3938,7 @@ export default function NumberEarTrainer() {
     // and flag the map so it plays a "region cleared" flourish when you return.
     let bigClear = false;
     if (fromAdventure && advStageId != null && !sessWasClearedRef.current) {
-      const lv = advGroupOf(ADV_STAGES[advStageId - 1]).levels;
+      const lv = advGroupOf(stageOf(advStageId)).levels;
       const lastIdx = lv[lv.length - 1].idx;
       const clears = shouldCelebrateStageClear({
         fromAdventure,
@@ -3965,8 +3953,11 @@ export default function NumberEarTrainer() {
       if (clears) {
         bigClear = true;
         setMapCelebrateNode(advStageId);
-        const others = advNodes.filter((n) => n.id !== advStageId && stageClearedAdv(n.id)).length;
-        if (others >= 7) { grandFanfare(); haptic(true); }
+        // Grand fanfare = this clear completes its WORLD. Counted per world: once Harmonia is
+        // 8/8, a clear in another world must not read as "the last region" again.
+        const inWorld = advNodes.filter((n) => worldOf(n.id) === worldOf(advStageId));
+        const others = inWorld.filter((n) => n.id !== advStageId && stageClearedAdv(n.id)).length;
+        if (others >= inWorld.length - 1) { grandFanfare(); haptic(true); }
         else { fanfare(); haptic(false); }
         sessTimer(() => { const S = window.SOUNDTRACK; if (S) playTheme("victory", S.victory); }, 2500);
       }
@@ -4340,7 +4331,7 @@ export default function NumberEarTrainer() {
   // a region's fragment is earned by passing its FINAL level (the mastery capstone);
   // you don't have to pass every level along the way.
   const stageClearedAdv = (id) => {
-    const s = ADV_STAGES[id - 1]; if (!s) return false;
+    const s = stageOf(id); if (!s) return false;
     const lv = advGroupOf(s).levels;
     if (TEST_MODE) return lv.some((l) => isPassed(s.mode, l.idx)); // testing: any level clears it
     return isPassed(s.mode, lv[lv.length - 1].idx);
@@ -4348,7 +4339,7 @@ export default function NumberEarTrainer() {
   const advCollected = new Set(advNodes.filter((n) => stageClearedAdv(n.id)).map((n) => window.HARMONIA.stageFrag[n.id]));
   const advCurrentId = (advNodes.find((n) => !stageClearedAdv(n.id)) || advNodes[advNodes.length - 1] || {}).id;
   const enterStage = (n) => {
-    const s = ADV_STAGES[n.id - 1]; if (!s) return;
+    const s = stageOf(n.id); if (!s) return;
     // Before the FIRST minor region (Lowmoor Fen, node 2): Rue's la-based-minor tutorial,
     // once. graduate/skip sets the tut2 flag and re-enters this stage via tutThenEnterRef.
     if (n.id === 2 && loadPref("tut2", "0") !== "1") { startTutorial("minor", 2); return; }
@@ -4642,8 +4633,8 @@ export default function NumberEarTrainer() {
       track("region_enter", { region: n.id });
       if (boringMode) { enterStage(n); } else { sfx("select"); setEncounterNode(n.id); }
     };
-    const en = encounterNode && window.HARMONIA ? window.HARMONIA.nodes[encounterNode - 1] : null;
-    const enStage = encounterNode ? ADV_STAGES[encounterNode - 1] : null;
+    const en = encounterNode && window.HARMONIA ? nodeOf(encounterNode) : null;
+    const enStage = encounterNode ? stageOf(encounterNode) : null;
     const enTitle = enStage ? advGroupOf(enStage).name : "";
     const enMode = enStage ? enStage.mode : "melody";
     const enLevels = enStage ? advGroupOf(enStage).levels.length : 0;
@@ -4718,7 +4709,7 @@ export default function NumberEarTrainer() {
         {bossOutcome && window.HARMONIA && (() => {
           const region = bossOutcome.region;
           const cfg = bossConfigFor(region);
-          const kp = window.HARMONIA.nodes[region - 1];
+          const kp = nodeOf(region);
           const art = window.KEEPER_ART ? window.KEEPER_ART[region] : null;
           return (
             <div className="forge-modal boss-defeat-modal" onClick={() => setBossOutcome(null)}>
@@ -5125,7 +5116,7 @@ export default function NumberEarTrainer() {
             // The region's FINAL capstone becomes a Keeper Duel (boss) in the adventure —
             // same content, but a fight: beat the keeper's ear to forge the fragment.
             const isDuelRow = fromAdventure && advStageId && isBossRegion(advStageId) && i === list.length - 1;
-            const duelKeeper = isDuelRow && window.HARMONIA ? window.HARMONIA.nodes[advStageId - 1] : null;
+            const duelKeeper = isDuelRow && window.HARMONIA ? nodeOf(advStageId) : null;
             return (
               <button key={lvl.idx} className={"level" + (locked ? " locked" : "") + (isDuelRow ? " duel" : "")}
                 onClick={() => { try { sfx(isDuelRow && !locked ? "boot" : "select"); } catch (e) {} locked ? openUpsell() : isDuelRow ? startBossSession(advStageId) : startSession(mode, lvl.idx); }}>
@@ -5182,7 +5173,7 @@ export default function NumberEarTrainer() {
     const isDuel = !!(sess.current && sess.current.boss && bossState);
     const duelCfg = isDuel ? sess.current.boss : null;
     const duelRegion = isDuel ? sess.current.bossRegion : null;
-    const duelKeeper = isDuel && window.HARMONIA ? window.HARMONIA.nodes[duelRegion - 1] : null;
+    const duelKeeper = isDuel && window.HARMONIA ? nodeOf(duelRegion) : null;
     const duelArt = isDuel && window.KEEPER_ART ? window.KEEPER_ART[duelRegion] : null;
     // Battle-arena sprites: the keeper's portrait as the enemy combatant, Coda as the hero.
     const duelEnemyImg = isDuel ? duelArt : null;
@@ -5634,14 +5625,16 @@ export default function NumberEarTrainer() {
     const isCustom = levelIdx == null;
     const resultName = (sessLvl && sessLvl.name) || (lvls[levelIdx] && lvls[levelIdx].name) || "Session";
     // region just fully cleared? → Keeper's mark + fragment flourish (game mode only)
-    const advNode = fromAdventure && !boringMode && advStageId && window.HARMONIA ? window.HARMONIA.nodes[advStageId - 1] : null;
+    const advNode = fromAdventure && !boringMode && advStageId && window.HARMONIA ? nodeOf(advStageId) : null;
     const justCleared = advNode && !sessWasClearedRef.current && stageClearedAdv(advStageId);
-    const finale = justCleared && advCollected.size >= 8; // the WHOLE sword just came together
+    // the WHOLE sword just came together — a Harmonia clear only; a later clear in another
+    // world must not replay "Excalibar reforged" once the sword is whole.
+    const finale = justCleared && worldOf(advStageId) === 1 && advCollected.size >= 8;
     const fragName = advNode ? window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[advStageId]] : "";
     // Won a Keeper Duel (this or any prior clear)? Verda's congratulations show on EVERY
     // win — the fragment flourish below is first-clear-only.
     const duelWin = duelWinRegion ? bossConfigFor(duelWinRegion) : null;
-    const duelWinKeeper = duelWinRegion && window.HARMONIA ? window.HARMONIA.nodes[duelWinRegion - 1] : null;
+    const duelWinKeeper = duelWinRegion && window.HARMONIA ? nodeOf(duelWinRegion) : null;
     const duelWinArt = duelWin && window.KEEPER_ART ? window.KEEPER_ART[duelWinRegion] : null;
     const hasNext = !isCustom && levelIdx + 1 < lvls.length;
 
