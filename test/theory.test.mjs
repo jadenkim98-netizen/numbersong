@@ -9,7 +9,7 @@ import {
   CURATED_7, pickProgression, CHORD_CHAPTERS, PROG_CHAPTERS, PROG_WEIGHTS, ALL_CHORDS,
   CURATED_3D, POOL_3D, WEIGHTS_3D, DEGREE_SEMITONES, EAR_CHORD_ROSTER, voiceLead,
   CURATED_4M, POOL_4M, WEIGHTS_4M, FOLLOW_4M, randomVoicing,
-  CURATED_COLOUR, POOL_COLOUR, WEIGHTS_COLOUR, FOLLOW_COLOUR,
+  CURATED_COLOUR, POOL_COLOUR, WEIGHTS_COLOUR, FOLLOW_COLOUR, CURATED_1D, POOL_1D, CURATED_2D, POOL_2D, CURATED_6D, POOL_6D, CURATED_SECDOM, POOL_SECDOM, padLayout,
 } from "../src/theory.mjs";
 
 test("degreeLabel: the upper octave shows as 1, never 8", () => {
@@ -112,6 +112,10 @@ test("all-seven chapters are appended, never inserted (level idx is the saved-pr
     ["3D · five of six", 18, 6],
     ["4- · borrowed from minor", 24, 6],
     ["Colour chords · 3D and 4-", 30, 6],
+    ["1D · five of four", 36, 6],
+    ["2D · five of five", 42, 6],
+    ["6D · five of two", 48, 6],
+    ["Secondary dominants · all four", 54, 6],
   ]);
 });
 
@@ -261,7 +265,7 @@ test("3D is common in its own chapter, and reachable from every slot", () => {
 });
 
 test("Your ear's chord roster carries the altered chords, but level pools stay diatonic", () => {
-  assert.deepEqual(EAR_CHORD_ROSTER, [...ALL_CHORDS, "III7", "iv"]);
+  assert.deepEqual(EAR_CHORD_ROSTER, [...ALL_CHORDS, "III7", "iv", "I7", "II7", "VI7"]);
   assert.equal(ALL_CHORDS.length, 7);
 });
 
@@ -481,5 +485,96 @@ test("forbid never starves the draw (a banned pool still yields a legal chord)",
     assert.equal(s.length, 4);
     assert.ok(!s.slice(1).includes("IV"), s.join("-"));
     for (let j = 1; j < s.length; j++) assert.notEqual(s[j], s[j - 1]);
+  }
+});
+
+test("1D plays as a real dominant on 1, and stays out of the diatonic pools", () => {
+  const c = chordByRoman("I7");
+  assert.deepEqual(c.tones.map((t) => DEGREE_SEMITONES[t]), [0, 4, 7, 10]);
+  assert.equal(chordNumber("I7", false), "1D");
+  assert.equal(chordNumber("I7", true), "1D");
+  assert.ok(!ALL_CHORDS.includes("I7"));
+  assert.ok(EAR_CHORD_ROSTER.includes("I7"));
+});
+
+test("1D sits next to its twin on the pad, and every curated chord is in the pool", () => {
+  assert.equal(POOL_1D.indexOf("I7") - POOL_1D.indexOf("I"), 1);
+  for (const seq of Object.values(CURATED_1D).flat()) {
+    for (const c of seq) assert.ok(POOL_1D.includes(c), `${c} in ${seq.join("-")}`);
+    for (let j = 1; j < seq.length; j++) assert.notEqual(seq[j], seq[j - 1], seq.join("-"));
+  }
+});
+
+test("1D leans to 4, never straight back to 1, and home can still return later", () => {
+  const ch = PROG_CHAPTERS.find((c) => c.name.startsWith("1D"));
+  let d = 0, toIV = 0, n = 0, later1 = 0;
+  for (const lvl of ch.levels.filter((l) => l.gen === "random")) {
+    for (let i = 0; i < 3000; i++) {
+      const s = pickProgression(lvl, null);
+      n += s.length;
+      s.forEach((c, j) => {
+        if (c !== "I7") return;
+        d++;
+        if (s[j + 1] === "I") assert.fail(`1D → 1 in ${s.join("-")}`);
+        if (s[j + 1] === "IV") toIV++;
+        if (s.slice(j + 2).includes("I")) later1++;
+      });
+    }
+  }
+  const rate = d / n;
+  assert.ok(rate > 0.12 && rate < 0.30, `1D rate ${rate} should be prominent, not overwhelming`);
+  assert.ok(toIV / d > 0.5, `1D → 4 share ${toIV / d}`);
+  assert.ok(later1 > 0, "1 must be allowed back later in the loop");
+});
+
+test("2D and 6D are real dominants on 2 and 6", () => {
+  const semis = (r) => chordByRoman(r).tones.map((t) => DEGREE_SEMITONES[t]);
+  assert.deepEqual(semis("II7"), [2, 6, 9, 0]);   // D F# A C in C
+  assert.deepEqual(semis("VI7"), [9, 1, 4, 7]);   // A C# E G in C
+  assert.equal(chordNumber("II7", false), "2D");
+  assert.equal(chordNumber("VI7", false), "6D");
+});
+
+test("the pad bands each D onto its twin, and keeps a lone D as its own button", () => {
+  assert.deepEqual(padLayout(POOL_SECDOM), [
+    { base: "I", dom: "I7" }, { base: "ii", dom: "II7" }, { base: "iii", dom: "III7" },
+    { base: "IV", dom: null }, { base: "V", dom: null }, { base: "vi", dom: "VI7" },
+  ]);
+  assert.deepEqual(padLayout(["I", "III7", "IV"]).map((x) => x.base), ["I", "III7", "IV"]);
+  assert.deepEqual(padLayout(["I", "IV", "V", "vi"]).map((x) => x.dom), [null, null, null, null]);
+  // every chord in every pool still gets exactly one button
+  for (const ch of PROG_CHAPTERS) for (const lvl of ch.levels) {
+    const cells = padLayout(lvl.pool).flatMap((x) => [x.base, x.dom]).filter(Boolean);
+    assert.deepEqual([...cells].sort(), [...lvl.pool].sort(), ch.name);
+  }
+});
+
+test("secondary-dominant curated sets stay inside their pools, no repeats", () => {
+  for (const [set, pool] of [[CURATED_2D, POOL_2D], [CURATED_6D, POOL_6D], [CURATED_SECDOM, POOL_SECDOM]]) {
+    for (const seq of Object.values(set).flat()) {
+      for (const c of seq) assert.ok(pool.includes(c), `${c} in ${seq.join("-")}`);
+      for (let j = 1; j < seq.length; j++) assert.notEqual(seq[j], seq[j - 1], seq.join("-"));
+    }
+  }
+});
+
+test("each D leans to the chord it's the five of, and 6D never falls back to 6-", () => {
+  // Landing on the right ROOT counts: in the chain, 3D → 6D is still 3D resolving to 6.
+  const target = { I7: ["IV"], II7: ["V"], VI7: ["ii", "II7"], III7: ["vi", "VI7"] };
+  for (const name of ["2D · five of five", "6D · five of two", "Secondary dominants · all four"]) {
+    const ch = PROG_CHAPTERS.find((c) => c.name === name);
+    const seen = {}, hit = {};
+    for (const lvl of ch.levels.filter((l) => l.gen === "random")) {
+      for (let i = 0; i < 2000; i++) {
+        const s = pickProgression(lvl, null);
+        s.forEach((c, j) => {
+          if (c === "VI7" && s.slice(j + 1).includes("vi")) assert.fail(`6D → 6- in ${name}: ${s.join("-")}`);
+          if (!target[c] || j === s.length - 1) return;
+          seen[c] = (seen[c] || 0) + 1;
+          if (target[c].includes(s[j + 1])) hit[c] = (hit[c] || 0) + 1;
+        });
+      }
+    }
+    for (const c of Object.keys(seen)) assert.ok(hit[c] / seen[c] > 0.4, `${name}: ${c} → ${target[c]} only ${hit[c] / seen[c]}`);
   }
 });

@@ -67,8 +67,7 @@ import {
   PATH_ROWS,
   PATH_SPEEDS,
   KEY_MAP,
-  levelsFor,
-} from "./theory.mjs";
+  levelsFor, padLayout } from "./theory.mjs";
 import { detectPitch, pitchToDegree } from "./pitch.mjs";
 import { isBossRegion, bossConfigFor, evalBoss, bossTimer } from "./boss.mjs";
 import {
@@ -5546,13 +5545,18 @@ export default function NumberEarTrainer() {
                 );
               })() : (
               <div className="numpad chordpad">
-                {lvl.pool.map((r) => (
-                  <button key={r} className="num chordbtn"
-                    onClick={() => tapChord(r)}
-                    disabled={phase !== "answer" || busy || progAnswer.length >= lvl.len}>
-                    {r}<span className="num-sol">{chordNumber(r, false)}</span>
-                  </button>
-                ))}
+                {padLayout(lvl.pool).map(({ base, dom }) => {
+                  const off = phase !== "answer" || busy || progAnswer.length >= lvl.len;
+                  const btn = (r, cls = "") => (
+                    <button key={r} className={"num chordbtn" + cls} onClick={() => tapChord(r)} disabled={off}>
+                      {r}<span className="num-sol">{chordNumber(r, false)}</span>
+                    </button>
+                  );
+                  // A secondary dominant rides in a band on top of the chord it shares a root with
+                  return dom
+                    ? <div key={base} className="chord-band">{btn(dom, " dom")}{btn(base)}</div>
+                    : btn(base);
+                })}
               </div>
               )}
               <div className="prog-actions">
@@ -6987,6 +6991,11 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .replay-group .ghost.note { border-radius: 0 10px 10px 0; border-left-width: 0.75px; padding-left: 12px; padding-right: 12px; font-size: 1.05rem; }
 
 .numpad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+/* Secondary-dominant band: the D sits on top of the chord it shares a root with, one
+   grid cell holding two full-width buttons. The band is short but never under 36px. */
+.chord-band { display: grid; grid-template-rows: minmax(36px, auto) 1fr; gap: 3px; }
+.chord-band .num { aspect-ratio: auto; min-height: 0; }
+.num.dom { flex-direction: row; gap: 6px; font-size: 1rem; padding: 6px 0; }
 .num {
   aspect-ratio: 1; min-height: 58px; position: relative;
   font-family: 'Archivo Black', sans-serif; font-weight: 400; font-size: 1.5rem;

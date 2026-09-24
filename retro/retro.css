@@ -1434,3 +1434,10 @@
   .retro .duel-note,.retro .duel-burst,
   .retro .duel-burst::before,.retro .duel-burst::after{ opacity:0!important; }
 }
+
+/* ---- secondary-dominant band: the D rides on top of its twin --------------- */
+/* Tinted teal-dark so it reads as "the same button, turned dominant", not a new key.
+   State colours (picked/correct/wrong/just) still win: they're excluded here. */
+.retro .num.dom{ font-size:16px; padding:6px 0; }
+.retro .num.dom:not(.picked):not(.correct):not(.wrong):not(.just){ background:#2F4A48; color:var(--teal); }
+.retro .chord-band{ gap:3px; }
