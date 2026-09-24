@@ -71,6 +71,8 @@ sylva_data = "data:image/png;base64," + base64.b64encode(open("keepers/keeper_sy
 bassil_data = "data:image/png;base64," + base64.b64encode(open("keepers/keeper_bassil_south.png","rb").read()).decode()  # Bassil's cutscene sprite (minor chords tutorial)
 dojo_data = "data:image/png;base64," + base64.b64encode(open("dojo_final.png","rb").read()).decode()
 map_baked_data = "data:image/png;base64," + base64.b64encode(open("map_baked.png","rb").read()).decode()
+# The Outer Keys' map, baked by tools/bake_w2_map.py from WORLD2.grid + adventure/w2_tiles/.
+map_w2_baked_data = "data:image/png;base64," + base64.b64encode(open("map_w2_baked.png","rb").read()).decode()
 music_books_data = "data:image/png;base64," + base64.b64encode(open("music_books.png","rb").read()).decode()
 guitar_data = "data:image/png;base64," + base64.b64encode(open("guitar_icon.png","rb").read()).decode()  # map "Play for real" offer badge icon
 def _png(p): return "data:image/png;base64," + base64.b64encode(open(p,"rb").read()).decode()
@@ -264,6 +266,7 @@ window.SOUNDTRACK = SOUNDTRACK;
   window.VERDA_PORTRAIT = "{verda_portrait_data}";
   window.DOJO_SPRITE = "{dojo_data}";
   window.MAP_BAKED = "{map_baked_data}";
+  window.MAP_W2_BAKED = "{map_w2_baked_data}";
   window.MUSIC_BOOKS = "{music_books_data}";
   window.GUITAR_ICON = "{guitar_data}";
   window.KEEPER_ART = {keeper_art};

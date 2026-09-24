@@ -1,0 +1,231 @@
+{
+ "tileset_id": "2b9c9852-dd8c-4344-aa51-156bf786078d",
+ "lower": "muted deep slate-teal water, calm and desaturated",
+ "upper": "muted grey rocky cliff plateau with scattered stones, earthy soft desaturated",
+ "tiles": [
+  {
+   "corners": {
+    "NE": "upper",
+    "NW": "upper",
+    "SE": "upper",
+    "SW": "lower"
+   },
+   "bbox": {
+    "x": 0,
+    "y": 0,
+    "width": 16,
+    "height": 16
+   }
+  },
+  {
+   "corners": {
+    "NE": "lower",
+    "NW": "upper",
+    "SE": "lower",
+    "SW": "upper"
+   },
+   "bbox": {
+    "x": 16,
+    "y": 0,
+    "width": 16,
+    "height": 16
+   }
+  },
+  {
+   "corners": {
+    "NE": "upper",
+    "NW": "lower",
+    "SE": "lower",
+    "SW": "lower"
+   },
+   "bbox": {
+    "x": 32,
+    "y": 0,
+    "width": 16,
+    "height": 16
+   }
+  },
+  {
+   "corners": {
+    "NE": "upper",
+    "NW": "upper",
+    "SE": "lower",
+    "SW": "lower"
+   },
+   "bbox": {
+    "x": 48,
+    "y": 0,
+    "width": 16,
+    "height": 16
+   }
+  },
+  {
+   "corners": {
+    "NE": "upper",
+    "NW": "lower",
+    "SE": "lower",
+    "SW": "upper"
+   },
+   "bbox": {
+    "x": 0,
+    "y": 16,
+    "width": 16,
+    "height": 16
+   }
+  },
+  {
+   "corners": {
+    "NE": "lower",
+    "NW": "upper",
+    "SE": "lower",
+    "SW": "lower"
+   },
+   "bbox": {
+    "x": 16,
+    "y": 16,
+    "width": 16,
+    "height": 16
+   }
+  },
+  {
+   "corners": {
+    "NE": "lower",
+    "NW": "lower",
+    "SE": "lower",
+    "SW": "lower"
+   },
+   "bbox": {
+    "x": 32,
+    "y": 16,
+    "width": 16,
+    "height": 16
+   }
+  },
+  {
+   "corners": {
+    "NE": "lower",
+    "NW": "lower",
+    "SE": "upper",
+    "SW": "lower"
+   },
+   "bbox": {
+    "x": 48,
+    "y": 16,
+    "width": 16,
+    "height": 16
+   }
+  },
+  {
+   "corners": {
+    "NE": "lower",
+    "NW": "upper",
+    "SE": "upper",
+    "SW": "upper"
+   },
+   "bbox": {
+    "x": 0,
+    "y": 32,
+    "width": 16,
+    "height": 16
+   }
+  },
+  {
+   "corners": {
+    "NE": "lower",
+    "NW": "lower",
+    "SE": "upper",
+    "SW": "upper"
+   },
+   "bbox": {
+    "x": 16,
+    "y": 32,
+    "width": 16,
+    "height": 16
+   }
+  },
+  {
+   "corners": {
+    "NE": "lower",
+    "NW": "lower",
+    "SE": "lower",
+    "SW": "upper"
+   },
+   "bbox": {
+    "x": 32,
+    "y": 32,
+    "width": 16,
+    "height": 16
+   }
+  },
+  {
+   "corners": {
+    "NE": "upper",
+    "NW": "lower",
+    "SE": "upper",
+    "SW": "lower"
+   },
+   "bbox": {
+    "x": 48,
+    "y": 32,
+    "width": 16,
+    "height": 16
+   }
+  },
+  {
+   "corners": {
+    "NE": "upper",
+    "NW": "upper",
+    "SE": "upper",
+    "SW": "upper"
+   },
+   "bbox": {
+    "x": 0,
+    "y": 48,
+    "width": 16,
+    "height": 16
+   }
+  },
+  {
+   "corners": {
+    "NE": "upper",
+    "NW": "upper",
+    "SE": "lower",
+    "SW": "upper"
+   },
+   "bbox": {
+    "x": 16,
+    "y": 48,
+    "width": 16,
+    "height": 16
+   }
+  },
+  {
+   "corners": {
+    "NE": "lower",
+    "NW": "upper",
+    "SE": "upper",
+    "SW": "lower"
+   },
+   "bbox": {
+    "x": 32,
+    "y": 48,
+    "width": 16,
+    "height": 16
+   }
+  },
+  {
+   "corners": {
+    "NE": "upper",
+    "NW": "lower",
+    "SE": "upper",
+    "SW": "upper"
+   },
+   "bbox": {
+    "x": 48,
+    "y": 48,
+    "width": 16,
+    "height": 16
+   }
+  }
+ ]
+}

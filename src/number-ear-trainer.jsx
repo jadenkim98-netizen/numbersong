@@ -1979,8 +1979,10 @@ function AdventureMap({ world, nodes, currentId, glowIds, isCleared, isLocked, s
     if (typeof window !== "undefined" && window.DOJO_SPRITE) {
       const d = new Image(); d.onload = () => setDojoImg(d); d.src = window.DOJO_SPRITE;
     }
-    if (isW1 && typeof window !== "undefined" && window.MAP_BAKED) {
-      const m = new Image(); m.onload = () => setBakedMap(m); m.src = window.MAP_BAKED;
+    // each world's pre-rendered map (the grid still drives walking; tiles are the fallback)
+    const baked = typeof window !== "undefined" && (isW1 ? window.MAP_BAKED : window.MAP_W2_BAKED);
+    if (baked) {
+      const m = new Image(); m.onload = () => setBakedMap(m); m.src = baked;
     }
   }, []);
 
