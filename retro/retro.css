@@ -1452,3 +1452,7 @@
 .retro .chapter-section.path .section-title{ color:var(--gold); }
 /* ♭/♯ inside pixel-font titles: the pixel face lacks them (see Acc in the jsx) */
 .retro .acc{ font-family:var(--black); font-size:1.15em; line-height:1; letter-spacing:0; text-transform:none; }
+
+/* ---- world 2: sail toggle + locked-stop note ------------------------------------- */
+.retro .gear.world-toggle{ width:auto; padding:0 9px; font-family:var(--pf); font-size:11px; letter-spacing:1px; }
+.retro .map-note{ font-family:var(--pf); font-size:11px; letter-spacing:1px; clip-path:var(--notch); }

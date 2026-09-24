@@ -185,7 +185,9 @@ test("each big-four chapter ends inside its own four chords, not on all seven", 
 test("anyStart opens up the rotations (every chord can begin a progression)", () => {
   const pool = ["I", "IV", "V", "vi"];
   const starts = new Set(), seqs = new Set();
-  for (let i = 0; i < 3000; i++) {
+  // 20000, not 3000: the draw discourages bouncing straight back (1 4 1 4), so the rarest of
+  // the 108 sequences is ~0.2% — 3000 draws missed one now and then; 20000 expects ~37 of it.
+  for (let i = 0; i < 20000; i++) {
     const s = randomProgression(4, pool, null);
     starts.add(s[0]);
     seqs.add(s.join());

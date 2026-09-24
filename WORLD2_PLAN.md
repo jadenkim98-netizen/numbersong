@@ -8,7 +8,12 @@ Status: **M0 built** (2026-09-24): `src/worlds.mjs` (`worldOf`, `stageOf`, `rout
 Harmonia behaves identically. **M1 built** (2026-09-24): `src/world2.mjs` (placeholder island grid,
 14 nodes, the four keepers' text, the shield) and the world-2 half of `src/worlds.mjs`
 (`W2_CHAPTERS`, `W2_REQUIRES`, `W2_KEEPER_NODES`, `nodeOpen`, `currentNodes`, `shieldQuarters`,
-`w2Node`). Not reachable in the UI yet. Next: M2. Names confirmed; world 2 is paid.
+`w2Node`). **M2 built** (2026-09-24), behind `W2_ENABLED` (testing mode or `?w2`): world switching
+(`worldId` pref, SAIL boat at Pillar Coast / HOME boat below Warmwater Landing, a ⛵ toggle after the
+first visit), the Sixstone Hollow hint card, locks with a "Clear X first" note, several glowing stops at
+once, the shield chip, the paid gate (`FREE.world2Nodes: 0`), world-2 encounter cards, and a world-2
+win card (stop cleared / colour earned). Keeper stops are still plain capstones until M3's duels.
+Names confirmed; world 2 is paid.
 
 ---
 

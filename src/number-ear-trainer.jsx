@@ -69,7 +69,8 @@ import {
   KEY_MAP,
   levelsFor, padFor, recolour, rollTones, CHORD_SPELLING, PROG_SECTIONS } from "./theory.mjs";
 import { detectPitch, pitchToDegree } from "./pitch.mjs";
-import { stageOf, worldOf, routeOnGrid, w2Node } from "./worlds.mjs";
+import { stageOf, worldOf, routeOnGrid, w2Node, nodeOpen, currentNodes, shieldQuarters, W2_KEEPER_NODES, W2_REQUIRES } from "./worlds.mjs";
+import { WORLD2 } from "./world2.mjs";
 import { isBossRegion, bossConfigFor, evalBoss, bossTimer } from "./boss.mjs";
 import {
   qCountForLevel,
@@ -124,7 +125,7 @@ const OFFER_URL = "https://wejamimprovisation.com/strategy?utm_source=numbersong
 const UNLOCK_CODE = "effortless1";   // students: ?unlock=effortless1  OR type it in Settings
 const CONVERTKIT_FORM = "9671626";                 // ConvertKit form id — delivers leads
 const CONVERTKIT_KEY = "6U4Fr68yjt_ESeBxKgXXpQ";   // ConvertKit PUBLIC api_key (safe client-side)
-const FREE = { melodyGroups: 1, adventureRegions: 4, freePlayPaths: 1, freePlayWorlds: 2 };
+const FREE = { melodyGroups: 1, adventureRegions: 4, freePlayPaths: 1, freePlayWorlds: 2, world2Nodes: 0 };
 /* Tracking (optional, like ConvertKit above): error reporting via Sentry + light usage
    via PostHog, both bundled offline by build.sh. All three are PUBLIC client-side tokens
    (safe to inline). LEAVE BLANK and tracking silently no-ops — no network, no errors — so
@@ -158,6 +159,9 @@ const TEST_MODE = (() => {
 // read from, and a handful of dev runs is enough to bend a drop-off curve — the very
 // number the tracking exists to measure.
 const TRACK_ENABLED = !TEST_MODE;
+// World 2 (the Outer Keys) is built in stages (WORLD2_PLAN.md) and stays hidden from real
+// players until it goes live: reachable only in testing mode or with `?w2` in the URL.
+const W2_ENABLED = TEST_MODE || (typeof window !== "undefined" && /[?&]w2\b/.test(window.location.search));
 
 // "jojomode" — a dev/testing unlock (typed in Settings or ?unlock=jojomode). It fills
 // every level as complete except the FINAL adventure region, and shrinks any session to
@@ -1734,6 +1738,34 @@ function ForgeSword({ collected, className }) {
 
 // The Dojo = Free Play as an actual place on the map (sits on the home-hearth tile).
 const DOJO = { c: 2, r: 20, name: "The Dojo" };
+// The boats between worlds, moored on water beside a road node. Tapping one walks Coda to
+// `via` (the nearest stop on the road) and sails. Harmonia's is at Pillar Coast, where the
+// progressions begin; the Outer Keys' sits below Warmwater Landing.
+const DOCKS = { 1: { c: 2, r: 11, via: 5, to: 2 }, 2: { c: 7, r: 25, via: 101, to: 1 } };
+function drawDock(ctx, cx, cy, label) {
+  ctx.save();
+  ctx.shadowColor = "#D9B45B"; ctx.shadowBlur = 7;
+  ctx.fillStyle = "#6b4a2b";                                              // hull
+  ctx.beginPath(); ctx.moveTo(cx - 9, cy + 1); ctx.lineTo(cx + 9, cy + 1); ctx.lineTo(cx + 6, cy + 6); ctx.lineTo(cx - 6, cy + 6); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#3a2a1a"; ctx.fillRect(cx - 0.5, cy - 11, 1.5, 12);    // mast
+  ctx.fillStyle = "#EDF2EE";                                              // sail
+  ctx.beginPath(); ctx.moveTo(cx + 1, cy - 10); ctx.lineTo(cx + 8, cy - 1); ctx.lineTo(cx + 1, cy - 1); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  ctx.font = "bold 8px 'Archivo Black', Archivo, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+  ctx.fillStyle = "#12201d"; ctx.fillText(label, cx + 1, cy + 9);
+  ctx.fillStyle = "#EDF2EE"; ctx.fillText(label, cx, cy + 8);
+}
+// The Colour Guard as a small quartered shield: one quarter per keeper, painted once earned.
+const SHIELD_COLOURS = { 104: "#57C6C4", 108: "#D9B45B", 113: "#7CADD1", 114: "#E07856" };
+function ShieldMini({ have, className = "" }) {
+  return (
+    <span className={"shield-mini " + className} aria-hidden="true">
+      {W2_KEEPER_NODES.map((id) => (
+        <i key={id} style={{ background: have.includes(id) ? SHIELD_COLOURS[id] : undefined }} />
+      ))}
+    </span>
+  );
+}
 function drawDojo(ctx, cx, cy, img) {
   if (img) {                                                               // pixel-art pagoda sprite
     ctx.save();
@@ -1873,8 +1905,15 @@ const nodeOf = (id) => {
   return (H && H.nodes.find((n) => n.id === id)) || null;
 };
 
-function AdventureMap({ world, nodes, currentId, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, onOffer, showOffer, sfx, burst, boringMode, celebrateNode, onCelebrateDone, skinId, onReady }) {
+function AdventureMap({ world, nodes, currentId, glowIds, isCleared, isLocked, startId, onDock, worldToggle, shieldHave, collected, onEnter, onMenu, onSettings, onGuide, onFree, onForge, onShop, onOffer, showOffer, sfx, burst, boringMode, celebrateNode, onCelebrateDone, skinId, onReady }) {
   const H = world || window.HARMONIA;
+  const HARM = window.HARMONIA;        // shared art (tileset, sword) lives on Harmonia's pack
+  const isW1 = !world || world === HARM;
+  const dock = DOCKS[isW1 ? 1 : 2];
+  // Default clear/lock rules are Harmonia's: cleared = its fragment forged, nothing locked.
+  const cleared = (n) => (isCleared ? isCleared(n) : collected.has(H.stageFrag[n.id]));
+  const locked = (n) => !!(isLocked && isLocked(n));
+  const glowing = (n) => (glowIds ? glowIds.includes(n.id) : n.id === currentId);
   const mapRef = useRef(null);
   const swordRef = useRef(null);
   const scrollRef = useRef(null);
@@ -1914,15 +1953,15 @@ function AdventureMap({ world, nodes, currentId, collected, onEnter, onMenu, onS
   const rafRef = useRef(0);
 
   useEffect(() => {
-    const a = new Image(); a.onload = () => setTileset(a); a.src = H.tileset;
-    const b = new Image(); b.onload = () => setSwordImg(b); b.src = H.sword;
+    const a = new Image(); a.onload = () => setTileset(a); a.src = H.tileset || HARM.tileset;
+    const b = new Image(); b.onload = () => setSwordImg(b); b.src = HARM.sword;
     if (typeof window !== "undefined" && window.CODA_SPRITE) {
       const c = new Image(); c.onload = () => setCodaImg(c); c.src = window.CODA_SPRITE;
     }
     if (typeof window !== "undefined" && window.DOJO_SPRITE) {
       const d = new Image(); d.onload = () => setDojoImg(d); d.src = window.DOJO_SPRITE;
     }
-    if (typeof window !== "undefined" && window.MAP_BAKED) {
+    if (isW1 && typeof window !== "undefined" && window.MAP_BAKED) {
       const m = new Image(); m.onload = () => setBakedMap(m); m.src = window.MAP_BAKED;
     }
   }, []);
@@ -1951,25 +1990,30 @@ function AdventureMap({ world, nodes, currentId, collected, onEnter, onMenu, onS
     } else for (let r = 0; r < H.gr; r++) for (let c = 0; c < H.gc; c++) {  // fallback: index-paint tiles
       const idx = H.grid[r][c];
       if (!idx) continue;
-      ctx.drawImage(tileset, (idx % H.scols) * T, ((idx / H.scols) | 0) * T, T, T, c * T, r * T, T, T);
+      const cols = H.scols || HARM.scols;
+      ctx.drawImage(tileset, (idx % cols) * T, ((idx / cols) | 0) * T, T, T, c * T, r * T, T, T);
     }
+    if (H.tint) { ctx.fillStyle = H.tint; ctx.fillRect(0, 0, cv.width, cv.height); } // a placeholder world reads as a different place
     nodes.forEach((n) => {
       const x = (n.c + 0.5) * T, y = (n.r + 0.5) * T;
-      const cleared = collected.has(H.stageFrag[n.id]);
-      const cur = n.id === currentId;
+      const done = cleared(n), shut = !done && locked(n);
+      const cur = !done && !shut && glowing(n);
       ctx.save();
       if (cur) { ctx.shadowColor = "#6ABF5E"; ctx.shadowBlur = 8; }
+      if (shut) ctx.globalAlpha = 0.55;
       ctx.beginPath(); ctx.arc(x, y, 6.5, 0, Math.PI * 2);
-      ctx.fillStyle = cleared ? "#57C6C4" : cur ? "#6ABF5E" : "#4a524d";
+      ctx.fillStyle = done ? "#57C6C4" : cur ? "#6ABF5E" : shut ? "#2c322f" : "#4a524d";
       ctx.fill();
-      ctx.lineWidth = 1.5; ctx.strokeStyle = "#EDF2EE"; ctx.stroke();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = shut ? "#8b958c" : "#EDF2EE"; ctx.stroke();
       ctx.restore();
-      ctx.fillStyle = cleared ? "#12201d" : cur ? "#23302A" : "#9aa39c";
+      ctx.fillStyle = done ? "#12201d" : cur ? "#23302A" : "#9aa39c";
       ctx.font = "bold 8px Archivo, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(cleared ? "★" : String(n.id), x, y + 0.5);
+      // stops are numbered within their world (world 2's 101 reads as 1)
+      ctx.fillText(done ? "★" : shut ? "·" : String(n.id % 100), x, y + 0.5);
     });
-    drawDojo(ctx, (DOJO.c + 0.5) * T, (DOJO.r + 0.5) * T, dojoImg);
-    if (collected.size >= 8 && swordImg) {            // post-game: Excalibar rests, glowing, at home
+    if (isW1) drawDojo(ctx, (DOJO.c + 0.5) * T, (DOJO.r + 0.5) * T, dojoImg);
+    if (dock && onDock) drawDock(ctx, (dock.c + 0.5) * T, (dock.r + 0.5) * T, isW1 ? "SAIL" : "HOME");
+    if (isW1 && collected.size >= 8 && swordImg) {            // post-game: Excalibar rests, glowing, at home
       const mx = (2 + 0.5) * T, my = (24 + 0.5) * T;
       ctx.save();
       ctx.shadowColor = "#D9B45B"; ctx.shadowBlur = 13;
@@ -1979,7 +2023,7 @@ function AdventureMap({ world, nodes, currentId, collected, onEnter, onMenu, onS
     }
     const frame = heroFrames ? (heroFrames[faceRef.current] || heroFrames.s) : null;
     drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, frame || codaImg, bob);
-  }, [tileset, nodes, currentId, collected, codaImg, heroFrames, swordImg, dojoImg, bakedMap]);
+  }, [tileset, nodes, currentId, collected, codaImg, heroFrames, swordImg, dojoImg, bakedMap, glowIds, isCleared, isLocked, onDock]);
 
   // static render: Coda rests on the tile he last walked to (his standing tile), so a
   // re-render (opening/closing an encounter, coming back from a stage) doesn't snap him
@@ -1987,7 +2031,7 @@ function AdventureMap({ world, nodes, currentId, collected, onEnter, onMenu, onS
   useEffect(() => {
     if (walkRef.current) return;
     if (!standRef.current) {
-      const cn = nodes.find((n) => n.id === currentId);
+      const cn = nodes.find((n) => n.id === (startId || currentId));
       if (cn) standRef.current = { c: cn.c, r: cn.r };
     }
     if (!standRef.current) return;
@@ -2064,7 +2108,8 @@ function AdventureMap({ world, nodes, currentId, collected, onEnter, onMenu, onS
     const nx = (e.clientX - rect.left) * (cv.width / rect.width);
     const ny = (e.clientY - rect.top) * (cv.height / rect.height);
     const T = H.tile;
-    const dojoD = ((DOJO.c + 0.5) * T - nx) ** 2 + ((DOJO.r + 0.5) * T - ny) ** 2;
+    const dojoD = isW1 ? ((DOJO.c + 0.5) * T - nx) ** 2 + ((DOJO.r + 0.5) * T - ny) ** 2 : 1e9;
+    const dockD = dock && onDock ? ((dock.c + 0.5) * T - nx) ** 2 + ((dock.r + 0.5) * T - ny) ** 2 : 1e9;
     let best = null, bd = 1e9;
     nodes.forEach((n) => {
       const d = ((n.c + 0.5) * T - nx) ** 2 + ((n.r + 0.5) * T - ny) ** 2;
@@ -2077,7 +2122,15 @@ function AdventureMap({ world, nodes, currentId, collected, onEnter, onMenu, onS
       if (boringMode || atDojo) enterDojo(); else walkTo(DOJO, enterDojo);
       return;
     }
+    if (dockD < 18 * 18 && dockD <= bd) { // a boat: walk to its stop on the road, then sail
+      const via = nodes.find((n) => n.id === dock.via);
+      const c0 = codaRef.current;
+      const atVia = via && c0 && Math.round(c0.c) === via.c && Math.round(c0.r) === via.r;
+      if (boringMode || atVia || !via) onDock(dock.to); else walkTo(via, () => onDock(dock.to));
+      return;
+    }
     if (!best || bd >= 16 * 16) return;
+    if (locked(best) && !cleared(best)) { onEnter(best); return; } // a locked stop: no walk, the parent explains
     const cur = codaRef.current;
     const atNode = cur && Math.round(cur.c) === best.c && Math.round(cur.r) === best.r;
     if (boringMode || atNode) onEnter(best);
@@ -2085,14 +2138,15 @@ function AdventureMap({ world, nodes, currentId, collected, onEnter, onMenu, onS
   };
 
   const have = collected.size;
-  const restored = have >= 8; // whole sword reforged → post-game state
-  const next = nodes.find((n) => !collected.has(H.stageFrag[n.id]));
+  const restored = isW1 && have >= 8; // whole sword reforged → post-game state
+  const next = isW1 ? nodes.find((n) => !collected.has(H.stageFrag[n.id])) : null;
   return (
     <div className={"adv-screen" + (restored ? " restored" : "")}>
       <style>{CSS}</style>
       <div className="adv-hud adv-hud-top" role="navigation" aria-label="Map controls">
         <img className="adv-logo" width="32" height="24" src={typeof window !== "undefined" ? window.WEJAM_LOGO : ""} alt="WeJam" />
         <span className="adv-title"><span className="w1">NUMBER</span><span className="w2">SONG</span>{restored && <em className="adv-restored-tag"> · restored</em>}</span>
+        {worldToggle && <button className="gear world-toggle" onClick={worldToggle.onClick} aria-label={"Sail to " + worldToggle.label}>⛵ {worldToggle.label}</button>}
         <button className="gear" onClick={onMenu} aria-label="Main menu">☰</button>
         <button className="gear gear-settings" onClick={onSettings} aria-label="Settings">⚙</button>
       </div>
@@ -2103,7 +2157,7 @@ function AdventureMap({ world, nodes, currentId, collected, onEnter, onMenu, onS
         </button>
       )}
       <div className="adv-scroll" ref={scrollRef}>
-        <canvas ref={mapRef} className="adv-map" onClick={tapMap} role="img" aria-label="Harmonia world map" />
+        <canvas ref={mapRef} className="adv-map" onClick={tapMap} role="img" aria-label={isW1 ? "Harmonia world map" : "The Outer Keys map"} />
       </div>
       {celebrateNode && H.nodes.find((n) => n.id === celebrateNode) && (
         <div className="map-cleared" aria-hidden="true">
@@ -2112,6 +2166,15 @@ function AdventureMap({ world, nodes, currentId, collected, onEnter, onMenu, onS
         </div>
       )}
       <div className="adv-hud adv-hud-bottom">
+        {!isW1 ? (
+          <div className="adv-forge-chip shield-chip">
+            <ShieldMini have={shieldHave || []} />
+            <div className="adv-forge-txt">
+              <b>{(shieldHave || []).length} / 4</b> colours
+              <span>{(shieldHave || []).length === 4 ? "The Colour Guard is whole!" : "The Colour Guard"}</span>
+            </div>
+          </div>
+        ) : (
         <div className="adv-forge-chip">
           <canvas ref={swordRef} className={"adv-sword-mini" + (burst ? " burst" : "")} onClick={onForge} role="button" tabIndex={0} aria-label="View Excalibar fragments" />
           <div className="adv-forge-txt">
@@ -2119,6 +2182,7 @@ function AdventureMap({ world, nodes, currentId, collected, onEnter, onMenu, onS
             <span>{have === 8 ? "Excalibar reforged!" : next ? "Next: " + H.fragLabel[H.stageFrag[next.id]] : ""}</span>
           </div>
         </div>
+        )}
         <div className="adv-hud-actions">
           <button className="ghost shop-btn" onClick={onShop} aria-label="Shop">★</button>
           <button className="ghost" onClick={onGuide} aria-label="How music works">📖</button>
@@ -2298,6 +2362,12 @@ export default function NumberEarTrainer() {
   const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home")); // boot | menu | training | ear | home | adventure | levels | session | results | learn | guide | settings
   // First-time map tour: Verda walks a new player around once, right after the tutorial.
   const [mapTour, setMapTour] = useState(false);
+  // Which adventure world the map shows. World 2 stays behind W2_ENABLED until it goes live.
+  const [worldId, setWorldId] = useState(() => (W2_ENABLED && loadPref("world", "1") === "2" ? 2 : 1));
+  const [arrivalNode, setArrivalNode] = useState(null); // where Coda steps off the boat
+  const [dockHint, setDockHint] = useState(false);      // "recommended after Sixstone Hollow" card
+  const [mapNote, setMapNote] = useState(null);         // one-line note, e.g. why a stop is locked
+  useEffect(() => { if (!mapNote) return; const t = setTimeout(() => setMapNote(null), 2600); return () => clearTimeout(t); }, [mapNote]);
   // Inject the base stylesheet ONCE into <head> so it's ALWAYS present. Every screen also
   // renders its own <style>{CSS}</style>, which React removes+re-adds on each screen swap —
   // and re-parsing that big block cost a one-frame flash of unstyled content (raw serif
@@ -3956,7 +4026,7 @@ export default function NumberEarTrainer() {
         setMapCelebrateNode(advStageId);
         // Grand fanfare = this clear completes its WORLD. Counted per world: once Harmonia is
         // 8/8, a clear in another world must not read as "the last region" again.
-        const inWorld = advNodes.filter((n) => worldOf(n.id) === worldOf(advStageId));
+        const inWorld = worldOf(advStageId) === 2 ? WORLD2.nodes : advNodes;
         const others = inWorld.filter((n) => n.id !== advStageId && stageClearedAdv(n.id)).length;
         if (others >= inWorld.length - 1) { grandFanfare(); haptic(true); }
         else { fanfare(); haptic(false); }
@@ -4339,6 +4409,26 @@ export default function NumberEarTrainer() {
   };
   const advCollected = new Set(advNodes.filter((n) => stageClearedAdv(n.id)).map((n) => window.HARMONIA.stageFrag[n.id]));
   const advCurrentId = (advNodes.find((n) => !stageClearedAdv(n.id)) || advNodes[advNodes.length - 1] || {}).id;
+  // The Outer Keys: stops open along W2_REQUIRES; every open, uncleared stop glows (both
+  // chain heads at once after Tintmouth); keeper stops paint the shield.
+  const w2Ids = WORLD2.nodes.map((n) => n.id);
+  const w2Glow = currentNodes(w2Ids, stageClearedAdv);
+  const w2Shield = shieldQuarters(stageClearedAdv);
+  const advWorld = W2_ENABLED && worldId === 2 ? 2 : 1;
+  const sailTo = (to) => {
+    try { sfx("select"); } catch (e) {}
+    setDockHint(false); setEncounterNode(null);
+    setArrivalNode(DOCKS[to].via);
+    setWorldId(to); savePref("world", String(to));
+    if (to === 2) savePref("w2visited", "1");
+    track("world_sail", { to });
+  };
+  // Harmonia's boat: the Outer Keys build on progressions, so before Sixstone Hollow is
+  // cleared the boat suggests waiting (never blocks). Boring mode skips the card.
+  const onDock = (to) => {
+    if (to === 2 && !stageClearedAdv(6) && !boringMode) { try { sfx("select"); } catch (e) {} setDockHint(true); return; }
+    sailTo(to);
+  };
   const enterStage = (n) => {
     const s = stageOf(n.id); if (!s) return;
     // Before the FIRST minor region (Lowmoor Fen, node 2): Rue's la-based-minor tutorial,
@@ -4349,6 +4439,7 @@ export default function NumberEarTrainer() {
     // Before the FIRST minor-chord region (Undertone Caves, node 4): Bassil's tutorial, once.
     if (n.id === 4 && loadPref("tut4", "0") !== "1") { startTutorial("chordsMinor", 4); return; }
     setFromAdventure(true);
+    setArrivalNode(null);
     setAdvStageId(n.id);
     setMode(s.mode);
     if (s.mode === "melody") setMelGroup(s.gi);
@@ -4630,7 +4721,14 @@ export default function NumberEarTrainer() {
   if (screen === "adventure") {
     // in game mode a tap opens the Keeper encounter modal; boring mode goes straight in
     const onTapNode = (n) => {
-      if (gated && !isRegionFree(n.id - 1)) return openUpsell();
+      if (worldOf(n.id) === 2) {
+        if (!stageClearedAdv(n.id) && !nodeOpen(n.id, stageClearedAdv)) {
+          const need = W2_REQUIRES[n.id].filter((id) => !stageClearedAdv(id)).map((id) => nodeOf(id).name);
+          try { sfx("back"); } catch (e) {}
+          return setMapNote("Clear " + need.join(" and ") + " first");
+        }
+        if (gated && n.id - 101 >= FREE.world2Nodes) return openUpsell("world2");
+      } else if (gated && !isRegionFree(n.id - 1)) return openUpsell();
       track("region_enter", { region: n.id });
       if (boringMode) { enterStage(n); } else { sfx("select"); setEncounterNode(n.id); }
     };
@@ -4639,12 +4737,23 @@ export default function NumberEarTrainer() {
     const enTitle = enStage ? advGroupOf(enStage).name : "";
     const enMode = enStage ? enStage.mode : "melody";
     const enLevels = enStage ? advGroupOf(enStage).levels.length : 0;
-    const enFrag = en ? window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[encounterNode]] : "";
+    const enW2 = !!en && worldOf(encounterNode) === 2;
+    const enKeeperStop = enW2 && W2_KEEPER_NODES.includes(encounterNode);
+    const enFrag = !en ? "" : enW2 ? (enKeeperStop ? WORLD2.shield.quarters[encounterNode] : "") : window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[encounterNode]];
     const enModeLabel = enMode === "melody" ? "single notes" : enMode === "chords" ? "chord tones" : "chord progressions";
     return (
       <>
         <AdventureMap
-          nodes={advNodes} currentId={advCurrentId} collected={advCollected} onEnter={onTapNode} skinId={skinId}
+          key={advWorld}
+          {...(advWorld === 2
+            ? { world: WORLD2, nodes: WORLD2.nodes, currentId: w2Glow[0] || 114, glowIds: w2Glow,
+                isCleared: (n) => stageClearedAdv(n.id), isLocked: (n) => !nodeOpen(n.id, stageClearedAdv), shieldHave: w2Shield }
+            : { nodes: advNodes, currentId: advCurrentId })}
+          startId={arrivalNode}
+          onDock={W2_ENABLED ? onDock : null}
+          worldToggle={W2_ENABLED && loadPref("w2visited", "0") === "1" && !boringMode
+            ? { label: advWorld === 2 ? "Harmonia" : "Outer Keys", onClick: () => sailTo(advWorld === 2 ? 1 : 2) } : null}
+          collected={advCollected} onEnter={onTapNode} skinId={skinId}
           burst={swordBurst} boringMode={boringMode} onForge={() => { sfx("select"); setForgeOpen(true); }}
           celebrateNode={mapCelebrateNode} onCelebrateDone={() => setMapCelebrateNode(null)}
           onShop={() => { setAuxReturn("adventure"); setScreen("shop"); }}
@@ -4664,18 +4773,18 @@ export default function NumberEarTrainer() {
                     : en.emblem}
                 </span>
                 <div className="enc-titles">
-                  <span className="kicker">Region {encounterNode} · Harmonia</span>
+                  <span className="kicker">{enW2 ? `Stop ${encounterNode % 100} · The Outer Keys` : `Region ${encounterNode} · Harmonia`}</span>
                   <h2 className="encounter-title">{en.name}</h2>
                   <span className="encounter-sub">{enTitle}</span>
                 </div>
-                <span className="enc-frag"><span className="gem">◆</span>{enFrag}</span>
+                {enFrag && <span className="enc-frag"><span className="gem">◆</span>{enFrag}</span>}
               </div>
               <p className="keeper-line">
                 <b className="keeper-name">{en.keeper}</b>
                 <q>{en.greet}</q>
               </p>
               <p className="stage-goal">{stageGoal(enMode, enTitle)}</p>
-              <span className="stage-meta">{enLevels} levels · {enModeLabel} · earn {en.short}'s mark → ◆</span>
+              <span className="stage-meta">{enLevels} levels · {enModeLabel} · {enW2 && !enKeeperStop ? "a stop on " + en.short + "'s way" : enW2 ? "earn " + en.short + "'s colour → ◆" : "earn " + en.short + "'s mark → ◆"}</span>
               <div className="enc-actions">
                 <button className="ghost dismiss" onClick={() => { try { sfx("back"); } catch (e) {} setEncounterNode(null); }}>Not yet</button>
                 <button className="primary" onClick={() => { const id = encounterNode; sfx("select"); setEncounterNode(null); enterStage({ id }); }}>Continue →</button>
@@ -4730,7 +4839,27 @@ export default function NumberEarTrainer() {
           );
         })()}
         {upsellModal}
-        {mapTour && mapReady && <MapTour onClose={() => setMapTour(false)} onSfx={sfx} />}
+        {dockHint && (
+          <div className="encounter-modal" onClick={() => setDockHint(false)}>
+            <div className="encounter mood-coast" role="dialog" aria-modal="true" aria-label="Sail to the Outer Keys" onClick={(e) => e.stopPropagation()}>
+              <div className="enc-head">
+                <span className="enc-emblem" aria-hidden="true">⛵</span>
+                <div className="enc-titles">
+                  <span className="kicker">A boat at Pillar Coast</span>
+                  <h2 className="encounter-title">THE OUTER KEYS</h2>
+                  <span className="encounter-sub">Colour chords, beyond the key</span>
+                </div>
+              </div>
+              <p className="keeper-line"><q>The islands out past the key play chords from outside it. Recommended after Sixstone Hollow — you'll want progressions in your ears first.</q></p>
+              <div className="enc-actions">
+                <button className="ghost dismiss" onClick={() => { try { sfx("back"); } catch (e) {} setDockHint(false); }}>Not yet</button>
+                <button className="primary" onClick={() => sailTo(2)}>Sail anyway →</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {mapNote && <div className="map-note" role="status">{mapNote}</div>}
+        {mapTour && mapReady && advWorld === 1 && <MapTour onClose={() => setMapTour(false)} onSfx={sfx} />}
         <AdvSplash ready={mapReady} />
       </>
     );
@@ -5684,7 +5813,22 @@ export default function NumberEarTrainer() {
           <h2 className="screen-title"><Acc text={resultName} /></h2>
         </header>
         <div className="results">
-          {justCleared && !finale && (
+          {justCleared && worldOf(advStageId) === 2 && (() => {
+            const keeperStop = W2_KEEPER_NODES.includes(advStageId);
+            return (
+              <div className="victory">
+                <div className="victory-rays" aria-hidden="true" />
+                <div className="victory-glow" aria-hidden="true" />
+                <span className="victory-kicker">{keeperStop ? "✦ Colour earned ✦" : "✦ Stop cleared ✦"}</span>
+                <h3 className="victory-title">{keeperStop ? advNode.winTitle : advNode.name}</h3>
+                <ShieldMini have={w2Shield} className="victory-shield" />
+                {keeperStop && <span className="frag-chip"><span className="gem">◆</span>{WORLD2.shield.quarters[advStageId]} — painted onto the Colour Guard</span>}
+                {keeperStop && <span className="victory-quote">“{advNode.win}”</span>}
+                <span className="forge-count">{w2Shield.length >= 4 ? "The Colour Guard is whole!" : w2Shield.length + " / 4 colours"}</span>
+              </div>
+            );
+          })()}
+          {justCleared && !finale && worldOf(advStageId) === 1 && (
             <div className="victory">
               <div className="victory-rays" aria-hidden="true" />
               <div className="victory-glow" aria-hidden="true" />
@@ -7033,6 +7177,16 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .replay-group .ghost.note { border-radius: 0 10px 10px 0; border-left-width: 0.75px; padding-left: 12px; padding-right: 12px; font-size: 1.05rem; }
 
 .numpad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+/* World 2: the Colour Guard as a quartered shield (one quarter per keeper), the locked-stop
+   note, and the sail-between-worlds toggle in the map HUD. */
+.shield-mini { display: inline-grid; grid-template-columns: 1fr 1fr; gap: 1px; width: 26px; height: 30px; flex: 0 0 auto;
+  background: #20302E; clip-path: polygon(0 0, 100% 0, 100% 58%, 50% 100%, 0 58%); }
+.shield-mini i { background: #4a524d; }
+.shield-mini.victory-shield { width: 72px; height: 84px; gap: 2px; margin: 6px auto; }
+.map-note { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(92px + env(safe-area-inset-bottom, 0px)); z-index: 60;
+  background: #20302E; color: #EDF2EE; border: 2px solid #57C6C4; padding: 9px 14px; font-size: 0.85rem; max-width: 86vw; text-align: center; }
+.gear.world-toggle { width: auto; padding: 0 9px; font-size: 0.75rem; white-space: nowrap; }
+
 /* Chapter picker sections (progressions): a header + one-line blurb over each group. */
 .chapter-section { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }
 .chapter-section .section-title { margin: 0; font-size: 0.95rem; letter-spacing: 0.5px; }

@@ -293,7 +293,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     function check(away) {{
       if (BUILD.indexOf("NS_BUILD") !== -1 || !navigator.onLine) return; // unstamped dev build, or offline
       fetch("./sw.js?v=" + Date.now(), {{ cache: "no-store" }}).then(function (r) {{ return r.ok ? r.text() : ""; }}).then(function (t) {{
-        var m = /VERSION = "(\d+)"/.exec(t);
+        var m = /VERSION = "([0-9]+)"/.exec(t);
         if (!m || m[1] === BUILD) return;
         if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) navigator.serviceWorker.getRegistration().then(function (reg) {{ reg && reg.update(); }});
         if (away >= AWAY_MS) location.reload(); else banner();
