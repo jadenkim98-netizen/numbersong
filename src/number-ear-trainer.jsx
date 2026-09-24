@@ -69,7 +69,7 @@ import {
   KEY_MAP,
   levelsFor, padFor, recolour, rollTones, CHORD_SPELLING, PROG_SECTIONS } from "./theory.mjs";
 import { detectPitch, pitchToDegree } from "./pitch.mjs";
-import { stageOf, worldOf, routeOnGrid } from "./worlds.mjs";
+import { stageOf, worldOf, routeOnGrid, w2Node } from "./worlds.mjs";
 import { isBossRegion, bossConfigFor, evalBoss, bossTimer } from "./boss.mjs";
 import {
   qCountForLevel,
@@ -1868,6 +1868,7 @@ function MapTour({ onClose, onSfx }) {
 // A map node by its global id, whichever world it's in (ids aren't array positions:
 // world 2's start at 101). Every "which keeper/region is this" lookup goes through here.
 const nodeOf = (id) => {
+  if (worldOf(id) === 2) return w2Node(id);
   const H = typeof window !== "undefined" && window.HARMONIA;
   return (H && H.nodes.find((n) => n.id === id)) || null;
 };

@@ -5,7 +5,10 @@ A second adventure map for the chord-colour chapters: the colour chords, the two
 
 Status: **M0 built** (2026-09-24): `src/worlds.mjs` (`worldOf`, `stageOf`, `routeOnGrid`),
 `nodeOf` in the jsx, `AdventureMap` takes a `world` prop, and both world-scoping bugs are fixed.
-Harmonia behaves identically. Next: M1. Names confirmed; world 2 is paid.
+Harmonia behaves identically. **M1 built** (2026-09-24): `src/world2.mjs` (placeholder island grid,
+14 nodes, the four keepers' text, the shield) and the world-2 half of `src/worlds.mjs`
+(`W2_CHAPTERS`, `W2_REQUIRES`, `W2_KEEPER_NODES`, `nodeOpen`, `currentNodes`, `shieldQuarters`,
+`w2Node`). Not reachable in the UI yet. Next: M2. Names confirmed; world 2 is paid.
 
 ---
 
@@ -68,7 +71,7 @@ Both need to be scoped to the node's own world.
 - `stageOf(id)`, `worldOf(id)`, `nodeOpen(id, isCleared)`, `currentNodes(...)`.
 - `routeOnGrid(...)`: the existing route search, moved here verbatim so it can be tested.
 
-**New `adventure/world2.js`** → `window.HARMONIA_W2`, inlined by build.sh next to assets.js:
+**New `src/world2.mjs`** (built in M1; a bundled data module rather than a `window` global, so the tests import it directly and build.sh needs no change):
 - Same grid shape (16×26); MapTour and the map CSS assume 256×416.
 - 13 nodes with a `section` field, a `keepers` block keyed by section, the return dock, and `shield: { name, quarters: { 104, 108, 113, 114 } }`.
 
