@@ -150,3 +150,10 @@ test("every world-2 node speaks in a keeper's voice; only keeper nodes award a m
   }
   assert.equal(w2Node(999), null);
 });
+
+test("every Outer Keys stop has its own line from its keeper, about its own chord", () => {
+  const lines = WORLD2.nodes.map((n) => n.greet);
+  for (const n of WORLD2.nodes) assert.ok(n.greet && n.greet.length > 40, `stop ${n.id} has a line`);
+  assert.equal(new Set(lines).size, lines.length, "no two stops share a line");
+  for (const n of WORLD2.nodes) assert.equal(w2Node(n.id).greet, n.greet);
+});

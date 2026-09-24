@@ -61,7 +61,7 @@ export function w2Node(id) {
   if (!n) return null;
   const { keeper, short, emblem, greet, winTitle, win, lore } = WORLD2.keepers[n.section];
   const own = W2_KEEPER_NODES.includes(id);
-  return { ...n, keeper, short, keeperEmblem: emblem, greet, ...(own ? { winTitle, win, lore } : {}) };
+  return { ...n, keeper, short, keeperEmblem: emblem, greet: n.greet || greet, ...(own ? { winTitle, win, lore } : {}) };
 }
 // The shield quarters earned so far (keeper nodes cleared), in painting order.
 export const shieldQuarters = (isCleared) => W2_KEEPER_NODES.filter(isCleared);

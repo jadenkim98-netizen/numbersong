@@ -27,7 +27,7 @@ Names confirmed; world 2 is paid.
 | **Unlocks (when on)** | Trunk in order. Both paths open when the trunk capstone is cleared, taken in either order ("neither is harder"). Within a path, in order. The Radio needs **both** path capstones. |
 | **Access** | **Always open**, like the rest of the game, with a soft *"recommended after Sixstone Hollow (region 6)"* hint. |
 | **Getting there** | **Both**: a boat at a dock on Pillar Coast (region 5, where progressions start) on the main map, **and** a map shortcut once you've visited. |
-| **Keepers** | **One per section, 4 total**: trunk, Path A, Path B, Radio. Each keeper's duel replaces their section's capstone. The other 9 nodes are plain stops. |
+| **Keepers** | **One per section, 4 total**: trunk, Path A, Path B, Radio. Each keeper **travels with you** through their section (Jaden's pick of three options, 2026-09-24): every stop has its own line from that keeper about its own chord (`greet` on each node in world2.mjs), and the duel is at the section's final stop. |
 | **Freemium** | **Paid**, like chord progressions in Basic Training (`FREE.world2Nodes: 0`). The dock stays open so free players can sail over and look around; node taps open the upsell. |
 | **Collectible** | **A shield made from the colours**: four quarters, one per keeper, whole after the Radio. The partner to Excalibar; it must never touch the sword's 8/8. |
 | **Setting** | Islands beyond the key: an archipelago off Harmonia's coast. |
