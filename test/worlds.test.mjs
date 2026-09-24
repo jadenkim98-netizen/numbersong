@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { worldOf, stageOf, routeOnGrid, WALKABLE, W2_CHAPTERS, W2_REQUIRES, W2_KEEPER_NODES,
-  nodeOpen, currentNodes, shieldQuarters, w2Node } from "../src/worlds.mjs";
+  nodeOpen, currentNodes, shieldQuarters, w2Node, w2KeeperNodeOf } from "../src/worlds.mjs";
 import { ADV_STAGES, PROG_CHAPTERS, PROG_SECTIONS } from "../src/theory.mjs";
 import { WORLD2 } from "../src/world2.mjs";
 
@@ -156,4 +156,14 @@ test("every Outer Keys stop has its own line from its keeper, about its own chor
   for (const n of WORLD2.nodes) assert.ok(n.greet && n.greet.length > 40, `stop ${n.id} has a line`);
   assert.equal(new Set(lines).size, lines.length, "no two stops share a line");
   for (const n of WORLD2.nodes) assert.equal(w2Node(n.id).greet, n.greet);
+});
+
+test("every stop borrows its section keeper's portrait: a keeper node, in its own section", () => {
+  for (const n of WORLD2.nodes) {
+    const k = w2KeeperNodeOf(n.id);
+    assert.ok(W2_KEEPER_NODES.includes(k), `stop ${n.id} → ${k}`);
+    assert.equal(w2Node(k).keeper, w2Node(n.id).keeper, `stop ${n.id} has ${w2Node(n.id).short}'s face`);
+  }
+  assert.equal(w2KeeperNodeOf(101), 104); // the landing is Ochre's
+  assert.equal(w2KeeperNodeOf(999), null);
 });

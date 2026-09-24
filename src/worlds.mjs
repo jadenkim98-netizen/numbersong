@@ -63,6 +63,14 @@ export function w2Node(id) {
   const own = W2_KEEPER_NODES.includes(id);
   return { ...n, keeper, short, keeperEmblem: emblem, greet: n.greet || greet, ...(own ? { winTitle, win, lore } : {}) };
 }
+// The keeper who walks a stop's section, as that keeper's own (duel) node id — so any stop
+// can borrow its keeper's portrait. The warm-up landing is Ochre's too.
+const SECTION_KEEPER = { warmup: 104, trunk: 104, pathA: 108, pathB: 113, radio: 114 };
+export function w2KeeperNodeOf(id) {
+  const n = WORLD2.nodes.find((x) => x.id === id);
+  return n ? SECTION_KEEPER[n.section] : null;
+}
+
 // The shield quarters earned so far (keeper nodes cleared), in painting order.
 export const shieldQuarters = (isCleared) => W2_KEEPER_NODES.filter(isCleared);
 

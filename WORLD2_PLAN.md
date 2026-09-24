@@ -15,7 +15,10 @@ once, the shield chip, the paid gate (`FREE.world2Nodes: 0`), world-2 encounter 
 win card (stop cleared / colour earned). **M3 built** (2026-09-24): `BOSS[104/108/113/114]` (Ochre, Lumen, Vesper, Wren) enabled, with
 in-fight lines and clocks that grow with the pool (the Radio: 18s, 5 hearts); duel stake / win cards
 show the shield quarter; `build.sh` picks up `keepers/portrait_{ochre,lumen,vesper,wren}.png` when
-they exist (emblems until then).
+they exist (emblems until then). **Keeper art done** (PixelLab, pushed): every stop shows its section
+keeper's portrait (`w2KeeperNodeOf` / `keeperArtOf`). **M4 built** (2026-09-24): the Colour Guard panel
+(tap the shield chip), the "Colour Guard is whole" finale on the clear that paints the fourth quarter,
+and the finished shield resting beside Tintmouth on the map.
 Names confirmed; world 2 is paid.
 
 ---

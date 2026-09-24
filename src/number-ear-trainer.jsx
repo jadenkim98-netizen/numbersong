@@ -69,7 +69,7 @@ import {
   KEY_MAP,
   levelsFor, padFor, recolour, rollTones, CHORD_SPELLING, PROG_SECTIONS } from "./theory.mjs";
 import { detectPitch, pitchToDegree } from "./pitch.mjs";
-import { stageOf, worldOf, routeOnGrid, w2Node, nodeOpen, currentNodes, shieldQuarters, W2_KEEPER_NODES, W2_REQUIRES } from "./worlds.mjs";
+import { stageOf, worldOf, routeOnGrid, w2Node, w2KeeperNodeOf, nodeOpen, currentNodes, shieldQuarters, W2_KEEPER_NODES, W2_REQUIRES } from "./worlds.mjs";
 import { WORLD2 } from "./world2.mjs";
 import { isBossRegion, bossConfigFor, evalBoss, bossTimer } from "./boss.mjs";
 import {
@@ -1759,6 +1759,14 @@ function drawDock(ctx, cx, cy, label) {
   ctx.fillStyle = "#12201d"; ctx.fillText(label, cx + 1, cy + 9);
   ctx.fillStyle = "#EDF2EE"; ctx.fillText(label, cx, cy + 8);
 }
+// A region's keeper portrait. In the Outer Keys a keeper walks a whole section, so every
+// stop shows its section keeper's face, not only the stop where they duel.
+const keeperArtOf = (id) => {
+  const art = typeof window !== "undefined" && window.KEEPER_ART;
+  if (!art || !id) return null;
+  return art[worldOf(id) === 2 ? w2KeeperNodeOf(id) : id] || null;
+};
+
 // What a region's clear or duel wins: a sword fragment in Harmonia, a shield quarter in
 // the Outer Keys (keeper stops only; a plain stop wins nothing but its star).
 const stakeOf = (id) => worldOf(id) === 2
@@ -2023,6 +2031,17 @@ function AdventureMap({ world, nodes, currentId, glowIds, isCleared, isLocked, s
     });
     if (isW1) drawDojo(ctx, (DOJO.c + 0.5) * T, (DOJO.r + 0.5) * T, dojoImg);
     if (dock && onDock) drawDock(ctx, (dock.c + 0.5) * T, (dock.r + 0.5) * T, isW1 ? "SAIL" : "HOME");
+    if (!isW1 && shieldHave && shieldHave.length >= 4) {  // post-game: the whole Colour Guard rests at Tintmouth
+      const hx = (8 + 0.5) * T, hy = (14 + 0.5) * T, w = 11, h = 13;
+      ctx.save();
+      ctx.shadowColor = "#D9B45B"; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.moveTo(hx - w / 2, hy - h / 2); ctx.lineTo(hx + w / 2, hy - h / 2); ctx.lineTo(hx + w / 2, hy + 1); ctx.lineTo(hx, hy + h / 2); ctx.lineTo(hx - w / 2, hy + 1); ctx.closePath();
+      ctx.fillStyle = "#20302E"; ctx.fill();
+      ctx.clip();
+      const q = [[104, -1, -1], [108, 0, -1], [113, -1, 0], [114, 0, 0]];
+      q.forEach(([id, qx, qy]) => { ctx.fillStyle = SHIELD_COLOURS[id]; ctx.fillRect(hx + qx * (w / 2) + (qx ? 0 : 0.5), hy + qy * (h / 2) + (qy ? 0 : 0.5), w / 2 - 0.5, h / 2 - 0.5); });
+      ctx.restore();
+    }
     if (isW1 && collected.size >= 8 && swordImg) {            // post-game: Excalibar rests, glowing, at home
       const mx = (2 + 0.5) * T, my = (24 + 0.5) * T;
       ctx.save();
@@ -2033,7 +2052,7 @@ function AdventureMap({ world, nodes, currentId, glowIds, isCleared, isLocked, s
     }
     const frame = heroFrames ? (heroFrames[faceRef.current] || heroFrames.s) : null;
     drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, frame || codaImg, bob);
-  }, [tileset, nodes, currentId, collected, codaImg, heroFrames, swordImg, dojoImg, bakedMap, glowIds, isCleared, isLocked, onDock]);
+  }, [tileset, nodes, currentId, collected, codaImg, heroFrames, swordImg, dojoImg, bakedMap, glowIds, isCleared, isLocked, onDock, shieldHave]);
 
   // static render: Coda rests on the tile he last walked to (his standing tile), so a
   // re-render (opening/closing an encounter, coming back from a stage) doesn't snap him
@@ -2178,7 +2197,7 @@ function AdventureMap({ world, nodes, currentId, glowIds, isCleared, isLocked, s
       <div className="adv-hud adv-hud-bottom">
         {!isW1 ? (
           <div className="adv-forge-chip shield-chip">
-            <ShieldMini have={shieldHave || []} />
+            <button className="shield-chip-btn" onClick={onForge} aria-label="View the Colour Guard"><ShieldMini have={shieldHave || []} /></button>
             <div className="adv-forge-txt">
               <b>{(shieldHave || []).length} / 4</b> colours
               <span>{(shieldHave || []).length === 4 ? "The Colour Guard is whole!" : "The Colour Guard"}</span>
@@ -2709,7 +2728,8 @@ export default function NumberEarTrainer() {
   const [encounterNode, setEncounterNode] = useState(null);  // region id whose encounter modal is open on the map
   const [auxReturn, setAuxReturn] = useState(null);          // where guide/free-play/settings back should go (e.g. "adventure")
   const [drillReturn, setDrillReturn] = useState(null);      // where a weak-link drill was launched from ("ear" | "training")
-  const [forgeOpen, setForgeOpen] = useState(false);         // Excalibar fragment inventory modal (on the map)
+  const [forgeOpen, setForgeOpen] = useState(false);
+  const [shieldOpen, setShieldOpen] = useState(false);       // the Colour Guard's quarters (Outer Keys map)         // Excalibar fragment inventory modal (on the map)
   // overlay-modal a11y: panel refs for focus-move-in / focus-trap
   const upsellPanelRef = useRef(null);
   const forgePanelRef = useRef(null);
@@ -4764,7 +4784,7 @@ export default function NumberEarTrainer() {
           worldToggle={W2_ENABLED && loadPref("w2visited", "0") === "1" && !boringMode
             ? { label: advWorld === 2 ? "Harmonia" : "Outer Keys", onClick: () => sailTo(advWorld === 2 ? 1 : 2) } : null}
           collected={advCollected} onEnter={onTapNode} skinId={skinId}
-          burst={swordBurst} boringMode={boringMode} onForge={() => { sfx("select"); setForgeOpen(true); }}
+          burst={swordBurst} boringMode={boringMode} onForge={() => { sfx("select"); if (advWorld === 2) setShieldOpen(true); else setForgeOpen(true); }}
           celebrateNode={mapCelebrateNode} onCelebrateDone={() => setMapCelebrateNode(null)}
           onShop={() => { setAuxReturn("adventure"); setScreen("shop"); }}
           onMenu={() => setScreen(boringMode ? "home" : "menu")}
@@ -4778,8 +4798,8 @@ export default function NumberEarTrainer() {
             <div className={"encounter mood-" + en.mood} role="dialog" aria-modal="true" aria-label={"Keeper of " + en.name} tabIndex={-1} ref={encPanelRef} onClick={(e) => e.stopPropagation()}>
               <div className="enc-head">
                 <span className="enc-emblem" aria-hidden="true">
-                  {window.KEEPER_ART && window.KEEPER_ART[encounterNode]
-                    ? <img src={window.KEEPER_ART[encounterNode]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", imageRendering: "pixelated" }} />
+                  {keeperArtOf(encounterNode)
+                    ? <img src={keeperArtOf(encounterNode)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", imageRendering: "pixelated" }} />
                     : en.emblem}
                 </span>
                 <div className="enc-titles">
@@ -4799,6 +4819,29 @@ export default function NumberEarTrainer() {
                 <button className="ghost dismiss" onClick={() => { try { sfx("back"); } catch (e) {} setEncounterNode(null); }}>Not yet</button>
                 <button className="primary" onClick={() => { const id = encounterNode; sfx("select"); setEncounterNode(null); enterStage({ id }); }}>Continue →</button>
               </div>
+            </div>
+          </div>
+        )}
+        {shieldOpen && (
+          <div className="forge-modal" onClick={() => setShieldOpen(false)}>
+            <div className="forge-panel" role="dialog" aria-modal="true" aria-label="The Colour Guard — its quarters" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
+              <span className="forge-kicker">The painted shield</span>
+              <h2 className="forge-title">The Colour Guard</h2>
+              <ShieldMini have={w2Shield} className="forge-shield" />
+              <span className="forge-tally">{w2Shield.length} / 4 colours</span>
+              <ul className="frag-list">
+                {W2_KEEPER_NODES.map((id) => {
+                  const nd = nodeOf(id), have = w2Shield.includes(id);
+                  return (
+                    <li key={id} className={"frag-row" + (have ? " got" : " locked")}>
+                      <span className="frag-mark" style={have ? { color: SHIELD_COLOURS[id] } : undefined}>{have ? "◆" : "◇"}</span>
+                      <span className="frag-name">{WORLD2.shield.quarters[id]}</span>
+                      <em className="frag-src">{have ? nd.short + " · " + nd.name : "— " + nd.short + ", at " + nd.name}</em>
+                    </li>
+                  );
+                })}
+              </ul>
+              <button className="primary" onClick={() => setShieldOpen(false)}>Close</button>
             </div>
           </div>
         )}
@@ -5774,6 +5817,8 @@ export default function NumberEarTrainer() {
     // world must not replay "Excalibar reforged" once the sword is whole.
     const finale = justCleared && worldOf(advStageId) === 1 && advCollected.size >= 8;
     const fragName = advNode ? window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[advStageId]] : "";
+    // the Outer Keys' ending: the clear that paints the Colour Guard's last quarter
+    const shieldFinale = justCleared && worldOf(advStageId) === 2 && W2_KEEPER_NODES.includes(advStageId) && w2Shield.length >= 4;
     // Won a Keeper Duel (this or any prior clear)? Verda's congratulations show on EVERY
     // win — the fragment flourish below is first-clear-only.
     const duelWin = duelWinRegion ? bossConfigFor(duelWinRegion) : null;
@@ -5803,6 +5848,24 @@ export default function NumberEarTrainer() {
         <style>{CSS}</style>
         {justCleared && <div className="fx-flash" aria-hidden="true" />}
         <Confetti show={justCleared} />
+        {shieldFinale && (
+          <div className="finale" onClick={() => setScreen("adventure")}>
+            <div className="finale-rays" aria-hidden="true" />
+            <div className="finale-inner">
+              <span className="finale-kicker">✦ Four colours, one guard ✦</span>
+              <div className="finale-forge">
+                <ShieldMini have={w2Shield} className="finale-shield" />
+                <span className="finale-shine" aria-hidden="true" />
+                {typeof window !== "undefined" && window.CODA_VICTORY && (
+                  <img className="finale-coda" src={window.CODA_VICTORY} alt="Coda, victorious" aria-hidden="true" />
+                )}
+              </div>
+              <h2 className="finale-title">THE COLOUR GUARD<br />IS WHOLE</h2>
+              <span className="finale-quote">“{duelWin ? duelWin.taunts.win : advNode.win}”</span>
+              <button className="primary finale-btn" onClick={(e) => { e.stopPropagation(); try { sfx("victory"); } catch (er) {} setScreen("adventure"); }}>Return to the Outer Keys →</button>
+            </div>
+          </div>
+        )}
         {finale && (
           <div className="finale" onClick={() => { setSwordBurst(true); setScreen("adventure"); }}>
             <div className="finale-rays" aria-hidden="true" />
@@ -5826,16 +5889,18 @@ export default function NumberEarTrainer() {
           <h2 className="screen-title"><Acc text={resultName} /></h2>
         </header>
         <div className="results">
-          {justCleared && worldOf(advStageId) === 2 && (() => {
+          {justCleared && worldOf(advStageId) === 2 && !shieldFinale && (() => {
             const keeperStop = W2_KEEPER_NODES.includes(advStageId);
             return (
               <div className="victory">
                 <div className="victory-rays" aria-hidden="true" />
                 <div className="victory-glow" aria-hidden="true" />
-                {duelWin && (
+                {duelWin ? (
                   <span className="duel-victory-face" aria-hidden="true">
                     {duelWinArt ? <img src={duelWinArt} alt="" /> : <span className="boss-emblem">{duelWinKeeper ? duelWinKeeper.emblem : "⚔"}</span>}
                   </span>
+                ) : keeperArtOf(advStageId) && (
+                  <span className="duel-victory-face" aria-hidden="true"><img src={keeperArtOf(advStageId)} alt="" /></span>
                 )}
                 <span className="victory-kicker">{keeperStop ? "✦ Colour earned ✦" : "✦ Stop cleared ✦"}</span>
                 <h3 className="victory-title">{keeperStop ? advNode.winTitle : advNode.name}</h3>
@@ -7206,6 +7271,10 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .shield-mini i { background: #4a524d; }
 .shield-mini.victory-shield { width: 72px; height: 84px; gap: 2px; margin: 6px auto; }
 .shield-mini.duel-stake-shield { width: 22px; height: 26px; }
+.shield-mini.forge-shield { width: 110px; height: 128px; gap: 3px; margin: 8px auto; }
+.shield-mini.finale-shield { width: 150px; height: 175px; gap: 4px; }
+.shield-chip-btn { background: none; border: 0; padding: 0; cursor: pointer; display: flex; }
+.shield-chip-btn:focus-visible { outline: 2px solid #D9B45B; outline-offset: 2px; }
 .map-note { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(92px + env(safe-area-inset-bottom, 0px)); z-index: 60;
   background: #20302E; color: #EDF2EE; border: 2px solid #57C6C4; padding: 9px 14px; font-size: 0.85rem; max-width: 86vw; text-align: center; }
 .gear.world-toggle { width: auto; padding: 0 9px; font-size: 0.75rem; white-space: nowrap; }
