@@ -12,7 +12,10 @@ Harmonia behaves identically. **M1 built** (2026-09-24): `src/world2.mjs` (place
 (`worldId` pref, SAIL boat at Pillar Coast / HOME boat below Warmwater Landing, a ⛵ toggle after the
 first visit), the Sixstone Hollow hint card, locks with a "Clear X first" note, several glowing stops at
 once, the shield chip, the paid gate (`FREE.world2Nodes: 0`), world-2 encounter cards, and a world-2
-win card (stop cleared / colour earned). Keeper stops are still plain capstones until M3's duels.
+win card (stop cleared / colour earned). **M3 built** (2026-09-24): `BOSS[104/108/113/114]` (Ochre, Lumen, Vesper, Wren) enabled, with
+in-fight lines and clocks that grow with the pool (the Radio: 18s, 5 hearts); duel stake / win cards
+show the shield quarter; `build.sh` picks up `keepers/portrait_{ochre,lumen,vesper,wren}.png` when
+they exist (emblems until then).
 Names confirmed; world 2 is paid.
 
 ---

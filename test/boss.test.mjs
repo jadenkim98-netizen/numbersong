@@ -134,3 +134,17 @@ test("bossTimer: falls back to a default clock when cfg has no timer", () => {
   assert.equal(bossTimer(50, {}), 5);
   assert.equal(bossTimer(10, {}), 3);
 });
+
+test("the Outer Keys' four keepers duel at their sections' last stops, and nowhere else", () => {
+  for (const id of [104, 108, 113, 114]) {
+    assert.equal(isBossRegion(id), true, `node ${id}`);
+    const c = bossConfigFor(id);
+    assert.notEqual(c, DEFAULT_BOSS, `node ${id} is hand-tuned`);
+    assert.ok(c.hp > 0 && c.hearts > 0 && c.timer.full > c.timer.mid && c.timer.mid > c.timer.low);
+    assert.ok(c.taunts.hits.length >= 6);
+    ["intro", "low", "playerHurt", "win", "lose"].forEach((k) => assert.equal(typeof c.taunts[k], "string"));
+  }
+  for (const id of [101, 102, 103, 105, 106, 107, 109, 110, 111, 112]) assert.equal(isBossRegion(id), false, `plain stop ${id}`);
+  // the Radio is the hardest pool in the game: the longest clock and the most slack
+  assert.ok(BOSS[114].timer.full > BOSS[108].timer.full && BOSS[114].hearts > BOSS[108].hearts);
+});

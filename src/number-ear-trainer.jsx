@@ -1759,6 +1759,12 @@ function drawDock(ctx, cx, cy, label) {
   ctx.fillStyle = "#12201d"; ctx.fillText(label, cx + 1, cy + 9);
   ctx.fillStyle = "#EDF2EE"; ctx.fillText(label, cx, cy + 8);
 }
+// What a region's clear or duel wins: a sword fragment in Harmonia, a shield quarter in
+// the Outer Keys (keeper stops only; a plain stop wins nothing but its star).
+const stakeOf = (id) => worldOf(id) === 2
+  ? (WORLD2.shield.quarters[id] || "")
+  : (window.HARMONIA ? window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[id]] || "" : "");
+
 // The Colour Guard as a small quartered shield: one quarter per keeper, painted once earned.
 const SHIELD_COLOURS = { 104: "#57C6C4", 108: "#D9B45B", 113: "#7CADD1", 114: "#E07856" };
 function ShieldMini({ have, className = "" }) {
@@ -5378,17 +5384,20 @@ export default function NumberEarTrainer() {
             </div>
             {/* the keeper's in-fight line, as a speech bubble */}
             <div className="duel-say">{duelTaunt}</div>
-            {/* HERO — Coda, lower corner, facing the keeper — plus the Excalibar fragment at stake */}
+            {/* HERO — Coda, lower corner, facing the keeper — plus what's at stake: the Excalibar
+                fragment in Harmonia, the Colour Guard's quarter in the Outer Keys */}
             <div className="duel-hero">
               <span className="duel-sprite hero" aria-hidden="true">
                 {duelHeroImg ? <img src={duelHeroImg} alt="" /> : <span className="boss-emblem">🎧</span>}
               </span>
               {window.HARMONIA && (
-                <span className="duel-stake" aria-label={"At stake: " + (window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[duelRegion]] || "a fragment")}>
-                  <ForgeSword collected={advCollected} className="duel-stake-sword" />
+                <span className="duel-stake" aria-label={"At stake: " + (stakeOf(duelRegion) || "a fragment")}>
+                  {worldOf(duelRegion) === 2
+                    ? <ShieldMini have={w2Shield} className="duel-stake-shield" />
+                    : <ForgeSword collected={advCollected} className="duel-stake-sword" />}
                   <span className="duel-stake-label">
                     <em>At stake</em>
-                    <b><span className="gem">◆</span>{window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[duelRegion]]}</b>
+                    <b><span className="gem">◆</span>{stakeOf(duelRegion)}</b>
                   </span>
                 </span>
               )}
@@ -5823,11 +5832,18 @@ export default function NumberEarTrainer() {
               <div className="victory">
                 <div className="victory-rays" aria-hidden="true" />
                 <div className="victory-glow" aria-hidden="true" />
+                {duelWin && (
+                  <span className="duel-victory-face" aria-hidden="true">
+                    {duelWinArt ? <img src={duelWinArt} alt="" /> : <span className="boss-emblem">{duelWinKeeper ? duelWinKeeper.emblem : "⚔"}</span>}
+                  </span>
+                )}
                 <span className="victory-kicker">{keeperStop ? "✦ Colour earned ✦" : "✦ Stop cleared ✦"}</span>
                 <h3 className="victory-title">{keeperStop ? advNode.winTitle : advNode.name}</h3>
                 <ShieldMini have={w2Shield} className="victory-shield" />
                 {keeperStop && <span className="frag-chip"><span className="gem">◆</span>{WORLD2.shield.quarters[advStageId]} — painted onto the Colour Guard</span>}
-                {keeperStop && <span className="victory-quote">“{advNode.win}”</span>}
+                {keeperStop && (duelWin
+                  ? <span className="victory-quote duel-quote">“{duelWin.taunts.win}”<em className="duel-quote-by">— {duelWin.name}, {duelWin.title}</em></span>
+                  : <span className="victory-quote">“{advNode.win}”</span>)}
                 <span className="forge-count">{w2Shield.length >= 4 ? "The Colour Guard is whole!" : w2Shield.length + " / 4 colours"}</span>
               </div>
             );
@@ -5863,9 +5879,11 @@ export default function NumberEarTrainer() {
               <span className="victory-kicker">✦ Duel won ✦</span>
               <h3 className="victory-title">{duelWinKeeper ? duelWinKeeper.winTitle : "The keeper yields!"}</h3>
               <div className="duel-victory-forge">
-                <ForgeSword collected={advCollected} className="victory-sword" />
+                {worldOf(duelWinRegion) === 2
+                  ? <ShieldMini have={w2Shield} className="victory-shield" />
+                  : <ForgeSword collected={advCollected} className="victory-sword" />}
               </div>
-              {duelWinKeeper && <span className="frag-chip"><span className="gem">◆</span>{window.HARMONIA.fragLabel[window.HARMONIA.stageFrag[duelWinRegion]]} — held in Excalibar</span>}
+              {duelWinKeeper && <span className="frag-chip"><span className="gem">◆</span>{stakeOf(duelWinRegion)} — {worldOf(duelWinRegion) === 2 ? "on the Colour Guard" : "held in Excalibar"}</span>}
               <span className="victory-quote duel-quote">“{duelWin.taunts.win}”<em className="duel-quote-by">— {duelWin.name}, {duelWin.title}</em></span>
             </div>
           )}
@@ -7187,6 +7205,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   background: #20302E; clip-path: polygon(0 0, 100% 0, 100% 58%, 50% 100%, 0 58%); }
 .shield-mini i { background: #4a524d; }
 .shield-mini.victory-shield { width: 72px; height: 84px; gap: 2px; margin: 6px auto; }
+.shield-mini.duel-stake-shield { width: 22px; height: 26px; }
 .map-note { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(92px + env(safe-area-inset-bottom, 0px)); z-index: 60;
   background: #20302E; color: #EDF2EE; border: 2px solid #57C6C4; padding: 9px 14px; font-size: 0.85rem; max-width: 86vw; text-align: center; }
 .gear.world-toggle { width: auto; padding: 0 9px; font-size: 0.75rem; white-space: nowrap; }

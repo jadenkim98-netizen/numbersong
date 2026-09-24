@@ -86,6 +86,12 @@ keeper_art = json.dumps({
   "6": _png("keepers/portrait_sable.png"),
   "7": _png("keepers/portrait_chroma.png"),
   "8": _png("keepers/portrait_ferro.png"),
+  # The Outer Keys' four keepers, keyed by their duel stops. Optional until the PixelLab
+  # art exists: a missing file is left out, and every site falls back to the emblem.
+  **{k: _png(p) for k, p in {
+    "104": "keepers/portrait_ochre.png", "108": "keepers/portrait_lumen.png",
+    "113": "keepers/portrait_vesper.png", "114": "keepers/portrait_wren.png",
+  }.items() if os.path.exists(p)},
 })
 # Map hero: the shop-swappable Coda skins, each as 4 directional frames (s/n/e/w)
 # so the hero faces the way he walks. "default" is the base look; gold/shadow/

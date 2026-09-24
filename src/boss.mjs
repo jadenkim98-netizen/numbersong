@@ -241,6 +241,113 @@ export const BOSS = {
       lose: "The forge keeps burning. Rest your ears and climb again.",
     },
   },
+
+  /* ── the Outer Keys (world 2): one keeper per section, dueling at its last stop ── */
+  // Progression duels like Marin/Sable, but bigger pools and a colour chip that can add a
+  // second tap per chord, so the clock is roomier and grows with the pool: Tintmouth has 8
+  // chords, the two chains 10–11, the Radio all 15.
+
+  // Ochre — Tintmouth Harbour (node 104, Colour chords: 3D and 4- beside their twins).
+  104: {
+    hp: 75,
+    hearts: 4,
+    dmgFirst: 25,
+    dmgRecover: 10,
+    timer: { full: 15, mid: 11, low: 8 },
+    name: "Ochre",
+    title: "the Dyer",
+    taunts: {
+      intro: "Two vats, and I'll tip them whenever I please. Name every drop.",
+      hits: [
+        "Ha! You caught the dye before it settled.",
+        "That's 3D — you heard it lean toward 6.",
+        "There — the 4 went dark, and you saw it happen.",
+        "Mm, plain or dyed, you called it true.",
+        "Sharp eye for colour. Or ear, rather.",
+        "Not a drop gets past you, does it.",
+      ],
+      low: "My vats are nearly dry — you've named near every drop.",
+      playerHurt: "Ah, a splash on your sleeve. Watch the vats — listen again.",
+      win: "Every drop named. Take my teal — it looks better on you anyway.",
+      lose: "The vats'll keep. Scrub up, rest your ears, and come back.",
+    },
+  },
+  // Lumen — The Great Lamp (node 108, secondary dominants: 1D 2D 3D 6D, all lit at once).
+  108: {
+    hp: 75,
+    hearts: 4,
+    dmgFirst: 25,
+    dmgRecover: 10,
+    timer: { full: 16, mid: 12, low: 8 },
+    name: "Lumen",
+    title: "the Lamplighter",
+    taunts: {
+      intro: "Every lamp's lit. Follow each beam to where it lands — if you can.",
+      hits: [
+        "Yes — you saw where that beam was pointing.",
+        "There! Light falling on light, and you followed it.",
+        "That's a five of something — and you knew what.",
+        "Mm, the chain holds. You didn't lose a single beam.",
+        "Beam to beam, island to island. Well read.",
+        "You heard it lean before it landed. That's the trick.",
+      ],
+      low: "Only a few lamps left burning — you've followed nearly all of them home.",
+      playerHurt: "Lost the beam for a moment. Look where it's pointing — then listen.",
+      win: "You followed every light to its landing. The gold is yours.",
+      lose: "The lamps will burn all night. Rest your eyes, and come back.",
+    },
+  },
+  // Vesper — Vesper Isle (node 113, borrowed from minor: ♭7 ♭6 ♭3 4- 2-7♭5).
+  113: {
+    hp: 75,
+    hearts: 4,
+    dmgFirst: 25,
+    dmgRecover: 10,
+    timer: { full: 16, mid: 12, low: 8 },
+    name: "Vesper",
+    title: "the Moon-Borrower",
+    taunts: {
+      intro: "Every colour I've borrowed, out at once. Name them before morning.",
+      hits: [
+        "Oh, you noticed that one was borrowed.",
+        "There — the moon's own shade, and you named it.",
+        "Mm. Softer than the sun, and you still heard it.",
+        "That flat one never fools you, does it.",
+        "Borrowed and named. The moon won't mind.",
+        "You heard the dusk come in. Lovely.",
+      ],
+      low: "The sky's getting light — only a few colours left to give back.",
+      playerHurt: "Too bright a guess. Borrow a moment — listen again.",
+      win: "Every borrowed colour named by moonlight. The blue is yours.",
+      lose: "Morning came first. Rest, and come back when it's dark again.",
+    },
+  },
+  // Wren — Signal Rock (node 114, the Radio: every chord in the game). The Outer Keys'
+  // final duel and the hardest pool anywhere, so the longest clock and a fifth heart.
+  114: {
+    hp: 100,
+    hearts: 5,
+    dmgFirst: 25,
+    dmgRecover: 10,
+    timer: { full: 18, mid: 13, low: 9 },
+    name: "Wren",
+    title: "the Operator",
+    taunts: {
+      intro: "Every station at once. The whole radio. Name what's playing.",
+      hits: [
+        "Clear signal! You named it through the static.",
+        "That's the lamplighter's light — heard it from here.",
+        "And that one's borrowed from the moon. Tuned right in.",
+        "Mm, not a crackle. Perfect reception.",
+        "You're turning the dial faster than I am.",
+        "Every station, one after another. Keep going.",
+      ],
+      low: "Nearly every station named — I can hear the whole radio through you.",
+      playerHurt: "Lost the station for a second. Fine-tune, then listen again.",
+      win: "The whole radio, named by ear. The Colour Guard is whole.",
+      lose: "Static for now. Rest your ears, then come tune in again.",
+    },
+  },
 };
 
 // Sensible default for regions whose duel isn't hand-tuned yet (so enabling one later
@@ -265,7 +372,8 @@ export const DEFAULT_BOSS = {
 
 // Which nodes launch a Keeper Duel instead of a normal capstone session.
 // All 8 keepers wired: 1-4 (free lite version), 5-6 (progressions), 7-8 (chromatic; 8 = Ferro, the finale).
-const ENABLED = new Set([1, 2, 3, 4, 5, 6, 7, 8]);
+// The Outer Keys: its four section keepers, at their sections' last stops.
+const ENABLED = new Set([1, 2, 3, 4, 5, 6, 7, 8, 104, 108, 113, 114]);
 export const isBossRegion = (id) => ENABLED.has(id);
 
 export function bossConfigFor(id) {
