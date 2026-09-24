@@ -2032,7 +2032,8 @@ function AdventureMap({ world, nodes, currentId, glowIds, isCleared, isLocked, s
     if (isW1) drawDojo(ctx, (DOJO.c + 0.5) * T, (DOJO.r + 0.5) * T, dojoImg);
     if (dock && onDock) drawDock(ctx, (dock.c + 0.5) * T, (dock.r + 0.5) * T, isW1 ? "SAIL" : "HOME");
     if (!isW1 && shieldHave && shieldHave.length >= 4) {  // post-game: the whole Colour Guard rests at Tintmouth
-      const hx = (8 + 0.5) * T, hy = (14 + 0.5) * T, w = 11, h = 13;
+      const home = nodes.find((n) => n.id === 104) || { c: 7, r: 17 };   // beside Tintmouth, wherever it sits
+      const hx = (home.c + 1.5) * T, hy = (home.r + 0.5) * T, w = 11, h = 13;
       ctx.save();
       ctx.shadowColor = "#D9B45B"; ctx.shadowBlur = 10;
       ctx.beginPath(); ctx.moveTo(hx - w / 2, hy - h / 2); ctx.lineTo(hx + w / 2, hy - h / 2); ctx.lineTo(hx + w / 2, hy + 1); ctx.lineTo(hx, hy + h / 2); ctx.lineTo(hx - w / 2, hy + 1); ctx.closePath();
