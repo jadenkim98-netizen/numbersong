@@ -3400,12 +3400,36 @@ window.SOUNDTRACK = SOUNDTRACK;
     ]
   };
   var PROG_WEIGHTS = { I: 5, ii: 3, iii: 2, IV: 4, V: 4, vi: 4, "vii°": 1 };
+  var COMMON_NEXT = {
+    I: { IV: 2.2, V: 1.8, vi: 1.4, ii: 0.8, iii: 0.4, "vii°": 0.15 },
+    ii: { V: 3, IV: 0.9, I: 0.6, vi: 0.5, iii: 0.5, "vii°": 0.3 },
+    iii: { vi: 2.6, IV: 1.8, ii: 0.6, I: 0.4, V: 0.4, "vii°": 0.1 },
+    IV: { I: 2, V: 2, vi: 0.9, ii: 0.7, iii: 0.4, "vii°": 0.3 },
+    V: { I: 2.6, vi: 1.8, IV: 1.1, ii: 0.3, iii: 0.3, "vii°": 0.05 },
+    vi: { IV: 2.6, V: 1.2, ii: 1, I: 0.7, iii: 0.5, "vii°": 0.1 },
+    "vii°": { I: 3, iii: 0.8, vi: 0.6, IV: 0.2, V: 0.2, ii: 0.2 }
+  };
+  var COMMON_NEXT_MINOR = {
+    vi: { IV: 2, ii: 1.6, iii: 0.9 },
+    ii: { iii: 1.6, vi: 1.4, IV: 1 },
+    iii: { vi: 2, IV: 1.2, ii: 0.6 },
+    IV: { iii: 1.4, vi: 1.2, ii: 1.2 }
+  };
+  function withCommonNext(mode, follow) {
+    const base = mode === "minor" ? COMMON_NEXT_MINOR : COMMON_NEXT;
+    const out = {};
+    for (const k of /* @__PURE__ */ new Set([...Object.keys(base), ...Object.keys(follow || {})])) {
+      out[k] = { ...base[k] || {}, ...(follow || {})[k] || {} };
+    }
+    return out;
+  }
   var weightAt = (c, weights, prev, follow) => (weights ? weights[c] ?? 1 : 1) * ((follow && prev && follow[prev] && follow[prev][c]) ?? 1);
-  var weightedPick = (pool, weights, prev, follow, banned) => {
+  var BOUNCE_BACK = 0.35;
+  var weightedPick = (pool, weights, prev, follow, banned, back = null) => {
     const usable = banned && banned.size ? pool.filter((c) => !banned.has(c)) : pool;
     const from = usable.length ? usable : pool;
-    if (!weights && !follow) return from[Math.floor(Math.random() * from.length)];
-    const w = from.map((c) => weightAt(c, weights, prev, follow));
+    if (!weights && !follow && !back) return from[Math.floor(Math.random() * from.length)];
+    const w = from.map((c) => weightAt(c, weights, prev, follow) * (c === back ? BOUNCE_BACK : 1));
     const total = w.reduce((a, b) => a + b, 0);
     if (total <= 0) return from[Math.floor(Math.random() * from.length)];
     let r = Math.random() * total;
@@ -3465,8 +3489,9 @@ window.SOUNDTRACK = SOUNDTRACK;
     while (seq.length < len) {
       const prev = seq[seq.length - 1];
       let c, guard = 0;
+      const back = seq.length >= 2 ? seq[seq.length - 2] : null;
       do {
-        c = weightedPick(pool, weights, prev, follow, banned);
+        c = weightedPick(pool, weights, prev, follow, banned, back);
       } while (c === prev && ++guard < 40);
       seq.push(c);
       ban(c);
@@ -3482,7 +3507,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       } while (set.length > 1 && avoid && p.join() === avoid.join());
       return p;
     }
-    return randomProgression(lvl.len, lvl.pool, lvl.anyStart ? null : lvl.home, lvl.weights, lvl.follow, lvl.forbid);
+    return randomProgression(lvl.len, lvl.pool, lvl.anyStart ? null : lvl.home, lvl.weights, withCommonNext(lvl.mode, lvl.follow), lvl.forbid);
   }
   function progRamp(chapter, mode, pool, home) {
     const cap = { chapter, mode, home };
