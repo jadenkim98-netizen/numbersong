@@ -23,7 +23,8 @@ Names confirmed; world 2 is paid.
 |---|---|
 | **Content** | The existing progression chapters, one map node each: a warm-up stop (All seven) → trunk (3D, 4-, Colour chords) → fork → Path A (1D, 2D, 6D, Secondary dominants · all four) **or** Path B (♭7, ♭6, ♭3, 2-7♭5, Borrowed from minor · all five) → the Radio. 1 + 3 + 4 + 5 + 1 = **14 nodes**. |
 | **Warm-up** | "All seven" is the first stop, before Tintmouth, **for now**. Jaden isn't happy with it there: it probably belongs on the first map. Revisit later; the first map's 8-node story math makes that harder. |
-| **Unlocks** | Trunk in order. Both paths open when the trunk capstone is cleared, taken in either order ("neither is harder"). Within a path, in order. The Radio needs **both** path capstones. |
+| **Locks (for now)** | **Off.** Jaden 2026-09-24: every stop open, don't make players go one by one yet. `W2_LOCKS = false` in the jsx; the unlock order below still decides which stops glow as the suggested next step, and flipping the flag turns the locks back on. |
+| **Unlocks (when on)** | Trunk in order. Both paths open when the trunk capstone is cleared, taken in either order ("neither is harder"). Within a path, in order. The Radio needs **both** path capstones. |
 | **Access** | **Always open**, like the rest of the game, with a soft *"recommended after Sixstone Hollow (region 6)"* hint. |
 | **Getting there** | **Both**: a boat at a dock on Pillar Coast (region 5, where progressions start) on the main map, **and** a map shortcut once you've visited. |
 | **Keepers** | **One per section, 4 total**: trunk, Path A, Path B, Radio. Each keeper's duel replaces their section's capstone. The other 9 nodes are plain stops. |

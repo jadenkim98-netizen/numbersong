@@ -162,6 +162,10 @@ const TRACK_ENABLED = !TEST_MODE;
 // World 2 (the Outer Keys) is built in stages (WORLD2_PLAN.md) and stays hidden from real
 // players until it goes live: reachable only in testing mode or with `?w2` in the URL.
 const W2_ENABLED = TEST_MODE || (typeof window !== "undefined" && /[?&]w2\b/.test(window.location.search));
+// Every Outer Keys stop is open for now (Jaden, 2026-09-24: "don't make them go through 1 by 1
+// yet"). The unlock order (W2_REQUIRES) still drives which stops glow as the suggested next
+// step; flip this to lock stops until their requirements are cleared.
+const W2_LOCKS = false;
 
 // "jojomode" — a dev/testing unlock (typed in Settings or ?unlock=jojomode). It fills
 // every level as complete except the FINAL adventure region, and shrinks any session to
@@ -4722,7 +4726,7 @@ export default function NumberEarTrainer() {
     // in game mode a tap opens the Keeper encounter modal; boring mode goes straight in
     const onTapNode = (n) => {
       if (worldOf(n.id) === 2) {
-        if (!stageClearedAdv(n.id) && !nodeOpen(n.id, stageClearedAdv)) {
+        if (W2_LOCKS && !stageClearedAdv(n.id) && !nodeOpen(n.id, stageClearedAdv)) {
           const need = W2_REQUIRES[n.id].filter((id) => !stageClearedAdv(id)).map((id) => nodeOf(id).name);
           try { sfx("back"); } catch (e) {}
           return setMapNote("Clear " + need.join(" and ") + " first");
@@ -4747,7 +4751,7 @@ export default function NumberEarTrainer() {
           key={advWorld}
           {...(advWorld === 2
             ? { world: WORLD2, nodes: WORLD2.nodes, currentId: w2Glow[0] || 114, glowIds: w2Glow,
-                isCleared: (n) => stageClearedAdv(n.id), isLocked: (n) => !nodeOpen(n.id, stageClearedAdv), shieldHave: w2Shield }
+                isCleared: (n) => stageClearedAdv(n.id), isLocked: W2_LOCKS ? (n) => !nodeOpen(n.id, stageClearedAdv) : null, shieldHave: w2Shield }
             : { nodes: advNodes, currentId: advCurrentId })}
           startId={arrivalNode}
           onDock={W2_ENABLED ? onDock : null}
