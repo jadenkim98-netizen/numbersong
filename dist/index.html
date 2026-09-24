@@ -4987,6 +4987,7 @@ window.SOUNDTRACK = SOUNDTRACK;
   })();
   var TRACK_ENABLED = !TEST_MODE;
   var W2_ENABLED = TEST_MODE || typeof window !== "undefined" && /[?&]w2\b/.test(window.location.search);
+  var W2_LOCKS = false;
   var JOJO_MODE = (() => {
     try {
       return typeof window !== "undefined" && window.localStorage.getItem("numbersong-jojo") === "1";
@@ -9684,7 +9685,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     if (screen === "adventure") {
       const onTapNode = (n) => {
         if (worldOf(n.id) === 2) {
-          if (!stageClearedAdv(n.id) && !nodeOpen(n.id, stageClearedAdv)) {
+          if (W2_LOCKS && !stageClearedAdv(n.id) && !nodeOpen(n.id, stageClearedAdv)) {
             const need = W2_REQUIRES[n.id].filter((id) => !stageClearedAdv(id)).map((id) => nodeOf(id).name);
             try {
               sfx("back");
@@ -9721,7 +9722,7 @@ window.SOUNDTRACK = SOUNDTRACK;
             currentId: w2Glow[0] || 114,
             glowIds: w2Glow,
             isCleared: (n) => stageClearedAdv(n.id),
-            isLocked: (n) => !nodeOpen(n.id, stageClearedAdv),
+            isLocked: W2_LOCKS ? (n) => !nodeOpen(n.id, stageClearedAdv) : null,
             shieldHave: w2Shield
           } : { nodes: advNodes, currentId: advCurrentId },
           startId: arrivalNode,
@@ -12296,7 +12297,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   // compare this page's build stamp with the live sw.js. Away 5+ minutes → reload quietly;
   // back sooner (maybe mid-question) → offer a one-tap banner instead of yanking the page.
   (function () {
-    var BUILD = "20260924110824", hiddenAt = 0, AWAY_MS = 5 * 60 * 1000;
+    var BUILD = "20260924111542", hiddenAt = 0, AWAY_MS = 5 * 60 * 1000;
     function banner() {
       if (document.getElementById("ns-update")) return;
       var b = document.createElement("button");
