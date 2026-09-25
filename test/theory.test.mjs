@@ -10,7 +10,7 @@ import {
   CURATED_3D, POOL_3D, WEIGHTS_3D, DEGREE_SEMITONES, EAR_CHORD_ROSTER, voiceLead,
   CURATED_4M, POOL_4M, WEIGHTS_4M, FOLLOW_4M, randomVoicing,
   CURATED_COLOUR, POOL_COLOUR, WEIGHTS_COLOUR, FOLLOW_COLOUR, CURATED_1D, POOL_1D, CURATED_2D, POOL_2D, CURATED_6D, POOL_6D, CURATED_SECDOM, POOL_SECDOM, padFor, recolour, rollTones, CHORD_SPELLING,
-  CURATED_B7, POOL_B7, CURATED_B6, POOL_B6, CURATED_B3, POOL_B3, CURATED_2HD, POOL_2HD, CURATED_BORROWED, POOL_BORROWED, CURATED_RADIO, POOL_RADIO, PROG_SECTIONS,
+  CURATED_B7, POOL_B7, CURATED_B6, POOL_B6, CURATED_B3, POOL_B3, CURATED_2HD, POOL_2HD, CURATED_BORROWED, POOL_BORROWED, CURATED_RADIO, POOL_RADIO, PROG_SECTIONS, PROG_SONGS, songFor, CURATED_4, CURATED_4_MINOR,
 } from "../src/theory.mjs";
 
 test("degreeLabel: the upper octave shows as 1, never 8", () => {
@@ -657,4 +657,16 @@ test("the Radio holds every chord from both paths and the colour chords", () => 
   const { roots, chips } = padFor(POOL_RADIO);
   assert.equal(roots.length, 9);
   assert.deepEqual(chips, ["D", "-", "7♭5"]);
+});
+
+test("every song is attached to a progression the game actually asks", () => {
+  const asked = new Set();
+  for (const ch of PROG_CHAPTERS) for (const l of ch.levels) {
+    if (l.gen !== "curated") continue;
+    const sets = l.curated || (l.mode === "minor" ? CURATED_4_MINOR : CURATED_4); // pickProgression's default
+    for (const seq of Object.values(sets).flat()) asked.add(seq.join("-"));
+  }
+  for (const k of Object.keys(PROG_SONGS)) assert.ok(asked.has(k), `song key ${k} matches no curated progression`);
+  for (const v of Object.values(PROG_SONGS)) assert.match(v, / — /, `"${v}" should read "Title — Artist"`);
+  assert.equal(songFor(["I", "V", "vi", "IV"]), "With or Without You — U2");
 });

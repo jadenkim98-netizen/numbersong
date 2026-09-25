@@ -433,14 +433,63 @@ export const CURATED_7 = {
   ],
 };
 
-// Songs that actually use a curated progression, keyed by its roman sequence. A
+// Songs that actually use a curated progression, keyed by its roman sequence. Researched
+// 2026-09-25 against Hooktheory / Wikipedia (each entry's loop checked as that exact
+// sequence, in that rotation, with those chord qualities); rows with no verified song
+// are simply absent. Minor rows are la-based: vi-ii-iii-vi is i-iv-v-i in the minor key. A
 // progression is easier to hold onto when it has a record attached to it. Listed only
 // where the song really runs that loop — an approximate match would teach the wrong ear.
 export const PROG_SONGS = {
-  "I-vi-IV-V":      "Stand By Me — Ben E. King",
-  "ii-V-I-IV":      "Kiss Me More — Doja Cat",
-  "I-III7-vi-IV":   "I'm Not the Only One — Sam Smith",
-  "I-III7-IV-iv":   "Creep — Radiohead",
+  "I-V-vi-IV": "With or Without You — U2",
+  "vi-IV-I-V": "Zombie — The Cranberries",
+  "I-vi-IV-V": "Stand By Me — Ben E. King",
+  "IV-V-I-vi": "Don't Dream It's Over — Crowded House",
+  "vi-V-IV-I": "Treat You Better — Shawn Mendes",
+  "vi-ii-iii-vi": "Pump Up the Jam — Technotronic",
+  "vi-IV-ii-iii": "Straight Up — Paula Abdul",
+  "vi-ii-IV-iii": "Mein Herz brennt — Rammstein",
+  "IV-ii-vi-iii": "Infinity — Jaymes Young",
+  "vi-iii-IV-ii": "Midnight Sky — Miley Cyrus",
+  "vi-IV-iii-ii": "The Blacker the Berry — Kendrick Lamar",
+  "IV-I-V-vi": "Umbrella — Rihanna",
+  "I-vi-ii-V": "Blue Moon — Rodgers & Hart",
+  "vi-ii-V-I": "Island in the Sun — Weezer",
+  "iii-vi-ii-V": "You Can't Hurry Love — Phil Collins",
+  "IV-V-iii-vi": "Titanium — David Guetta ft. Sia",
+  "I-IV-ii-V": "No Surprises — Radiohead",
+  "ii-V-I-IV": "Better Now — Post Malone",
+  "I-IV-vii°-I": "The Sound of Music — Rodgers & Hammerstein",
+  "III7-vi-ii-V": "So Hard — Pet Shop Boys",
+  "I-III7-vi-IV": "I'm Not the Only One — Sam Smith",
+  "I-iii-vi-IV": "The One That Got Away — Katy Perry",
+  "I-III7-IV-V": "Lithonia — Childish Gambino",
+  "I-vi-III7-IV": "Where Is My Mind? — Pixies",
+  "I-IV-iv-I": "All I Want for Christmas Is You — Mariah Carey",
+  "I-vi-IV-iv": "New Perspective — Panic! at the Disco",
+  "I-iii-IV-iv": "Until I Found You — Stephen Sanchez",
+  "I-III7-IV-iv": "Creep — Radiohead",
+  "I-I7-IV-V": "California Girls — The Beach Boys",
+  "I-I7-IV-I": "Feelin' Alright — Traffic",
+  "I-I7-IV-iv": "My Future — Billie Eilish",
+  "I-II7-IV-I": "Eight Days a Week — The Beatles",
+  "I-II7-ii-V": "Take the 'A' Train — Duke Ellington",
+  "I-vi-II7-V": "Goldfinger — Ash",
+  "I-IV-II7-V": "Summer Nights — Grease",
+  "I-II7-V-I": "Heroes and Villains — The Beach Boys",
+  "I-ii-V-I": "Seasons in the Sun — Terry Jacks",
+  "I-VI7-ii-V": "Santa Baby — Eartha Kitt",
+  "I-VI7-II7-V": "Alice's Restaurant — Arlo Guthrie",
+  "III7-VI7-II7-V": "I Got Rhythm (bridge) — George Gershwin",
+  "I-♭VII-IV-I": "Sweet Child O' Mine — Guns N' Roses",
+  "I-V-IV-I": "Chasing Cars — Snow Patrol",
+  "I-IV-V-I": "I'm Gonna Be (500 Miles) — The Proclaimers",
+  "I-V-♭VII-IV": "Rio — Duran Duran",
+  "I-♭VI-♭VII-I": "Super Mario Bros. flagpole fanfare — Koji Kondo",
+  "I-♭VI-V-I": "Jesus of Suburbia — Green Day",
+  "I-vi-V-I": "Sign of the Times — Harry Styles",
+  "I-♭III-IV-I": "Get It On — T. Rex",
+  "I-iii-IV-I": "Use Somebody — Kings of Leon",
+  "I-iii-IV-V": "Let's Get It On — Marvin Gaye",
 };
 export const songFor = (seq) => PROG_SONGS[seq.join("-")] || null;
 

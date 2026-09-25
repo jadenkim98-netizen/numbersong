@@ -67,7 +67,7 @@ import {
   PATH_ROWS,
   PATH_SPEEDS,
   KEY_MAP,
-  levelsFor, padFor, recolour, rollTones, CHORD_SPELLING, PROG_SECTIONS } from "./theory.mjs";
+  levelsFor, padFor, recolour, rollTones, CHORD_SPELLING, PROG_SECTIONS, songFor } from "./theory.mjs";
 import { detectPitch, pitchToDegree } from "./pitch.mjs";
 import { stageOf, worldOf, routeOnGrid, w2Node, w2KeeperNodeOf, nodeOpen, currentNodes, shieldQuarters, W2_KEEPER_NODES, W2_REQUIRES } from "./worlds.mjs";
 import { WORLD2 } from "./world2.mjs";
@@ -4373,6 +4373,52 @@ export default function NumberEarTrainer() {
     }
   };
 
+  // ── Number keys in drills ──
+  // The number row answers exactly like tapping the pads: 1–7 is that number (a melody note,
+  // a chord tone to toggle, or a progression root). `b` then a number is the flat (♭3, ♭7…),
+  // for chromatic notes and borrowed roots. In progressions, d / - / h apply the D, − and
+  // 7♭5 colour chips to the chord just entered. Enter checks; Backspace undoes. Keys for pads
+  // a level doesn't offer do nothing. Rebuilt every render, so it always sees fresh state.
+  const keyFlatRef = useRef(false);
+  const drillKeyRef = useRef(() => {});
+  drillKeyRef.current = (e) => {
+    if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+    const tag = e.target && e.target.tagName;
+    if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+    if (e.key === "Enter" && tag === "BUTTON") return; // a focused button already takes Enter — don't check twice
+    const s = sess.current; if (!s || !s.lvl) return;
+    const lvl = s.lvl, k = e.key;
+    if (k === "b" || k === "B") { keyFlatRef.current = true; e.preventDefault(); return; }
+    const flat = keyFlatRef.current; keyFlatRef.current = false;
+    const d = /^[1-7]$/.test(k) ? Number(k) : null;
+    if (mode === "melody") {
+      if (d == null) return;
+      const pc = mod12(DEGREE_TO_PC[d] - (flat ? 1 : 0));
+      if (!lvl.pool.includes(pc)) return;
+      e.preventDefault(); answerMelodySession(pc);
+    } else if (mode === "chords") {
+      if (d != null && !flat) { e.preventDefault(); toggleChordPick(d); }
+      else if (k === "Enter") { e.preventDefault(); checkChordSession(); }
+    } else if (mode === "progressions") {
+      const last = progAnswer[progAnswer.length - 1];
+      if (d != null) {
+        const root = padFor(lvl.pool).roots.find((r) => r.k === (flat ? "♭" : "") + d);
+        if (root && progAnswer.length < lvl.len) { e.preventDefault(); tapChord(root.def); }
+      } else if ((k === "d" || k === "D" || k === "-" || k === "h" || k === "H") && last) {
+        const colour = k === "-" ? "-" : k.toLowerCase() === "d" ? "D" : "7♭5";
+        const to = recolour(lvl.pool, last, colour);
+        if (to) { e.preventDefault(); recolourLast(to); }
+      } else if (k === "Backspace") { e.preventDefault(); backspaceChord(); }
+      else if (k === "Enter") { e.preventDefault(); checkProgression(); }
+    }
+  };
+  useEffect(() => {
+    if (screen !== "session") return;
+    const onKey = (e) => drillKeyRef.current(e);
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); keyFlatRef.current = false; };
+  }, [screen]);
+
   /* ── free explore ── */
 
   const pianoNote = (k) => Tone.Frequency(Tone.Frequency(musicKey + "4").toMidi() + k.s, "midi").toNote();
@@ -5453,7 +5499,9 @@ export default function NumberEarTrainer() {
           : feedback && feedback.roman
             ? <span><strong>{feedback.sym}</strong> <em className="numlabel">{feedback.num}</em> · {feedback.quality}. {CHORD_INSIGHTS[feedback.roman]}</span>
           : feedback && feedback.prog
-            ? <span><strong>{feedback.prog.join("–")}</strong> — nailed the changes.</span>
+            ? <span><strong>{feedback.prog.join("–")}</strong> — nailed the changes.
+                {/* a record to hang the sound on, when a real song loops this exact progression */}
+                {songFor(feedback.prog) && <em className="song-credit">♪ You've heard it in {songFor(feedback.prog)}</em>}</span>
           : feedback ? feedback
           : mode === "melody" ? (tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?")
           : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.`
@@ -7346,6 +7394,8 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .map-note { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(92px + env(safe-area-inset-bottom, 0px)); z-index: 60;
   background: #20302E; color: #EDF2EE; border: 2px solid #57C6C4; padding: 9px 14px; font-size: 0.85rem; max-width: 86vw; text-align: center; }
 .gear.world-toggle { width: auto; padding: 0 9px; font-size: 0.75rem; white-space: nowrap; }
+
+.song-credit { display: block; margin-top: 4px; font-style: normal; font-size: 0.85rem; color: var(--gold, #D9B45B); }
 
 /* Chapter picker sections (progressions): a header + one-line blurb over each group. */
 .chapter-section { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }
