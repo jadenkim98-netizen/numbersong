@@ -830,6 +830,8 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   background: #20302E; color: #EDF2EE; border: 2px solid #57C6C4; padding: 9px 14px; font-size: 0.85rem; max-width: 86vw; text-align: center; }
 .gear.world-toggle { width: auto; padding: 0 9px; font-size: 0.75rem; white-space: nowrap; }
 
+.song-credit { display: block; margin-top: 4px; font-style: normal; font-size: 0.85rem; color: var(--gold, #D9B45B); }
+
 /* Chapter picker sections (progressions): a header + one-line blurb over each group. */
 .chapter-section { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }
 .chapter-section .section-title { margin: 0; font-size: 0.95rem; letter-spacing: 0.5px; }
@@ -3431,6 +3433,59 @@ window.SOUNDTRACK = SOUNDTRACK;
       // 1 4 7dim 1 — 7dim standing in for 5D
     ]
   };
+  var PROG_SONGS = {
+    "I-V-vi-IV": "With or Without You — U2",
+    "vi-IV-I-V": "Zombie — The Cranberries",
+    "I-vi-IV-V": "Stand By Me — Ben E. King",
+    "IV-V-I-vi": "Don't Dream It's Over — Crowded House",
+    "vi-V-IV-I": "Treat You Better — Shawn Mendes",
+    "vi-ii-iii-vi": "Pump Up the Jam — Technotronic",
+    "vi-IV-ii-iii": "Straight Up — Paula Abdul",
+    "vi-ii-IV-iii": "Mein Herz brennt — Rammstein",
+    "IV-ii-vi-iii": "Infinity — Jaymes Young",
+    "vi-iii-IV-ii": "Midnight Sky — Miley Cyrus",
+    "vi-IV-iii-ii": "The Blacker the Berry — Kendrick Lamar",
+    "IV-I-V-vi": "Umbrella — Rihanna",
+    "I-vi-ii-V": "Blue Moon — Rodgers & Hart",
+    "vi-ii-V-I": "Island in the Sun — Weezer",
+    "iii-vi-ii-V": "You Can't Hurry Love — Phil Collins",
+    "IV-V-iii-vi": "Titanium — David Guetta ft. Sia",
+    "I-IV-ii-V": "No Surprises — Radiohead",
+    "ii-V-I-IV": "Better Now — Post Malone",
+    "I-IV-vii°-I": "The Sound of Music — Rodgers & Hammerstein",
+    "III7-vi-ii-V": "So Hard — Pet Shop Boys",
+    "I-III7-vi-IV": "I'm Not the Only One — Sam Smith",
+    "I-iii-vi-IV": "The One That Got Away — Katy Perry",
+    "I-III7-IV-V": "Lithonia — Childish Gambino",
+    "I-vi-III7-IV": "Where Is My Mind? — Pixies",
+    "I-IV-iv-I": "All I Want for Christmas Is You — Mariah Carey",
+    "I-vi-IV-iv": "New Perspective — Panic! at the Disco",
+    "I-iii-IV-iv": "Until I Found You — Stephen Sanchez",
+    "I-III7-IV-iv": "Creep — Radiohead",
+    "I-I7-IV-V": "California Girls — The Beach Boys",
+    "I-I7-IV-I": "Feelin' Alright — Traffic",
+    "I-I7-IV-iv": "My Future — Billie Eilish",
+    "I-II7-IV-I": "Eight Days a Week — The Beatles",
+    "I-II7-ii-V": "Take the 'A' Train — Duke Ellington",
+    "I-vi-II7-V": "Goldfinger — Ash",
+    "I-IV-II7-V": "Summer Nights — Grease",
+    "I-II7-V-I": "Heroes and Villains — The Beach Boys",
+    "I-ii-V-I": "Seasons in the Sun — Terry Jacks",
+    "I-VI7-ii-V": "Santa Baby — Eartha Kitt",
+    "I-VI7-II7-V": "Alice's Restaurant — Arlo Guthrie",
+    "III7-VI7-II7-V": "I Got Rhythm (bridge) — George Gershwin",
+    "I-♭VII-IV-I": "Sweet Child O' Mine — Guns N' Roses",
+    "I-V-IV-I": "Chasing Cars — Snow Patrol",
+    "I-IV-V-I": "I'm Gonna Be (500 Miles) — The Proclaimers",
+    "I-V-♭VII-IV": "Rio — Duran Duran",
+    "I-♭VI-♭VII-I": "Super Mario Bros. flagpole fanfare — Koji Kondo",
+    "I-♭VI-V-I": "Jesus of Suburbia — Green Day",
+    "I-vi-V-I": "Sign of the Times — Harry Styles",
+    "I-♭III-IV-I": "Get It On — T. Rex",
+    "I-iii-IV-I": "Use Somebody — Kings of Leon",
+    "I-iii-IV-V": "Let's Get It On — Marvin Gaye"
+  };
+  var songFor = (seq) => PROG_SONGS[seq.join("-")] || null;
   var PROG_WEIGHTS = { I: 5, ii: 3, iii: 2, IV: 4, V: 4, vi: 4, "vii°": 1 };
   var COMMON_NEXT = {
     I: { IV: 2.2, V: 1.8, vi: 1.4, ii: 0.8, iii: 0.4, "vii°": 0.15 },
@@ -9757,6 +9812,72 @@ window.SOUNDTRACK = SOUNDTRACK;
         } else setFeedback("Not quite — the marked chords are off. Fix them and check again.");
       }
     };
+    const keyFlatRef = useRef(false);
+    const drillKeyRef = useRef(() => {
+    });
+    drillKeyRef.current = (e) => {
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      const tag = e.target && e.target.tagName;
+      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+      if (e.key === "Enter" && tag === "BUTTON") return;
+      const s = sess.current;
+      if (!s || !s.lvl) return;
+      const lvl = s.lvl, k = e.key;
+      if (k === "b" || k === "B") {
+        keyFlatRef.current = true;
+        e.preventDefault();
+        return;
+      }
+      const flat = keyFlatRef.current;
+      keyFlatRef.current = false;
+      const d = /^[1-7]$/.test(k) ? Number(k) : null;
+      if (mode === "melody") {
+        if (d == null) return;
+        const pc = mod12(DEGREE_TO_PC[d] - (flat ? 1 : 0));
+        if (!lvl.pool.includes(pc)) return;
+        e.preventDefault();
+        answerMelodySession(pc);
+      } else if (mode === "chords") {
+        if (d != null && !flat) {
+          e.preventDefault();
+          toggleChordPick(d);
+        } else if (k === "Enter") {
+          e.preventDefault();
+          checkChordSession();
+        }
+      } else if (mode === "progressions") {
+        const last = progAnswer[progAnswer.length - 1];
+        if (d != null) {
+          const root = padFor(lvl.pool).roots.find((r) => r.k === (flat ? "♭" : "") + d);
+          if (root && progAnswer.length < lvl.len) {
+            e.preventDefault();
+            tapChord(root.def);
+          }
+        } else if ((k === "d" || k === "D" || k === "-" || k === "h" || k === "H") && last) {
+          const colour = k === "-" ? "-" : k.toLowerCase() === "d" ? "D" : "7♭5";
+          const to = recolour(lvl.pool, last, colour);
+          if (to) {
+            e.preventDefault();
+            recolourLast(to);
+          }
+        } else if (k === "Backspace") {
+          e.preventDefault();
+          backspaceChord();
+        } else if (k === "Enter") {
+          e.preventDefault();
+          checkProgression();
+        }
+      }
+    };
+    useEffect(() => {
+      if (screen !== "session") return;
+      const onKey = (e) => drillKeyRef.current(e);
+      window.addEventListener("keydown", onKey);
+      return () => {
+        window.removeEventListener("keydown", onKey);
+        keyFlatRef.current = false;
+      };
+    }, [screen]);
     const pianoNote = (k) => Tone.Frequency(Tone.Frequency(musicKey + "4").toMidi() + k.s, "midi").toNote();
     const pianoLabelOf = (k) => {
       const labs = {};
@@ -10509,7 +10630,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         },
         "Next ›"
       ));
-      const answerHint = /* @__PURE__ */ React.createElement("p", { className: "hint grow" + (tutCoach ? " tut-coach-line" : ""), role: "status", "aria-live": "polite" }, phase === "playing" ? tutCoach ? "Verda plays a number… listen." : "Listen…" : feedback && feedback.roman ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.sym), " ", /* @__PURE__ */ React.createElement("em", { className: "numlabel" }, feedback.num), " · ", feedback.quality, ". ", CHORD_INSIGHTS[feedback.roman]) : feedback && feedback.prog ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.prog.join("–")), " — nailed the changes.") : feedback ? feedback : mode === "melody" ? tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?" : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.` : "Tap the chords in order — you can name them as they go by.");
+      const answerHint = /* @__PURE__ */ React.createElement("p", { className: "hint grow" + (tutCoach ? " tut-coach-line" : ""), role: "status", "aria-live": "polite" }, phase === "playing" ? tutCoach ? "Verda plays a number… listen." : "Listen…" : feedback && feedback.roman ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.sym), " ", /* @__PURE__ */ React.createElement("em", { className: "numlabel" }, feedback.num), " · ", feedback.quality, ". ", CHORD_INSIGHTS[feedback.roman]) : feedback && feedback.prog ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.prog.join("–")), " — nailed the changes.", songFor(feedback.prog) && /* @__PURE__ */ React.createElement("em", { className: "song-credit" }, "♪ You've heard it in ", songFor(feedback.prog))) : feedback ? feedback : mode === "melody" ? tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?" : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.` : "Tap the chords in order — you can name them as they go by.");
       return /* @__PURE__ */ React.createElement("div", { className: "app app-wide" + (lvl.mode === "minor" ? " sess-minor" : "") + (isDuel ? " sess-duel" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement(Confetti, { show: tutCelebrate }), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
         try {
           sfx("back");
@@ -12105,6 +12226,8 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   background: #20302E; color: #EDF2EE; border: 2px solid #57C6C4; padding: 9px 14px; font-size: 0.85rem; max-width: 86vw; text-align: center; }
 .gear.world-toggle { width: auto; padding: 0 9px; font-size: 0.75rem; white-space: nowrap; }
 
+.song-credit { display: block; margin-top: 4px; font-style: normal; font-size: 0.85rem; color: var(--gold, #D9B45B); }
+
 /* Chapter picker sections (progressions): a header + one-line blurb over each group. */
 .chapter-section { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }
 .chapter-section .section-title { margin: 0; font-size: 0.95rem; letter-spacing: 0.5px; }
@@ -12697,7 +12820,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   // compare this page's build stamp with the live sw.js. Away 5+ minutes → reload quietly;
   // back sooner (maybe mid-question) → offer a one-tap banner instead of yanking the page.
   (function () {
-    var BUILD = "20260924174332", hiddenAt = 0, AWAY_MS = 5 * 60 * 1000;
+    var BUILD = "20260925112358", hiddenAt = 0, AWAY_MS = 5 * 60 * 1000;
     function banner() {
       if (document.getElementById("ns-update")) return;
       var b = document.createElement("button");
