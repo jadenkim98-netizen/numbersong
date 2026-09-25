@@ -159,9 +159,10 @@ const TEST_MODE = (() => {
 // read from, and a handful of dev runs is enough to bend a drop-off curve — the very
 // number the tracking exists to measure.
 const TRACK_ENABLED = !TEST_MODE;
-// World 2 (the Outer Keys) is built in stages (WORLD2_PLAN.md) and stays hidden from real
-// players until it goes live: reachable only in testing mode or with `?w2` in the URL.
-const W2_ENABLED = TEST_MODE || (typeof window !== "undefined" && /[?&]w2\b/.test(window.location.search));
+// World 2 (the Outer Keys) is LIVE for everyone (2026-09-24): the SAIL boat at Pillar Coast
+// and, after a first visit, the map's ⛵ toggle. Kill switch: set this to false and the boat,
+// toggle and saved world all fall back to Harmonia (nothing else checks it).
+const W2_ENABLED = true;
 // Every Outer Keys stop is open for now (Jaden, 2026-09-24: "don't make them go through 1 by 1
 // yet"). The unlock order (W2_REQUIRES) still drives which stops glow as the suggested next
 // step; flip this to lock stops until their requirements are cleared.
@@ -2456,7 +2457,7 @@ export default function NumberEarTrainer() {
   const [screen, setScreen] = useState(() => (window.HARMONIA && loadPref("boring", "0") === "0" ? "boot" : "home")); // boot | menu | training | ear | home | adventure | levels | session | results | learn | guide | settings
   // First-time map tour: Verda walks a new player around once, right after the tutorial.
   const [mapTour, setMapTour] = useState(false);
-  // Which adventure world the map shows. World 2 stays behind W2_ENABLED until it goes live.
+  // Which adventure world the map shows (the `world` pref; W2_ENABLED is the kill switch).
   const [worldId, setWorldId] = useState(() => (W2_ENABLED && loadPref("world", "1") === "2" ? 2 : 1));
   const [arrivalNode, setArrivalNode] = useState(null); // where Coda steps off the boat
   const [dockHint, setDockHint] = useState(false);      // "recommended after Sixstone Hollow" card
@@ -3797,7 +3798,7 @@ export default function NumberEarTrainer() {
     const lv = advGroupOf(stage).levels;
     const li = lv[lv.length - 1].idx;               // the region's mastery-capstone level
     const cfg = bossConfigFor(regionId);
-    track("boss_start", { region: regionId });
+    track("boss_start", { region: regionId, world: worldOf(regionId) });
     const lvl0 = resolveSessionLevel({
       mode: stage.mode,
       levelIdx: li,
@@ -3963,7 +3964,7 @@ export default function NumberEarTrainer() {
 
   const bossLose = () => {
     const region = sess.current.bossRegion;
-    track("boss_lose", { region, hp: bossState ? bossState.hp : null });
+    track("boss_lose", { region, world: worldOf(region), hp: bossState ? bossState.hp : null });
     foldEarLog(sess.current); // a loss is failure-point analysis — keep what it taught us
     killSession();
     try { sfx("deflate"); haptic(false); } catch (e) {} // sad, deflated failure sound
@@ -4083,7 +4084,7 @@ export default function NumberEarTrainer() {
     // Verda's congrats shows on EVERY duel win (duels are replayable), not just the
     // first clear — the fragment flourish below is first-clear-only.
     setDuelWinRegion(bossWon ? s.bossRegion : null);
-    if (bossWon) track("boss_win", { region: s.bossRegion, questions: s.results.length, hearts: bossState ? bossState.hearts : null });
+    if (bossWon) track("boss_win", { region: s.bossRegion, world: worldOf(s.bossRegion), questions: s.results.length, hearts: bossState ? bossState.hearts : null });
     track("session_finish", { mode: s.mode, level: s.levelIdx, first_tries: firstTries, questions: s.results.length, passed: firstTries >= passCountFor(s.lvl) });
     // Fold this session into the ear log. Unlike progress this is NOT gated on
     // canSave() (see loadEar) and it DOES include custom/drill sessions — a weak-link
@@ -4824,7 +4825,7 @@ export default function NumberEarTrainer() {
         }
         if (gated && n.id - 101 >= FREE.world2Nodes) return openUpsell("world2");
       } else if (gated && !isRegionFree(n.id - 1)) return openUpsell();
-      track("region_enter", { region: n.id });
+      track("region_enter", { region: n.id, world: worldOf(n.id) });
       if (boringMode) { enterStage(n); } else { sfx("select"); setEncounterNode(n.id); }
     };
     const en = encounterNode && window.HARMONIA ? nodeOf(encounterNode) : null;

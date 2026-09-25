@@ -1,5 +1,9 @@
 # World 2 — the Outer Keys
 
+> **LIVE for everyone (2026-09-24).** All milestones shipped, M0–M6: code, duels, the Colour
+> Guard, keeper art, the baked island map, the boat and shield sprites. `W2_ENABLED` is the
+> kill switch; analytics tag region and duel events with `world`.
+
 A second adventure map for the chord-colour chapters: the colour chords, the two paths
 (secondary dominants, borrowed from minor), and the Radio. Planned 2026-09-24.
 

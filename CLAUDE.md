@@ -146,6 +146,34 @@ no dev server, no package.json — deliberately. Tests run on Node's built-in
   Free Play or the 7-worlds tab, and on unmount — same teardown discipline as
   sessions. Denied permission sets `micErr` and shows an inline note, no crash.
 
+## Adventure worlds (Harmonia + the Outer Keys)
+
+Two maps. **Harmonia** (world 1) is the main story: 8 regions, 8 keepers, 8 sword
+fragments, "Excalibar reforged" — hard-wired to 8, so never add nodes to it. **The Outer
+Keys** (world 2, live 2026-09-24; design in `WORLD2_PLAN.md`) holds the chord-colour
+chapters: a warm-up (All seven) → the colour chords (3D, 4-) → a free-choice fork, Path A
+secondary dominants / Path B borrowed from minor → the Radio.
+
+- **Node ids are global**: Harmonia 1–8, the Outer Keys 101–114. Look things up with
+  `stageOf(id)` / `worldOf(id)` (`src/worlds.mjs`) and `nodeOf(id)` (jsx) — never
+  `ARRAY[id - 1]`. Duel config (`BOSS[id]`), `KEEPER_ART[id]`, analytics all key by id.
+- `src/world2.mjs` = the data (grid, 14 nodes with a line each, keepers, shield);
+  `src/worlds.mjs` = the rules (`W2_CHAPTERS` by chapter NAME, `W2_REQUIRES` unlock graph,
+  `W2_KEEPER_NODES` = the four duel stops 104/108/113/114, `w2Node`, `shieldQuarters`,
+  `routeOnGrid`). Tested in `test/worlds.test.mjs`.
+- **One keeper per section** (Ochre, Lumen, Vesper, Wren) walks every stop of it; only the
+  section's last stop is a duel and paints a quarter of the **Colour Guard** (the shield,
+  world 2's collectible — separate from the sword's 8/8). Fanfare/finale are per world.
+- Locks are OFF (`W2_LOCKS = false`): every stop open; `W2_REQUIRES` only picks which
+  stops glow. Paid: `FREE.world2Nodes: 0` (the boat stays open as a teaser).
+- Getting there: SAIL boat at Pillar Coast (`DOCKS`), HOME boat below the landing, and a ⛵
+  toggle after the first visit; the `world` pref remembers where you are. Kill switch:
+  `W2_ENABLED`.
+- **Map art** is baked: `python3 tools/bake_w2_map.py` → `map_w2_baked.png` (then
+  `./build.sh`). It reads `WORLD2.grid` + the PixelLab Wang sets in `adventure/w2_tiles/`.
+  Change the layout in the grid, re-bake — the art follows. Scenery is cosmetic only.
+- Art in `adventure/w2_art/` (boat, shield) and `keepers/*_{ochre,lumen,vesper,wren}*`.
+
 ## Design conventions (WeJam brand)
 
 - Palette: bg #383D3B, card #424845, line #565D59, text #EDF2EE,
