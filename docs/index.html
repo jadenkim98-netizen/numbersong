@@ -5245,7 +5245,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     }
   })();
   var TRACK_ENABLED = !TEST_MODE;
-  var W2_ENABLED = TEST_MODE || typeof window !== "undefined" && /[?&]w2\b/.test(window.location.search);
+  var W2_ENABLED = true;
   var W2_LOCKS = false;
   var JOJO_MODE = (() => {
     try {
@@ -9208,7 +9208,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       const lv = advGroupOf(stage).levels;
       const li = lv[lv.length - 1].idx;
       const cfg = bossConfigFor(regionId);
-      track("boss_start", { region: regionId });
+      track("boss_start", { region: regionId, world: worldOf(regionId) });
       const lvl0 = resolveSessionLevel({
         mode: stage.mode,
         levelIdx: li,
@@ -9351,7 +9351,7 @@ window.SOUNDTRACK = SOUNDTRACK;
     foldEarLogRef.current = foldEarLog;
     const bossLose = () => {
       const region = sess.current.bossRegion;
-      track("boss_lose", { region, hp: bossState ? bossState.hp : null });
+      track("boss_lose", { region, world: worldOf(region), hp: bossState ? bossState.hp : null });
       foldEarLog(sess.current);
       killSession();
       try {
@@ -9481,7 +9481,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       const bossWon = !!s.boss;
       const firstTries = bossWon ? Math.max(countFirstTries(s.results), passCountFor(s.lvl)) : countFirstTries(s.results);
       setDuelWinRegion(bossWon ? s.bossRegion : null);
-      if (bossWon) track("boss_win", { region: s.bossRegion, questions: s.results.length, hearts: bossState ? bossState.hearts : null });
+      if (bossWon) track("boss_win", { region: s.bossRegion, world: worldOf(s.bossRegion), questions: s.results.length, hearts: bossState ? bossState.hearts : null });
       track("session_finish", { mode: s.mode, level: s.levelIdx, first_tries: firstTries, questions: s.results.length, passed: firstTries >= passCountFor(s.lvl) });
       foldEarLog(s);
       sessWasClearedRef.current = fromAdventure && advStageId != null ? stageClearedAdv(advStageId) : false;
@@ -10073,7 +10073,7 @@ window.SOUNDTRACK = SOUNDTRACK;
           }
           if (gated && n.id - 101 >= FREE.world2Nodes) return openUpsell("world2");
         } else if (gated && !isRegionFree(n.id - 1)) return openUpsell();
-        track("region_enter", { region: n.id });
+        track("region_enter", { region: n.id, world: worldOf(n.id) });
         if (boringMode) {
           enterStage(n);
         } else {
@@ -12697,7 +12697,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   // compare this page's build stamp with the live sw.js. Away 5+ minutes → reload quietly;
   // back sooner (maybe mid-question) → offer a one-tap banner instead of yanking the page.
   (function () {
-    var BUILD = "20260924162929", hiddenAt = 0, AWAY_MS = 5 * 60 * 1000;
+    var BUILD = "20260924174332", hiddenAt = 0, AWAY_MS = 5 * 60 * 1000;
     function banner() {
       if (document.getElementById("ns-update")) return;
       var b = document.createElement("button");
