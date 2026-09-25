@@ -1746,7 +1746,19 @@ const DOJO = { c: 2, r: 20, name: "The Dojo" };
 // `via` (the nearest stop on the road) and sails. Harmonia's is at Pillar Coast, where the
 // progressions begin; the Outer Keys' sits below Warmwater Landing.
 const DOCKS = { 1: { c: 2, r: 11, via: 5, to: 2 }, 2: { c: 8, r: 23, via: 101, to: 1 } }; // one tile right of the landing, clear of the shield chip
-function drawDock(ctx, cx, cy, label) {
+function drawDock(ctx, cx, cy, label, img) {
+  if (img) {                                                              // PixelLab boat (adventure/w2_art)
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.shadowColor = "#D9B45B"; ctx.shadowBlur = 6;
+    const h = 22, w = h * (img.width / img.height);
+    ctx.drawImage(img, cx - w / 2, cy + 7 - h, w, h);
+    ctx.restore();
+    ctx.font = "bold 8px 'Archivo Black', Archivo, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.fillStyle = "#12201d"; ctx.fillText(label, cx + 1, cy + 9);
+    ctx.fillStyle = "#EDF2EE"; ctx.fillText(label, cx, cy + 8);
+    return;
+  }
   ctx.save();
   ctx.shadowColor = "#D9B45B"; ctx.shadowBlur = 7;
   ctx.fillStyle = "#6b4a2b";                                              // hull
@@ -1775,7 +1787,41 @@ const stakeOf = (id) => worldOf(id) === 2
 
 // The Colour Guard as a small quartered shield: one quarter per keeper, painted once earned.
 const SHIELD_COLOURS = { 104: "#57C6C4", 108: "#D9B45B", 113: "#7CADD1", 114: "#E07856" };
+// Which quarter of the shield sprite each keeper paints (the sprite's own colours).
+const SHIELD_QUARTER = { 104: [0, 0], 108: [1, 0], 113: [0, 1], 114: [1, 1] };
+let shieldImgPromise = null;
+const loadShieldImg = () => shieldImgPromise || (shieldImgPromise = new Promise((res) => {
+  if (typeof window === "undefined" || !window.SHIELD_SPRITE) return res(null);
+  const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = window.SHIELD_SPRITE;
+}));
+// Draw the Colour Guard with each un-earned quarter greyed out, like Excalibar's missing pieces.
+function paintShield(ctx, img, have, x, y, w, h) {
+  const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
+  const g = c.getContext("2d"); g.drawImage(img, 0, 0);
+  const d = g.getImageData(0, 0, c.width, c.height), mx = c.width / 2, my = c.height / 2;
+  for (const [id, [qx, qy]] of Object.entries(SHIELD_QUARTER)) {
+    if (have.includes(Number(id))) continue;
+    for (let py = qy ? Math.floor(my) : 0; py < (qy ? c.height : Math.ceil(my)); py++)
+      for (let px = qx ? Math.floor(mx) : 0; px < (qx ? c.width : Math.ceil(mx)); px++) {
+        const i = (py * c.width + px) * 4; if (!d.data[i + 3]) continue;
+        const l = (d.data[i] * 0.3 + d.data[i + 1] * 0.59 + d.data[i + 2] * 0.11) * 0.55 + 20;
+        d.data[i] = l; d.data[i + 1] = l + 3; d.data[i + 2] = l + 1;
+      }
+  }
+  g.putImageData(d, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(c, x, y, w, h);
+}
 function ShieldMini({ have, className = "" }) {
+  const ref = useRef(null);
+  const [img, setImg] = useState(null);
+  useEffect(() => { let live = true; loadShieldImg().then((im) => live && setImg(im)); return () => { live = false; }; }, []);
+  useEffect(() => {
+    const cv = ref.current; if (!cv || !img) return;
+    cv.width = img.width; cv.height = img.height;
+    paintShield(cv.getContext("2d"), img, have, 0, 0, img.width, img.height);
+  }, [img, have.join()]);
+  if (img) return <canvas ref={ref} className={"shield-mini shield-art " + className} aria-hidden="true" />;
   return (
     <span className={"shield-mini " + className} aria-hidden="true">
       {W2_KEEPER_NODES.map((id) => (
@@ -1939,6 +1985,8 @@ function AdventureMap({ world, nodes, currentId, glowIds, isCleared, isLocked, s
   const [swordImg, setSwordImg] = useState(null);
   const [codaImg, setCodaImg] = useState(null);
   const [dojoImg, setDojoImg] = useState(null);
+  const [boatImg, setBoatImg] = useState(null);
+  const [shieldImg, setShieldImg] = useState(null);
   const [bakedMap, setBakedMap] = useState(null);
   // Equipped skin as 4 directional frames {s,n,e,w} so the hero faces the way he
   // walks. faceRef holds the current facing ("s" while idle → faces the viewer).
@@ -1976,6 +2024,10 @@ function AdventureMap({ world, nodes, currentId, glowIds, isCleared, isLocked, s
     if (typeof window !== "undefined" && window.CODA_SPRITE) {
       const c = new Image(); c.onload = () => setCodaImg(c); c.src = window.CODA_SPRITE;
     }
+    if (typeof window !== "undefined" && window.BOAT_SPRITE) {
+      const bt = new Image(); bt.onload = () => setBoatImg(bt); bt.src = window.BOAT_SPRITE;
+    }
+    loadShieldImg().then((im) => im && setShieldImg(im));
     if (typeof window !== "undefined" && window.DOJO_SPRITE) {
       const d = new Image(); d.onload = () => setDojoImg(d); d.src = window.DOJO_SPRITE;
     }
@@ -2032,10 +2084,16 @@ function AdventureMap({ world, nodes, currentId, glowIds, isCleared, isLocked, s
       ctx.fillText(done ? "★" : shut ? "·" : String(n.id % 100), x, y + 0.5);
     });
     if (isW1) drawDojo(ctx, (DOJO.c + 0.5) * T, (DOJO.r + 0.5) * T, dojoImg);
-    if (dock && onDock) drawDock(ctx, (dock.c + 0.5) * T, (dock.r + 0.5) * T, isW1 ? "SAIL" : "HOME");
+    if (dock && onDock) drawDock(ctx, (dock.c + 0.5) * T, (dock.r + 0.5) * T, isW1 ? "SAIL" : "HOME", boatImg);
     if (!isW1 && shieldHave && shieldHave.length >= 4) {  // post-game: the whole Colour Guard rests at Tintmouth
       const home = nodes.find((n) => n.id === 104) || { c: 7, r: 17 };   // beside Tintmouth, wherever it sits
       const hx = (home.c + 1.5) * T, hy = (home.r + 0.5) * T, w = 11, h = 13;
+      if (shieldImg) {
+        ctx.save(); ctx.shadowColor = "#D9B45B"; ctx.shadowBlur = 10;
+        const sh = 16, sw = sh * (shieldImg.width / shieldImg.height);
+        paintShield(ctx, shieldImg, shieldHave, hx - sw / 2, hy - sh / 2, sw, sh);
+        ctx.restore();
+      } else {
       ctx.save();
       ctx.shadowColor = "#D9B45B"; ctx.shadowBlur = 10;
       ctx.beginPath(); ctx.moveTo(hx - w / 2, hy - h / 2); ctx.lineTo(hx + w / 2, hy - h / 2); ctx.lineTo(hx + w / 2, hy + 1); ctx.lineTo(hx, hy + h / 2); ctx.lineTo(hx - w / 2, hy + 1); ctx.closePath();
@@ -2044,6 +2102,7 @@ function AdventureMap({ world, nodes, currentId, glowIds, isCleared, isLocked, s
       const q = [[104, -1, -1], [108, 0, -1], [113, -1, 0], [114, 0, 0]];
       q.forEach(([id, qx, qy]) => { ctx.fillStyle = SHIELD_COLOURS[id]; ctx.fillRect(hx + qx * (w / 2) + (qx ? 0 : 0.5), hy + qy * (h / 2) + (qy ? 0 : 0.5), w / 2 - 0.5, h / 2 - 0.5); });
       ctx.restore();
+      }
     }
     if (isW1 && collected.size >= 8 && swordImg) {            // post-game: Excalibar rests, glowing, at home
       const mx = (2 + 0.5) * T, my = (24 + 0.5) * T;
@@ -2055,7 +2114,7 @@ function AdventureMap({ world, nodes, currentId, glowIds, isCleared, isLocked, s
     }
     const frame = heroFrames ? (heroFrames[faceRef.current] || heroFrames.s) : null;
     drawHero(ctx, (codaC + 0.5) * T, (codaR + 0.5) * T, frame || codaImg, bob);
-  }, [tileset, nodes, currentId, collected, codaImg, heroFrames, swordImg, dojoImg, bakedMap, glowIds, isCleared, isLocked, onDock, shieldHave]);
+  }, [tileset, nodes, currentId, collected, codaImg, heroFrames, swordImg, dojoImg, bakedMap, glowIds, isCleared, isLocked, onDock, shieldHave, boatImg, shieldImg]);
 
   // static render: Coda rests on the tile he last walked to (his standing tile), so a
   // re-render (opening/closing an encounter, coming back from a stage) doesn't snap him
@@ -7275,6 +7334,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .shield-mini { display: inline-grid; grid-template-columns: 1fr 1fr; gap: 1px; width: 26px; height: 30px; flex: 0 0 auto;
   background: #20302E; clip-path: polygon(0 0, 100% 0, 100% 58%, 50% 100%, 0 58%); }
 .shield-mini i { background: #4a524d; }
+.shield-mini.shield-art { display: inline-block; background: none; clip-path: none; width: auto !important; image-rendering: pixelated; }
 .shield-mini.victory-shield { width: 72px; height: 84px; gap: 2px; margin: 6px auto; }
 .shield-mini.duel-stake-shield { width: 22px; height: 26px; }
 .shield-mini.forge-shield { width: 110px; height: 128px; gap: 3px; margin: 8px auto; }
