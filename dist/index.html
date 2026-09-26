@@ -3585,7 +3585,51 @@ window.SOUNDTRACK = SOUNDTRACK;
     }
     return seq;
   }
+  function loopWindows(seq) {
+    const loop = seq.length === 4 && seq[0] === seq[3] ? seq.slice(0, 3) : seq;
+    if (loop[loop.length - 1] === loop[0]) return [seq];
+    return loop.map((_, k) => Array.from({ length: seq.length }, (__, i) => loop[(k + i) % loop.length]));
+  }
+  function keepsRules(seq, lvl) {
+    for (let i = 1; i < seq.length; i++) {
+      if (seq[i] === seq[i - 1]) return false;
+      const f = lvl.follow && lvl.follow[seq[i - 1]];
+      if (f && f[seq[i]] === 0) return false;
+    }
+    if (lvl.forbid) {
+      for (let i = 0; i < seq.length; i++)
+        for (const b of lvl.forbid[seq[i]] || []) if (seq.slice(i + 1).includes(b)) return false;
+    }
+    return true;
+  }
+  function realProgressions(lvl) {
+    const out = /* @__PURE__ */ new Map();
+    const minorLoops = new Set(Object.values(CURATED_4_MINOR).flat().map((q) => q.join("-")));
+    const add = (seq) => {
+      const ws = lvl.anyStart ? loopWindows(seq) : [seq, ...loopWindows(seq).filter((w) => w[0] === lvl.home)];
+      for (const w of ws) if (keepsRules(w, lvl)) out.set(w.join("-"), w);
+    };
+    for (const seq of (lvl.curated || {})[lvl.len] || []) add(seq);
+    for (const key of Object.keys(PROG_SONGS)) {
+      const seq = key.split("-");
+      if (lvl.mode !== "minor" && minorLoops.has(key)) continue;
+      if (seq.length === lvl.len && seq.every((c) => lvl.pool.includes(c))) add(seq);
+    }
+    return [...out.values()];
+  }
+  var REAL_COLOUR_SHARE = 0.75;
   function pickProgression(lvl, avoid) {
+    if (lvl.gen === "random" && lvl.real) {
+      const all = realProgressions(lvl);
+      const coloured = all.filter((q) => q.some((c) => !ALL_CHORDS.includes(c)));
+      const plain = all.filter((q) => q.every((c) => ALL_CHORDS.includes(c)));
+      const set = coloured.length && (!plain.length || Math.random() < REAL_COLOUR_SHARE) ? coloured : plain;
+      let p;
+      do {
+        p = set[Math.floor(Math.random() * set.length)];
+      } while (set.length > 1 && avoid && p.join() === avoid.join());
+      return p;
+    }
     if (lvl.gen === "curated") {
       const set = (lvl.curated || (lvl.mode === "minor" ? CURATED_4_MINOR : CURATED_4))[lvl.len];
       let p;
@@ -3653,9 +3697,9 @@ window.SOUNDTRACK = SOUNDTRACK;
       { ...cap, name: "Meet 3D", desc: "pairs · 3- against 3D", len: 2, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
       { ...cap, name: "Three-chord", desc: "threes · where 3D leads", len: 3, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
       { ...cap, name: "Four-chord classics", desc: "the same songs, sharpened", len: 4, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
-      { ...cap, name: "Any order", desc: "random · 4", len: 4, gen: "random", keyMode: "fixed", weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D },
-      { ...cap, name: "New key", desc: "random · 4 · a new key", len: 4, gen: "random", keyMode: "not-c", weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D },
-      { ...cap, name: "Mastery · 3D", desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D, anyStart: true, qCount: FINAL_LEN }
+      { ...cap, name: "Any order", desc: "random · 4", len: 4, gen: "random", real: true, curated: CURATED_3D, keyMode: "fixed", weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D },
+      { ...cap, name: "New key", desc: "random · 4 · a new key", len: 4, gen: "random", real: true, curated: CURATED_3D, keyMode: "not-c", weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D },
+      { ...cap, name: "Mastery · 3D", desc: "every combination · any starting chord · every key", len: 4, gen: "random", real: true, curated: CURATED_3D, keyMode: "random", weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D, anyStart: true, qCount: FINAL_LEN }
     ];
   }
   var POOL_4M = ["I", "ii", "iii", "IV", "iv", "V", "vi"];
@@ -3689,9 +3733,9 @@ window.SOUNDTRACK = SOUNDTRACK;
       { ...cap, name: "Meet 4-", desc: "pairs · 4 against 4-", len: 2, gen: "curated", curated: CURATED_4M, keyMode: "fixed" },
       { ...cap, name: "Three-chord", desc: "threes · where 4- goes", len: 3, gen: "curated", curated: CURATED_4M, keyMode: "fixed" },
       { ...cap, name: "Four-chord classics", desc: "the same songs, darkened", len: 4, gen: "curated", curated: CURATED_4M, keyMode: "fixed" },
-      { ...cap, name: "Any order", desc: "random · 4", len: 4, gen: "random", keyMode: "fixed", weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M },
-      { ...cap, name: "New key", desc: "random · 4 · a new key", len: 4, gen: "random", keyMode: "not-c", weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M },
-      { ...cap, name: "Mastery · 4-", desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M, anyStart: true, qCount: FINAL_LEN }
+      { ...cap, name: "Any order", desc: "random · 4", len: 4, gen: "random", real: true, curated: CURATED_4M, keyMode: "fixed", weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M },
+      { ...cap, name: "New key", desc: "random · 4 · a new key", len: 4, gen: "random", real: true, curated: CURATED_4M, keyMode: "not-c", weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M },
+      { ...cap, name: "Mastery · 4-", desc: "every combination · any starting chord · every key", len: 4, gen: "random", real: true, curated: CURATED_4M, keyMode: "random", weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M, anyStart: true, qCount: FINAL_LEN }
     ];
   }
   var POOL_COLOUR = ["I", "ii", "iii", "III7", "IV", "iv", "V", "vi"];
@@ -3724,9 +3768,9 @@ window.SOUNDTRACK = SOUNDTRACK;
       { ...cap, name: "Both colours", desc: "pairs · 3D and 4-", len: 2, gen: "curated", curated: CURATED_COLOUR, keyMode: "fixed" },
       { ...cap, name: "Three-chord", desc: "threes · colour in context", len: 3, gen: "curated", curated: CURATED_COLOUR, keyMode: "fixed" },
       { ...cap, name: "Four-chord classics", desc: "the songs that use both", len: 4, gen: "curated", curated: CURATED_COLOUR, keyMode: "fixed" },
-      { ...cap, name: "Any order", desc: "random · 4", len: 4, gen: "random", keyMode: "fixed", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR },
-      { ...cap, name: "New key", desc: "random · 4 · a new key", len: 4, gen: "random", keyMode: "not-c", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR },
-      { ...cap, name: "Mastery · colour", desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR, anyStart: true, qCount: FINAL_LEN }
+      { ...cap, name: "Any order", desc: "random · 4", len: 4, gen: "random", real: true, curated: CURATED_COLOUR, keyMode: "fixed", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR },
+      { ...cap, name: "New key", desc: "random · 4 · a new key", len: 4, gen: "random", real: true, curated: CURATED_COLOUR, keyMode: "not-c", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR },
+      { ...cap, name: "Mastery · colour", desc: "every combination · any starting chord · every key", len: 4, gen: "random", real: true, curated: CURATED_COLOUR, keyMode: "random", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR, anyStart: true, qCount: FINAL_LEN }
     ];
   }
   var POOL_1D = ["I", "I7", "ii", "iii", "IV", "V", "vi"];
@@ -3830,7 +3874,7 @@ window.SOUNDTRACK = SOUNDTRACK;
   };
   function secDomRamp(chapter, tag, pool, curated, weights, follow, forbid, pairDesc) {
     const cap = { chapter, mode: "major", home: "I", pool };
-    const rnd = { weights, follow, forbid };
+    const rnd = { weights, follow, forbid, real: true, curated };
     return [
       { ...cap, name: tag.startsWith("all") || tag === "the radio" ? "Meet them all" : "Meet " + tag, desc: pairDesc, len: 2, gen: "curated", curated, keyMode: "fixed" },
       { ...cap, name: "Three-chord", desc: "threes · where it leads", len: 3, gen: "curated", curated, keyMode: "fixed" },
@@ -4711,14 +4755,16 @@ window.SOUNDTRACK = SOUNDTRACK;
     /* ── the Outer Keys (world 2): one keeper per section, dueling at its last stop ── */
     // Progression duels like Marin/Sable, but bigger pools and a colour chip that can add a
     // second tap per chord, so the clock is roomier and grows with the pool: Tintmouth has 8
-    // chords, the two chains 10–11, the Radio all 15.
+    // chords, the two chains 10–11, the Radio all 15. Loosened ~3s after play-testing
+    // (2026-09-25): the pressure should be hearing the colour, not racing the taps — and a
+    // miss now only reveals the answer, it no longer hands back a free hit.
     // Ochre — Tintmouth Harbour (node 104, Colour chords: 3D and 4- beside their twins).
     104: {
       hp: 75,
       hearts: 4,
       dmgFirst: 25,
       dmgRecover: 10,
-      timer: { full: 15, mid: 11, low: 8 },
+      timer: { full: 18, mid: 14, low: 11 },
       name: "Ochre",
       title: "the Dyer",
       taunts: {
@@ -4743,7 +4789,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       hearts: 4,
       dmgFirst: 25,
       dmgRecover: 10,
-      timer: { full: 16, mid: 12, low: 8 },
+      timer: { full: 20, mid: 15, low: 11 },
       name: "Lumen",
       title: "the Lamplighter",
       taunts: {
@@ -4768,7 +4814,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       hearts: 4,
       dmgFirst: 25,
       dmgRecover: 10,
-      timer: { full: 16, mid: 12, low: 8 },
+      timer: { full: 20, mid: 15, low: 11 },
       name: "Vesper",
       title: "the Moon-Borrower",
       taunts: {
@@ -4794,7 +4840,7 @@ window.SOUNDTRACK = SOUNDTRACK;
       hearts: 5,
       dmgFirst: 25,
       dmgRecover: 10,
-      timer: { full: 18, mid: 13, low: 9 },
+      timer: { full: 22, mid: 17, low: 12 },
       name: "Wren",
       title: "the Operator",
       taunts: {
@@ -9345,9 +9391,12 @@ window.SOUNDTRACK = SOUNDTRACK;
       s.misses = (s.misses || 0) + 1;
       setStreak(0);
       if (bossOnWrong()) return;
+      if (s.mode === "progressions") {
+        revealProgressionMiss();
+        return;
+      }
       if (s.mode === "melody") setRevealPc(s.target);
       else if (s.mode === "chords") setLitCorrect(chordTones(s.target, s.sevenths));
-      else if (s.mode === "progressions") setProgAnswer([...s.target]);
       setFeedback("Too slow — " + s.boss.name + " strikes! Hear it again…");
       sessTimer(() => replayTarget(), 500);
       setDuelTurn((t) => t + 1);
@@ -9768,6 +9817,24 @@ window.SOUNDTRACK = SOUNDTRACK;
       setFeedback(null);
       setProgAnswer((p) => p.slice(0, -1));
     };
+    const revealProgressionMiss = async () => {
+      const s = sess.current;
+      const gen = sessGenRef.current;
+      setPhase("resolving");
+      setProgWrong([]);
+      setProgAnswer([]);
+      setFeedback({ prog: [...s.target], missed: true });
+      setBusy(true);
+      cutStimulus();
+      const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat, s.voiced);
+      if (gen !== sessGenRef.current || s.skipped) return;
+      s.target.forEach((_, i) => sessTimer(() => setProgActive(i), i * progBeat * 1e3));
+      sessTimer(() => setProgActive(-1), s.target.length * progBeat * 1e3);
+      sessTimer(() => {
+        setBusy(false);
+        advance();
+      }, (dur + 0.4) * 1e3);
+    };
     const checkProgression = async () => {
       const s = sess.current;
       const gen = sessGenRef.current;
@@ -9804,12 +9871,8 @@ window.SOUNDTRACK = SOUNDTRACK;
         setProgWrong(wrong);
         setSrMsg("Not quite.");
         if (bossOnWrong()) return;
-        if (s.boss && s.misses >= 2) {
-          setProgAnswer([...s.target]);
-          setProgWrong([]);
-          setFeedback("It went " + s.target.map((r) => chordNumber(r, false)).join("–") + " — hear it, then check.");
-          sessTimer(() => replayTarget(), 650);
-        } else setFeedback("Not quite — the marked chords are off. Fix them and check again.");
+        if (s.boss && s.misses >= 2) revealProgressionMiss();
+        else setFeedback("Not quite — the marked chords are off. Fix them and check again.");
       }
     };
     const keyFlatRef = useRef(false);
@@ -10630,7 +10693,7 @@ window.SOUNDTRACK = SOUNDTRACK;
         },
         "Next ›"
       ));
-      const answerHint = /* @__PURE__ */ React.createElement("p", { className: "hint grow" + (tutCoach ? " tut-coach-line" : ""), role: "status", "aria-live": "polite" }, phase === "playing" ? tutCoach ? "Verda plays a number… listen." : "Listen…" : feedback && feedback.roman ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.sym), " ", /* @__PURE__ */ React.createElement("em", { className: "numlabel" }, feedback.num), " · ", feedback.quality, ". ", CHORD_INSIGHTS[feedback.roman]) : feedback && feedback.prog ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.prog.join("–")), " — nailed the changes.", songFor(feedback.prog) && /* @__PURE__ */ React.createElement("em", { className: "song-credit" }, "♪ You've heard it in ", songFor(feedback.prog))) : feedback ? feedback : mode === "melody" ? tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?" : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.` : "Tap the chords in order — you can name them as they go by.");
+      const answerHint = /* @__PURE__ */ React.createElement("p", { className: "hint grow" + (tutCoach ? " tut-coach-line" : ""), role: "status", "aria-live": "polite" }, phase === "playing" ? tutCoach ? "Verda plays a number… listen." : "Listen…" : feedback && feedback.roman ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.sym), " ", /* @__PURE__ */ React.createElement("em", { className: "numlabel" }, feedback.num), " · ", feedback.quality, ". ", CHORD_INSIGHTS[feedback.roman]) : feedback && feedback.prog && feedback.missed ? /* @__PURE__ */ React.createElement("span", null, "It went ", /* @__PURE__ */ React.createElement("strong", null, feedback.prog.map((r) => chordNumber(r, false)).join(" – ")), ". Hear it, then on to the next one.", songFor(feedback.prog) && /* @__PURE__ */ React.createElement("em", { className: "song-credit" }, "♪ You've heard it in ", songFor(feedback.prog))) : feedback && feedback.prog ? /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, feedback.prog.join("–")), " — nailed the changes.", songFor(feedback.prog) && /* @__PURE__ */ React.createElement("em", { className: "song-credit" }, "♪ You've heard it in ", songFor(feedback.prog))) : feedback ? feedback : mode === "melody" ? tutCoach ? "Which number was that? Tap it below." : "Which number did you hear?" : mode === "chords" ? `Select ${lvl.sevenths ? 4 : 3} degrees (${chPicked.length}/${lvl.sevenths ? 4 : 3}), then check.` : "Tap the chords in order — you can name them as they go by.");
       return /* @__PURE__ */ React.createElement("div", { className: "app app-wide" + (lvl.mode === "minor" ? " sess-minor" : "") + (isDuel ? " sess-duel" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), tutCelebrate && /* @__PURE__ */ React.createElement("div", { className: "fx-flash", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement(Confetti, { show: tutCelebrate }), /* @__PURE__ */ React.createElement("header", { className: "top-slim" }, /* @__PURE__ */ React.createElement("button", { className: "back", onClick: () => {
         try {
           sfx("back");
@@ -12820,7 +12883,7 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   // compare this page's build stamp with the live sw.js. Away 5+ minutes → reload quietly;
   // back sooner (maybe mid-question) → offer a one-tap banner instead of yanking the page.
   (function () {
-    var BUILD = "20260925112358", hiddenAt = 0, AWAY_MS = 5 * 60 * 1000;
+    var BUILD = "20260925215653", hiddenAt = 0, AWAY_MS = 5 * 60 * 1000;
     function banner() {
       if (document.getElementById("ns-update")) return;
       var b = document.createElement("button");
