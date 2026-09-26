@@ -3889,11 +3889,12 @@ export default function NumberEarTrainer() {
     s.misses = (s.misses || 0) + 1;
     setStreak(0);
     if (bossOnWrong()) return;                 // heart spent; if that emptied them, we're out
-    // help them land the next window: melody lights the pad, chords light the stack tones,
-    // progressions fill the answer slots with the correct changes
+    // A progression is shown and played, then the duel moves on (revealProgressionMiss):
+    // filling the slots with the answer let one press of Check land a free hit.
+    if (s.mode === "progressions") { revealProgressionMiss(); return; }
+    // help them land the next window: melody lights the pad, chords light the stack tones
     if (s.mode === "melody") setRevealPc(s.target);
     else if (s.mode === "chords") setLitCorrect(chordTones(s.target, s.sevenths));
-    else if (s.mode === "progressions") setProgAnswer([...s.target]);
     setFeedback("Too slow — " + s.boss.name + " strikes! Hear it again…");
     sessTimer(() => replayTarget(), 500);
     setDuelTurn((t) => t + 1);                 // restart the drain
@@ -4332,6 +4333,24 @@ export default function NumberEarTrainer() {
     setProgAnswer((p) => p.slice(0, -1));
   };
 
+  // Duel only: a progression that's been missed (time ran out, or a second wrong answer) is
+  // SHOWN on the stacks and played once, then the duel moves on. The heart is already spent;
+  // no hit is dealt, and nothing is typed in for the player to "check".
+  const revealProgressionMiss = async () => {
+    const s = sess.current;
+    const gen = sessGenRef.current;
+    setPhase("resolving");
+    setProgWrong([]); setProgAnswer([]);
+    setFeedback({ prog: [...s.target], missed: true });
+    setBusy(true);
+    cutStimulus();
+    const dur = await playProgression(s.key, s.target.map((r) => chordByRoman(r).tones), 0, progBeat, s.voiced);
+    if (gen !== sessGenRef.current || s.skipped) return;
+    s.target.forEach((_, i) => sessTimer(() => setProgActive(i), i * progBeat * 1000));
+    sessTimer(() => setProgActive(-1), s.target.length * progBeat * 1000);
+    sessTimer(() => { setBusy(false); advance(); }, (dur + 0.4) * 1000);
+  };
+
   const checkProgression = async () => {
     const s = sess.current;
     const gen = sessGenRef.current; // quit/restart during the resolution await → bail (mirrors nextQuestion)
@@ -4364,12 +4383,8 @@ export default function NumberEarTrainer() {
       setProgWrong(wrong);
       setSrMsg("Not quite.");
       if (bossOnWrong()) return; // duel: heart spent immediately; if that emptied them, bail
-      if (s.boss && s.misses >= 2) {
-        // duel: fill in the correct changes so they can hear + check (mirrors melody/chords)
-        setProgAnswer([...s.target]); setProgWrong([]);
-        setFeedback("It went " + s.target.map((r) => chordNumber(r, false)).join("–") + " — hear it, then check.");
-        sessTimer(() => replayTarget(), 650);
-      } else setFeedback("Not quite — the marked chords are off. Fix them and check again.");
+      if (s.boss && s.misses >= 2) revealProgressionMiss(); // duel: show it, play it, move on
+      else setFeedback("Not quite — the marked chords are off. Fix them and check again.");
     }
   };
 
@@ -5498,6 +5513,9 @@ export default function NumberEarTrainer() {
         {phase === "playing" ? (tutCoach ? "Verda plays a number… listen." : "Listen…")
           : feedback && feedback.roman
             ? <span><strong>{feedback.sym}</strong> <em className="numlabel">{feedback.num}</em> · {feedback.quality}. {CHORD_INSIGHTS[feedback.roman]}</span>
+          : feedback && feedback.prog && feedback.missed
+            ? <span>It went <strong>{feedback.prog.map((r) => chordNumber(r, false)).join(" – ")}</strong>. Hear it, then on to the next one.
+                {songFor(feedback.prog) && <em className="song-credit">♪ You've heard it in {songFor(feedback.prog)}</em>}</span>
           : feedback && feedback.prog
             ? <span><strong>{feedback.prog.join("–")}</strong> — nailed the changes.
                 {/* a record to hang the sound on, when a real song loops this exact progression */}

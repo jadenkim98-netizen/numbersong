@@ -647,7 +647,63 @@ export function randomProgression(len, pool, home, weights, follow, forbid) {
   }
   return seq;
 }
+// The progressions a chapter's "real" random levels draw from: its own hand-picked
+// four-chord set plus every song progression (PROG_SONGS) made only of its chords. Only
+// loops real music actually plays, so a hard level is hard because the colours are
+// subtle, not because the sequence is one no song would ever use.
+// Minor-key songs (la-based, e.g. vi-ii-iii-vi = i-iv-v-i) stay out of major chapters:
+// played over a major cadence they'd be heard in the wrong home.
+//
+// A real song LOOPS its progression, so on an any-start level every point you could drop
+// into that loop counts too: 1 4 4- 1 is the three-chord loop 1·4·4- repeating, so
+// 4 4- 1 4 and 4- 1 4 4- are the same loop heard from elsewhere. Those windows are added
+// for anyStart levels, and anything that breaks the chapter's own rules (a banned move in
+// `follow`, or a chord `forbid` rules out once another has sounded) is dropped.
+function loopWindows(seq) {
+  const loop = seq.length === 4 && seq[0] === seq[3] ? seq.slice(0, 3) : seq;
+  if (loop[loop.length - 1] === loop[0]) return [seq];   // can't loop without a repeat
+  return loop.map((_, k) => Array.from({ length: seq.length }, (__, i) => loop[(k + i) % loop.length]));
+}
+function keepsRules(seq, lvl) {
+  for (let i = 1; i < seq.length; i++) {
+    if (seq[i] === seq[i - 1]) return false;
+    const f = lvl.follow && lvl.follow[seq[i - 1]];
+    if (f && f[seq[i]] === 0) return false;
+  }
+  if (lvl.forbid) for (let i = 0; i < seq.length; i++)
+    for (const b of lvl.forbid[seq[i]] || []) if (seq.slice(i + 1).includes(b)) return false;
+  return true;
+}
+export function realProgressions(lvl) {
+  const out = new Map();
+  const minorLoops = new Set(Object.values(CURATED_4_MINOR).flat().map((q) => q.join("-")));
+  const add = (seq) => {
+    // any-start levels take every window; home-start levels, the windows that begin at home
+    const ws = lvl.anyStart ? loopWindows(seq) : [seq, ...loopWindows(seq).filter((w) => w[0] === lvl.home)];
+    for (const w of ws) if (keepsRules(w, lvl)) out.set(w.join("-"), w);
+  };
+  for (const seq of ((lvl.curated || {})[lvl.len] || [])) add(seq);
+  for (const key of Object.keys(PROG_SONGS)) {
+    const seq = key.split("-");
+    if (lvl.mode !== "minor" && minorLoops.has(key)) continue;
+    if (seq.length === lvl.len && seq.every((c) => lvl.pool.includes(c))) add(seq);
+  }
+  return [...out.values()];
+}
+// Share of a real level's draws that carry one of the chapter's colour chords (anything
+// outside the key's plain seven). The rest are plain loops, so the colour stays a question.
+export const REAL_COLOUR_SHARE = 0.75;
+
 export function pickProgression(lvl, avoid) {
+  if (lvl.gen === "random" && lvl.real) {
+    const all = realProgressions(lvl);
+    const coloured = all.filter((q) => q.some((c) => !ALL_CHORDS.includes(c)));
+    const plain = all.filter((q) => q.every((c) => ALL_CHORDS.includes(c)));
+    const set = coloured.length && (!plain.length || Math.random() < REAL_COLOUR_SHARE) ? coloured : plain;
+    let p;
+    do { p = set[Math.floor(Math.random() * set.length)]; } while (set.length > 1 && avoid && p.join() === avoid.join());
+    return p;
+  }
   if (lvl.gen === "curated") {
     const set = (lvl.curated || (lvl.mode === "minor" ? CURATED_4_MINOR : CURATED_4))[lvl.len];
     let p;
@@ -730,9 +786,9 @@ export function threeDeeProgRamp(chapter, mode, home) {
     { ...cap, name: "Meet 3D",             desc: "pairs · 3- against 3D",      len: 2, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
     { ...cap, name: "Three-chord",         desc: "threes · where 3D leads",    len: 3, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
     { ...cap, name: "Four-chord classics", desc: "the same songs, sharpened",  len: 4, gen: "curated", curated: CURATED_3D, keyMode: "fixed" },
-    { ...cap, name: "Any order",           desc: "random · 4",                 len: 4, gen: "random", keyMode: "fixed",  weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D },
-    { ...cap, name: "New key",             desc: "random · 4 · a new key",     len: 4, gen: "random", keyMode: "not-c",  weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D },
-    { ...cap, name: "Mastery · 3D",        desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D, anyStart: true, qCount: FINAL_LEN },
+    { ...cap, name: "Any order",           desc: "random · 4",                 len: 4, gen: "random", real: true, curated: CURATED_3D, keyMode: "fixed",  weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D },
+    { ...cap, name: "New key",             desc: "random · 4 · a new key",     len: 4, gen: "random", real: true, curated: CURATED_3D, keyMode: "not-c",  weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D },
+    { ...cap, name: "Mastery · 3D",        desc: "every combination · any starting chord · every key", len: 4, gen: "random", real: true, curated: CURATED_3D, keyMode: "random", weights: WEIGHTS_3D, follow: FOLLOW_3D, forbid: FORBID_3D, anyStart: true, qCount: FINAL_LEN },
   ];
 }
 
@@ -775,9 +831,9 @@ export function minorFourProgRamp(chapter, mode, home) {
     { ...cap, name: "Meet 4-",             desc: "pairs · 4 against 4-",      len: 2, gen: "curated", curated: CURATED_4M, keyMode: "fixed" },
     { ...cap, name: "Three-chord",         desc: "threes · where 4- goes",    len: 3, gen: "curated", curated: CURATED_4M, keyMode: "fixed" },
     { ...cap, name: "Four-chord classics", desc: "the same songs, darkened",  len: 4, gen: "curated", curated: CURATED_4M, keyMode: "fixed" },
-    { ...cap, name: "Any order",           desc: "random · 4",                len: 4, gen: "random", keyMode: "fixed",  weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M },
-    { ...cap, name: "New key",             desc: "random · 4 · a new key",    len: 4, gen: "random", keyMode: "not-c",  weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M },
-    { ...cap, name: "Mastery · 4-",        desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M, anyStart: true, qCount: FINAL_LEN },
+    { ...cap, name: "Any order",           desc: "random · 4",                len: 4, gen: "random", real: true, curated: CURATED_4M, keyMode: "fixed",  weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M },
+    { ...cap, name: "New key",             desc: "random · 4 · a new key",    len: 4, gen: "random", real: true, curated: CURATED_4M, keyMode: "not-c",  weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M },
+    { ...cap, name: "Mastery · 4-",        desc: "every combination · any starting chord · every key", len: 4, gen: "random", real: true, curated: CURATED_4M, keyMode: "random", weights: WEIGHTS_4M, follow: FOLLOW_4M, forbid: FORBID_4M, anyStart: true, qCount: FINAL_LEN },
   ];
 }
 
@@ -819,9 +875,9 @@ export function colourChordProgRamp(chapter, mode, home) {
     { ...cap, name: "Both colours",        desc: "pairs · 3D and 4-",          len: 2, gen: "curated", curated: CURATED_COLOUR, keyMode: "fixed" },
     { ...cap, name: "Three-chord",         desc: "threes · colour in context", len: 3, gen: "curated", curated: CURATED_COLOUR, keyMode: "fixed" },
     { ...cap, name: "Four-chord classics", desc: "the songs that use both",    len: 4, gen: "curated", curated: CURATED_COLOUR, keyMode: "fixed" },
-    { ...cap, name: "Any order",           desc: "random · 4",                 len: 4, gen: "random", keyMode: "fixed",  weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR },
-    { ...cap, name: "New key",             desc: "random · 4 · a new key",     len: 4, gen: "random", keyMode: "not-c",  weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR },
-    { ...cap, name: "Mastery · colour",    desc: "every combination · any starting chord · every key", len: 4, gen: "random", keyMode: "random", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR, anyStart: true, qCount: FINAL_LEN },
+    { ...cap, name: "Any order",           desc: "random · 4",                 len: 4, gen: "random", real: true, curated: CURATED_COLOUR, keyMode: "fixed",  weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR },
+    { ...cap, name: "New key",             desc: "random · 4 · a new key",     len: 4, gen: "random", real: true, curated: CURATED_COLOUR, keyMode: "not-c",  weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR },
+    { ...cap, name: "Mastery · colour",    desc: "every combination · any starting chord · every key", len: 4, gen: "random", real: true, curated: CURATED_COLOUR, keyMode: "random", weights: WEIGHTS_COLOUR, follow: FOLLOW_COLOUR, forbid: FORBID_COLOUR, anyStart: true, qCount: FINAL_LEN },
   ];
 }
 
@@ -929,7 +985,7 @@ export const CURATED_SECDOM = {
 // One ramp shape for every chapter in the section; the chord it teaches is `tag`.
 function secDomRamp(chapter, tag, pool, curated, weights, follow, forbid, pairDesc) {
   const cap = { chapter, mode: "major", home: "I", pool };
-  const rnd = { weights, follow, forbid };
+  const rnd = { weights, follow, forbid, real: true, curated };  // random levels draw real progressions only
   return [
     { ...cap, name: tag.startsWith("all") || tag === "the radio" ? "Meet them all" : "Meet " + tag, desc: pairDesc, len: 2, gen: "curated", curated, keyMode: "fixed" },
     { ...cap, name: "Three-chord",         desc: "threes · where it leads",    len: 3, gen: "curated", curated, keyMode: "fixed" },

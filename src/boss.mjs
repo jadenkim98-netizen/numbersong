@@ -245,7 +245,9 @@ export const BOSS = {
   /* ── the Outer Keys (world 2): one keeper per section, dueling at its last stop ── */
   // Progression duels like Marin/Sable, but bigger pools and a colour chip that can add a
   // second tap per chord, so the clock is roomier and grows with the pool: Tintmouth has 8
-  // chords, the two chains 10–11, the Radio all 15.
+  // chords, the two chains 10–11, the Radio all 15. Loosened ~3s after play-testing
+  // (2026-09-25): the pressure should be hearing the colour, not racing the taps — and a
+  // miss now only reveals the answer, it no longer hands back a free hit.
 
   // Ochre — Tintmouth Harbour (node 104, Colour chords: 3D and 4- beside their twins).
   104: {
@@ -253,7 +255,7 @@ export const BOSS = {
     hearts: 4,
     dmgFirst: 25,
     dmgRecover: 10,
-    timer: { full: 15, mid: 11, low: 8 },
+    timer: { full: 18, mid: 14, low: 11 },
     name: "Ochre",
     title: "the Dyer",
     taunts: {
@@ -278,7 +280,7 @@ export const BOSS = {
     hearts: 4,
     dmgFirst: 25,
     dmgRecover: 10,
-    timer: { full: 16, mid: 12, low: 8 },
+    timer: { full: 20, mid: 15, low: 11 },
     name: "Lumen",
     title: "the Lamplighter",
     taunts: {
@@ -303,7 +305,7 @@ export const BOSS = {
     hearts: 4,
     dmgFirst: 25,
     dmgRecover: 10,
-    timer: { full: 16, mid: 12, low: 8 },
+    timer: { full: 20, mid: 15, low: 11 },
     name: "Vesper",
     title: "the Moon-Borrower",
     taunts: {
@@ -329,7 +331,7 @@ export const BOSS = {
     hearts: 5,
     dmgFirst: 25,
     dmgRecover: 10,
-    timer: { full: 18, mid: 13, low: 9 },
+    timer: { full: 22, mid: 17, low: 12 },
     name: "Wren",
     title: "the Operator",
     taunts: {

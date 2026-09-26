@@ -670,3 +670,34 @@ test("every song is attached to a progression the game actually asks", () => {
   for (const v of Object.values(PROG_SONGS)) assert.match(v, / — /, `"${v}" should read "Title — Artist"`);
   assert.equal(songFor(["I", "V", "vi", "IV"]), "With or Without You — U2");
 });
+
+test("the colour chapters' random levels only play real progressions, keeping each chapter's rules", async () => {
+  const { realProgressions, REAL_COLOUR_SHARE } = await import("../src/theory.mjs");
+  const minorLoops = new Set(Object.values(CURATED_4_MINOR).flat().map((q) => q.join("-")));
+  const reals = PROG_CHAPTERS.flatMap((ch) => ch.levels.filter((l) => l.real).map((l) => [ch, l]));
+  assert.ok(reals.length >= 30, "every colour/path/Radio chapter's random levels are real");
+  for (const [ch, l] of reals) {
+    const set = new Set(realProgressions(l).map((q) => q.join("-")));
+    let coloured = 0;
+    const N = 800;
+    for (let i = 0; i < N; i++) {
+      const q = pickProgression(l, null), k = q.join("-");
+      assert.ok(set.has(k), `${ch.name} / ${l.name}: ${k} is not a real progression`);
+      if (l.mode !== "minor") assert.ok(!minorLoops.has(k), `${ch.name}: minor loop ${k} in a major chapter`);
+      for (let j = 1; j < q.length; j++) assert.notEqual(q[j], q[j - 1]);
+      if (q.some((c) => !ALL_CHORDS.includes(c))) coloured++;
+    }
+    const share = coloured / N;
+    assert.ok(share > REAL_COLOUR_SHARE - 0.1 && share < REAL_COLOUR_SHARE + 0.1, `${ch.name} / ${l.name}: colour share ${share}`);
+  }
+});
+
+test("every duel (a chapter's Mastery level) has a wide pool of real coloured progressions", async () => {
+  const { realProgressions } = await import("../src/theory.mjs");
+  for (const ch of PROG_CHAPTERS) {
+    const m = ch.levels[ch.levels.length - 1];
+    if (!m.real) continue;
+    const coloured = realProgressions(m).filter((q) => q.some((c) => !ALL_CHORDS.includes(c)));
+    assert.ok(coloured.length >= 7, `${ch.name}: only ${coloured.length} coloured progressions`);
+  }
+});
